@@ -1,4 +1,7 @@
 // AngelScript to draw rectangles around OAM sprites.
+array<uint8> link_chrs = {0x00, 0x02, 0x04, 0x05, 0x06, 0x07, 0x15};
+// {0xc8, 0xc9, 0xca} are grass swish tiles around link but also around other grass-dwelling sprites
+// 0x6c is half of a shadow under link (hflipped to complete oval), but is used by other sprites too
 
 void post_frame() {
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
@@ -24,10 +27,25 @@ void post_frame() {
     if (x >= 256) continue;
 
     auto y = ppu::oam.y;
-    auto palette = ppu::oam.palette;
+
     auto chr = ppu::oam.character;
+    /*
+    if (chr == 0x6c) {
+      if (ppu::oam.hflip == false) continue;
+      //ppu::frame.text(x+8, y-8, fmtHex(i, 2));
+      continue; // skip shadows under sprites
+    }
+    */
+    //ppu::frame.text(x+8, y-8, fmtHex(i, 2));
+    //continue;
+
+    if (link_chrs.find(chr) >= 0) continue;
+
+    auto palette = ppu::oam.palette;
     ppu::frame.rect(x, y, width, height);
-    //ppu::frame.text(x, y-8, fmtHex(palette, 1));
-    //ppu::frame.text(x, y-16, fmtHex(chr, 2));
+
+    //if (ppu::oam.hflip == 1) continue;
+    ppu::frame.text(x+8, y-8, fmtHex(chr >> 4, 1));
+    ppu::frame.text(x+16, y-8, fmtHex(chr, 1));
   }
 }
