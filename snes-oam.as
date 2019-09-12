@@ -3,7 +3,7 @@ array<uint8> link_chrs = {0x00, 0x02, 0x04, 0x05, 0x06, 0x07, 0x15};
 // {0xc8, 0xc9, 0xca} are grass swish tiles around link but also around other grass-dwelling sprites
 // 0x6c is half of a shadow under link (hflipped to complete oval), but is used by other sprites too
 
-void post_frame() {
+void post_frame_boo() {
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
   ppu::frame.color = ppu::rgb(28, 28, 28);
   ppu::frame.alpha = 16;
@@ -48,4 +48,42 @@ void post_frame() {
     ppu::frame.text(x+8, y-8, fmtHex(chr >> 4, 1));
     ppu::frame.text(x+16, y-8, fmtHex(chr, 1));
   }
+}
+
+void post_frame() {
+  ppu::frame.draw_op = ppu::draw_op::op_alpha;
+  ppu::frame.color = ppu::rgb(28, 28, 28);
+  ppu::frame.alpha = 16;
+
+  string msg = "";
+  int numsprites = 0;
+  for (int i = 0; i < 128; i++) {
+    // access current OAM sprite index:
+    ppu::oam.index = i;
+
+    // skip OAM sprite if not enabled (X coord is out of display range):
+    if (!ppu::oam.is_enabled) continue;
+
+    if (ppu::oam.nameselect) continue;
+
+    auto chr = ppu::oam.character;
+    // not a Link-related sprite?
+    if (link_chrs.find(chr) == -1) continue;
+
+    auto size = ppu::oam.size;
+    auto width = ppu::sprite_width(ppu::sprite_base_size(), size);
+    auto height = ppu::sprite_height(ppu::sprite_base_size(), size);
+
+    auto x = int(ppu::oam.x);
+    auto y = int(ppu::oam.y);
+
+    if (x >= 256) x -= 512;
+
+    ppu::frame.rect(x, y, width, height);
+
+    ++numsprites;
+    msg = msg + fmtHex(y, 2) + " ";
+  }
+
+  message(msg);
 }
