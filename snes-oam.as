@@ -50,12 +50,42 @@ void post_frame_boo() {
   }
 }
 
+void pre_frame() {
+  array<uint32> tiledata(32);
+  array<uint16> palette(16);
+
+  // copy out palette 7:
+  for (int i = 0; i < 16; i++) {
+    palette[i] = ppu::cgram[128 + (7 << 4) + i];
+  }
+
+  // render VRAM tiles:
+  int t = 0;
+  for (int c = 0; c < 0x100; c++) {
+    ppu::vram.read_sprite(0x4000, c, 8, 8, tiledata);
+    auto s = ppu::extra[t];
+    s.x = 128 + (c & 15) * 8;
+    s.y = (224 - 128) + (c >> 4) * 8;
+    s.source = 5;
+    s.priority = 3;
+    s.width = 16;
+    s.height = 16;
+    s.hflip = false;
+    s.vflip = false;
+    s.pixels_clear();
+    s.draw_sprite(0, 0, 8, 8, tiledata, palette);
+    t++;
+  }
+
+  ppu::extra.count = t;
+}
+
 void post_frame() {
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
   ppu::frame.color = ppu::rgb(28, 28, 28);
   ppu::frame.alpha = 16;
 
-  string msg = "";
+  //string msg = "";
   int numsprites = 0;
   for (int i = 0; i < 128; i++) {
     // access current OAM sprite index:
@@ -82,8 +112,8 @@ void post_frame() {
     ppu::frame.rect(x, y, width, height);
 
     ++numsprites;
-    msg = msg + fmtHex(y, 2) + " ";
+    //msg = msg + fmtHex(y, 2) + " ";
   }
 
-  message(msg);
+  //message(msg);
 }
