@@ -10,25 +10,25 @@ void post_frame_boo() {
 
   for (int i = 0; i < 128; i++) {
     // Set OAM access index to read sprite properties from:
-    ppu::oam.index = i;
+    auto tile = ppu::oam[i];
 
     // grab X coordinate which is useful for checking if a sprite is off-screen:
-    int x = int(ppu::oam.x);
+    int x = int(tile.x);
 
     // adjust x to allow for slightly off-screen sprites:
     if (x >= 256) x -= 512;
 
     // width height here is a hack; need to get proper width,height in pixels from OAM and PPU state
-    auto width = (ppu::oam.size + 1) * 8;
-    auto height = (ppu::oam.size + 1) * 8;
+    auto width = (tile.size + 1) * 8;
+    auto height = (tile.size + 1) * 8;
 
     // skip sprite if truly invisible:
     if (x <= -width) continue;
     if (x >= 256) continue;
 
-    auto y = ppu::oam.y;
+    auto y = tile.y;
 
-    auto chr = ppu::oam.character;
+    auto chr = tile.character;
     /*
     if (chr == 0x6c) {
       if (ppu::oam.hflip == false) continue;
@@ -41,7 +41,7 @@ void post_frame_boo() {
 
     if (link_chrs.find(chr) >= 0) continue;
 
-    auto palette = ppu::oam.palette;
+    auto palette = tile.palette;
     ppu::frame.rect(x, y, width, height);
 
     //if (ppu::oam.hflip == 1) continue;
@@ -121,22 +121,22 @@ void post_frame_alttp1() {
   int numsprites = 0;
   for (int i = 0; i < 128; i++) {
     // access current OAM sprite index:
-    ppu::oam.index = i;
+    auto tile = ppu::oam[i];
 
     // skip OAM sprite if not enabled (X coord is out of display range):
-    if (!ppu::oam.is_enabled) continue;
+    if (!tile.is_enabled) continue;
 
-    if (ppu::oam.nameselect) continue;
+    if (tile.nameselect) continue;
 
-    auto chr = ppu::oam.character;
+    auto chr = tile.character;
     if (chr != 0x6c && chr != 0x38 && chr != 0x28) continue;
-    if (ppu::oam.hflip) continue;
+    if (tile.hflip) continue;
 
-    auto width = ppu::oam.width;
-    auto height = ppu::oam.height;
+    auto width = tile.width;
+    auto height = tile.height;
 
-    auto x = int16(ppu::oam.x);
-    auto y = int16(ppu::oam.y);
+    auto x = int16(tile.x);
+    auto y = int16(tile.y);
 
     if (x >= 256) x -= 512;
 
@@ -163,11 +163,11 @@ void post_frame() {
 
   for (int i = 0; i < 128; i++) {
     // access current OAM sprite index:
-    ppu::oam.index = i;
+    auto tile = ppu::oam[i];
 
-    auto chr = ppu::oam.character;
-    auto x = int16(ppu::oam.x);
-    auto y = int16(ppu::oam.y);
+    auto chr = tile.character;
+    auto x = int16(tile.x);
+    auto y = int16(tile.y);
     if (x >= 256) x -= 512;
 
     //ppu::frame.rect(x, y, width, height);
@@ -175,7 +175,7 @@ void post_frame() {
     ppu::frame.color = ppu::rgb(28, 28, 0);
     ppu::frame.text((i / 28) * (4*8 + 8), (i % 28) * 8, fmtHex(i, 2));
 
-    if (ppu::oam.is_enabled) {
+    if (tile.is_enabled) {
       ppu::frame.color = ppu::rgb(28, 28, 28);
     } else {
       ppu::frame.color = ppu::rgb(8, 8, 12);
