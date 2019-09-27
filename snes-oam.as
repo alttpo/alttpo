@@ -50,41 +50,39 @@ void post_frame_boo() {
   }
 }
 
-void pre_frame_poop() {
-  array<uint32> tiledata(32);
-  array<uint16> palette(16);
+array<array<uint32>> tiles(0x200);
+array<array<uint16>> palette(8);
 
+void pre_frame() {
   // copy out palette 7:
-  for (int i = 0; i < 16; i++) {
-    palette[i] = ppu::cgram[128 + (7 << 4) + i];
+  for (int c = 0; c < 8; c++) {
+    palette[c] = array<uint16>(16);
+    for (int i = 0; i < 16; i++) {
+      palette[c][i] = ppu::cgram[128 + (c << 4) + i];
+    }
   }
 
-  // render VRAM tiles:
-  int t = 0;
+  // fetch VRAM sprite tiles:
   for (int c = 0; c < 0x100; c++) {
-    ppu::vram.read_sprite(0x4000, c, 8, 8, tiledata);
-    if (t >= 128) break;
-    auto s = ppu::extra[t];
-    s.index = 0;
-    s.x = 128 + (c & 15) * 8;
-    s.y = (224 - 128) + (c >> 4) * 8;
-    s.source = 5;
-    s.priority = 3;
-    s.width = 16;
-    s.height = 16;
-    s.hflip = false;
-    s.vflip = false;
-    s.pixels_clear();
-    s.draw_sprite(0, 0, 8, 8, tiledata, palette);
-    t++;
+    ppu::vram.read_sprite(0x4000, c, 8, 8, tiles[c]);
   }
+  for (int c = 0x100; c < 0x200; c++) {
+    ppu::vram.read_sprite(0x5000, c, 8, 8, tiles[c]);
+  }
+}
 
-  ppu::extra.count = t;
+void post_frame() {
+  for (int c = 0; c < 0x200; c++) {
+    auto x = 128 + (c & 15) * 8;
+    auto y = (224 - 224) + (c >> 4) * 8;
+
+    ppu::frame.draw_4bpp_8x8(x, y, tiles[c], palette[7]);
+  }
 }
 
 int16 link_x, link_y, link_z, link_floor_y, xoffs, yoffs, rx, ry;
 
-void pre_frame() {
+void pre_frame_alttp1() {
   //   $7E0020[2] = Link's Y coordinate
   link_y = int16(bus::read_u16(0x7E0020, 0x7E0021));
   //   $7E0022[2] = Link's X coordinate
@@ -108,7 +106,7 @@ void pre_frame() {
   ry = int16(link_y) - yoffs;
 }
 
-void post_frame() {
+void post_frame_alttp1() {
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
   ppu::frame.color = ppu::rgb(28, 28, 28);
   ppu::frame.alpha = 24;
