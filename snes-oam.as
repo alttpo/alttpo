@@ -88,7 +88,7 @@ void post_frame() {
 
   for (int c = 0; c < 0x200; c++) {
     auto x = 128 + (c & 15) * 8;
-    auto y = (224 - 256) + (c >> 4) * 8;
+    auto y = (224 - 224) + (c >> 4) * 8;
 
     ppu::frame.draw_4bpp_8x8(x, y, tiles[c], palette[pa]);
   }
