@@ -94,6 +94,11 @@ void pre_frame() {
 
   link_floor_y = int16(bus::read_u16(0x7E0051, 0x7E0052));
 
+  //auto in_dark_world = bus::read_u8(0x7E0FFF);
+  //auto in_dungeon = bus::read_u8(0x7E001B);
+  //auto overworld_room = bus::read_u16(0x7E008A, 0x7E008B);
+  //auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
+
   // get screen x,y offset by reading BG2 scroll registers:
   xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3));
   yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9));
@@ -103,59 +108,27 @@ void pre_frame() {
   ry = int16(link_y) - yoffs;
 }
 
-void post_frame_alttp1() {
+void post_frame() {
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
   ppu::frame.color = ppu::rgb(28, 28, 28);
   ppu::frame.alpha = 24;
 
-  ppu::frame.text(0, 0, fmtHex(link_x, 4) + "," + fmtHex(link_y, 4) + "," + fmtHex(link_z, 4) + "  " + fmtHex(link_floor_y, 4));
-
+  //ppu::frame.text(0, 0, fmtHex(link_x, 4) + "," + fmtHex(link_y, 4) + "," + fmtHex(link_z, 4) + "  " + fmtHex(link_floor_y, 4));
 
   // draw some debug info:
   for (int i = 0; i < 16; i++) {
-    ppu::frame.text(i * 16, 224- 8, fmtHex(bus::read_u8(0x7E0050 + i), 2));
+    switch (i & 3) {
+      case 0: ppu::frame.color = ppu::rgb(28, 28, 28); break;
+      case 1: ppu::frame.color = ppu::rgb(28, 28,  0); break;
+      case 2: ppu::frame.color = ppu::rgb(28,  0, 28); break;
+      case 3: ppu::frame.color = ppu::rgb( 0, 28, 28); break;
+    }
+    ppu::frame.text(i * 16, 224-32, fmtHex(bus::read_u8(0x7E0110 + i), 2));
   }
-
-
-  //string msg = "";
-  int numsprites = 0;
-  for (int i = 0; i < 128; i++) {
-    // access current OAM sprite index:
-    auto tile = ppu::oam[i];
-
-    // skip OAM sprite if not enabled (X coord is out of display range):
-    if (!tile.is_enabled) continue;
-
-    if (tile.nameselect) continue;
-
-    auto chr = tile.character;
-    if (chr != 0x6c && chr != 0x38 && chr != 0x28) continue;
-    if (tile.hflip) continue;
-
-    auto width = tile.width;
-    auto height = tile.height;
-
-    auto x = int16(tile.x);
-    auto y = int16(tile.y);
-
-    if (x >= 256) x -= 512;
-
-    ppu::frame.rect(x, y, width, height);
-
-    auto distx = x - rx;
-    auto disty = y - ry;
-
-    ppu::frame.text(x+16, y-8, fmtInt(x - rx) + "," + fmtInt(y - ry));
-
-    ++numsprites;
-    //msg = msg + fmtHex(y, 2) + " ";
-  }
-
-  //message(msg);
 }
 
 // shows OAM sprite index contents; character value only; grays out text for sprites that are not visible
-void post_frame() {
+void post_frame_oam() {
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
   ppu::frame.color = ppu::rgb(28, 28, 28);
   ppu::frame.alpha = 28;
