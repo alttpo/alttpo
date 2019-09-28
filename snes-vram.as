@@ -26,6 +26,7 @@ class SpriteWindow {
 
 class BGWindow {
   private gui::Window @window;
+  private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
 
   BGWindow() {
@@ -34,12 +35,16 @@ class BGWindow {
     window.title = "BG VRAM";
     window.size = gui::Size(256, 512);
 
+    @vl = gui::VerticalLayout();
+    window.append(vl);
+
     @canvas = gui::Canvas();
     canvas.size = gui::Size(128, 256);
-    window.append(canvas);
+    vl.append(canvas, gui::Size(0, 0));
 
-    window.visible = true;
+    vl.resize();
     canvas.update();
+    window.visible = true;
   }
 
   void update() {
