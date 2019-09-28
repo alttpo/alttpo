@@ -3,20 +3,25 @@ BGWindow @bg;
 
 class SpriteWindow {
   private gui::Window @window;
+  private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
 
   SpriteWindow() {
     // relative position to bsnes window:
-    @window = gui::Window(256*3, 0, true);
+    @window = gui::Window(256*2, 0, true);
     window.title = "Sprite VRAM";
     window.size = gui::Size(256, 512);
 
+    @vl = gui::VerticalLayout();
+    window.append(vl);
+
     @canvas = gui::Canvas();
     canvas.size = gui::Size(128, 256);
-    window.append(canvas);
+    vl.append(canvas, gui::Size(-1, -1));
 
-    window.visible = true;
+    vl.resize();
     canvas.update();
+    window.visible = true;
   }
 
   void update() {
@@ -31,7 +36,7 @@ class BGWindow {
 
   BGWindow() {
     // relative position to bsnes window:
-    @window = gui::Window(256*4, 0, true);
+    @window = gui::Window(256*3, 0, true);
     window.title = "BG VRAM";
     window.size = gui::Size(256, 512);
 
@@ -40,7 +45,7 @@ class BGWindow {
 
     @canvas = gui::Canvas();
     canvas.size = gui::Size(128, 256);
-    vl.append(canvas, gui::Size(0, 0));
+    vl.append(canvas, gui::Size(-1, -1));
 
     vl.resize();
     canvas.update();
