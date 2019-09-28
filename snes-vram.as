@@ -10,11 +10,12 @@ class SpriteWindow {
     @window = gui::Window(256*3, 0, true);
     window.title = "Sprite VRAM";
     window.size = gui::Size(256, 512);
-    window.visible = true;
 
     @canvas = gui::Canvas();
     canvas.size = gui::Size(128, 256);
     window.append(canvas);
+
+    window.visible = true;
     canvas.update();
   }
 
@@ -32,11 +33,12 @@ class BGWindow {
     @window = gui::Window(256*4, 0, true);
     window.title = "BG VRAM";
     window.size = gui::Size(256, 512);
-    window.visible = true;
 
     @canvas = gui::Canvas();
     canvas.size = gui::Size(128, 256);
     window.append(canvas);
+
+    window.visible = true;
     canvas.update();
   }
 
