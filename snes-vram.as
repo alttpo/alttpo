@@ -62,8 +62,8 @@ void init() {
   @bg = BGWindow();
 }
 
-array<array<uint32>> fgtiles(0x200);
-array<array<uint32>> bgtiles(0x200);
+array<uint16> fgtiles(0x2000);
+array<uint16> bgtiles(0x2000);
 array<array<uint16>> palette(16);
 
 void pre_frame() {
@@ -76,6 +76,9 @@ void pre_frame() {
   }
 
   // fetch VRAM sprite tiles:
+  ppu::vram.read_block(0x2000, 0x2000, 0, bgtiles);
+  ppu::vram.read_block(0x4000, 0x2000, 0, fgtiles);
+  /*
   for (int c = 0; c < 0x100; c++) {
     ppu::vram.read_sprite(0x4000, c, 8, 8, fgtiles[c]);
     ppu::vram.read_sprite(0x2000, c, 8, 8, bgtiles[c]);
@@ -84,6 +87,7 @@ void pre_frame() {
     ppu::vram.read_sprite(0x5000, c, 8, 8, fgtiles[c]);
     ppu::vram.read_sprite(0x3000, c, 8, 8, bgtiles[c]);
   }
+  */
 }
 
 int pa = 0, pasub = 0;
@@ -103,20 +107,26 @@ void post_frame() {
 
   // clear canvas to zero alpha black:
   sprites.canvas.fill(0x0000);
+  sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette[8 + pa]);
+  /*
   for (int c = 0; c < 0x200; c++) {
     auto x = 0 + (c & 15) * 8;
     auto y = 0 + (c >> 4) * 8;
 
     sprites.canvas.draw_sprite_4bpp(x, y, fgtiles[c], palette[8 + pa]);
   }
+  */
   sprites.update();
 
   bg.canvas.fill(0x0000);
+  bg.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, bgtiles, palette[8 + pa]);
+  /*
   for (int c = 0; c < 0x200; c++) {
     auto x = 0 + (c & 15) * 8;
     auto y = 0 + (c >> 4) * 8;
 
     bg.canvas.draw_sprite_4bpp(x, y, bgtiles[c], palette[0 + pa]);
   }
+  */
   bg.update();
 }
