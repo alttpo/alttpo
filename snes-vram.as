@@ -8,13 +8,13 @@ class ToolWindow {
     // relative position to bsnes window:
     @window = gui::Window(256, 0, true);
     window.title = "Sprite VRAM";
-    window.size = gui::Size(256, 256);
+    window.size = gui::Size(128, 256);
     window.visible = true;
 
     @canvas = gui::Canvas();
-    canvas.size = gui::Size(256, 256);
-    canvas.update();
+    canvas.size = gui::Size(128, 256);
     window.append(canvas);
+    canvas.update();
   }
 
   void update() {
