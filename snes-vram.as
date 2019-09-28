@@ -2,7 +2,7 @@ ToolWindow @tool;
 
 class ToolWindow {
   private gui::Window @window;
-  private gui::Canvas @canvas;
+  gui::Canvas @canvas;
 
   ToolWindow() {
     // relative position to bsnes window:
@@ -62,11 +62,13 @@ void post_frame() {
     }
   }
 
+  // clear canvas to zero alpha black:
+  tool.canvas.fill(0x0000);
   for (int c = 0; c < 0x200; c++) {
-    auto x = 128 + (c & 15) * 8;
-    auto y = (224 - 224) + (c >> 4) * 8;
+    auto x = 0 + (c & 15) * 8;
+    auto y = 0 + (c >> 4) * 8;
 
-    ppu::frame.draw_4bpp_8x8(x, y, tiles[c], palette[pa]);
+    tool.canvas.draw_sprite_4bpp(x, y, tiles[c], palette[pa]);
   }
 
   tool.update();
