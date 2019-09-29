@@ -88,12 +88,12 @@ void pre_frame() {
   }
 
   sprites.canvas.fill(0x0000);
-  ppu::vram.read_block(0x4000, 0x2000, 0, fgtiles);
+  ppu::vram.read_block(0x4000, 0, 0x2000, fgtiles);
   sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette[8 + pa]);
   sprites.update();
 
   bg.canvas.fill(0x0000);
-  ppu::vram.read_block(0x2000, 0x2000, 0, bgtiles);
+  ppu::vram.read_block(0x2000, 0, 0x2000, bgtiles);
   bg.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, bgtiles, palette[0 + pa]);
   bg.update();
 }
