@@ -108,25 +108,9 @@ void post_frame() {
   // clear canvas to zero alpha black:
   sprites.canvas.fill(0x0000);
   sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette[8 + pa]);
-  /*
-  for (int c = 0; c < 0x200; c++) {
-    auto x = 0 + (c & 15) * 8;
-    auto y = 0 + (c >> 4) * 8;
-
-    sprites.canvas.draw_sprite_4bpp(x, y, fgtiles[c], palette[8 + pa]);
-  }
-  */
   sprites.update();
 
   bg.canvas.fill(0x0000);
   bg.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, bgtiles, palette[8 + pa]);
-  /*
-  for (int c = 0; c < 0x200; c++) {
-    auto x = 0 + (c & 15) * 8;
-    auto y = 0 + (c >> 4) * 8;
-
-    bg.canvas.draw_sprite_4bpp(x, y, bgtiles[c], palette[0 + pa]);
-  }
-  */
   bg.update();
 }
