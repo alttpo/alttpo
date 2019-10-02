@@ -71,7 +71,7 @@ nmiHook:
     beq validModule
 invalidModule:
     // not a good time to sync state:
-    bra nmiHookDone
+    jmp nmiHookDone
 
 validModule:
     // build local packet to send to remote players:
@@ -81,6 +81,22 @@ validModule:
     constant local.x = local + 3
     constant local.y = local + 5
     constant local.z = local + 7
+    constant local.xoffs = local + 9
+    constant local.yoffs = local + 11
+    constant local.oam_size = local + 13
+    // Each OAM sprite is 4 bytes:
+    // [0]: X coordinate on screen in pixels. This is the lower 8 bits.
+    // [1]: Y coordinate on screen in pixels.
+    // [2]: Character number to use. This is the lower 8 bits. See [3]
+    // [3]: vhoopppc
+    //   v - vertical flip
+    //   h - horizontal flip
+    //   p - priority bits
+    //   c - the 9th (and most significant) bit of the character number for this sprite.
+    constant local.oam_table.0 = local + 15
+    constant local.oam_table.1 = local + 16
+    constant local.oam_table.2 = local + 17
+    constant local.oam_table.3 = local + 18
 
     lda $0FFF   // in dark world = $01, else $00
     asl
@@ -109,38 +125,68 @@ coords:
     lda $0024
     sta local.z
 
+    // xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3)) - int16(bus::read_u16(0x7E011A, 0x7E011B));
+    lda $00E2
+    clc
+    sbc $011A
+    sta local.xoffs
+    // yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9)) - int16(bus::read_u16(0x7E011C, 0x7E011D));
+    lda $00E8
+    clc
+    sbc $011C
+    sta local.yoffs
+
 sprites:
-    sep #$20        // 8-bit accumulator mode
-    // X is our sprite index in OAM
-    ldx #$0064
-    // Each OAM sprite is 4 bytes:
-    // [0]: X coordinate on screen in pixels. This is the lower 8 bits.
-    // [1]: Y coordinate on screen in pixels.
-    // [2]: Character number to use. This is the lower 8 bits. See [3]
-    // [3]: vhoopppc
-    //   v - vertical flip
-    //   h - horizontal flip
-    //   p - priority bits
-    //   c - the 9th (and most significant) bit of the character number for this sprite.
+    // local.oam_size = 0;
+    stz.w local.oam_size
+    // Y is our index into tmp OAM
+    constant oam_index = $0064 << 2
+    ldy.w #oam_index
 sprloop:
-    // Y = (X << 2); // indexed offset in OAM
-    rep #$20        // 16-bit accumulator mode
-    txa
-    asl
-    asl
-    tay
-    sep #$20        // 8-bit accumulator mode
     // read oam.y coord:
+    sep #$20        // 8-bit accumulator mode
     lda $0801,y
+
     // if (oam.y == $f1) continue; // sprite is off screen
     cmp #$f1
     beq sprcont
-    //
+
+    // copy OAM sprite into table:
+    pha
+    rep #$20        // 16-bit accumulator mode
+    lda.l local.oam_size
+    tax
+    sep #$20        // 8-bit accumulator mode
+    pla
+
+    // store oam.y into table:
+    sta.l local.oam_table.1,x
+    // copy oam.b0 into table:
+    lda.w $0800,y
+    sta.l local.oam_table.0,x
+    // copy oam.b2 into table:
+    lda.w $0802,y
+    sta.l local.oam_table.2,x
+    // copy oam.b3 into table:
+    lda.w $0803,y
+    sta.l local.oam_table.3,x
+
+    // local.oam_size += 4
+    rep #$20        // 16-bit accumulator mode
+    clc
+    lda.l local.oam_size
+    adc.w #$0004
+    sta.l local.oam_size
+
 sprcont:
-    // x++
-    inx
-    // if (x < $70) goto sprloop;
-    cpx #$0070
+    // y += 4
+    iny
+    iny
+    iny
+    iny
+    // if (y < $70) goto sprloop;
+    constant oam_index_max = $0070 << 2
+    cpy #oam_index_max
     bcc sprloop
 
 nmiHookDone:
