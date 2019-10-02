@@ -36,9 +36,68 @@ nmiReturn:;
 // our NMI hook:
 origin 0x100000
 base   0x208000
+    // ; Ensures this interrupt isn't interrupted by an IRQ
+    // SEI
+    //
+    // ; Resets M and X flags
+    // REP #$30
+    //
+    // ; Pushes 16 bit registers to the stack
+    // PHA : PHX : PHY : PHD : PHB
 nmiHook:
+    // NOTE: we need to discover what we're patching over because it could be a JML $xxyyzz instruction
+    // if the ROM is already patched with an NMI hook, such as for Randomizer.
+    // This is the code we replaced in the main NMI routine with the JML instruction:
     pha ; phx ; phy ; phd
 
     // $7F7667[0x6719] = free RAM!
 
+    sep #$30    // 8-bit memory access
+
+    // $7E0010 = main module
+    lda $0010
+    // $07 is dungeon
+    cmp #$07
+    beq validModule
+    // $09 is overworld
+    cmp #$09
+    beq validModule
+    // $0e can be dialogue/monologue or menu
+    cmp #$0e
+    bne invalidModule
+    // check $0e submodule == $02 which is dialogue/monologue
+    lda $0011
+    cmp #$02
+    beq validModule
+invalidModule:
+    // not a good time to sync state:
+    bra nmiHookDone
+
+validModule:
+    // build local packet to send to remote players:
+    constant local = $7f7668
+    constant local.location.lo = local + 0
+    constant local.location.hi = local + 2
+
+    lda $0FFF   // in dark world = $01, else $00
+    asl
+    ora $001B   // in dungeon = $01, else $00
+    sta local.location.hi
+    // if in dungeon, use dungeon room value:
+    and #$01
+    beq overworld   // if dungeon == 0, load overworld room number:
+
+    // load dungeon room number as word:
+    rep #$30
+    lda $00A0
+    sta local.location.lo
+    bra +
+overworld: // load overworld room number as word:
+    rep #$30
+    lda $008A
+    sta local.location.lo
+ +;
+
+nmiHookDone:
+    rep #$30
     jml nmiReturn
