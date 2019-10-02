@@ -146,10 +146,10 @@ sprites:
 sprloop:
     // read oam.y coord:
     sep #$20        // 8-bit accumulator mode
-    lda $0801,y
+    lda.w $0801,y
 
     // if (oam.y == $f1) continue; // sprite is off screen
-    cmp #$f1
+    cmp #$f0
     beq sprcont
 
     // copy OAM sprite into table:
