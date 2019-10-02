@@ -52,7 +52,7 @@ nmiHook:
 
     // $7F7667[0x6719] = free RAM!
 
-    sep #$30    // 8-bit memory access
+    sep #$30    // 8-bit accumulator and x,y mode
 
     // $7E0010 = main module
     lda $0010
@@ -78,6 +78,9 @@ validModule:
     constant local = $7f7668
     constant local.location.lo = local + 0
     constant local.location.hi = local + 2
+    constant local.x = local + 3
+    constant local.y = local + 5
+    constant local.z = local + 7
 
     lda $0FFF   // in dark world = $01, else $00
     asl
@@ -88,15 +91,57 @@ validModule:
     beq overworld   // if dungeon == 0, load overworld room number:
 
     // load dungeon room number as word:
-    rep #$30
+    rep #$30        // 16-bit accumulator and x,y mode
     lda $00A0
     sta local.location.lo
-    bra +
+    bra coords
 overworld: // load overworld room number as word:
-    rep #$30
+    rep #$30        // 16-bit accumulator and x,y mode
     lda $008A
     sta local.location.lo
- +;
+
+coords:
+    // load X, Y, Z coords:
+    lda $0022
+    sta local.x
+    lda $0020
+    sta local.y
+    lda $0024
+    sta local.z
+
+sprites:
+    sep #$20        // 8-bit accumulator mode
+    // X is our sprite index in OAM
+    ldx #$0064
+    // Each OAM sprite is 4 bytes:
+    // [0]: X coordinate on screen in pixels. This is the lower 8 bits.
+    // [1]: Y coordinate on screen in pixels.
+    // [2]: Character number to use. This is the lower 8 bits. See [3]
+    // [3]: vhoopppc
+    //   v - vertical flip
+    //   h - horizontal flip
+    //   p - priority bits
+    //   c - the 9th (and most significant) bit of the character number for this sprite.
+sprloop:
+    // Y = (X << 2); // indexed offset in OAM
+    rep #$20        // 16-bit accumulator mode
+    txa
+    asl
+    asl
+    tay
+    sep #$20        // 8-bit accumulator mode
+    // read oam.y coord:
+    lda $0801,y
+    // if (oam.y == $f1) continue; // sprite is off screen
+    cmp #$f1
+    beq sprcont
+    //
+sprcont:
+    // x++
+    inx
+    // if (x < $70) goto sprloop;
+    cpx #$0070
+    bcc sprloop
 
 nmiHookDone:
     rep #$30
