@@ -138,7 +138,8 @@ coords:
 
 sprites:
     // local.oam_size = 0;
-    stz.w local.oam_size
+    lda.w #$0000
+    sta.l local.oam_size
     // Y is our index into tmp OAM
     constant oam_index = $0064 << 2
     ldy.w #oam_index
