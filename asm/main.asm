@@ -84,19 +84,25 @@ validModule:
     constant local.xoffs = local + 9
     constant local.yoffs = local + 11
     constant local.oam_size = local + 13
-    // Each OAM sprite is 4 bytes:
-    // [0]: X coordinate on screen in pixels. This is the lower 8 bits.
-    // [1]: Y coordinate on screen in pixels.
-    // [2]: Character number to use. This is the lower 8 bits. See [3]
+    // Each OAM sprite is 5 bytes:
+    constant oam_entry_size = 5
+    // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
+    // [1]: yyyyyyyy Y coordinate on screen in pixels.
+    // [2]: cccccccc Character number to use. This is the lower 8 bits. See [3]
     // [3]: vhoopppc
     //   v - vertical flip
     //   h - horizontal flip
-    //   p - priority bits
+    //   p - palette (0-7)
+    //   o - priority bits (0-3)
     //   c - the 9th (and most significant) bit of the character number for this sprite.
+    // [4]: ------sx
+    //   x - 9th bit of X coordinate
+    //   s - size toggle bit
     constant local.oam_table.0 = local + 15
     constant local.oam_table.1 = local + 16
     constant local.oam_table.2 = local + 17
     constant local.oam_table.3 = local + 18
+    constant local.oam_table.4 = local + 19
 
     lda $0FFF   // in dark world = $01, else $00
     asl
@@ -148,7 +154,7 @@ sprloop:
     sep #$20        // 8-bit accumulator mode
     lda.w $0801,y
 
-    // if (oam.y == $f1) continue; // sprite is off screen
+    // if (oam.y == $f0) continue; // sprite is off screen
     cmp #$f0
     beq sprcont
 
@@ -172,23 +178,37 @@ sprloop:
     lda.w $0803,y
     sta.l local.oam_table.3,x
 
-    // local.oam_size += 4
+    // load extra bits from extended table:
+    phy
+    rep #$20        // 16-bit accumulator mode
+    // a = y >> 2
+    tya
+    lsr
+    lsr
+    // y = a
+    tay
+    sep #$20        // 8-bit accumulator mode
+    // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
+    lda $0A20,y
+    sta.l local.oam_table.4,x
+    ply
+
+    // local.oam_size += oam_entry_size
     rep #$20        // 16-bit accumulator mode
     clc
     lda.l local.oam_size
-    adc.w #$0004
+    adc.w #oam_entry_size
     sta.l local.oam_size
 
 sprcont:
     // y += 4
-    iny
-    iny
-    iny
-    iny
+    iny #4
     // if (y < $70) goto sprloop;
     constant oam_index_max = $0070 << 2
     cpy #oam_index_max
     bcc sprloop
+
+
 
 nmiHookDone:
     rep #$30
