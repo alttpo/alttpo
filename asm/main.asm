@@ -24,14 +24,22 @@ endian lsb
 }
 
 // patch over PHA : PHX : PHY : PHD within original NMI routine in bank 00:
-origin 0x0000CC
-base   0x0080CC
-    jml nmiHook
+origin 0x0000D1
+base   0x0080D1
+    jml nmiPreHook
 
 // give our NMI hook somewhere to return to:
-origin 0x0000D0
-base   0x0080D0
-nmiReturn:;
+origin 0x0000D5
+base   0x0080D5
+nmiPreReturn:;
+
+origin 0x000227
+base   0x008227
+    jml nmiPostHook
+
+origin 0x00022B
+base   0x00822B
+nmiPostReturn:;
 
 // our NMI hook:
 origin 0x100000
@@ -44,11 +52,11 @@ base   0x208000
     //
     // ; Pushes 16 bit registers to the stack
     // PHA : PHX : PHY : PHD : PHB
-nmiHook:
-    // NOTE: we need to discover what we're patching over because it could be a JML $xxyyzz instruction
-    // if the ROM is already patched with an NMI hook, such as for Randomizer.
+nmiPreHook:
     // This is the code we replaced in the main NMI routine with the JML instruction:
-    pha ; phx ; phy ; phd
+
+    // Sets DP to $0000
+    lda.w #$0000 ; tcd
 
     // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
     // $7F7667[0x6719] = free RAM!
@@ -72,7 +80,7 @@ nmiHook:
     beq validModule
 invalidModule:
     // not a good time to sync state:
-    jmp nmiHookDone
+    jmp nmiPreHookDone
 
 validModule:
     // build local packet to send to remote players:
@@ -218,8 +226,11 @@ sprcont:
 
     // TODO: get sword and sword sparkle tiles too
 
-
-
-nmiHookDone:
+nmiPreHookDone:
     rep #$30
-    jml nmiReturn
+    jml nmiPreReturn
+
+nmiPostHook:
+    plb ; pld ; ply ; plx
+
+    jml nmiPostReturn
