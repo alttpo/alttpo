@@ -50,6 +50,7 @@ nmiHook:
     // This is the code we replaced in the main NMI routine with the JML instruction:
     pha ; phx ; phy ; phd
 
+    // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
     // $7F7667[0x6719] = free RAM!
 
     sep #$30    // 8-bit accumulator and x,y mode
@@ -143,12 +144,16 @@ coords:
     sta local.yoffs
 
 sprites:
+    // in 16-bit accumulator mode
+
+    // $0352 = OAM index where Link sprites were written to
+    constant link_oam_start = $0352
+
     // local.oam_size = 0;
     lda.w #$0000
     sta.l local.oam_size
     // Y is our index into tmp OAM
-    constant oam_index = $0064 << 2
-    ldy.w #oam_index
+    ldy.w link_oam_start
 sprloop:
     // read oam.y coord:
     sep #$20        // 8-bit accumulator mode
@@ -201,12 +206,17 @@ sprloop:
     sta.l local.oam_size
 
 sprcont:
+    rep #$20        // 16-bit accumulator mode
     // y += 4
     iny #4
-    // if (y < $70) goto sprloop;
-    constant oam_index_max = $0070 << 2
-    cpy #oam_index_max
+    // if ((y - link_oam_start) < $30) goto sprloop;
+    tya
+    clc
+    sbc.w link_oam_start
+    cmp.w #$0030    // number of OAM slots that are reserved for Link body
     bcc sprloop
+
+    // TODO: get sword and sword sparkle tiles too
 
 
 
