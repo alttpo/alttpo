@@ -77,16 +77,19 @@ invalidModule:
 validModule:
     constant tmp = $7F7667
 
-    // build local packet to send to remote players:
     constant local = $7F7668
-    constant local.location.lo = local + 0
-    constant local.location.hi = local + 2
-    constant local.x = local + 3
-    constant local.y = local + 5
-    constant local.z = local + 7
-    constant local.xoffs = local + 9
-    constant local.yoffs = local + 11
-    constant local.oam_size = local + 13
+
+    expression addr(base, offs) = base + offs
+
+    // build local packet to send to remote players:
+    constant pkt.location.lo = 0
+    constant pkt.location.hi = 2
+    constant pkt.x = 3
+    constant pkt.y = 5
+    constant pkt.z = 7
+    constant pkt.xoffs = 9
+    constant pkt.yoffs = 11
+    constant pkt.oam_size = 13
     // Each OAM sprite is 5 bytes:
     constant oam_entry_size = 5
     // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
@@ -101,17 +104,18 @@ validModule:
     // [4]: ------sx
     //   x - 9th bit of X coordinate
     //   s - size toggle bit
-    constant local.oam_table.0 = local + 15
-    constant local.oam_table.1 = local + 16
-    constant local.oam_table.2 = local + 17
-    constant local.oam_table.3 = local + 18
-    constant local.oam_table.4 = local + 19
-    constant local.tiledata = $7F7900
+    constant pkt.oam_table = 15
+    constant pkt.oam_table.0 = 15
+    constant pkt.oam_table.1 = 16
+    constant pkt.oam_table.2 = 17
+    constant pkt.oam_table.3 = 18
+    constant pkt.oam_table.4 = 19
+    constant pkt.tiledata = $298
 
     lda $0FFF   // in dark world = $01, else $00
     asl
     ora $001B   // in dungeon = $01, else $00
-    sta local.location.hi
+    sta addr(local, pkt.location.hi)
     // if in dungeon, use dungeon room value:
     and #$01
     beq overworld   // if dungeon == 0, load overworld room number:
@@ -119,32 +123,32 @@ validModule:
     // load dungeon room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $00A0
-    sta local.location.lo
+    sta addr(local, pkt.location.lo)
     bra coords
 overworld: // load overworld room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $008A
-    sta local.location.lo
+    sta addr(local, pkt.location.lo)
 
 coords:
     // load X, Y, Z coords:
     lda $0022
-    sta local.x
+    sta addr(local, pkt.x)
     lda $0020
-    sta local.y
+    sta addr(local, pkt.y)
     lda $0024
-    sta local.z
+    sta addr(local, pkt.z)
 
     // xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3)) - int16(bus::read_u16(0x7E011A, 0x7E011B));
     lda $00E2
     clc
     sbc $011A
-    sta local.xoffs
+    sta addr(local, pkt.xoffs)
     // yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9)) - int16(bus::read_u16(0x7E011C, 0x7E011D));
     lda $00E8
     clc
     sbc $011C
-    sta local.yoffs
+    sta addr(local, pkt.yoffs)
 
 sprites:
     // in 16-bit accumulator mode
@@ -154,7 +158,7 @@ sprites:
 
     // local.oam_size = 0;
     lda.w #$0000
-    sta.l local.oam_size
+    sta.l addr(local, pkt.oam_size)
     // Y is our index into tmp OAM
     ldy.w link_oam_start
 sprloop:
@@ -169,22 +173,22 @@ sprloop:
     // copy OAM sprite into table:
     pha
     rep #$20        // 16-bit accumulator mode
-    lda.l local.oam_size
+    lda.l addr(local, pkt.oam_size)
     tax
     sep #$20        // 8-bit accumulator mode
     pla
 
     // store oam.y into table:
-    sta.l local.oam_table.1,x
+    sta.l addr(local, pkt.oam_table.1),x
     // copy oam.b0 into table:
     lda.w $0800,y
-    sta.l local.oam_table.0,x
+    sta.l addr(local, pkt.oam_table.0),x
     // copy oam.b2 into table:
     lda.w $0802,y
-    sta.l local.oam_table.2,x
+    sta.l addr(local, pkt.oam_table.2),x
     // copy oam.b3 into table:
     lda.w $0803,y
-    sta.l local.oam_table.3,x
+    sta.l addr(local, pkt.oam_table.3),x
 
     // load extra bits from extended table:
     phy
@@ -198,15 +202,15 @@ sprloop:
     sep #$20        // 8-bit accumulator mode
     // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
     lda $0A20,y
-    sta.l local.oam_table.4,x
+    sta.l addr(local, pkt.oam_table.4),x
     ply
 
     // local.oam_size += oam_entry_size
     rep #$20        // 16-bit accumulator mode
     clc
-    lda.l local.oam_size
+    lda.l addr(local, pkt.oam_size)
     adc.w #oam_entry_size
-    sta.l local.oam_size
+    sta.l addr(local, pkt.oam_size)
 
 sprcont:
     rep #$20        // 16-bit accumulator mode
@@ -241,8 +245,8 @@ nmiPostHook:
     // Sets the WRAM bank
     lda.b #$7F ; sta $4374
 
-    // going to read 0x10 bytes
-    ldx.w #$0010 ; stx $4375
+    // going to read 0x20 bytes (0x10 words)
+    ldx.w #$0020 ; stx $4375
 
     // setup VRAM address increment mode:
     lda.b #$80 ; sta $2115
