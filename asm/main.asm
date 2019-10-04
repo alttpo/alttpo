@@ -33,12 +33,12 @@ origin 0x0000D5
 base   0x0080D5
 nmiPreReturn:;
 
-origin 0x00021B
-base   0x00821B
+origin 0x00014C
+base   0x00814C
     jml nmiPostHook
 
-origin 0x000220
-base   0x008220
+origin 0x000151
+base   0x008151
 nmiPostReturn:;
 
 // our NMI hook:
@@ -227,18 +227,22 @@ nmiPreHookDone:
 
 // Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
 nmiPostHook:
-    rep #$10
+    sep #$20    //   a to  8-bit
+    rep #$10    // x,y to 16-bit
 
     // read OAM sprite 00 from VRAM into WRAM:
-    if 1 {
-    // base dma register is $2118, write two registers once mode ($2118/$2119), with autoincrementing target addr, read from VRAM to WRAM.
-    ldx.w #$1881 ; stx $4300
+
+    // base dma register is $2139, read two registers once mode ($2139/$213a), with autoincrementing target addr, read from VRAM to WRAM.
+    ldx.w #$3981 ; stx $4370
 
     // Sets the WRAM address
-    ldy.w #$7900 ; sty $4302
+    ldy.w #$7900 ; sty $4372
 
     // Sets the WRAM bank
-    lda.b #$7F ; sta $4304
+    lda.b #$7F ; sta $4374
+
+    // going to read 0x10 bytes
+    ldx.w #$0010 ; stx $4375
 
     // setup VRAM address increment mode:
     lda.b #$80 ; sta $2115
@@ -246,16 +250,19 @@ nmiPostHook:
     // The vram target address is $4000 (word)
     ldy.w #$4000 ; sty $2116
 
-    // going to read 0x10 bytes on channel 0
-    ldx.w #$0010 ; stx $4305
+    // dummy read from VRAM:
+    ldy.w $2139
 
-    // activates DMA transfers on channel 0
-    lda.b #$01 ; sta $420B
-    }
+    // activates DMA transfers on channel 7
+    lda.b #$80 ; sta $420B
 
+    // reset the vram target address to $0000 (word) otherwise the game goes haywire
+    ldy.w #$0000 ; sty $2116
+
+nmiPostDone:
     // This is the code our hook JML instruction replaced so we must run it here:
     sep #$30
-    lda.b $13 ; sta $2100
+    // A5 96 8D 23 21
+    lda.b $96 ; sta $2123
 
-    // jumps to the final 'pla' opcode and 'rti' afterwards
     jml nmiPostReturn
