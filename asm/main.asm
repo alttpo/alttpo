@@ -33,25 +33,17 @@ origin 0x0000D5
 base   0x0080D5
 nmiPreReturn:;
 
-origin 0x000227
-base   0x008227
+origin 0x00021B
+base   0x00821B
     jml nmiPostHook
 
-origin 0x00022B
-base   0x00822B
+origin 0x000220
+base   0x008220
 nmiPostReturn:;
 
 // our NMI hook:
 origin 0x100000
 base   0x208000
-    // ; Ensures this interrupt isn't interrupted by an IRQ
-    // SEI
-    //
-    // ; Resets M and X flags
-    // REP #$30
-    //
-    // ; Pushes 16 bit registers to the stack
-    // PHA : PHX : PHY : PHD : PHB
 nmiPreHook:
     // This is the code we replaced in the main NMI routine with the JML instruction:
 
@@ -83,8 +75,10 @@ invalidModule:
     jmp nmiPreHookDone
 
 validModule:
+    constant tmp = $7F7667
+
     // build local packet to send to remote players:
-    constant local = $7f7668
+    constant local = $7F7668
     constant local.location.lo = local + 0
     constant local.location.hi = local + 2
     constant local.x = local + 3
@@ -112,6 +106,7 @@ validModule:
     constant local.oam_table.2 = local + 17
     constant local.oam_table.3 = local + 18
     constant local.oam_table.4 = local + 19
+    constant local.tiledata = $7F7900
 
     lda $0FFF   // in dark world = $01, else $00
     asl
@@ -230,7 +225,37 @@ nmiPreHookDone:
     rep #$30
     jml nmiPreReturn
 
+// Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
 nmiPostHook:
-    plb ; pld ; ply ; plx
+    rep #$10
 
+    // read OAM sprite 00 from VRAM into WRAM:
+    if 1 {
+    // base dma register is $2118, write two registers once mode ($2118/$2119), with autoincrementing target addr, read from VRAM to WRAM.
+    ldx.w #$1881 ; stx $4300
+
+    // Sets the WRAM address
+    ldy.w #$7900 ; sty $4302
+
+    // Sets the WRAM bank
+    lda.b #$7F ; sta $4304
+
+    // setup VRAM address increment mode:
+    lda.b #$80 ; sta $2115
+
+    // The vram target address is $4000 (word)
+    ldy.w #$4000 ; sty $2116
+
+    // going to read 0x10 bytes on channel 0
+    ldx.w #$0010 ; stx $4305
+
+    // activates DMA transfers on channel 0
+    lda.b #$01 ; sta $420B
+    }
+
+    // This is the code our hook JML instruction replaced so we must run it here:
+    sep #$30
+    lda.b $13 ; sta $2100
+
+    // jumps to the final 'pla' opcode and 'rti' afterwards
     jml nmiPostReturn
