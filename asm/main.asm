@@ -75,11 +75,13 @@ invalidModule:
     jmp nmiPreHookDone
 
 validModule:
-    constant tmp = $7F7667
+    constant bank = $7F
+    constant free_ram_addr = $7667
 
-    constant local = $7F7668
+    constant local = free_ram_addr + 1
 
     expression addr(base, offs) = base + offs
+    expression long(base, offs) = (bank << 16) + base + offs
 
     // build local packet to send to remote players:
     constant pkt.location.lo = 0
@@ -115,7 +117,7 @@ validModule:
     lda $0FFF   // in dark world = $01, else $00
     asl
     ora $001B   // in dungeon = $01, else $00
-    sta addr(local, pkt.location.hi)
+    sta long(local, pkt.location.hi)
     // if in dungeon, use dungeon room value:
     and #$01
     beq overworld   // if dungeon == 0, load overworld room number:
@@ -123,32 +125,32 @@ validModule:
     // load dungeon room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $00A0
-    sta addr(local, pkt.location.lo)
+    sta long(local, pkt.location.lo)
     bra coords
 overworld: // load overworld room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $008A
-    sta addr(local, pkt.location.lo)
+    sta long(local, pkt.location.lo)
 
 coords:
     // load X, Y, Z coords:
     lda $0022
-    sta addr(local, pkt.x)
+    sta long(local, pkt.x)
     lda $0020
-    sta addr(local, pkt.y)
+    sta long(local, pkt.y)
     lda $0024
-    sta addr(local, pkt.z)
+    sta long(local, pkt.z)
 
     // xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3)) - int16(bus::read_u16(0x7E011A, 0x7E011B));
     lda $00E2
     clc
     sbc $011A
-    sta addr(local, pkt.xoffs)
+    sta long(local, pkt.xoffs)
     // yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9)) - int16(bus::read_u16(0x7E011C, 0x7E011D));
     lda $00E8
     clc
     sbc $011C
-    sta addr(local, pkt.yoffs)
+    sta long(local, pkt.yoffs)
 
 sprites:
     // in 16-bit accumulator mode
@@ -158,7 +160,7 @@ sprites:
 
     // local.oam_size = 0;
     lda.w #$0000
-    sta.l addr(local, pkt.oam_size)
+    sta.l long(local, pkt.oam_size)
     // Y is our index into tmp OAM
     ldy.w link_oam_start
 sprloop:
@@ -173,22 +175,22 @@ sprloop:
     // copy OAM sprite into table:
     pha
     rep #$20        // 16-bit accumulator mode
-    lda.l addr(local, pkt.oam_size)
+    lda.l long(local, pkt.oam_size)
     tax
     sep #$20        // 8-bit accumulator mode
     pla
 
     // store oam.y into table:
-    sta.l addr(local, pkt.oam_table.1),x
+    sta.l long(local, pkt.oam_table.1),x
     // copy oam.b0 into table:
     lda.w $0800,y
-    sta.l addr(local, pkt.oam_table.0),x
+    sta.l long(local, pkt.oam_table.0),x
     // copy oam.b2 into table:
     lda.w $0802,y
-    sta.l addr(local, pkt.oam_table.2),x
+    sta.l long(local, pkt.oam_table.2),x
     // copy oam.b3 into table:
     lda.w $0803,y
-    sta.l addr(local, pkt.oam_table.3),x
+    sta.l long(local, pkt.oam_table.3),x
 
     // load extra bits from extended table:
     phy
@@ -202,15 +204,15 @@ sprloop:
     sep #$20        // 8-bit accumulator mode
     // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
     lda $0A20,y
-    sta.l addr(local, pkt.oam_table.4),x
+    sta.l long(local, pkt.oam_table.4),x
     ply
 
     // local.oam_size += oam_entry_size
     rep #$20        // 16-bit accumulator mode
     clc
-    lda.l addr(local, pkt.oam_size)
+    lda.l long(local, pkt.oam_size)
     adc.w #oam_entry_size
-    sta.l addr(local, pkt.oam_size)
+    sta.l long(local, pkt.oam_size)
 
 sprcont:
     rep #$20        // 16-bit accumulator mode
@@ -240,10 +242,10 @@ nmiPostHook:
     ldx.w #$3981 ; stx $4370
 
     // Sets the WRAM address
-    ldy.w #$7900 ; sty $4372
+    ldy.w #addr(local, pkt.tiledata) ; sty $4372
 
     // Sets the WRAM bank
-    lda.b #$7F ; sta $4374
+    lda.b #bank ; sta $4374
 
     // going to read 0x20 bytes (0x10 words)
     ldx.w #$0020 ; stx $4375
