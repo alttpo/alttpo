@@ -127,36 +127,38 @@ void pre_frame() {
 }
 
 void post_frame() {
-  ppu::frame.text_shadow = true;
-  ppu::frame.color = 0x7fff;
+  if (false) {
+    ppu::frame.text_shadow = true;
+    ppu::frame.color = 0x7fff;
 
-  // read local packet composed during NMI:
-  ppu::frame.text(0, 0, fmtHex(local.location, 6));
-  ppu::frame.text(52, 0, fmtHex(local.x, 4));
-  ppu::frame.text(88, 0, fmtHex(local.y, 4));
-  ppu::frame.text(124, 0, fmtHex(local.z, 4));
-  ppu::frame.text(160, 0, fmtHex(local.xoffs, 4));
-  ppu::frame.text(196, 0, fmtHex(local.yoffs, 4));
+    // read local packet composed during NMI:
+    ppu::frame.text(0, 0, fmtHex(local.location, 6));
+    ppu::frame.text(52, 0, fmtHex(local.x, 4));
+    ppu::frame.text(88, 0, fmtHex(local.y, 4));
+    ppu::frame.text(124, 0, fmtHex(local.z, 4));
+    ppu::frame.text(160, 0, fmtHex(local.xoffs, 4));
+    ppu::frame.text(196, 0, fmtHex(local.yoffs, 4));
 
-  // limited to 12
-  auto len = local.oam_count;
+    // limited to 12
+    auto len = local.oam_count;
 
-  ppu::frame.text(0, 8, fmtHex(len, 2));
-  for (uint i = 0; i < len; i++) {
-    auto y = 224 - ((len - i) * 8);
-    //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
-    //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
-    //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
-    //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
-    //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
+    ppu::frame.text(0, 8, fmtHex(len, 2));
+    for (uint i = 0; i < len; i++) {
+      auto y = 224 - ((len - i) * 8);
+      //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
+      //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
+      //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
+      //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
+      //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
 
-    ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
-    ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
-    ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
-    ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
-    ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
-    ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
-    ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
+      ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
+      ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
+      ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
+      ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
+      ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
+      ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
+      ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
+    }
   }
 
   sprites.canvas.fill(0x0000);

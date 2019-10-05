@@ -33,13 +33,13 @@ base   0x00805A
 mainLoopReturn:;
 
 // Post-NMI hook:
-//origin 0x00021B
-//base   0x00821B
-//    jml nmiPostHook
-//
-//origin 0x000220
-//base   0x008220
-//nmiPostReturn:;
+origin 0x00021B
+base   0x00821B
+    jml nmiPostHook
+
+origin 0x000220
+base   0x008220
+nmiPostReturn:;
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -99,9 +99,6 @@ expression long(base, offs) = (bank << 16) + base + offs
 origin 0x100000
 base   0xA08000
 mainLoopHook:
-    jmp nmiPostHook
-nmiPostReturn:
-
     // execute the code we replaced:
     // 22 B5 80 00     JSL Module_MainRouting
     jsl $0080B5
