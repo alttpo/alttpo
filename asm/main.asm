@@ -33,12 +33,12 @@ origin 0x0000D5
 base   0x0080D5
 nmiPreReturn:;
 
-origin 0x00014C
-base   0x00814C
+origin 0x00021B
+base   0x00821B
     jml nmiPostHook
 
-origin 0x000151
-base   0x008151
+origin 0x000220
+base   0x008220
 nmiPostReturn:;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -103,13 +103,16 @@ nmiPreHook:
     // Sets DP to $0000
     lda.w #$0000 ; tcd
 
+    // Equate Program and Data banks
+    phk ; plb
+
     // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
     // $7F7667[0x6719] = free RAM!
 
     sep #$30    // 8-bit accumulator and x,y mode
 
     // $7E0010 = main module
-    lda $0010
+    lda $10
     // $07 is dungeon
     cmp #$07
     beq validModule
@@ -120,7 +123,7 @@ nmiPreHook:
     cmp #$0e
     bne invalidModule
     // check $0e submodule == $02 which is dialogue/monologue
-    lda $0011
+    lda $11
     cmp #$02
     beq validModule
 invalidModule:
@@ -131,7 +134,7 @@ validModule:
     // build local packet to send to remote players:
     lda $0FFF   // in dark world = $01, else $00
     asl
-    ora $001B   // in dungeon = $01, else $00
+    ora $1B   // in dungeon = $01, else $00
     sta long(local, pkt.location.hi)
     // if in dungeon, use dungeon room value:
     and #$01
@@ -139,30 +142,30 @@ validModule:
 
     // load dungeon room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
-    lda $00A0
+    lda $A0
     sta long(local, pkt.location.lo)
     bra coords
 overworld: // load overworld room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
-    lda $008A
+    lda $8A
     sta long(local, pkt.location.lo)
 
 coords:
     // load X, Y, Z coords:
-    lda $0022
+    lda $22
     sta long(local, pkt.x)
-    lda $0020
+    lda $20
     sta long(local, pkt.y)
-    lda $0024
+    lda $24
     sta long(local, pkt.z)
 
     // xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3)) - int16(bus::read_u16(0x7E011A, 0x7E011B));
-    lda $00E2
+    lda $E2
     clc
     sbc $011A
     sta long(local, pkt.xoffs)
     // yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9)) - int16(bus::read_u16(0x7E011C, 0x7E011D));
-    lda $00E8
+    lda $E8
     clc
     sbc $011C
     sta long(local, pkt.yoffs)
@@ -249,12 +252,45 @@ nmiPreHookDone:
 
 // Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
 nmiPostHook:
+    sep #$30    // 8-bit accumulator and x,y mode
+
+    // flag used to indicate that special screen updates need to happen.
+    //lda $0710
+    //bne nmiPostHookDone
+
+    // $7E0010 = main module
+    lda $10
+    // $07 is dungeon
+    cmp #$07
+    beq nmiPostValidModule
+    // $09 is overworld
+    cmp #$09
+    beq nmiPostValidModule
+    // $0e can be dialogue/monologue or menu
+    cmp #$0e
+    bne nmiPostInvalidModule
+    // check $0e submodule == $02 which is dialogue/monologue
+    lda $11
+    cmp #$02
+    beq nmiPostValidModule
+nmiPostInvalidModule:
+    // not a good time to sync state:
+    jmp nmiPostHookDone
+
+nmiPostValidModule:
     sep #$20    //   a to  8-bit
     rep #$10    // x,y to 16-bit
 
+    lda $4370 ; pha // preserve DMA parameters
+    lda $4371 ; pha // preserve DMA parameters
+    lda $4372 ; pha // preserve DMA parameters
+    lda $4373 ; pha // preserve DMA parameters
+    lda $4374 ; pha // preserve DMA parameters
+    lda $4375 ; pha // preserve DMA parameters
+    lda $4376 ; pha // preserve DMA parameters
+
     // read first 0x40 sprites from VRAM into WRAM:
     if 1 {
-
     // base dma register is $2139, read two registers once mode ($2139/$213a), with autoincrementing target addr, read from VRAM to WRAM.
     ldx.w #$3981 ; stx $4370
 
@@ -279,22 +315,29 @@ nmiPostHook:
     // activates DMA transfers on channel 7
     lda.b #$80 ; sta $420B
 
-    // reset DMA regs
-    ldx.w #$1801 ; stx $4370
-    ldx.w #$0000 ; stx $4372
-    lda.b #$10 ; sta $4374
-    stz $420B
-
-    // reset the PPU regs otherwise the game goes haywire
+    // reset
     lda.b #$80 ; sta $2115
-    stz $2116
-    stz $2117
+    ldy.w #$4000 ; sty $2116
+    ldy.w $2139
+    } else {
+    lda.b #$80 ; sta $2115
+    ldy.w #$4000 ; sty $2116
+    ldy.w $2139
     }
 
-nmiPostDone:
-    // This is the code our hook JML instruction replaced so we must run it here:
-    sep #$30
-    // A5 96 8D 23 21
-    lda.b $96 ; sta $2123
+    pla ; sta $4376 // restore DMA parameters
+    pla ; sta $4375 // restore DMA parameters
+    pla ; sta $4374 // restore DMA parameters
+    pla ; sta $4373 // restore DMA parameters
+    pla ; sta $4372 // restore DMA parameters
+    pla ; sta $4371 // restore DMA parameters
+    pla ; sta $4370 // restore DMA parameters
 
+nmiPostHookDone:
+    sep #$30
+
+    // This is the code our hook JML instruction replaced so we must run it here:
+    lda.b $13 ; sta $2100
+
+    // Jump back to the instruction after our JML interception:
     jml nmiPostReturn
