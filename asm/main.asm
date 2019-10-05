@@ -50,7 +50,7 @@ constant pkt.y = 5
 constant pkt.z = 7
 constant pkt.xoffs = 9
 constant pkt.yoffs = 11
-constant pkt.oam_size = 13
+constant pkt.oam_count = 13
 // Each OAM sprite is 5 bytes:
 constant oam_entry_size = 5
 // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
@@ -65,15 +65,15 @@ constant oam_entry_size = 5
 // [4]: ------sx
 //   x - 9th bit of X coordinate
 //   s - size toggle bit
-constant pkt.oam_table = 15
-constant pkt.oam_table.0 = 15
-constant pkt.oam_table.1 = 16
-constant pkt.oam_table.2 = 17
-constant pkt.oam_table.3 = 18
-constant pkt.oam_table.4 = 19
-constant pkt.tiledata = $298
-constant pkt.tiledata_size = (0x20 * 0x20)                      // 0x800
-constant pkt.total_size = (pkt.tiledata + pkt.tiledata_size)    // 0xA98
+constant pkt.oam_table = 14
+constant pkt.oam_table.0 = 14
+constant pkt.oam_table.1 = 15
+constant pkt.oam_table.2 = 16
+constant pkt.oam_table.3 = 17
+constant pkt.oam_table.4 = 18
+constant pkt.tiledata = pkt.oam_table + (12 * oam_entry_size)
+constant pkt.tiledata_size = (0x20 * 0x20) // 0x400
+constant pkt.total_size = (pkt.tiledata + pkt.tiledata_size)
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -82,6 +82,7 @@ constant free_ram_addr = $7667
 
 // scratch space
 constant scratch = free_ram_addr
+constant tmp_oam_size = 0
 
 // local packet addr
 constant local = $7700
@@ -182,9 +183,14 @@ sprites:
     // $0352 = OAM index where Link sprites were written to
     constant link_oam_start = $0352
 
-    // local.oam_size = 0;
+    // tmp_oam_size = #$0000
     lda.w #$0000
-    sta.l long(local, pkt.oam_size)
+    sta.l long(scratch, tmp_oam_size)
+
+    // local.oam_count = #$00
+    sep #$20        // 8-bit accumulator mode
+    sta.l long(local, pkt.oam_count)
+
     // Y is our index into tmp OAM
     ldy.w link_oam_start
 sprloop:
@@ -199,7 +205,7 @@ sprloop:
     // copy OAM sprite into table:
     pha
     rep #$20        // 16-bit accumulator mode
-    lda.l long(local, pkt.oam_size)
+    lda.l long(scratch, tmp_oam_size)
     tax
     sep #$20        // 8-bit accumulator mode
     pla
@@ -234,9 +240,14 @@ sprloop:
     // local.oam_size += oam_entry_size
     rep #$20        // 16-bit accumulator mode
     clc
-    lda.l long(local, pkt.oam_size)
+    lda.l long(scratch, tmp_oam_size)
     adc.w #oam_entry_size
-    sta.l long(local, pkt.oam_size)
+    sta.l long(scratch, tmp_oam_size)
+
+    // local.oam_count++
+    lda.l long(local, pkt.oam_count)
+    inc
+    sta.l long(local, pkt.oam_count)
 
 sprcont:
     rep #$20        // 16-bit accumulator mode
