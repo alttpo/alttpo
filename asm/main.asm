@@ -33,13 +33,13 @@ base   0x00805A
 mainLoopReturn:;
 
 // Post-NMI hook:
-origin 0x00021B
-base   0x00821B
-    jml nmiPostHook
-
-origin 0x000220
-base   0x008220
-nmiPostReturn:;
+//origin 0x00021B
+//base   0x00821B
+//    jml nmiPostHook
+//
+//origin 0x000220
+//base   0x008220
+//nmiPostReturn:;
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -72,7 +72,7 @@ constant pkt.oam_table.2 = 16
 constant pkt.oam_table.3 = 17
 constant pkt.oam_table.4 = 18
 constant pkt.tiledata = pkt.oam_table + (12 * oam_entry_size)
-constant pkt.tiledata_size = (0x20 * 0x20) // 0x400
+constant pkt.tiledata_size = (0x40 * 0x20) // 0x800
 constant pkt.total_size = (pkt.tiledata + pkt.tiledata_size)
 
 /////////////////////////////////////////////////////////////////////////////
@@ -99,12 +99,14 @@ expression long(base, offs) = (bank << 16) + base + offs
 origin 0x100000
 base   0xA08000
 mainLoopHook:
+    jmp nmiPostHook
+nmiPostReturn:
+
     // execute the code we replaced:
     // 22 B5 80 00     JSL Module_MainRouting
     jsl $0080B5
 
     phb
-
     rep #$20
 
     // Sets DP to $0000
@@ -332,6 +334,10 @@ nmiPostValidModule:
 
     // activates DMA transfers on channel 7
     lda.b #$80 ; sta $420B
+    }
+
+    {
+
     }
 
     pla ; sta $4376 // restore DMA parameters
