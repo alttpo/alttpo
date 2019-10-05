@@ -41,6 +41,59 @@ origin 0x000151
 base   0x008151
 nmiPostReturn:;
 
+/////////////////////////////////////////////////////////////////////////////
+
+constant pkt.location.lo = 0
+constant pkt.location.hi = 2
+constant pkt.x = 3
+constant pkt.y = 5
+constant pkt.z = 7
+constant pkt.xoffs = 9
+constant pkt.yoffs = 11
+constant pkt.oam_size = 13
+// Each OAM sprite is 5 bytes:
+constant oam_entry_size = 5
+// [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
+// [1]: yyyyyyyy Y coordinate on screen in pixels.
+// [2]: cccccccc Character number to use. This is the lower 8 bits. See [3]
+// [3]: vhoopppc
+//   v - vertical flip
+//   h - horizontal flip
+//   p - palette (0-7)
+//   o - priority bits (0-3)
+//   c - the 9th (and most significant) bit of the character number for this sprite.
+// [4]: ------sx
+//   x - 9th bit of X coordinate
+//   s - size toggle bit
+constant pkt.oam_table = 15
+constant pkt.oam_table.0 = 15
+constant pkt.oam_table.1 = 16
+constant pkt.oam_table.2 = 17
+constant pkt.oam_table.3 = 18
+constant pkt.oam_table.4 = 19
+constant pkt.tiledata = $298
+constant pkt.tiledata_size = (0x40 * 0x20)                      // 0x800
+constant pkt.total_size = (pkt.tiledata + pkt.tiledata_size)    // 0xA98
+
+/////////////////////////////////////////////////////////////////////////////
+
+constant bank = $7F
+constant free_ram_addr = $7667
+
+// scratch space
+constant scratch = free_ram_addr
+
+// local packet addr
+constant local = $7700
+// remote packet addr
+constant remote = local + pkt.total_size    // $8198
+
+expression addr(base, offs) = base + offs
+expression long(base, offs) = (bank << 16) + base + offs
+
+/////////////////////////////////////////////////////////////////////////////
+
+
 // our NMI hook:
 origin 0x100000
 base   0x208000
@@ -75,45 +128,7 @@ invalidModule:
     jmp nmiPreHookDone
 
 validModule:
-    constant bank = $7F
-    constant free_ram_addr = $7667
-
-    constant local = free_ram_addr + 1
-
-    expression addr(base, offs) = base + offs
-    expression long(base, offs) = (bank << 16) + base + offs
-
     // build local packet to send to remote players:
-    constant pkt.location.lo = 0
-    constant pkt.location.hi = 2
-    constant pkt.x = 3
-    constant pkt.y = 5
-    constant pkt.z = 7
-    constant pkt.xoffs = 9
-    constant pkt.yoffs = 11
-    constant pkt.oam_size = 13
-    // Each OAM sprite is 5 bytes:
-    constant oam_entry_size = 5
-    // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
-    // [1]: yyyyyyyy Y coordinate on screen in pixels.
-    // [2]: cccccccc Character number to use. This is the lower 8 bits. See [3]
-    // [3]: vhoopppc
-    //   v - vertical flip
-    //   h - horizontal flip
-    //   p - palette (0-7)
-    //   o - priority bits (0-3)
-    //   c - the 9th (and most significant) bit of the character number for this sprite.
-    // [4]: ------sx
-    //   x - 9th bit of X coordinate
-    //   s - size toggle bit
-    constant pkt.oam_table = 15
-    constant pkt.oam_table.0 = 15
-    constant pkt.oam_table.1 = 16
-    constant pkt.oam_table.2 = 17
-    constant pkt.oam_table.3 = 18
-    constant pkt.oam_table.4 = 19
-    constant pkt.tiledata = $298
-
     lda $0FFF   // in dark world = $01, else $00
     asl
     ora $001B   // in dungeon = $01, else $00
@@ -231,12 +246,14 @@ nmiPreHookDone:
     rep #$30
     jml nmiPreReturn
 
+
 // Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
 nmiPostHook:
     sep #$20    //   a to  8-bit
     rep #$10    // x,y to 16-bit
 
-    // read OAM sprite 00 from VRAM into WRAM:
+    // read first 0x40 sprites from VRAM into WRAM:
+    if 1 {
 
     // base dma register is $2139, read two registers once mode ($2139/$213a), with autoincrementing target addr, read from VRAM to WRAM.
     ldx.w #$3981 ; stx $4370
@@ -247,8 +264,8 @@ nmiPostHook:
     // Sets the WRAM bank
     lda.b #bank ; sta $4374
 
-    // going to read 0x20 bytes (0x10 words)
-    ldx.w #$0020 ; stx $4375
+    // going to read first 0x40 (8x8) tiles (at 0x20 bytes each)
+    ldx.w #pkt.tiledata_size ; stx $4375
 
     // setup VRAM address increment mode:
     lda.b #$80 ; sta $2115
@@ -262,8 +279,17 @@ nmiPostHook:
     // activates DMA transfers on channel 7
     lda.b #$80 ; sta $420B
 
-    // reset the vram target address to $0000 (word) otherwise the game goes haywire
-    ldy.w #$0000 ; sty $2116
+    // reset DMA regs
+    ldx.w #$1801 ; stx $4370
+    ldx.w #$0000 ; stx $4372
+    lda.b #$10 ; sta $4374
+    stz $420B
+
+    // reset the PPU regs otherwise the game goes haywire
+    lda.b #$80 ; sta $2115
+    stz $2116
+    stz $2117
+    }
 
 nmiPostDone:
     // This is the code our hook JML instruction replaced so we must run it here:
