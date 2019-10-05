@@ -33,9 +33,9 @@ base   0x00805A
 mainLoopReturn:;
 
 // Post-NMI hook:
-//origin 0x00021B
-//base   0x00821B
-//    jml nmiPostHook
+origin 0x00021B
+base   0x00821B
+    jml nmiPostHook
 
 origin 0x000220
 base   0x008220
