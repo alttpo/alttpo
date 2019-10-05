@@ -23,16 +23,16 @@ endian lsb
     db $00 // expand file to 2mb
 }
 
-// patch over PHA : PHX : PHY : PHD within original NMI routine in bank 00:
-origin 0x0000D1
-base   0x0080D1
-    jml nmiPreHook
+// Main loop hook:
+origin 0x000056
+base   0x008056
+    jml mainLoopHook
 
-// give our NMI hook somewhere to return to:
-origin 0x0000D5
-base   0x0080D5
-nmiPreReturn:;
+origin 0x00005A
+base   0x00805A
+mainLoopReturn:;
 
+// Post-NMI hook:
 origin 0x00021B
 base   0x00821B
     jml nmiPostHook
@@ -97,8 +97,14 @@ expression long(base, offs) = (bank << 16) + base + offs
 // our NMI hook:
 origin 0x100000
 base   0xA08000
-nmiPreHook:
-    // This is the code we replaced in the main NMI routine with the JML instruction:
+mainLoopHook:
+    // execute the code we replaced:
+    // 22 B5 80 00
+    jsl $0080B5
+
+    phb
+
+    rep #$20
 
     // Sets DP to $0000
     lda.w #$0000 ; tcd
@@ -128,7 +134,7 @@ nmiPreHook:
     beq validModule
 invalidModule:
     // not a good time to sync state:
-    jmp nmiPreHookDone
+    jmp mainLoopHookDone
 
 validModule:
     // build local packet to send to remote players:
@@ -245,9 +251,10 @@ sprcont:
 
     // TODO: get sword and sword sparkle tiles too
 
-nmiPreHookDone:
-    rep #$30
-    jml nmiPreReturn
+mainLoopHookDone:
+    sep #$30
+    plb
+    jml mainLoopReturn
 
 
 // Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
