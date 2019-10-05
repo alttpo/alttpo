@@ -72,7 +72,7 @@ constant pkt.oam_table.2 = 17
 constant pkt.oam_table.3 = 18
 constant pkt.oam_table.4 = 19
 constant pkt.tiledata = $298
-constant pkt.tiledata_size = (0x40 * 0x20)                      // 0x800
+constant pkt.tiledata_size = (0x20 * 0x20)                      // 0x800
 constant pkt.total_size = (pkt.tiledata + pkt.tiledata_size)    // 0xA98
 
 /////////////////////////////////////////////////////////////////////////////
@@ -86,7 +86,7 @@ constant scratch = free_ram_addr
 // local packet addr
 constant local = $7700
 // remote packet addr
-constant remote = local + pkt.total_size    // $8198
+constant remote = $8200 // local + pkt.total_size    // $8198
 
 expression addr(base, offs) = base + offs
 expression long(base, offs) = (bank << 16) + base + offs
@@ -96,20 +96,20 @@ expression long(base, offs) = (bank << 16) + base + offs
 
 // our NMI hook:
 origin 0x100000
-base   0x208000
+base   0xA08000
 nmiPreHook:
     // This is the code we replaced in the main NMI routine with the JML instruction:
 
     // Sets DP to $0000
     lda.w #$0000 ; tcd
 
-    // Equate Program and Data banks
-    phk ; plb
-
     // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
     // $7F7667[0x6719] = free RAM!
 
     sep #$30    // 8-bit accumulator and x,y mode
+
+    // set data bank to $7F
+    lda.b #$7F; pha ; plb
 
     // $7E0010 = main module
     lda $10
@@ -135,7 +135,7 @@ validModule:
     lda $0FFF   // in dark world = $01, else $00
     asl
     ora $1B   // in dungeon = $01, else $00
-    sta long(local, pkt.location.hi)
+    sta.w addr(local, pkt.location.hi)
     // if in dungeon, use dungeon room value:
     and #$01
     beq overworld   // if dungeon == 0, load overworld room number:
@@ -143,32 +143,32 @@ validModule:
     // load dungeon room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $A0
-    sta long(local, pkt.location.lo)
+    sta.w addr(local, pkt.location.lo)
     bra coords
 overworld: // load overworld room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $8A
-    sta long(local, pkt.location.lo)
+    sta.w addr(local, pkt.location.lo)
 
 coords:
     // load X, Y, Z coords:
     lda $22
-    sta long(local, pkt.x)
+    sta.w addr(local, pkt.x)
     lda $20
-    sta long(local, pkt.y)
+    sta.w addr(local, pkt.y)
     lda $24
-    sta long(local, pkt.z)
+    sta.w addr(local, pkt.z)
 
     // xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3)) - int16(bus::read_u16(0x7E011A, 0x7E011B));
     lda $E2
     clc
     sbc $011A
-    sta long(local, pkt.xoffs)
+    sta.w addr(local, pkt.xoffs)
     // yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9)) - int16(bus::read_u16(0x7E011C, 0x7E011D));
     lda $E8
     clc
     sbc $011C
-    sta long(local, pkt.yoffs)
+    sta.w addr(local, pkt.yoffs)
 
 sprites:
     // in 16-bit accumulator mode
@@ -178,7 +178,7 @@ sprites:
 
     // local.oam_size = 0;
     lda.w #$0000
-    sta.l long(local, pkt.oam_size)
+    sta.w addr(local, pkt.oam_size)
     // Y is our index into tmp OAM
     ldy.w link_oam_start
 sprloop:
@@ -193,22 +193,22 @@ sprloop:
     // copy OAM sprite into table:
     pha
     rep #$20        // 16-bit accumulator mode
-    lda.l long(local, pkt.oam_size)
+    lda.w addr(local, pkt.oam_size)
     tax
     sep #$20        // 8-bit accumulator mode
     pla
 
     // store oam.y into table:
-    sta.l long(local, pkt.oam_table.1),x
+    sta.w addr(local, pkt.oam_table.1),x
     // copy oam.b0 into table:
     lda.w $0800,y
-    sta.l long(local, pkt.oam_table.0),x
+    sta.w addr(local, pkt.oam_table.0),x
     // copy oam.b2 into table:
     lda.w $0802,y
-    sta.l long(local, pkt.oam_table.2),x
+    sta.w addr(local, pkt.oam_table.2),x
     // copy oam.b3 into table:
     lda.w $0803,y
-    sta.l long(local, pkt.oam_table.3),x
+    sta.w addr(local, pkt.oam_table.3),x
 
     // load extra bits from extended table:
     phy
@@ -222,15 +222,15 @@ sprloop:
     sep #$20        // 8-bit accumulator mode
     // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
     lda $0A20,y
-    sta.l long(local, pkt.oam_table.4),x
+    sta.w addr(local, pkt.oam_table.4),x
     ply
 
     // local.oam_size += oam_entry_size
     rep #$20        // 16-bit accumulator mode
     clc
-    lda.l long(local, pkt.oam_size)
+    lda.w addr(local, pkt.oam_size)
     adc.w #oam_entry_size
-    sta.l long(local, pkt.oam_size)
+    sta.w addr(local, pkt.oam_size)
 
 sprcont:
     rep #$20        // 16-bit accumulator mode
@@ -314,15 +314,6 @@ nmiPostValidModule:
 
     // activates DMA transfers on channel 7
     lda.b #$80 ; sta $420B
-
-    // reset
-    lda.b #$80 ; sta $2115
-    ldy.w #$4000 ; sty $2116
-    ldy.w $2139
-    } else {
-    lda.b #$80 ; sta $2115
-    ldy.w #$4000 ; sty $2116
-    ldy.w $2139
     }
 
     pla ; sta $4376 // restore DMA parameters
