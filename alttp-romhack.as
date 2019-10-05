@@ -1,5 +1,35 @@
 // Communicate with ROM hack via memory at $7F7667[0x6719]
 
+SpriteWindow @sprites;
+
+class SpriteWindow {
+  private gui::Window @window;
+  private gui::VerticalLayout @vl;
+  gui::Canvas @canvas;
+
+  SpriteWindow() {
+    // relative position to bsnes window:
+    @window = gui::Window(256*2, 0, true);
+    window.title = "Sprite VRAM";
+    window.size = gui::Size(256, 4*8*2);
+
+    @vl = gui::VerticalLayout();
+    window.append(vl);
+
+    @canvas = gui::Canvas();
+    canvas.size = gui::Size(128, 4*8);
+    vl.append(canvas, gui::Size(-1, -1));
+
+    vl.resize();
+    canvas.update();
+    window.visible = true;
+  }
+
+  void update() {
+    canvas.update();
+  }
+};
+
 class OAMSprite {
   uint8 b0; // xxxxxxxx
   uint8 b1; // yyyyyyyy
@@ -82,12 +112,18 @@ class Packet {
 Packet  local(0x7F7700);
 Packet remote(0x7F8200);
 
-uint8 scratcha, scratchb;
+array<array<uint16>> palette(16);
 
 void pre_frame() {
   local.readRAM();
-  scratcha = bus::read_u8(0x7f7667);
-  scratchb = bus::read_u8(0x7f7668);
+
+  // copy out all palettes:
+  for (int c = 0; c < 16; c++) {
+    palette[c] = array<uint16>(16);
+    for (int i = 0; i < 16; i++) {
+      palette[c][i] = ppu::cgram[(c << 4) + i];
+    }
+  }
 }
 
 void post_frame() {
@@ -123,9 +159,9 @@ void post_frame() {
     ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
   }
 
-  for (uint i = 0; i < 0x10; i++) {
-    ppu::frame.text(i * 16, 16, fmtHex(local.tiledata[i], 4));
-  }
+  sprites.canvas.fill(0x0000);
+  sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 4*8, local.tiledata, palette[8 + 7]);
+  sprites.update();
 
   if (false) {
     auto in_dark_world = bus::read_u8(0x7E0FFF);
@@ -141,4 +177,8 @@ void post_frame() {
 
     ppu::frame.text(0, 8, fmtHex(location, 6));
   }
+}
+
+void init() {
+  @sprites = SpriteWindow();
 }
