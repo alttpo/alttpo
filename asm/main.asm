@@ -298,6 +298,23 @@ nmiPostValidModule:
     sep #$20    //   a to  8-bit
     rep #$10    // x,y to 16-bit
 
+    // NOTE: there are very few clock cycles left to perform any DMA without going
+    // into extended f-blank at the top of the next frame (black bars at the top of
+    // the screen). DMA gets canceled just before 0x20 8x8 sprites are transferred.
+    // DMA to the PPU cannot be done out of f-blank or v-blank.
+
+    // TODO: forego DMA read transfer in favor of script reading ROM directly using
+    // bank $10 addresses for Link's sprite captured from $0ACE, $0AD2, $0AD6, etc.
+    // (see bank00.asm: NMI_DoUpdates)
+
+    // We still need DMA to transfer remote player's sprites into VRAM. Remote player's
+    // packet could just refer to local player's ROM addresses for sprites. This would
+    // mean the local player would not see remote player's customized sprites. Although,
+    // this could be made possible if customized sprite data were exchanged before gameplay
+    // and included in extra ROM space in this romhack; we added an extra 1MB after all.
+    // Going further with this idea, perhaps all known customized sprite sets could be
+    // included in the ROM and referred to by bank/addr in exchanged packet data.
+
     lda $4370 ; pha // preserve DMA parameters
     lda $4371 ; pha // preserve DMA parameters
     lda $4372 ; pha // preserve DMA parameters
