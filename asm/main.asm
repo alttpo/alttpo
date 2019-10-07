@@ -295,14 +295,6 @@ nmiPostInvalidModule:
     jmp nmiPostHookDone
 
 nmiPostValidModule:
-    sep #$20    //   a to  8-bit
-    rep #$10    // x,y to 16-bit
-
-    // NOTE: there are very few clock cycles left to perform any DMA without going
-    // into extended f-blank at the top of the next frame (black bars at the top of
-    // the screen). DMA gets canceled just before 0x20 8x8 sprites are transferred.
-    // DMA to the PPU cannot be done out of f-blank or v-blank.
-
     // TODO: forego DMA read transfer in favor of script reading ROM directly using
     // bank $10 addresses for Link's sprite captured from $0ACE, $0AD2, $0AD6, etc.
     // (see bank00.asm: NMI_DoUpdates)
@@ -315,52 +307,57 @@ nmiPostValidModule:
     // Going further with this idea, perhaps all known customized sprite sets could be
     // included in the ROM and referred to by bank/addr in exchanged packet data.
 
+    rep #$20    // m,a to 16-bit
+
+    lda $4360 ; pha // preserve DMA parameters
+    lda $4362 ; pha // preserve DMA parameters
+    lda $4364 ; pha // preserve DMA parameters
+    lda $4366 ; pha // preserve DMA parameters
+
     lda $4370 ; pha // preserve DMA parameters
-    lda $4371 ; pha // preserve DMA parameters
     lda $4372 ; pha // preserve DMA parameters
-    lda $4373 ; pha // preserve DMA parameters
     lda $4374 ; pha // preserve DMA parameters
-    lda $4375 ; pha // preserve DMA parameters
     lda $4376 ; pha // preserve DMA parameters
+
+    sep #$20    // m,a to  8-bit
+    rep #$10    // x,y to 16-bit
 
     // read first 0x40 sprites from VRAM into WRAM:
     if 1 {
-    // base dma register is $2139, read two registers once mode ($2139/$213a), with autoincrementing target addr, read from VRAM to WRAM.
-    ldx.w #$3981 ; stx $4370
+    lda.b   #$80 ; sta $2115    // VRAM address increment mode
+    ldy.w #$4DB0 ; sty $2116    // VRAM target address
 
-    // Sets the WRAM address
-    ldy.w #addr(local, pkt.tiledata) ; sty $4372
+    ldy.w #$1801 ; sty $4360    // DMA from WRAM to VRAM ($2118)
+                   sty $4370
+    lda.b   #$10 ; sta $4364    // source bank
+                   sta $4374
+    ldy.w  $0ACE ; sty $4362    // source address (6)
+    ldy.w  $0AD2 ; sty $4372    // source address (7)
+    ldx.w #$0040 ; stx $4365    // transfer size (6)
+                   stx $4375    // transfer size (7)
 
-    // Sets the WRAM bank
-    lda.b #bank ; sta $4374
+    lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
 
-    // going to read first 0x40 (8x8) tiles (at 0x20 bytes each)
-    ldx.w #pkt.tiledata_size ; stx $4375
+    ldy.w #$4CB0 ; sty $2116    // VRAM target address
+    ldy.w  $0ACC ; sty $4362    // source address (6)
+    ldy.w  $0AD0 ; sty $4372    // source address (7)
+                   stx $4365    // transfer size (6)
+                   stx $4375    // transfer size (7)
 
-    // setup VRAM address increment mode:
-    lda.b #$80 ; sta $2115
-
-    // The vram target address is $4000 (word)
-    ldy.w #$4000 ; sty $2116
-
-    // dummy read from VRAM:
-    ldy.w $2139
-
-    // activates DMA transfers on channel 7
-    lda.b #$80 ; sta $420B
+    lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
     }
 
-    {
-
-    }
+    rep #$20    // m,a to 16-bit
 
     pla ; sta $4376 // restore DMA parameters
-    pla ; sta $4375 // restore DMA parameters
     pla ; sta $4374 // restore DMA parameters
-    pla ; sta $4373 // restore DMA parameters
     pla ; sta $4372 // restore DMA parameters
-    pla ; sta $4371 // restore DMA parameters
     pla ; sta $4370 // restore DMA parameters
+
+    pla ; sta $4366 // restore DMA parameters
+    pla ; sta $4364 // restore DMA parameters
+    pla ; sta $4362 // restore DMA parameters
+    pla ; sta $4360 // restore DMA parameters
 
 nmiPostHookDone:
     sep #$30
