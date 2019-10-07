@@ -6,12 +6,75 @@ uint8[]  sprs(16);
 uint8[]  sprk(16);
 uint32   location;
 
+uint8 module, sub_module;
+// top -> $4000, bot -> $4100
+array<uint16> dma10top(3), dma10bot(3);
+array<uint16> dma7Etop(6), dma7Ebot(6);
+
+uint8 sp00, sp50, sp60, sp61;
+
 void init() {
   // initialize script state here.
   message("hello world!");
 }
 
 void pre_frame() {
+  module     = bus::read_u8(0x7E0010);
+  sub_module = bus::read_u8(0x7E0011);
+
+  // [$10]$0ACE -> $4100 (0x40 bytes) (bottom of head)
+  // [$10]$0AD2 -> $4120 (0x40 bytes) (bottom of body)
+  // [$10]$0AD6 -> $4140 (0x20 bytes) (bottom sweat)
+
+  dma10bot[0] = bus::read_u16(0x7E0ACE, 0x7E0ACF);
+  dma10bot[1] = bus::read_u16(0x7E0AD2, 0x7E0AD3);
+  dma10bot[2] = bus::read_u16(0x7E0AD6, 0x7E0AD7);
+
+  // [$10]$0ACC -> $4000 (0x40 bytes) (top of head)
+  // [$10]$0AD0 -> $4020 (0x40 bytes) (top of body)
+  // [$10]$0AD4 -> $4040 (0x20 bytes) (top sweat)
+
+  dma10top[0] = bus::read_u16(0x7E0ACC, 0x7E0ACD);
+  dma10top[1] = bus::read_u16(0x7E0AD0, 0x7E0AD1);
+  dma10top[2] = bus::read_u16(0x7E0AD4, 0x7E0AD5);
+
+  // [$7E]$0AC0 -> $4050 (0x40 bytes) (top of sword slash)
+  // [$7E]$0AC4 -> $4070 (0x40 bytes) (top of shield)
+  // [$7E]$0AC8 -> $4090 (0x40 bytes) (Zz sprites)
+  // [$7E]$0AE0 -> $40B0 (0x20 bytes) (top of rupee)
+  // [$7E]$0AD8 -> $40C0 (0x40 bytes) (top of movable block)
+
+  dma7Etop[0] = bus::read_u16(0x7E0AC0, 0x7E0AC1);
+  dma7Etop[1] = bus::read_u16(0x7E0AC4, 0x7E0AC5);
+  dma7Etop[2] = bus::read_u16(0x7E0AC8, 0x7E0AC9);
+  dma7Etop[3] = bus::read_u16(0x7E0AE0, 0x7E0AE1);
+  dma7Etop[4] = bus::read_u16(0x7E0AD8, 0x7E0AD9);
+
+  // only if bird is active
+  // [$7E]$0AF6 -> $40E0 (0x40 bytes) (top of hammer sprites)
+  dma7Etop[5] = bus::read_u16(0x7E0AF6, 0x7E0AF7);
+
+  // [$7E]$0AC2 -> $4150 (0x40 bytes) (bottom of sword slash)
+  // [$7E]$0AC6 -> $4170 (0x40 bytes) (bottom of shield)
+  // [$7E]$0ACA -> $4190 (0x40 bytes) (music note sprites)
+  // [$7E]$0AE2 -> $41B0 (0x20 bytes) (bottom of rupee)
+  // [$7E]$0ADA -> $41C0 (0x40 bytes) (bottom of movable block)
+
+  dma7Ebot[0] = bus::read_u16(0x7E0AC2, 0x7E0AC3);
+  dma7Ebot[1] = bus::read_u16(0x7E0AC6, 0x7E0AC7);
+  dma7Ebot[2] = bus::read_u16(0x7E0ACA, 0x7E0ACB);
+  dma7Ebot[3] = bus::read_u16(0x7E0AE2, 0x7E0AE3);
+  dma7Ebot[4] = bus::read_u16(0x7E0ADA, 0x7E0ADB);
+
+  // only if bird is active
+  // [$7E]$0AF8 -> $41E0 (0x40 bytes) (bottom of hammer sprites)
+  dma7Ebot[5] = bus::read_u16(0x7E0AF8, 0x7E0AF9);
+
+  sp00 = bus::read_u8(0x7E0AAC);
+  sp50 = bus::read_u8(0x7E0AAD);
+  sp60 = bus::read_u8(0x7E0AAE);
+  sp61 = bus::read_u8(0x7E0AB1);
+
   // fetch various room indices and flags about where exactly Link currently is:
   auto in_dark_world  = bus::read_u8 (0x7E0FFF);
   auto in_dungeon     = bus::read_u8 (0x7E001B);
@@ -53,8 +116,30 @@ void post_frame() {
   // enable shadow under text for clearer reading:
   ppu::frame.text_shadow = true;
 
+  // module/sub_module:
+  ppu::frame.text(0, 0, fmtHex(module, 2));
+  ppu::frame.text(20, 0, fmtHex(sub_module, 2));
+
   // draw Link's location value in top-left:
-  ppu::frame.text(0, 0, fmtHex(location, 6));
+  ppu::frame.text(40, 0, fmtHex(location, 6));
+
+  for (uint i = 0; i < 3; i++) {
+    ppu::frame.text(i * (4 * 8 + 4), 224 - 24, fmtHex(dma10top[i], 4));
+    ppu::frame.text(i * (4 * 8 + 4), 224 - 32, fmtHex(dma10bot[i], 4));
+
+    ppu::frame.text(i * (4 * 8 + 4), 224 -  8, fmtHex(dma7Etop[i], 4));
+    ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
+  }
+
+  for (uint i = 3; i < 6; i++) {
+    ppu::frame.text(i * (4 * 8 + 4), 224 -  8, fmtHex(dma7Etop[i], 4));
+    ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
+  }
+
+  ppu::frame.text( 0, 224 - 40, fmtHex(sp00, 2));
+  ppu::frame.text(20, 224 - 40, fmtHex(sp50, 2));
+  ppu::frame.text(40, 224 - 40, fmtHex(sp60, 2));
+  ppu::frame.text(60, 224 - 40, fmtHex(sp61, 2));
 
   for (int i = 0; i < 16; i++) {
     // skip dead sprites:
