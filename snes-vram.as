@@ -1,14 +1,11 @@
-SpriteWindow @sprites;
-BGWindow @bg;
-
-class SpriteWindow {
+class SpritesWindow {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
 
   array<uint16> fgtiles(0x2000);
 
-  SpriteWindow() {
+  SpritesWindow() {
     // relative position to bsnes window:
     @window = gui::Window(256*2, 0, true);
     window.title = "Sprite VRAM";
@@ -39,6 +36,17 @@ class SpriteWindow {
     sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette);
   }
 };
+SpritesWindow @sprites;
+
+void fetchPalettes(array<array<uint16>> &palettes) {
+  // copy out all palettes from CGRAM:
+  for (int c = 0; c < 16; c++) {
+    palettes[c] = array<uint16>(16);
+    for (int i = 0; i < 16; i++) {
+      palettes[c][i] = ppu::cgram[(c << 4) + i];
+    }
+  }
+}
 
 class BGWindow {
   private gui::Window @window;
@@ -76,9 +84,10 @@ class BGWindow {
     bg.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, bgtiles, palette);
   }
 };
+BGWindow @bg;
 
 void init() {
-  @sprites = SpriteWindow();
+  @sprites = SpritesWindow();
   //@bg = BGWindow();
 }
 
@@ -98,12 +107,7 @@ void pre_frame() {
   }
 
   // copy out all palettes:
-  for (int c = 0; c < 16; c++) {
-    palette[c] = array<uint16>(16);
-    for (int i = 0; i < 16; i++) {
-      palette[c][i] = ppu::cgram[(c << 4) + i];
-    }
-  }
+  fetchPalettes(palette);
 
   if (sprites != null) {
     sprites.render(palette[8 + pa]);
