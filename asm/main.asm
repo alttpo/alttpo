@@ -307,6 +307,37 @@ nmiPostValidModule:
     // Going further with this idea, perhaps all known customized sprite sets could be
     // included in the ROM and referred to by bank/addr in exchanged packet data.
 
+    // WRAM locations for source addresses of animated sprite tile data:
+    // bank:[addr] where bank is direct and [addr] is indirect
+
+    // $10:[$0ACE] -> $4100 (0x40 bytes) (bottom of head)
+    // $10:[$0AD2] -> $4120 (0x40 bytes) (bottom of body)
+    // $10:[$0AD6] -> $4140 (0x20 bytes) (bottom sweat/arm/hand)
+
+    // $10:[$0ACC] -> $4000 (0x40 bytes) (top of head)
+    // $10:[$0AD0] -> $4020 (0x40 bytes) (top of body)
+    // $10:[$0AD4] -> $4040 (0x20 bytes) (top sweat/arm/hand)
+
+    // bank $7E (WRAM) is used to store decompressed 3bpp->4bpp tile data
+
+    // $7E:[$0AC0] -> $4050 (0x40 bytes) (top of sword slash)
+    // $7E:[$0AC4] -> $4070 (0x40 bytes) (top of shield)
+    // $7E:[$0AC8] -> $4090 (0x40 bytes) (Zz sprites)
+    // $7E:[$0AE0] -> $40B0 (0x20 bytes) (top of rupee)
+    // $7E:[$0AD8] -> $40C0 (0x40 bytes) (top of movable block)
+
+    // only if bird is active
+    // $7E:[$0AF6] -> $40E0 (0x40 bytes) (top of hammer sprites)
+
+    // $7E:[$0AC2] -> $4150 (0x40 bytes) (bottom of sword slash)
+    // $7E:[$0AC6] -> $4170 (0x40 bytes) (bottom of shield)
+    // $7E:[$0ACA] -> $4190 (0x40 bytes) (music note sprites)
+    // $7E:[$0AE2] -> $41B0 (0x20 bytes) (bottom of rupee)
+    // $7E:[$0ADA] -> $41C0 (0x40 bytes) (bottom of movable block)
+
+    // only if bird is active
+    // $7E:[$0AF8] -> $41E0 (0x40 bytes) (bottom of hammer sprites)
+
     rep #$20    // m,a to 16-bit
 
     lda $4350 ; pha // preserve DMA parameters
