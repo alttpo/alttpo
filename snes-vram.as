@@ -6,6 +6,8 @@ class SpriteWindow {
   private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
 
+  array<uint16> fgtiles(0x2000);
+
   SpriteWindow() {
     // relative position to bsnes window:
     @window = gui::Window(256*2, 0, true);
@@ -27,12 +29,23 @@ class SpriteWindow {
   void update() {
     canvas.update();
   }
+
+  void render(const array<uint16> &palette) {
+    // read VRAM:
+    ppu::vram.read_block(0x4000, 0, 0x2000, fgtiles);
+
+    // draw VRAM as 4bpp tiles:
+    sprites.canvas.fill(0x0000);
+    sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette);
+  }
 };
 
 class BGWindow {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
+
+  array<uint16> bgtiles(0x2000);
 
   BGWindow() {
     // relative position to bsnes window:
@@ -55,15 +68,20 @@ class BGWindow {
   void update() {
     canvas.update();
   }
+
+  void render(const array<uint16> &palette) {
+    ppu::vram.read_block(0x2000, 0, 0x2000, bgtiles);
+
+    bg.canvas.fill(0x0000);
+    bg.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, bgtiles, palette);
+  }
 };
 
 void init() {
   @sprites = SpriteWindow();
-  @bg = BGWindow();
+  //@bg = BGWindow();
 }
 
-array<uint16> fgtiles(0x2000);
-array<uint16> bgtiles(0x2000);
 array<array<uint16>> palette(16);
 
 int pa = 0, pasub = 0;
@@ -87,13 +105,13 @@ void pre_frame() {
     }
   }
 
-  sprites.canvas.fill(0x0000);
-  ppu::vram.read_block(0x4000, 0, 0x2000, fgtiles);
-  sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette[8 + pa]);
-  sprites.update();
+  if (sprites != null) {
+    sprites.render(palette[8 + pa]);
+    sprites.update();
+  }
 
-  bg.canvas.fill(0x0000);
-  ppu::vram.read_block(0x2000, 0, 0x2000, bgtiles);
-  bg.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, bgtiles, palette[0 + pa]);
-  bg.update();
+  if (bg != null) {
+    bg.render(palette[0 + pa]);
+    bg.update();
+  }
 }
