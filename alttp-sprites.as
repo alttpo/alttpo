@@ -1,4 +1,45 @@
 // AngelScript for ALTTP to draw white rectangles around in-game sprites
+class SpritesWindow {
+  private gui::Window @window;
+  private gui::VerticalLayout @vl;
+  gui::Canvas @canvas;
+
+  array<uint16> fgtiles(0x2000);
+
+  SpritesWindow() {
+    // relative position to bsnes window:
+    @window = gui::Window(256*2, 0, true);
+    window.title = "Sprite VRAM";
+    window.size = gui::Size(256, 512);
+
+    @vl = gui::VerticalLayout();
+    window.append(vl);
+
+    @canvas = gui::Canvas();
+    canvas.size = gui::Size(128, 256);
+    vl.append(canvas, gui::Size(-1, -1));
+
+    vl.resize();
+    canvas.update();
+    window.visible = true;
+  }
+
+  void update() {
+    canvas.update();
+  }
+
+  void render(const array<uint16> &palette) {
+    // read VRAM:
+    ppu::vram.read_block(0x4000, 0, 0x2000, fgtiles);
+
+    // draw VRAM as 4bpp tiles:
+    sprites.canvas.fill(0x0000);
+    sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 256, fgtiles, palette);
+  }
+};
+SpritesWindow @sprites;
+array<uint16> palette7(16);
+
 uint16   xoffs, yoffs;
 uint16[] sprx(16);
 uint16[] spry(16);
@@ -16,6 +57,7 @@ uint8 sp00, sp50, sp60, sp61;
 void init() {
   // initialize script state here.
   message("hello world!");
+  @sprites = SpritesWindow();
 }
 
 void pre_frame() {
@@ -99,6 +141,14 @@ void pre_frame() {
     sprs[i] = bus::read_u8(0x7E0DD0 + i);
     // sprite kind:
     sprk[i] = bus::read_u8(0x7E0E20 + i);
+  }
+
+  if (sprites != null) {
+    for (int i = 0; i < 16; i++) {
+      palette7[i] = ppu::cgram[(15 << 4) + i];
+    }
+    sprites.render(palette7);
+    sprites.update();
   }
 }
 
