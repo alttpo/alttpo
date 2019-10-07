@@ -309,6 +309,11 @@ nmiPostValidModule:
 
     rep #$20    // m,a to 16-bit
 
+    lda $4350 ; pha // preserve DMA parameters
+    lda $4352 ; pha // preserve DMA parameters
+    lda $4354 ; pha // preserve DMA parameters
+    lda $4356 ; pha // preserve DMA parameters
+
     lda $4360 ; pha // preserve DMA parameters
     lda $4362 ; pha // preserve DMA parameters
     lda $4364 ; pha // preserve DMA parameters
@@ -327,24 +332,30 @@ nmiPostValidModule:
     lda.b   #$80 ; sta $2115    // VRAM address increment mode
     ldy.w #$4DB0 ; sty $2116    // VRAM target address
 
-    ldy.w #$1801 ; sty $4360    // DMA from WRAM to VRAM ($2118)
+    ldy.w #$1801 ; sty $4350    // DMA from WRAM to VRAM ($2118)
+                   sty $4360
                    sty $4370
-    lda.b   #$10 ; sta $4364    // source bank
+    lda.b   #$10 ; sta $4354    // source bank
+                   sta $4364
                    sta $4374
-    ldy.w  $0ACE ; sty $4362    // source address (6)
-    ldy.w  $0AD2 ; sty $4372    // source address (7)
-    ldx.w #$0040 ; stx $4365    // transfer size (6)
-                   stx $4375    // transfer size (7)
+    ldy.w  $0ACE ; sty $4352    // source address (5)
+    ldy.w  $0AD2 ; sty $4362    // source address (6)
+    ldy.w  $0AD6 ; sty $4372    // source address (7)
+    ldx.w #$0040 ; stx $4355    // transfer size (5)
+                   stx $4365    // transfer size (6)
+    ldx.w #$0020 ; stx $4375    // transfer size (7)
 
-    lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
+    lda.b   #$E0 ; sta $420B    // activates DMA transfers on channel 5, 6 and 7
 
     ldy.w #$4CB0 ; sty $2116    // VRAM target address
-    ldy.w  $0ACC ; sty $4362    // source address (6)
-    ldy.w  $0AD0 ; sty $4372    // source address (7)
+    ldy.w  $0ACC ; sty $4352    // source address (5)
+    ldy.w  $0AD0 ; sty $4362    // source address (6)
+    ldy.w  $0AD4 ; sty $4372    // source address (7)
+    ldx.w #$0040 ; stx $4355    // transfer size (5)
                    stx $4365    // transfer size (6)
-                   stx $4375    // transfer size (7)
+    ldx.w #$0020 ; stx $4375    // transfer size (7)
 
-    lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
+    lda.b   #$E0 ; sta $420B    // activates DMA transfers on channel 5, 6 and 7
     }
 
     rep #$20    // m,a to 16-bit
@@ -358,6 +369,11 @@ nmiPostValidModule:
     pla ; sta $4364 // restore DMA parameters
     pla ; sta $4362 // restore DMA parameters
     pla ; sta $4360 // restore DMA parameters
+
+    pla ; sta $4356 // restore DMA parameters
+    pla ; sta $4354 // restore DMA parameters
+    pla ; sta $4352 // restore DMA parameters
+    pla ; sta $4350 // restore DMA parameters
 
 nmiPostHookDone:
     sep #$30
