@@ -52,7 +52,7 @@ uint8 module, sub_module;
 array<uint16> dma10top(3), dma10bot(3);
 array<uint16> dma7Etop(6), dma7Ebot(6);
 
-uint8 sp00, sp50, sp60, sp61;
+uint8 sg0, sg1;
 
 void init() {
   // initialize script state here.
@@ -112,11 +112,6 @@ void pre_frame() {
   // [$7E]$0AF8 -> $41E0 (0x40 bytes) (bottom of hammer sprites)
   dma7Ebot[5] = bus::read_u16(0x7E0AF8, 0x7E0AF9);
 
-  sp00 = bus::read_u8(0x7E0AAC);
-  sp50 = bus::read_u8(0x7E0AAD);
-  sp60 = bus::read_u8(0x7E0AAE);
-  sp61 = bus::read_u8(0x7E0AB1);
-
   // fetch various room indices and flags about where exactly Link currently is:
   auto in_dark_world  = bus::read_u8 (0x7E0FFF);
   auto in_dungeon     = bus::read_u8 (0x7E001B);
@@ -159,9 +154,9 @@ void post_frame() {
   // draw using alpha blending:
   ppu::frame.draw_op = ppu::draw_op::op_alpha;
   // alpha is xx/31:
-  ppu::frame.alpha = 20;
+  ppu::frame.alpha = 29;
   // color is 0x7fff aka white (15-bit RGB)
-  ppu::frame.color = ppu::rgb(31, 31, 31);
+  ppu::frame.color = ppu::rgb(20, 20, 31);
 
   // enable shadow under text for clearer reading:
   ppu::frame.text_shadow = true;
@@ -186,10 +181,8 @@ void post_frame() {
     ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
   }
 
-  ppu::frame.text( 0, 224 - 40, fmtHex(sp00, 2));
-  ppu::frame.text(20, 224 - 40, fmtHex(sp50, 2));
-  ppu::frame.text(40, 224 - 40, fmtHex(sp60, 2));
-  ppu::frame.text(60, 224 - 40, fmtHex(sp61, 2));
+  ppu::frame.text( 0, 224 - 40, fmtHex(sg0, 2));
+  ppu::frame.text(20, 224 - 40, fmtHex(sg1, 2));
 
   for (int i = 0; i < 16; i++) {
     // skip dead sprites:
