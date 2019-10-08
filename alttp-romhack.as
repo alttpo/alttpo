@@ -70,34 +70,22 @@ class Packet {
 
   void readRAM() {
     auto a = addr;
-    location = uint32(bus::read_u16(a + 0, a + 1)) | (uint32(bus::read_u8(a + 2)) << 16);
-    a += 3;
-    x = bus::read_u16(a + 0, a + 1);
-    a += 2;
-    y = bus::read_u16(a + 0, a + 1);
-    a += 2;
-    z = bus::read_u16(a + 0, a + 1);
-    a += 2;
-    xoffs = bus::read_u16(a + 0, a + 1);
-    a += 2;
-    yoffs = bus::read_u16(a + 0, a + 1);
-    a += 2;
+    location = uint32(bus::read_u16(a + 0, a + 1)) | (uint32(bus::read_u8(a + 2)) << 16); a += 3;
+    x = bus::read_u16(a + 0, a + 1); a += 2;
+    y = bus::read_u16(a + 0, a + 1); a += 2;
+    z = bus::read_u16(a + 0, a + 1); a += 2;
+    xoffs = bus::read_u16(a + 0, a + 1); a += 2;
+    yoffs = bus::read_u16(a + 0, a + 1); a += 2;
 
     // number of used slots in oam_table:
-    oam_count = bus::read_u8(a);
-    a++;
+    oam_count = bus::read_u8(a); a++;
     // read oam_table (always 12 OAM sprites):
     for (uint8 i = 0; i < 12; i++) {
-      oam_table[i].b0 = bus::read_u8(a);
-      a++;
-      oam_table[i].b1 = bus::read_u8(a);
-      a++;
-      oam_table[i].b2 = bus::read_u8(a);
-      a++;
-      oam_table[i].b3 = bus::read_u8(a);
-      a++;
-      oam_table[i].b4 = bus::read_u8(a);
-      a++;
+      oam_table[i].b0 = bus::read_u8(a); a++;
+      oam_table[i].b1 = bus::read_u8(a); a++;
+      oam_table[i].b2 = bus::read_u8(a); a++;
+      oam_table[i].b3 = bus::read_u8(a); a++;
+      oam_table[i].b4 = bus::read_u8(a); a++;
     }
 
     // read tiledata:
