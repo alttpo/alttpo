@@ -344,7 +344,7 @@ void post_frame() {
   module     = bus::read_u8(0x7E0010);
   sub_module = bus::read_u8(0x7E0011);
 
-  if (true) {
+  if (true && (module == 0x07 || module == 0x09)) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
     ppu::frame.alpha = 28;
@@ -372,23 +372,24 @@ void post_frame() {
 
     // limited to 12
     auto len = local.oam_count;
+    if (len <= 12) {
+      ppu::frame.text(0, 16, fmtHex(len, 2));
+      for (uint i = 0; i < len; i++) {
+        auto y = 224 - 16 - ((len - i) * 8);
+        //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
+        //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
+        //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
+        //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
+        //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
 
-    ppu::frame.text(0, 16, fmtHex(len, 2));
-    for (uint i = 0; i < len; i++) {
-      auto y = 224 - 16 - ((len - i) * 8);
-      //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
-      //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
-      //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
-      //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
-      //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
-
-      ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
-      ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
-      ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
-      ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
-      ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
-      ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
-      ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
+        ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
+        ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
+        ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
+        ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
+        ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
+        ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
+        ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
+      }
     }
   }
 }
