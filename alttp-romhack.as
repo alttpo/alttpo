@@ -222,10 +222,16 @@ class Packet {
     }
   }
 
-  void serialize(array<uint8> &r) {
-    r.insertLast(uint16(0xFEEF)); // FEEF identifier
-    r.insertLast(uint16(0));      // message version
+  void writeRAM() {
+    // serialize packet into a byte array:
+    array<uint8> r;
+    serialize(r);
 
+    // copy byte array directly into WRAM:
+    bus::write_block_u8(addr, 0, r.length(), r);
+  }
+
+  void serialize(array<uint8> &r) {
     r.insertLast(location);
     r.insertLast(x);
     r.insertLast(y);
@@ -245,18 +251,6 @@ class Packet {
   }
 
   int deserialize(array<uint8> &r, int c) {
-    auto feef = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    if (feef != 0xFEEF) {
-      message("received bad message header!");
-      return c;
-    }
-
-    auto version = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    if (version != 0) {
-      message("received message version higher than expected!");
-      return c;
-    }
-
     location = uint32(r[c++])
                | (uint32(r[c++]) << 8)
                | (uint32(r[c++]) << 16)
@@ -291,7 +285,14 @@ class Packet {
   void sendto(string server, int port) {
     // send updated state for our GameState to remote player:
     array<uint8> msg;
+
+    // message header outside data packet:
+    msg.insertLast(uint16(0xFEEF)); // FEEF identifier
+    msg.insertLast(uint16(0));      // message version
+
+    // write the data packet into the message:
     serialize(msg);
+
     //message("sent " + fmtInt(msg.length()));
     sock.sendto(msg, server, port);
   }
@@ -301,8 +302,27 @@ class Packet {
     int n;
     while ((n = sock.recv(r)) != 0) {
       int c = 0;
+
+      // read message header:
+      auto feef = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      if (feef != 0xFEEF) {
+        message("received bad message header!");
+        continue;
+      }
+
+      auto version = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      if (version != 0) {
+        message("received message version higher than expected!");
+        continue;
+      }
+
+      // deserialize data packet from message:
       c = deserialize(r, c);
     }
+  }
+
+  bool can_see(Packet &other) {
+    return this.location == other.location;
   }
 };
 
@@ -334,6 +354,9 @@ void pre_frame() {
   if (@sock != null) {
     // receive network update from remote player:
     remote.receive();
+
+    // upload remote packet into local WRAM:
+    remote.writeRAM();
 
     // send updated state for our Link to remote player:
     local.sendto(settings.clientIP, 4590);
