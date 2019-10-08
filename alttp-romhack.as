@@ -1,4 +1,95 @@
 // Communicate with ROM hack via memory at $7F7667[0x6719]
+net::UDPSocket@ sock;
+SettingsWindow@ settings;
+
+void init() {
+  @settings = SettingsWindow();
+}
+
+class SettingsWindow {
+  private gui::Window @window;
+  private gui::LineEdit @txtServerIP;
+  private gui::LineEdit @txtClientIP;
+  private gui::Button @ok;
+
+  string clientIP;
+  string serverIP;
+  bool started;
+
+  SettingsWindow() {
+    @window = gui::Window(164, 22, true);
+    window.title = "Connect to IP address";
+    window.size = gui::Size(256, 24*3);
+
+    auto vl = gui::VerticalLayout();
+    {
+      auto @hz = gui::HorizontalLayout();
+      {
+        auto @lbl = gui::Label();
+        lbl.text = "Server IP:";
+        hz.append(lbl, gui::Size(80, 0));
+
+        @txtServerIP = gui::LineEdit();
+        txtServerIP.text = "127.0.0.1";
+        hz.append(txtServerIP, gui::Size(128, 20));
+      }
+      vl.append(hz, gui::Size(0, 0));
+
+      @hz = gui::HorizontalLayout();
+      {
+        auto @lbl = gui::Label();
+        lbl.text = "Client IP:";
+        hz.append(lbl, gui::Size(80, 0));
+
+        @txtClientIP = gui::LineEdit();
+        txtClientIP.text = "127.0.0.2";
+        hz.append(txtClientIP, gui::Size(128, 20));
+      }
+      vl.append(hz, gui::Size(-1, -1));
+
+      @hz = gui::HorizontalLayout();
+      {
+        @ok = gui::Button();
+        ok.text = "Start";
+        @ok.on_activate = @gui::ButtonCallback(this.startClicked);
+        hz.append(ok, gui::Size(-1, -1));
+
+        auto swap = gui::Button();
+        swap.text = "Swap";
+        @swap.on_activate = @gui::ButtonCallback(this.swapClicked);
+        hz.append(swap, gui::Size(-1, -1));
+      }
+      vl.append(hz, gui::Size(-1, -1));
+    }
+    window.append(vl);
+
+    vl.resize();
+    window.visible = true;
+  }
+
+  private void swapClicked(gui::Button @self) {
+    auto tmp = txtServerIP.text;
+    txtServerIP.text = txtClientIP.text;
+    txtClientIP.text = tmp;
+  }
+
+  private void startClicked(gui::Button @self) {
+    message("Start!");
+    clientIP = txtClientIP.text;
+    serverIP = txtServerIP.text;
+    started = true;
+    hide();
+  }
+
+  void show() {
+    window.visible = true;
+  }
+
+  void hide() {
+    window.visible = false;
+  }
+};
+
 class OAMSprite {
   uint8 b0; // xxxxxxxx
   uint8 b1; // yyyyyyyy
@@ -16,12 +107,27 @@ class OAMSprite {
   uint8 hflip{get const { return (b3 >> 6) & 1; }};
   uint8 vflip{get const { return (b3 >> 7) & 1; }};
   uint8 size{get const { return (b4 & 2) >> 1; }};
+
+  void serialize(array<uint8> &r) {
+    r.insertLast(b0);
+    r.insertLast(b1);
+    r.insertLast(b2);
+    r.insertLast(b3);
+    r.insertLast(b4);
+  }
+
+  int deserialize(array<uint8> &r, int c) {
+    b0 = r[c++];
+    b1 = r[c++];
+    b2 = r[c++];
+    b3 = r[c++];
+    b4 = r[c++];
+    return c;
+  }
 };
 
-const uint16 tile_count = 0x40;
-const uint16 tiledata_size = tile_count * 0x10;
-
 class Packet {
+  // WRAM address (including bank) where this packet is read from or written to:
   uint32 addr;
 
   uint32 location;
@@ -115,6 +221,89 @@ class Packet {
       oam_table[i].b4 = bus::read_u8(a); a++;
     }
   }
+
+  void serialize(array<uint8> &r) {
+    r.insertLast(uint16(0xFEEF)); // FEEF identifier
+    r.insertLast(uint16(0));      // message version
+
+    r.insertLast(location);
+    r.insertLast(x);
+    r.insertLast(y);
+    r.insertLast(z);
+    r.insertLast(xoffs);
+    r.insertLast(yoffs);
+    r.insertLast(sword);
+    r.insertLast(shield);
+    r.insertLast(armor);
+    r.insertLast(dma7E_addr);
+    r.insertLast(dma10_addr);
+
+    r.insertLast(oam_count);
+    for (uint i = 0; i < 12; i++) {
+      oam_table[i].serialize(r);
+    }
+  }
+
+  int deserialize(array<uint8> &r, int c) {
+    auto feef = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (feef != 0xFEEF) {
+      message("received bad message header!");
+      return c;
+    }
+
+    auto version = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (version != 0) {
+      message("received message version higher than expected!");
+      return c;
+    }
+
+    location = uint32(r[c++])
+               | (uint32(r[c++]) << 8)
+               | (uint32(r[c++]) << 16)
+               | (uint32(r[c++]) << 24);
+
+    x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    z = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    xoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    yoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    sword  = r[c++];
+    shield = r[c++];
+    armor  = r[c++];
+
+    for (uint i = 0; i < 6; i++) {
+      dma7E_addr[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
+    for (uint i = 0; i < 6; i++) {
+      dma10_addr[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
+
+    oam_count = r[c++];
+    for (uint i = 0; i < 12; i++) {
+      c = oam_table[i].deserialize(r, c);
+    }
+
+    return c;
+  }
+
+  void sendto(string server, int port) {
+    // send updated state for our GameState to remote player:
+    array<uint8> msg;
+    serialize(msg);
+    //message("sent " + fmtInt(msg.length()));
+    sock.sendto(msg, server, port);
+  }
+
+  void receive() {
+    array<uint8> r(9500);
+    int n;
+    while ((n = sock.recv(r)) != 0) {
+      int c = 0;
+      c = deserialize(r, c);
+    }
+  }
 };
 
 Packet  local(0x7F7700);
@@ -123,7 +312,32 @@ Packet remote(0x7F8200);
 uint8 module, sub_module;
 
 void pre_frame() {
+  // Fetch local state from game RAM:
   local.readRAM();
+
+  // Don't do anything until user fills out Settings window inputs:
+  if (!settings.started) return;
+
+  // Attempt to open a server socket:
+  if (@sock == null) {
+    try {
+      // open a UDP socket to receive data from:
+      @sock = net::UDPSocket(settings.serverIP, 4590);
+    } catch {
+      // Probably server IP field is invalid; prompt user again:
+      @sock = null;
+      settings.started = false;
+      settings.show();
+    }
+  }
+
+  if (@sock != null) {
+    // receive network update from remote player:
+    remote.receive();
+
+    // send updated state for our Link to remote player:
+    local.sendto(settings.clientIP, 4590);
+  }
 }
 
 void post_frame() {
