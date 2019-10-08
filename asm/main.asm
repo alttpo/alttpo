@@ -283,13 +283,6 @@ nmiPostHook:
     // $09 is overworld
     cmp #$09
     beq nmiPostValidModule
-    // $0e can be dialogue/monologue or menu
-    cmp #$0e
-    bne nmiPostInvalidModule
-    // check $0e submodule == $02 which is dialogue/monologue
-    lda $11
-    cmp #$02
-    beq nmiPostValidModule
 nmiPostInvalidModule:
     // not a good time to sync state:
     jmp nmiPostHookDone
@@ -322,7 +315,7 @@ nmiPostValidModule:
 
     // $7E:[$0AC0] -> $4050 (0x40 bytes) (top of sword slash)
     // $7E:[$0AC4] -> $4070 (0x40 bytes) (top of shield)
-    // $7E:[$0AC8] -> $4090 (0x40 bytes) (Zz sprites)
+    // $7E:[$0AC8] -> $4090 (0x40 bytes) (Zz sprites or bugnet top)
     // $7E:[$0AE0] -> $40B0 (0x20 bytes) (top of rupee)
     // $7E:[$0AD8] -> $40C0 (0x40 bytes) (top of movable block)
 
@@ -331,7 +324,7 @@ nmiPostValidModule:
 
     // $7E:[$0AC2] -> $4150 (0x40 bytes) (bottom of sword slash)
     // $7E:[$0AC6] -> $4170 (0x40 bytes) (bottom of shield)
-    // $7E:[$0ACA] -> $4190 (0x40 bytes) (music note sprites)
+    // $7E:[$0ACA] -> $4190 (0x40 bytes) (music note sprites or bugnet bottom)
     // $7E:[$0AE2] -> $41B0 (0x20 bytes) (bottom of rupee)
     // $7E:[$0ADA] -> $41C0 (0x40 bytes) (bottom of movable block)
 
