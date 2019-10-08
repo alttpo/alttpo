@@ -50,7 +50,12 @@ constant pkt.y = 5
 constant pkt.z = 7
 constant pkt.xoffs = 9
 constant pkt.yoffs = 11
-constant pkt.oam_count = 13
+constant pkt.sword = 13
+constant pkt.shield = 14
+constant pkt.armor = 15
+constant pkt.dma7E_table = 16   // [12]
+constant pkt.dma10_table = 28   // [12]
+
 // Each OAM sprite is 5 bytes:
 constant oam_entry_size = 5
 // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
@@ -65,15 +70,14 @@ constant oam_entry_size = 5
 // [4]: ------sx
 //   x - 9th bit of X coordinate
 //   s - size toggle bit
-constant pkt.oam_table = 14
-constant pkt.oam_table.0 = 14
-constant pkt.oam_table.1 = 15
-constant pkt.oam_table.2 = 16
-constant pkt.oam_table.3 = 17
-constant pkt.oam_table.4 = 18
-constant pkt.tiledata = pkt.oam_table + (12 * oam_entry_size)
-constant pkt.tiledata_size = (0x40 * 0x20) // 0x800
-constant pkt.total_size = (pkt.tiledata + pkt.tiledata_size)
+constant pkt.oam_count = 40
+constant pkt.oam_table = 41
+constant pkt.oam_table.0 = pkt.oam_table+0
+constant pkt.oam_table.1 = pkt.oam_table+1
+constant pkt.oam_table.2 = pkt.oam_table+2
+constant pkt.oam_table.3 = pkt.oam_table+3
+constant pkt.oam_table.4 = pkt.oam_table+4
+constant pkt.total_size = pkt.oam_table + (12 * oam_entry_size)
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -176,8 +180,26 @@ coords:
     sbc $011C
     sta.l long(local, pkt.yoffs)
 
+    // sword, shield, armor
+    sep #$20    //  8-bit m,a
+    lda $F359
+    sta.l long(local, pkt.sword)
+    lda $F35A
+    sta.l long(local, pkt.shield)
+    lda $F35B
+    sta.l long(local, pkt.armor)
+    rep #$20        // 16-bit m,a
+
+    // DMA source addresses for bank $7E (decompressed sprites in WRAM) and $10 (ROM):
+    phb
+    lda.w #23                           // 24 bytes (12 words) to copy
+    ldx.w #$0AC0                        // from $7E0AC0
+    ldy.w #addr(local, pkt.dma7E_table) // to   $7Fxxxx where xxxx is dma7E_table addr
+    mvn $7F=$7E                         // move bytes from bank $7E to $7F
+    plb
+
 sprites:
-    // in 16-bit accumulator mode
+    // 16-bit m,a,x,y mode
 
     // $0352 = OAM index where Link sprites were written to
     constant link_oam_start = $0352

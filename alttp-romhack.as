@@ -1,35 +1,4 @@
 // Communicate with ROM hack via memory at $7F7667[0x6719]
-
-SpriteWindow @sprites;
-
-class SpriteWindow {
-  private gui::Window @window;
-  private gui::VerticalLayout @vl;
-  gui::Canvas @canvas;
-
-  SpriteWindow() {
-    // relative position to bsnes window:
-    @window = gui::Window(256*2, 0, true);
-    window.title = "Sprite VRAM";
-    window.size = gui::Size(256, 4*8*2);
-
-    @vl = gui::VerticalLayout();
-    window.append(vl);
-
-    @canvas = gui::Canvas();
-    canvas.size = gui::Size(128, 4*8);
-    vl.append(canvas, gui::Size(-1, -1));
-
-    vl.resize();
-    canvas.update();
-    window.visible = true;
-  }
-
-  void update() {
-    canvas.update();
-  }
-};
-
 class OAMSprite {
   uint8 b0; // xxxxxxxx
   uint8 b1; // yyyyyyyy
@@ -151,39 +120,48 @@ class Packet {
 Packet  local(0x7F7700);
 Packet remote(0x7F8200);
 
-array<array<uint16>> palette(16);
+uint8 module, sub_module;
 
 void pre_frame() {
   local.readRAM();
-
-  // copy out all palettes:
-  for (int c = 0; c < 16; c++) {
-    palette[c] = array<uint16>(16);
-    for (int i = 0; i < 16; i++) {
-      palette[c][i] = ppu::cgram[(c << 4) + i];
-    }
-  }
 }
 
 void post_frame() {
-  if (false) {
+  module     = bus::read_u8(0x7E0010);
+  sub_module = bus::read_u8(0x7E0011);
+
+  if (true) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
+    ppu::frame.alpha = 28;
+
+    // module/sub_module:
+    ppu::frame.text(  0, 0, fmtHex(module, 2));
+    ppu::frame.text( 20, 0, fmtHex(sub_module, 2));
 
     // read local packet composed during NMI:
-    ppu::frame.text(0, 0, fmtHex(local.location, 6));
-    ppu::frame.text(52, 0, fmtHex(local.x, 4));
-    ppu::frame.text(88, 0, fmtHex(local.y, 4));
-    ppu::frame.text(124, 0, fmtHex(local.z, 4));
-    ppu::frame.text(160, 0, fmtHex(local.xoffs, 4));
-    ppu::frame.text(196, 0, fmtHex(local.yoffs, 4));
+    ppu::frame.text(  0, 8, fmtHex(local.location, 6));
+    ppu::frame.text( 52, 8, fmtHex(local.x, 4));
+    ppu::frame.text( 88, 8, fmtHex(local.y, 4));
+    ppu::frame.text(124, 8, fmtHex(local.z, 4));
+    ppu::frame.text(160, 8, fmtHex(local.xoffs, 4));
+    ppu::frame.text(196, 8, fmtHex(local.yoffs, 4));
+
+    // draw DMA source addresses:
+    for (uint i = 0; i < 3; i++) {
+      ppu::frame.text((i+3) * (4 * 8 + 4), 224 -  8, fmtHex(local.dma10_addr[i*2+0], 4));
+      ppu::frame.text((i+3) * (4 * 8 + 4), 224 - 16, fmtHex(local.dma10_addr[i*2+1], 4));
+
+      ppu::frame.text((i+0) * (4 * 8 + 4), 224 -  8, fmtHex(local.dma7E_addr[i*2+0], 4));
+      ppu::frame.text((i+0) * (4 * 8 + 4), 224 - 16, fmtHex(local.dma7E_addr[i*2+1], 4));
+    }
 
     // limited to 12
     auto len = local.oam_count;
 
-    ppu::frame.text(0, 8, fmtHex(len, 2));
+    ppu::frame.text(0, 16, fmtHex(len, 2));
     for (uint i = 0; i < len; i++) {
-      auto y = 224 - ((len - i) * 8);
+      auto y = 224 - 16 - ((len - i) * 8);
       //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
       //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
       //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
@@ -199,27 +177,4 @@ void post_frame() {
       ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
     }
   }
-
-  sprites.canvas.fill(0x0000);
-  sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 4*8, local.tiledata, palette[8 + 7]);
-  sprites.update();
-
-  if (false) {
-    auto in_dark_world = bus::read_u8(0x7E0FFF);
-    auto in_dungeon = bus::read_u8(0x7E001B);
-    auto overworld_room = bus::read_u16(0x7E008A, 0x7E008B);
-    auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
-
-    // compute aggregated location for Link into a single 24-bit number:
-    auto location =
-      uint32(in_dark_world & 1) << 17 |
-      uint32(in_dungeon & 1) << 16 |
-      uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
-
-    ppu::frame.text(0, 8, fmtHex(location, 6));
-  }
-}
-
-void init() {
-  @sprites = SpriteWindow();
 }
