@@ -66,7 +66,7 @@ void pre_frame() {
 
   // [$10]$0ACE -> $4100 (0x40 bytes) (bottom of head)
   // [$10]$0AD2 -> $4120 (0x40 bytes) (bottom of body)
-  // [$10]$0AD6 -> $4140 (0x20 bytes) (bottom sweat)
+  // [$10]$0AD6 -> $4140 (0x20 bytes) (bottom sweat/arm/hand)
 
   dma10bot[0] = bus::read_u16(0x7E0ACE, 0x7E0ACF);
   dma10bot[1] = bus::read_u16(0x7E0AD2, 0x7E0AD3);
@@ -74,11 +74,14 @@ void pre_frame() {
 
   // [$10]$0ACC -> $4000 (0x40 bytes) (top of head)
   // [$10]$0AD0 -> $4020 (0x40 bytes) (top of body)
-  // [$10]$0AD4 -> $4040 (0x20 bytes) (top sweat)
+  // [$10]$0AD4 -> $4040 (0x20 bytes) (top sweat/arm/hand)
 
   dma10top[0] = bus::read_u16(0x7E0ACC, 0x7E0ACD);
   dma10top[1] = bus::read_u16(0x7E0AD0, 0x7E0AD1);
   dma10top[2] = bus::read_u16(0x7E0AD4, 0x7E0AD5);
+
+  // bank $7E (WRAM) is used to store decompressed 3bpp->4bpp tile data
+  // need to call Do3To4HighAnimated at $5619-$566D to decomp to $7E9000,X
 
   // [$7E]$0AC0 -> $4050 (0x40 bytes) (top of sword slash)
   // [$7E]$0AC4 -> $4070 (0x40 bytes) (top of shield)
@@ -172,31 +175,34 @@ void post_frame() {
     ppu::frame.text(i * (4 * 8 + 4), 224 - 24, fmtHex(dma10top[i], 4));
     ppu::frame.text(i * (4 * 8 + 4), 224 - 32, fmtHex(dma10bot[i], 4));
 
-    ppu::frame.text(i * (4 * 8 + 4), 224 -  8, fmtHex(dma7Etop[i], 4));
-    ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
+    //ppu::frame.text(i * (4 * 8 + 4), 224 -  8, fmtHex(dma7Etop[i], 4));
+    //ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
   }
 
-  for (uint i = 3; i < 6; i++) {
-    ppu::frame.text(i * (4 * 8 + 4), 224 -  8, fmtHex(dma7Etop[i], 4));
-    ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
-  }
+  //for (uint i = 3; i < 6; i++) {
+  //  ppu::frame.text(i * (4 * 8 + 4), 224 -  8, fmtHex(dma7Etop[i], 4));
+  //  ppu::frame.text(i * (4 * 8 + 4), 224 - 16, fmtHex(dma7Ebot[i], 4));
+  //}
 
-  ppu::frame.text( 0, 224 - 40, fmtHex(sg0, 2));
-  ppu::frame.text(20, 224 - 40, fmtHex(sg1, 2));
+  // not useful
+  //ppu::frame.text( 0, 224 - 40, fmtHex(sg0, 2));
+  //ppu::frame.text(20, 224 - 40, fmtHex(sg1, 2));
 
-  for (int i = 0; i < 16; i++) {
-    // skip dead sprites:
-    if (sprs[i] == 0) continue;
+  if (false) {
+    for (int i = 0; i < 16; i++) {
+      // skip dead sprites:
+      if (sprs[i] == 0) continue;
 
-    // subtract BG2 offset from sprite x,y coords to get local screen coords:
-    int16 rx = int16(sprx[i]) - int16(xoffs);
-    int16 ry = int16(spry[i]) - int16(yoffs);
+      // subtract BG2 offset from sprite x,y coords to get local screen coords:
+      int16 rx = int16(sprx[i]) - int16(xoffs);
+      int16 ry = int16(spry[i]) - int16(yoffs);
 
-    // draw box around the sprite:
-    ppu::frame.rect(rx, ry, 16, 16);
+      // draw box around the sprite:
+      ppu::frame.rect(rx, ry, 16, 16);
 
-    // draw sprite type value above box:
-    ry -= ppu::frame.font_height;
-    ppu::frame.text(rx, ry, fmtHex(sprk[i], 2));
+      // draw sprite type value above box:
+      ry -= ppu::frame.font_height;
+      ppu::frame.text(rx, ry, fmtHex(sprk[i], 2));
+    }
   }
 }
