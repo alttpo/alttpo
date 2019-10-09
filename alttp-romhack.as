@@ -94,6 +94,7 @@ class SettingsWindow {
   }
 };
 
+const int scale = 2;
 class SpritesWindow {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
@@ -105,7 +106,7 @@ class SpritesWindow {
     // relative position to bsnes window:
     @window = gui::Window(0, 256*2, true);
     window.title = "Sprite VRAM";
-    window.size = gui::Size(256, 256);
+    window.size = gui::Size(256*scale, 256*scale);
 
     @vl = gui::VerticalLayout();
     window.append(vl);
@@ -230,8 +231,6 @@ class Packet {
 
   uint8 oam_count;
   array<OAMSprite> oam_table(12);
-
-  array<uint16> tiledata;
 
   Packet(uint32 addr) {
     this.addr = addr;
