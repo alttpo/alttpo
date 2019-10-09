@@ -4,6 +4,7 @@ SettingsWindow@ settings;
 
 void init() {
   @settings = SettingsWindow();
+  @sprites = SpritesWindow();
 }
 
 class SettingsWindow {
@@ -89,6 +90,47 @@ class SettingsWindow {
     window.visible = false;
   }
 };
+
+class SpritesWindow {
+  private gui::Window @window;
+  private gui::VerticalLayout @vl;
+  gui::Canvas @canvas;
+
+  array<uint16> fgtiles(0x1000);
+
+  SpritesWindow() {
+    // relative position to bsnes window:
+    @window = gui::Window(0, 256*2, true);
+    window.title = "Sprite VRAM";
+    window.size = gui::Size(256, 256);
+
+    @vl = gui::VerticalLayout();
+    window.append(vl);
+
+    @canvas = gui::Canvas();
+    canvas.size = gui::Size(128, 128);
+    vl.append(canvas, gui::Size(-1, -1));
+
+    vl.resize();
+    canvas.update();
+    window.visible = true;
+  }
+
+  void update() {
+    canvas.update();
+  }
+
+  void render(const array<uint16> &palette) {
+    // read VRAM:
+    ppu::vram.read_block(0x4000, 0, 0x1000, fgtiles);
+
+    // draw VRAM as 4bpp tiles:
+    sprites.canvas.fill(0x0000);
+    sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 128, fgtiles, palette);
+  }
+};
+SpritesWindow @sprites;
+array<uint16> palette7(16);
 
 const uint packet_total_size = 42 + (12 * 4) + (12 * 1);
 
@@ -316,6 +358,14 @@ Packet remote(0x7F8200);
 uint8 module, sub_module;
 
 void pre_frame() {
+  if (sprites != null) {
+    for (int i = 0; i < 16; i++) {
+      palette7[i] = ppu::cgram[(15 << 4) + i];
+    }
+    sprites.render(palette7);
+    sprites.update();
+  }
+
   // Fetch local state from game RAM:
   local.readRAM();
 
