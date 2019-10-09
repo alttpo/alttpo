@@ -414,6 +414,7 @@ renderRemoteOAM:
             and #$00ff
             clc
             adc long(remote, pkt.xoffs)
+            sec
             sbc long(local, pkt.xoffs)
             // if (A < -32) continue;
             cmp #$ffe0  // -32
@@ -441,6 +442,7 @@ renderRemoteOAM:
             and #$00ff
             clc
             adc long(remote, pkt.yoffs)
+            sec
             sbc long(local, pkt.yoffs)
             // if (A < -32) continue;
             cmp #$ffe0  // -32
@@ -453,19 +455,32 @@ renderRemoteOAM:
 
             // oam[2] is chr, need to remap to new sprite locations:
             lda long(remote, pkt.oam_table.2),x
-            bit #$FC    // $00..$03 -> $CB..$CE
+
+            bit #$EC    // $00..$03,$10..$13 -> $CB..$CE,$DB..$DE
             bne +
             clc
             adc #$CB
-            bra ++
-         +; cmp #$04    // $04 -> $40
+            bra emitChr
+         +; bit #$EB    // $04,$14 -> $40,$50
             bne +
-            lda #$40
+            clc
+            adc #$3C
             bra ++
-         +; cmp #$14    // $14 -> $41
-            bne +
-            lda #$41
-         +; sta $0802,y
+         +; cmp #$20    // if (A >= $20) continue;
+            bcs emitChr
+            // A = A - 5
+            sec
+            sbc #$05
+            // if (A & $EC)
+            bit #$EC    // $05..$08,$15..$18 -> $64..$67,$74..$77
+            bne +       // if A >= $09 skip
+            clc
+            adc #$64
+            bra emitChr
+         +; clc
+            adc #$05
+        emitChr:
+            sta $0802,y
 
             // restore unscaled X
             plx
@@ -545,21 +560,21 @@ nmiPostValidModule:
 
     // bank $7E (WRAM) is used to store decompressed 3bpp->4bpp tile data
 
-    // $7E:[$0AC0] -> $4050 (0x40 bytes) (top of sword slash)
-    // $7E:[$0AC2] -> $4150 (0x40 bytes) (bottom of sword slash)
-    // $7E:[$0AC4] -> $4070 (0x40 bytes) (top of shield)
-    // $7E:[$0AC6] -> $4170 (0x40 bytes) (bottom of shield)
-    // $7E:[$0AC8] -> $4090 (0x40 bytes) (top of bugnet or Zz sprites)
-    // $7E:[$0ACA] -> $4190 (0x40 bytes) (bottom of bugnet or music note sprites)
+    // $7E:[$0AC0] 0 -> $4050 (0x40 bytes) (top of sword slash)
+    // $7E:[$0AC2] 2 -> $4150 (0x40 bytes) (bottom of sword slash)
+    // $7E:[$0AC4] 4 -> $4070 (0x40 bytes) (top of shield)
+    // $7E:[$0AC6] 6 -> $4170 (0x40 bytes) (bottom of shield)
+    // $7E:[$0AC8] 8 -> $4090 (0x40 bytes) (top of bugnet or Zz sprites)
+    // $7E:[$0ACA] A -> $4190 (0x40 bytes) (bottom of bugnet or music note sprites)
 
-    // $10:[$0ACC] -> $4000 (0x40 bytes) (top of head)
-    // $10:[$0ACE] -> $4100 (0x40 bytes) (bottom of head)
-    // $10:[$0AD0] -> $4020 (0x40 bytes) (top of body)
-    // $10:[$0AD2] -> $4120 (0x40 bytes) (bottom of body)
-    // $10:[$0AD4] -> $4040 (0x20 bytes) (top sweat/arm/hand)
-    // $10:[$0AD6] -> $4140 (0x20 bytes) (bottom sweat/arm/hand)
-    // $7E:[$0AD8] -> $40C0 (0x40 bytes) (top of movable block)
-    // $7E:[$0ADA] -> $41C0 (0x40 bytes) (bottom of movable block)
+    // $10:[$0ACC] 0 -> $4000 (0x40 bytes) (top of head)
+    // $10:[$0ACE] 2 -> $4100 (0x40 bytes) (bottom of head)
+    // $10:[$0AD0] 4 -> $4020 (0x40 bytes) (top of body)
+    // $10:[$0AD2] 6 -> $4120 (0x40 bytes) (bottom of body)
+    // $10:[$0AD4] 8 -> $4040 (0x20 bytes) (top sweat/arm/hand)
+    // $10:[$0AD6] A -> $4140 (0x20 bytes) (bottom sweat/arm/hand)
+    // $7E:[$0AD8] C -> $40C0 (0x40 bytes) (top of movable block)
+    // $7E:[$0ADA] E -> $41C0 (0x40 bytes) (bottom of movable block)
 
     // $7E:[$0AE0] -> $40B0 (0x20 bytes) (top of rupee)
     // $7E:[$0AE2] -> $41B0 (0x20 bytes) (bottom of rupee)
@@ -586,31 +601,34 @@ nmiPostValidModule:
     // read first 0x40 sprites from VRAM into WRAM:
     if 1 {
     lda.b   #$80 ; sta $2115    // VRAM address increment mode
-    ldy.w #$4DB0 ; sty $2116    // VRAM target address
 
     ldy.w #$1801 ; sty $4360    // DMA from WRAM to VRAM ($2118)
                    sty $4370
-    lda.b   #$10 ; sta $4364    // source bank
+
+    //////////////////////////////////////////////////
+    lda.b   #$7E ; sta $4364    // source bank
                    sta $4374
+    ldy.w #$4640 ; sty $2116    // VRAM target address of chr $64, blob sprite (top left)
 
     rep #$20
-    lda.l long(remote, pkt.dma10_table + 2)     // $0ACE
+    lda.l long(remote, pkt.dma7E_table + 0)             // top of sword
     sta $4362                   // source address (6)
-    lda.l long(remote, pkt.dma10_table + 6)     // $0AD2
+    lda.l long(remote, pkt.dma7E_table + 4)             // top of shield
     sta $4372                   // source address (7)
     sep #$20
+
     ldx.w #$0040 ; stx $4365    // transfer size (6)
                    stx $4375    // transfer size (7)
 
     lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
 
     //////////////////////////////////////////////////
-    ldy.w #$4CB0 ; sty $2116    // VRAM target address
+    ldy.w #$4740 ; sty $2116    // VRAM target address of chr $74, blob sprite (bottom left)
 
     rep #$20
-    lda.l long(remote, pkt.dma10_table + 0)     // $0ACC
+    lda.l long(remote, pkt.dma7E_table + 2)             // bottom of sword
     sta $4362                   // source address (6)
-    lda.l long(remote, pkt.dma10_table + 4)     // $0AD0
+    lda.l long(remote, pkt.dma7E_table + 6)             // bottom of shield
     sta $4372                   // source address (7)
     sep #$20
 
@@ -620,19 +638,63 @@ nmiPostValidModule:
 
     lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
 
-    ldy.w #$4400 ; sty $2116    // VRAM target address
+    //////////////////////////////////////////////////
+    lda.b   #$10 ; sta $4364    // source bank
+                   sta $4374
+    ldy.w #$4CB0 ; sty $2116    // VRAM target address of chr $CB, bubble sprite (top left)
 
     rep #$20
-    lda.l long(remote, pkt.dma10_table + 8)     // $0AD4
+    lda.l long(remote, pkt.dma10_table + $0)             // top of head
     sta $4362                   // source address (6)
-    lda.l long(remote, pkt.dma10_table + 10)    // $0AD6
+    lda.l long(remote, pkt.dma10_table + $4)             // top of body
     sta $4372                   // source address (7)
     sep #$20
 
-    ldx.w #$0020 ; stx $4365    // transfer size (6)
+    // X = #$0040
+                   stx $4365    // transfer size (6)
                    stx $4375    // transfer size (7)
 
     lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
+
+    //////////////////////////////////////////////////
+    ldy.w #$4DB0 ; sty $2116    // VRAM target address of chr $DB, bubble sprite (bottom left)
+
+    rep #$20
+    lda.l long(remote, pkt.dma10_table + $2)             // bottom of head
+    sta $4362                   // source address (6)
+    lda.l long(remote, pkt.dma10_table + $6)             // bottom of body
+    sta $4372                   // source address (7)
+    sep #$20
+
+    // X = #$0040
+                   stx $4365    // transfer size (6)
+                   stx $4375    // transfer size (7)
+
+    lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
+
+    //////////////////////////////////////////////////
+    ldy.w #$4400 ; sty $2116    // VRAM target address of chr $40, weird unused block next to signpost (top left)
+
+    rep #$20
+    lda.l long(remote, pkt.dma10_table + $8)       // top sweat/arm/hand
+    sta $4362                   // source address (6)
+    sep #$20
+
+    ldx.w #$0020 ; stx $4365    // transfer size (6)
+
+    lda.b   #$40 ; sta $420B    // activates DMA transfers on channel 6
+
+    //////////////////////////////////////////////////
+    ldy.w #$4500 ; sty $2116    // VRAM target address of chr $50, weird unused block next to signpost (bottom left)
+
+    rep #$20
+    lda.l long(remote, pkt.dma10_table + $A)       // bottom sweat/arm/hand
+    sta $4362                   // source address (6)
+    sep #$20
+
+    ldx.w #$0020 ; stx $4365    // transfer size (6)
+
+    lda.b   #$40 ; sta $420B    // activates DMA transfers on channel 6
     }
 
     rep #$20    // m,a to 16-bit
