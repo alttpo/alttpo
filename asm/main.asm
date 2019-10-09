@@ -367,6 +367,8 @@ renderRemote:
 
         foundEmptyOAM:
             // copy over OAM attributes from remote:
+
+            // store unscaled X:
             phx
 
             // x = x << 2
@@ -387,7 +389,23 @@ renderRemote:
             sta $0803,y
             // TODO: extended attrs
 
+            // restore unscaled X
             plx
+
+            // read extended OAM table:
+            phy
+
+            // Y = Y >> 2
+            rep #$20
+            tya
+            lsr #2
+            tay
+            sep #$20
+
+            lda long(remote, pkt.oam_table_ext.0),x
+            sta $0A20,y
+
+            ply
 
             // y += 4
             iny #4
@@ -493,24 +511,42 @@ nmiPostValidModule:
                    sty $4370
     lda.b   #$10 ; sta $4364    // source bank
                    sta $4374
-    ldy.w  $0ACE ; sty $4362    // source address (6)
-    ldy.w  $0AD2 ; sty $4372    // source address (7)
+
+    rep #$20
+    lda.l long(remote, pkt.dma10_table + 0)     // $0ACE
+    sta $4362                   // source address (6)
+    lda.l long(remote, pkt.dma10_table + 2)     // $0AD2
+    sta $4372                   // source address (7)
+    sep #$20
     ldx.w #$0040 ; stx $4365    // transfer size (6)
                    stx $4375    // transfer size (7)
 
     lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
 
     ldy.w #$4CB0 ; sty $2116    // VRAM target address
-    ldy.w  $0ACC ; sty $4362    // source address (6)
-    ldy.w  $0AD0 ; sty $4372    // source address (7)
+
+    rep #$20
+    lda.l long(remote, pkt.dma10_table + 6)     // $0ACC
+    sta $4362                   // source address (6)
+    lda.l long(remote, pkt.dma10_table + 8)     // $0AD0
+    sta $4372                   // source address (7)
+    sep #$20
+
+    // X = #$0040
                    stx $4365    // transfer size (6)
                    stx $4375    // transfer size (7)
 
     lda.b   #$C0 ; sta $420B    // activates DMA transfers on channel 6 and 7
 
     ldy.w #$4400 ; sty $2116    // VRAM target address
-    ldy.w  $0AD4 ; sty $4362    // source address (6)
-    ldy.w  $0AD6 ; sty $4372    // source address (7)
+
+    rep #$20
+    lda.l long(remote, pkt.dma10_table + 10)    // $0AD4
+    sta $4362                   // source address (6)
+    lda.l long(remote, pkt.dma10_table + 4)     // $0AD6
+    sta $4372                   // source address (7)
+    sep #$20
+
     ldx.w #$0020 ; stx $4365    // transfer size (6)
                    stx $4375    // transfer size (7)
 
