@@ -24,12 +24,12 @@ endian lsb
 }
 
 // Main loop hook:
-origin 0x000056
-base   0x008056
+origin 0x00005D
+base   0x00805D
     jml mainLoopHook
 
-origin 0x00005A
-base   0x00805A
+origin 0x000034
+base   0x008034
 mainLoopReturn:;
 
 // Post-NMI hook:
@@ -46,9 +46,9 @@ nmiPostReturn:;
 origin 0x100000
 base   0xA08000
 mainLoopHook:
-    // execute the code we replaced:
-    // 22 B5 80 00     JSL Module_MainRouting
-    jsl $0080B5
+    // our JML hook call replaced this code:
+    //   STZ $12
+    //   BRA .nmi_wait_loop     // aka $008034
 
     phb
     rep #$20
@@ -316,17 +316,53 @@ renderRemote:
     // rep #$20
     lda.l long(remote, pkt.location.lo)
     cmp   long(local, pkt.location.lo)
-    bne earlyOut
+    bne mainLoopHookDone
     sep #$20        //  8-bit m,a
     lda.l long(remote, pkt.location.hi)
     cmp   long(local, pkt.location.hi)
-    bne earlyOut
+    bne mainLoopHookDone
     jmp renderRemoteOAM
 
-earlyOut:
+mainLoopHookDone:
     sep #$30
+
+    ldy.b #$1C
     plb
+
+    // copied from Main_PrepSpritesForNmi
+buildHighOamTable:
+    // Y = 0x1C, X = 0x70
+    tya ; asl #2 ; tax
+
+    // Start at $0A93?
+    lda $0A23,x ; asl #2
+    ora $0A22,x ; asl #2
+    ora $0A21,x ; asl #2
+    ora $0A20,x ; sta $0A00,y
+
+    lda $0A27,x ; asl #2
+    ora $0A26,x ; asl #2
+    ora $0A25,x ; asl #2
+    ora $0A24,x ; sta $0A01,y
+
+    lda $0A2B,x ; asl #2
+    ora $0A2A,x ; asl #2
+    ora $0A29,x ; asl #2
+    ora $0A28,x ; sta $0A02,y
+
+    lda $0A2F,x ; asl #2
+    ora $0A2E,x ; asl #2
+    ora $0A2D,x ; asl #2
+    ora $0A2C,x ; sta $0A03,y
+
+    dey #4 ; bpl buildHighOamTable
+
+    // execute code we replace with JML hook:
+    stz $12
     jml mainLoopReturn
+
+exitLoop:
+    jmp mainLoopHookDone
 
 renderRemoteOAM:
     // clear A
@@ -350,7 +386,7 @@ renderRemoteOAM:
         txa
         sep #$20
         cmp.l long(remote, pkt.oam_count)
-        bcs earlyOut
+        bcs exitLoop
 
         // local and remote player are in same location:
         // check local OAM table for free slots
@@ -363,7 +399,7 @@ renderRemoteOAM:
             clc
             cmp.w #$0200
             sep #$20        //  8-bit m,a
-            bcs earlyOut
+            bcs exitLoop
 
             // Load Y coord from local OAM:
             lda $0801,y
@@ -522,10 +558,7 @@ renderRemoteOAM:
     forEachRemoteOAMDone:
     }
 
-mainLoopHookDone:
-    sep #$30
-    plb
-    jml mainLoopReturn
+    jmp mainLoopHookDone
 
 
 // Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
