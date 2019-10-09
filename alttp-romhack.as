@@ -90,6 +90,8 @@ class SettingsWindow {
   }
 };
 
+const uint packet_total_size = 42 + (12 * 4) + (12 * 1);
+
 class OAMSprite {
   uint8 b0; // xxxxxxxx
   uint8 b1; // yyyyyyyy
@@ -113,6 +115,8 @@ class OAMSprite {
     r.insertLast(b1);
     r.insertLast(b2);
     r.insertLast(b3);
+  }
+  void serialize_ext(array<uint8> &r) {
     r.insertLast(b4);
   }
 
@@ -121,6 +125,9 @@ class OAMSprite {
     b1 = r[c++];
     b2 = r[c++];
     b3 = r[c++];
+    return c;
+  }
+  int deserialize_ext(array<uint8> &r, int c) {
     b4 = r[c++];
     return c;
   }
@@ -130,6 +137,7 @@ class Packet {
   // WRAM address (including bank) where this packet is read from or written to:
   uint32 addr;
 
+  // first bytes of data packet:
   uint32 location;
   uint16 x, y, z;
   uint16 xoffs, yoffs;
@@ -185,41 +193,11 @@ class Packet {
   }
 
   void readRAM() {
-    auto a = addr;
+    // read entire packet from WRAM into script memory:
+    array<uint8> r(packet_total_size);
+    bus::read_block_u8(addr, 0, packet_total_size, r);
 
-    // Read Link location data:
-    location = uint32(bus::read_u16(a + 0, a + 1)) | (uint32(bus::read_u8(a + 2)) << 16); a += 3;
-    x = bus::read_u16(a + 0, a + 1); a += 2;
-    y = bus::read_u16(a + 0, a + 1); a += 2;
-    z = bus::read_u16(a + 0, a + 1); a += 2;
-
-    // Read current screen scroll offset:
-    xoffs = bus::read_u16(a + 0, a + 1); a += 2;
-    yoffs = bus::read_u16(a + 0, a + 1); a += 2;
-
-    // Read visual state:
-    sword  = bus::read_u8(a); a++;
-    shield = bus::read_u8(a); a++;
-    armor  = bus::read_u8(a); a++;
-
-    // read DMA source address for Link sprite tiledata:
-    for (uint i = 0; i < 6; i++) {
-      dma7E_addr[i] = bus::read_u16(a + 0, a + 1); a += 2;
-    }
-    for (uint i = 0; i < 6; i++) {
-      dma10_addr[i] = bus::read_u16(a + 0, a + 1); a += 2;
-    }
-
-    // number of used slots in oam_table:
-    oam_count = bus::read_u8(a); a++;
-    // read oam_table (always 12 OAM sprites):
-    for (uint8 i = 0; i < 12; i++) {
-      oam_table[i].b0 = bus::read_u8(a); a++;
-      oam_table[i].b1 = bus::read_u8(a); a++;
-      oam_table[i].b2 = bus::read_u8(a); a++;
-      oam_table[i].b3 = bus::read_u8(a); a++;
-      oam_table[i].b4 = bus::read_u8(a); a++;
-    }
+    deserialize(r, 0);
   }
 
   void writeRAM() {
@@ -247,6 +225,9 @@ class Packet {
     r.insertLast(oam_count);
     for (uint i = 0; i < 12; i++) {
       oam_table[i].serialize(r);
+    }
+    for (uint i = 0; i < 12; i++) {
+      oam_table[i].serialize_ext(r);
     }
   }
 
@@ -277,6 +258,9 @@ class Packet {
     oam_count = r[c++];
     for (uint i = 0; i < 12; i++) {
       c = oam_table[i].deserialize(r, c);
+    }
+    for (uint i = 0; i < 12; i++) {
+      c = oam_table[i].deserialize_ext(r, c);
     }
 
     return c;
@@ -395,8 +379,8 @@ void post_frame() {
 
     // limited to 12
     auto len = local.oam_count;
+    ppu::frame.text(0, 16, fmtHex(len, 2));
     if (len <= 12) {
-      ppu::frame.text(0, 16, fmtHex(len, 2));
       for (uint i = 0; i < len; i++) {
         auto y = 224 - 16 - ((len - i) * 8);
         //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));

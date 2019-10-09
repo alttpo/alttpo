@@ -43,21 +43,21 @@ nmiPostReturn:;
 
 /////////////////////////////////////////////////////////////////////////////
 
-constant pkt.location.lo = 0
-constant pkt.location.hi = 2
-constant pkt.x = 3
-constant pkt.y = 5
-constant pkt.z = 7
-constant pkt.xoffs = 9
-constant pkt.yoffs = 11
-constant pkt.sword = 13
-constant pkt.shield = 14
-constant pkt.armor = 15
-constant pkt.dma7E_table = 16   // [12]
-constant pkt.dma10_table = 28   // [12]
+constant pkt.location.lo = 0    // [2]
+constant pkt.location.hi = 2    // [2]
+constant pkt.x = 4              // [2]
+constant pkt.y = 6              // [2]
+constant pkt.z = 8              // [2]
+constant pkt.xoffs = 10              // [2]
+constant pkt.yoffs = 12              // [2]
+constant pkt.sword = 14              // [2]
+constant pkt.shield = 15
+constant pkt.armor = 16
+constant pkt.dma7E_table = 17   // [12]
+constant pkt.dma10_table = 29   // [12]
 
-// Each OAM sprite is 5 bytes:
-constant oam_entry_size = 5
+// Each OAM sprite is 4 bytes:
+constant oam_entry_size = 4
 // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
 // [1]: yyyyyyyy Y coordinate on screen in pixels.
 // [2]: cccccccc Character number to use. This is the lower 8 bits. See [3]
@@ -67,17 +67,19 @@ constant oam_entry_size = 5
 //   p - palette (0-7)
 //   o - priority bits (0-3)
 //   c - the 9th (and most significant) bit of the character number for this sprite.
-// [4]: ------sx
+// Extended table:
+// [0]: ------sx
 //   x - 9th bit of X coordinate
 //   s - size toggle bit
-constant pkt.oam_count = 40
-constant pkt.oam_table = 41
+constant pkt.oam_count = 41
+constant pkt.oam_table = 42
 constant pkt.oam_table.0 = pkt.oam_table+0
 constant pkt.oam_table.1 = pkt.oam_table+1
 constant pkt.oam_table.2 = pkt.oam_table+2
 constant pkt.oam_table.3 = pkt.oam_table+3
-constant pkt.oam_table.4 = pkt.oam_table+4
-constant pkt.total_size = pkt.oam_table + (12 * oam_entry_size)
+constant pkt.oam_table_ext = pkt.oam_table + (12 * oam_entry_size)
+constant pkt.oam_table_ext.0 = pkt.oam_table_ext
+constant pkt.total_size = pkt.oam_table_ext + (12 * 1)
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -199,89 +201,196 @@ coords:
     plb
 
 sprites:
-    // 16-bit m,a,x,y mode
+    // rep #$30     // 16-bit m,a,x,y mode
 
     // $0352 = OAM index where Link sprites were written to
     constant link_oam_start = $0352
 
-    // tmp_oam_size = #$0000
     lda.w #$0000
-    sta.l long(scratch, tmp_oam_size)
 
     // local.oam_count = #$00
-    sep #$20        // 8-bit accumulator mode
+    rep #$10        // 16-bit x,y
+    sep #$20        //  8-bit m,a
     sta.l long(local, pkt.oam_count)
 
-    // Y is our index into tmp OAM
-    ldy.w link_oam_start
-sprloop:
-    // read oam.y coord:
+    {
+        // X is our index into local packet OAM table (array index, not byte index):
+        // X = 0
+        ldx.w #$0000
+
+        // Y is our index into tmp OAM (multiple of 4 bytes):
+        // Y = link_oam_start
+        ldy.w link_oam_start
+
+    sprloop:
+        // A = oam[y].b1
+        lda $0801,y
+
+        // if (A == $f0) continue; // sprite is off screen
+        cmp #$f0
+        beq sprcont
+
+        // copy OAM sprite into table:
+        {
+            // store unscaled X
+            phx
+
+            // X = X << 2
+            {
+                pha
+                rep #$20        // 16-bit m,a
+                txa
+                asl #2
+                tax
+                sep #$20        //  8-bit m,a
+                pla
+            }
+
+            // store oam.y into local.oam_table[x].b1:
+            sta.l long(local, pkt.oam_table.1),x
+            // copy oam.b0 into local.oam_table[x].b0:
+            lda $0800,y
+            sta.l long(local, pkt.oam_table.0),x
+            // copy oam.b2 into local.oam_table[x].b2:
+            lda $0802,y
+            sta.l long(local, pkt.oam_table.2),x
+            // copy oam.b3 into local.oam_table[x].b3:
+            lda $0803,y
+            sta.l long(local, pkt.oam_table.3),x
+
+            // restore unscaled X
+            plx
+
+            // load extra bits from extended table:
+            phy
+
+            // Y = Y >> 2
+            {
+                rep #$20        // 16-bit m,a
+                tya
+                lsr
+                lsr
+                tay
+                sep #$20        //  8-bit m,a
+
+                // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
+                lda $0A20,y
+                sta.l long(local, pkt.oam_table_ext.0),x
+            }
+
+            ply
+        }
+
+        // X++
+        inx
+        // if (x >= $C) break;
+        cpx.w #$000C
+        bcs sprloopend
+
+    sprcont:
+        // y += 4
+        iny #4
+
+        rep #$20        // 16-bit m,a
+        // if ((y - link_oam_start) < $0030) goto sprloop;
+        tya
+        clc
+        sbc.w link_oam_start
+        cmp.w #$0030    // number of OAM bytes that are reserved for Link body
+        sep #$20        //  8-bit m,a
+        bcc sprloop
+    sprloopend:
+    }
+
+    // local.oam_count = X
     sep #$20        // 8-bit accumulator mode
-    lda $0801,y
-
-    // if (oam.y == $f0) continue; // sprite is off screen
-    cmp #$f0
-    beq sprcont
-
-    // copy OAM sprite into table:
-    pha
-    rep #$20        // 16-bit accumulator mode
-    lda.l long(scratch, tmp_oam_size)
-    tax
-    sep #$20        // 8-bit accumulator mode
-    pla
-
-    // store oam.y into table:
-    sta.l long(local, pkt.oam_table.1),x
-    // copy oam.b0 into table:
-    lda $0800,y
-    sta.l long(local, pkt.oam_table.0),x
-    // copy oam.b2 into table:
-    lda $0802,y
-    sta.l long(local, pkt.oam_table.2),x
-    // copy oam.b3 into table:
-    lda $0803,y
-    sta.l long(local, pkt.oam_table.3),x
-
-    // load extra bits from extended table:
-    phy
-    rep #$20        // 16-bit accumulator mode
-    // a = y >> 2
-    tya
-    lsr
-    lsr
-    // y = a
-    tay
-    sep #$20        // 8-bit accumulator mode
-    // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
-    lda $0A20,y
-    sta.l long(local, pkt.oam_table.4),x
-    ply
-
-    // local.oam_size += oam_entry_size
-    rep #$20        // 16-bit accumulator mode
-    clc
-    lda.l long(scratch, tmp_oam_size)
-    adc.w #oam_entry_size
-    sta.l long(scratch, tmp_oam_size)
-
-    // local.oam_count++
-    lda.l long(local, pkt.oam_count)
-    inc
+    txa
     sta.l long(local, pkt.oam_count)
-
-sprcont:
-    rep #$20        // 16-bit accumulator mode
-    // y += 4
-    iny #4
-    // if ((y - link_oam_start) < $30) goto sprloop;
-    tya
-    clc
-    sbc.w link_oam_start
-    cmp.w #$0030    // number of OAM slots that are reserved for Link body
-    bcc sprloop
+    rep #$20
 
     // TODO: get sword and sword sparkle tiles too
+
+    // attempt to render remote player into local OAM:
+renderRemote:
+    // if (remote.location != local.location) return;
+    // rep #$20
+    lda.l long(remote, pkt.location.lo)
+    cmp   long(local, pkt.location.lo)
+    bne mainLoopHookDone
+    sep #$20        //  8-bit m,a
+    lda.l long(remote, pkt.location.hi)
+    cmp   long(local, pkt.location.hi)
+    bne mainLoopHookDone
+
+    // loop through each remote OAM item:
+    {
+        // sep #$20
+        ldx #0                  // X is our remote OAM slot pointer
+        ldy.w link_oam_start    // Y is our local OAM slot pointer
+    forEachRemoteOAM:
+        // if (X >= oam_count) break;
+        txa
+        cmp.l long(remote, pkt.oam_count)
+        bcs mainLoopHookDone
+        phx // push X
+
+        // local and remote player are in same location:
+        // check local OAM table for free slots
+        {
+        findEmptyOAM:
+            // advance local OAM pointer:
+            rep #$20        // 16-bit m,a
+            // if ((y - link_oam_start) < $30) break;
+            tya
+            clc
+            cmp.w #$0080
+            sep #$20        //  8-bit m,a
+            bcs forEachRemoteOAMDone
+
+            // Load Y coord from local OAM:
+            lda $0801,y
+
+            // check if sprite slot is free
+            // if (oam.y == $f0) goto foundEmptyOAM;
+            cmp #$f0
+            beq foundEmptyOAM
+
+            // y += 4
+            iny #4
+            // continue;
+            jmp findEmptyOAM
+
+        foundEmptyOAM:
+            // copy over OAM attributes from remote:
+            plx ; phx
+            // x = x << 2
+            txa
+            asl #2
+            tax
+
+            lda long(remote, pkt.oam_table.0),x
+            sta $0800,y
+            lda long(remote, pkt.oam_table.1),x
+            sta $0801,y
+            // TODO: remap chrs:
+            lda long(remote, pkt.oam_table.2),x
+            sta $0802,y
+            lda long(remote, pkt.oam_table.3),x
+            sta $0803,y
+            // TODO: extended attrs
+
+            // y += 4
+            iny #4
+        }
+    forEachRemoteOAMContinue:
+        // pop outer loop index:
+        plx
+        // x++
+        inx
+        jmp forEachRemoteOAM
+    forEachRemoteOAMDone:
+        plx
+    }
 
 mainLoopHookDone:
     sep #$30
