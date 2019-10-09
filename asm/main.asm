@@ -72,6 +72,9 @@ mainLoopHook:
     // $09 is overworld
     cmp #$09
     beq validModule
+    // $0b is overworld special (master sword area)
+    cmp #$0b
+    beq validModule
     // $0e can be dialogue/monologue or menu
     cmp #$0e
     bne invalidModule
@@ -576,6 +579,9 @@ nmiPostHook:
     beq nmiPostValidModule
     // $09 is overworld
     cmp #$09
+    beq nmiPostValidModule
+    // $0b is overworld special (master sword area)
+    cmp #$0b
     beq nmiPostValidModule
 nmiPostInvalidModule:
     // not a good time to sync state:
