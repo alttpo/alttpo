@@ -93,7 +93,7 @@ constant tmp_oam_size = 0
 // local packet addr
 constant local = $7700
 // remote packet addr
-constant remote = $8200 // local + pkt.total_size    // $8198
+constant remote = $8200
 
 expression addr(base, offs) = base + offs
 expression long(base, offs) = (bank << 16) + base + offs
@@ -322,17 +322,22 @@ renderRemote:
     cmp   long(local, pkt.location.hi)
     bne mainLoopHookDone
 
+    // clear A
+    rep #$20
+    lda.w #$0000
+    sep #$20
+
     // loop through each remote OAM item:
     {
-        // sep #$20
-        ldx #0                  // X is our remote OAM slot pointer
-        ldy.w link_oam_start    // Y is our local OAM slot pointer
+        ldx.w #$0000            // X is our remote OAM table index (multiple of 1)
+        ldy.w link_oam_start    // Y is our local OAM slot index (multiple of 4)
     forEachRemoteOAM:
         // if (X >= oam_count) break;
+        rep #$20
         txa
+        sep #$20
         cmp.l long(remote, pkt.oam_count)
         bcs mainLoopHookDone
-        phx // push X
 
         // local and remote player are in same location:
         // check local OAM table for free slots
@@ -343,7 +348,7 @@ renderRemote:
             // if ((y - link_oam_start) < $30) break;
             tya
             clc
-            cmp.w #$0080
+            cmp.w #$0200
             sep #$20        //  8-bit m,a
             bcs forEachRemoteOAMDone
 
@@ -362,11 +367,14 @@ renderRemote:
 
         foundEmptyOAM:
             // copy over OAM attributes from remote:
-            plx ; phx
+            phx
+
             // x = x << 2
+            rep #$20
             txa
             asl #2
             tax
+            sep #$20
 
             lda long(remote, pkt.oam_table.0),x
             sta $0800,y
@@ -379,17 +387,16 @@ renderRemote:
             sta $0803,y
             // TODO: extended attrs
 
+            plx
+
             // y += 4
             iny #4
         }
     forEachRemoteOAMContinue:
-        // pop outer loop index:
-        plx
         // x++
         inx
         jmp forEachRemoteOAM
     forEachRemoteOAMDone:
-        plx
     }
 
 mainLoopHookDone:

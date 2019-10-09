@@ -370,15 +370,15 @@ void post_frame() {
 
     // draw DMA source addresses:
     for (uint i = 0; i < 3; i++) {
-      ppu::frame.text((i+3) * (4 * 8 + 4), 224 -  8, fmtHex(local.dma10_addr[i*2+0], 4));
-      ppu::frame.text((i+3) * (4 * 8 + 4), 224 - 16, fmtHex(local.dma10_addr[i*2+1], 4));
+      ppu::frame.text((i+3) * (4 * 8 + 4), 224 -  8, fmtHex(remote.dma10_addr[i*2+0], 4));
+      ppu::frame.text((i+3) * (4 * 8 + 4), 224 - 16, fmtHex(remote.dma10_addr[i*2+1], 4));
 
-      ppu::frame.text((i+0) * (4 * 8 + 4), 224 -  8, fmtHex(local.dma7E_addr[i*2+0], 4));
-      ppu::frame.text((i+0) * (4 * 8 + 4), 224 - 16, fmtHex(local.dma7E_addr[i*2+1], 4));
+      ppu::frame.text((i+0) * (4 * 8 + 4), 224 -  8, fmtHex(remote.dma7E_addr[i*2+0], 4));
+      ppu::frame.text((i+0) * (4 * 8 + 4), 224 - 16, fmtHex(remote.dma7E_addr[i*2+1], 4));
     }
 
     // limited to 12
-    auto len = local.oam_count;
+    auto len = remote.oam_count;
     ppu::frame.text(0, 16, fmtHex(len, 2));
     if (len <= 12) {
       for (uint i = 0; i < len; i++) {
@@ -389,13 +389,13 @@ void post_frame() {
         //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
         //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
 
-        ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
-        ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
-        ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
-        ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
-        ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
-        ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
-        ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
+        ppu::frame.text(100, y, fmtHex(remote.oam_table[i].x, 3));
+        ppu::frame.text(130, y, fmtHex(remote.oam_table[i].y, 2));
+        ppu::frame.text(150, y, fmtHex(remote.oam_table[i].chr, 3));
+        ppu::frame.text(180, y, fmtHex(remote.oam_table[i].palette, 1));
+        ppu::frame.text(190, y, fmtHex(remote.oam_table[i].priority, 1));
+        ppu::frame.text(200, y, fmtBinary(remote.oam_table[i].hflip, 1));
+        ppu::frame.text(210, y, fmtBinary(remote.oam_table[i].vflip, 1));
       }
     }
   }
