@@ -41,6 +41,48 @@ origin 0x000220
 base   0x008220
 nmiPostReturn:;
 
+
+// our NMI hook:
+origin 0x100000
+base   0xA08000
+mainLoopHook:
+    // execute the code we replaced:
+    // 22 B5 80 00     JSL Module_MainRouting
+    jsl $0080B5
+
+    phb
+    rep #$20
+
+    // Sets DP to $0000
+    //lda.w #$0000 ; tcd
+
+    // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
+    // $7F7667[0x6719] = free RAM!
+
+    sep #$30    // 8-bit accumulator and x,y mode
+
+    // set data bank to $7F
+    //lda.b #$7F; pha ; plb
+
+    // $7E0010 = main module
+    lda $10
+    // $07 is dungeon
+    cmp #$07
+    beq validModule
+    // $09 is overworld
+    cmp #$09
+    beq validModule
+    // $0e can be dialogue/monologue or menu
+    cmp #$0e
+    bne invalidModule
+    // check $0e submodule == $02 which is dialogue/monologue
+    lda $11
+    cmp #$02
+    beq validModule
+invalidModule:
+    // not a good time to sync state:
+    jmp mainLoopHookDone
+
 /////////////////////////////////////////////////////////////////////////////
 
 constant pkt.location.lo = 0    // [2]
@@ -99,48 +141,6 @@ expression addr(base, offs) = base + offs
 expression long(base, offs) = (bank << 16) + base + offs
 
 /////////////////////////////////////////////////////////////////////////////
-
-
-// our NMI hook:
-origin 0x100000
-base   0xA08000
-mainLoopHook:
-    // execute the code we replaced:
-    // 22 B5 80 00     JSL Module_MainRouting
-    jsl $0080B5
-
-    phb
-    rep #$20
-
-    // Sets DP to $0000
-    //lda.w #$0000 ; tcd
-
-    // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
-    // $7F7667[0x6719] = free RAM!
-
-    sep #$30    // 8-bit accumulator and x,y mode
-
-    // set data bank to $7F
-    //lda.b #$7F; pha ; plb
-
-    // $7E0010 = main module
-    lda $10
-    // $07 is dungeon
-    cmp #$07
-    beq validModule
-    // $09 is overworld
-    cmp #$09
-    beq validModule
-    // $0e can be dialogue/monologue or menu
-    cmp #$0e
-    bne invalidModule
-    // check $0e submodule == $02 which is dialogue/monologue
-    lda $11
-    cmp #$02
-    beq validModule
-invalidModule:
-    // not a good time to sync state:
-    jmp mainLoopHookDone
 
 validModule:
     // build local packet to send to remote players:
@@ -337,7 +337,13 @@ renderRemoteOAM:
     // loop through each remote OAM item:
     {
         ldx.w #$0000            // X is our remote OAM table index (multiple of 1)
-        ldy.w link_oam_start    // Y is our  local OAM slot index (multiple of 4)
+        rep #$20
+        lda.w link_oam_start    // Y is our  local OAM slot index (multiple of 4)
+        clc
+        adc #$0C
+        tay
+        sep #$20
+        // TODO: get remote sprite OAM index values and move them into close-enough spots in local OAM table
     forEachRemoteOAM:
         // if (X >= oam_count) break;
         rep #$20
@@ -394,7 +400,7 @@ renderRemoteOAM:
             jmp forEachRemoteOAMContinue
         useSprite:
 
-            // x = x << 2
+            // X = X << 2
             rep #$20
             txa
             asl #2
