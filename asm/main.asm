@@ -442,10 +442,13 @@ renderRemoteOAM:
             clc
             adc long(remote, pkt.yoffs)
             sbc long(local, pkt.yoffs)
+            // if (A < -32) continue;
+            cmp #$ffe0  // -32
+            bcs +
             // if (A >= 0xF0) continue;
             cmp #$00f0
             bcs skipSprite
-            sep #$20
+         +; sep #$20
             sta $0801,y
 
             // oam[2] is chr, need to remap to new sprite locations:
@@ -546,8 +549,8 @@ nmiPostValidModule:
     // $7E:[$0AC2] -> $4150 (0x40 bytes) (bottom of sword slash)
     // $7E:[$0AC4] -> $4070 (0x40 bytes) (top of shield)
     // $7E:[$0AC6] -> $4170 (0x40 bytes) (bottom of shield)
-    // $7E:[$0AC8] -> $4090 (0x40 bytes) (Zz sprites or bugnet top)
-    // $7E:[$0ACA] -> $4190 (0x40 bytes) (music note sprites or bugnet bottom)
+    // $7E:[$0AC8] -> $4090 (0x40 bytes) (top of bugnet or Zz sprites)
+    // $7E:[$0ACA] -> $4190 (0x40 bytes) (bottom of bugnet or music note sprites)
 
     // $10:[$0ACC] -> $4000 (0x40 bytes) (top of head)
     // $10:[$0ACE] -> $4100 (0x40 bytes) (bottom of head)
