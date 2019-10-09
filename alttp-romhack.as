@@ -351,7 +351,7 @@ void post_frame() {
   module     = bus::read_u8(0x7E0010);
   sub_module = bus::read_u8(0x7E0011);
 
-  if (true && (module == 0x07 || module == 0x09)) {
+  if (false && (module == 0x07 || module == 0x09)) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
     ppu::frame.alpha = 28;

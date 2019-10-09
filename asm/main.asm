@@ -337,14 +337,14 @@ renderRemoteOAM:
     // loop through each remote OAM item:
     {
         ldx.w #$0000            // X is our remote OAM table index (multiple of 1)
-        ldy.w link_oam_start    // Y is our local OAM slot index (multiple of 4)
+        ldy.w link_oam_start    // Y is our  local OAM slot index (multiple of 4)
     forEachRemoteOAM:
         // if (X >= oam_count) break;
         rep #$20
         txa
         sep #$20
         cmp.l long(remote, pkt.oam_count)
-        bcs mainLoopHookDone
+        bcs earlyOut
 
         // local and remote player are in same location:
         // check local OAM table for free slots
@@ -357,7 +357,7 @@ renderRemoteOAM:
             clc
             cmp.w #$0200
             sep #$20        //  8-bit m,a
-            bcs forEachRemoteOAMDone
+            bcs earlyOut
 
             // Load Y coord from local OAM:
             lda $0801,y
@@ -375,8 +375,24 @@ renderRemoteOAM:
         foundEmptyOAM:
             // copy over OAM attributes from remote:
 
+            // load extra table bits (------sx):
+            lda.l long(remote, pkt.oam_table_ext.0),x
+            // BA = AB
+            xba // swap lo and hi bytes
+            rep #$20
+            // xbit9 = (BA & 0x0100)
+            and.w #$0100
+            sta.l long(scratch, 0)
+            sep #$20
+
             // store unscaled X:
             phx
+
+            bra useSprite
+        skipSprite:
+            plx
+            jmp forEachRemoteOAMContinue
+        useSprite:
 
             // x = x << 2
             rep #$20
@@ -385,12 +401,52 @@ renderRemoteOAM:
             tax
             sep #$20
 
-            lda long(remote, pkt.oam_table.0),x
-            sta $0800,y
-            lda long(remote, pkt.oam_table.1),x
-            sta $0801,y
+            // attributes:
             lda long(remote, pkt.oam_table.3),x
             sta $0803,y
+
+            // X coord
+            lda long(remote, pkt.oam_table.0),x
+            rep #$20
+            // A = A | xbit9
+            ora.l long(scratch, 0)
+            // A = A + (remote.xoffs - local.xoffs)
+            and #$00ff
+            clc
+            adc long(remote, pkt.xoffs)
+            sbc long(local, pkt.xoffs)
+            // if (A < -32) continue;
+            cmp #$ffe0  // -32
+            bcs +
+            // if (A >= 0xFF) continue;
+            cmp #$00ff
+            bcs skipSprite
+         +; // transfer 9th bit to extra table
+            pha
+            {
+                // isolate 9th bit
+                and #$0100
+                // xbit9 = (A & 0x0100)
+                sta.l long(scratch, 0)
+            }
+            pla
+
+            sep #$20
+            sta $0800,y
+
+            // Y coord
+            lda long(remote, pkt.oam_table.1),x
+            rep #$20
+            // A = A + (remote.yoffs - local.yoffs)
+            and #$00ff
+            clc
+            adc long(remote, pkt.yoffs)
+            sbc long(local, pkt.yoffs)
+            // if (A >= 0xF0) continue;
+            cmp #$00f0
+            bcs skipSprite
+            sep #$20
+            sta $0801,y
 
             // oam[2] is chr, need to remap to new sprite locations:
             lda long(remote, pkt.oam_table.2),x
@@ -421,7 +477,13 @@ renderRemoteOAM:
             tay
             sep #$20
 
-            lda long(remote, pkt.oam_table_ext.0),x
+            lda.l long(remote, pkt.oam_table_ext.0),x
+            rep #$20
+            and #$00ff
+            xba
+            ora.l long(scratch, 0)
+            xba
+            sep #$20
             sta $0A20,y
 
             ply
