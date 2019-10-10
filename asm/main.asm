@@ -247,8 +247,8 @@ sprites:
         cpy.w #($0012 << 2)     // stop at index $12 inclusive
         bcs break
 
-        lda $0801,y             // read Y coordinate
-        cmp #$f0 ; beq continue // skip if $F0
+        lda $0801,y                 // read Y coordinate
+        cmp #$f0 ; beq continue     // skip if $F0
 
         lda $0802,y             // read CHR
 
@@ -261,31 +261,21 @@ sprites:
         cmp #$d6 ; beq sync
         cmp #$93 ; beq sync
         cmp #$d7 ; beq sync
-        cmp #$d7 ; beq sync
 
         // sword clinks on solid tile:
         cmp #$b9 ; beq sync
         cmp #$90 ; beq sync
         //cmp #$92 ; beq sync  // already included above
 
-        // lantern fire:
-        cmp #$e3 ; beq sync
-        cmp #$f3 ; beq sync
-        cmp #$a4 ; beq sync
-        cmp #$a5 ; beq sync
-        cmp #$b2 ; beq sync
-        cmp #$b3 ; beq sync
-        cmp #$9c ; beq sync     // tiny flame dot; reused by ghost in graveyard?
+        // picked up items:
+        cmp #$42 ; beq sync    // sign
+        cmp #$44 ; beq sync    // stone
+        cmp #$46 ; beq sync    // bush
+        cmp #$4A ; beq sync    // big stone
+        cmp #$5e ; beq sync    // fish (left)
+        cmp #$5f ; beq sync    // fish (right)
 
-        // boomerang:
-        cmp #$26 ; beq sync     // boomerang itself
-        //cmp #$80 ; beq sync   // first    tink
-        //cmp #$92 ; beq sync   // second   tink
-        cmp #$81 ; beq sync     // X cross  tink
-        cmp #$82 ; beq sync     // circular thick tink
-        //cmp #$93 ; beq sync   // circular light tink
-
-        bra continue
+        jmp part2
 
     sync:
         jsr copy_oam_sprite
@@ -296,6 +286,51 @@ sprites:
         jmp loop
 
     break:
+        jmp break2
+
+    part2:
+        // rubble:
+        cmp #$48 ; beq sync2
+        cmp #$49 ; beq sync2
+        cmp #$58 ; beq sync2
+        cmp #$59 ; beq sync2
+        cmp #$4e ; beq sync2
+        cmp #$4f ; beq sync2
+
+        // mirror dust:
+        cmp #$4c ; beq sync2
+        cmp #$4d ; beq sync2
+        cmp #$5c ; beq sync2
+        cmp #$5d ; beq sync2
+
+        // boomerang:
+        cmp #$26 ; beq sync2    // boomerang itself
+        //cmp #$80 ; beq sync2  // first    tink
+        //cmp #$92 ; beq sync2  // second   tink
+        cmp #$81 ; beq sync2    // X cross  tink
+        cmp #$82 ; beq sync2    // circular thick tink
+        //cmp #$93 ; beq sync2  // circular light tink
+
+        // lantern fire:
+        cmp #$e3 ; beq sync2
+        cmp #$f3 ; beq sync2
+        cmp #$a4 ; beq sync2
+        cmp #$a5 ; beq sync2
+        cmp #$b2 ; beq sync2
+        cmp #$b3 ; beq sync2
+        cmp #$9c ; beq sync2    // tiny flame dot; reused by ghost in graveyard?
+
+        bra continue2
+
+    sync2:
+        jsr copy_oam_sprite
+        inx
+
+    continue2:
+        iny #4
+        jmp loop
+
+    break2:
     }
 
     function link_body_loop {
