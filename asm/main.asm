@@ -235,43 +235,6 @@ sprites:
     // X = 0
     ldx.w #$0000
 
-    function link_body {
-        // Y is our index into tmp OAM (multiple of 4 bytes):
-        // Y = link_oam_start
-        ldy.w link_oam_start
-
-    sprloop:
-        // A = oam[y].b1
-        lda $0801,y
-
-        // if (A == $f0) continue; // sprite is off screen
-        cmp #$f0
-        beq sprcont
-
-        // copy WRAM OAM entry to local data packet:
-        jsr copy_oam_sprite
-
-        // X++
-        inx
-        // if (X >= oam_max_count) break;
-        cpx.w #oam_max_count
-        bcs sprloopend
-
-    sprcont:
-        // y += 4
-        iny #4
-
-        rep #$20        // 16-bit m,a
-        // if ((y - link_oam_start) < $0030) goto sprloop;
-        tya
-        clc
-        sbc.w link_oam_start
-        cmp.w #$0030    // number of OAM bytes that are reserved for Link body
-        sep #$20        //  8-bit m,a
-        bcc sprloop
-    sprloopend:
-    }
-
     // jump back to $0C OAM index and find sprites to sync:
     function spark_loop {
         sep #$20        //  8-bit m,a
@@ -335,6 +298,43 @@ sprites:
     break:
     }
 
+    function link_body_loop {
+        // Y is our index into tmp OAM (multiple of 4 bytes):
+        // Y = link_oam_start
+        ldy.w link_oam_start
+
+    loop:
+        // A = oam[y].b1
+        lda $0801,y
+
+        // if (A == $f0) continue; // sprite is off screen
+        cmp #$f0
+        beq continue
+
+        // copy WRAM OAM entry to local data packet:
+        jsr copy_oam_sprite
+
+        // X++
+        inx
+        // if (X >= oam_max_count) break;
+        cpx.w #oam_max_count
+        bcs break
+
+    continue:
+        // y += 4
+        iny #4
+
+        rep #$20        // 16-bit m,a
+        // if ((y - link_oam_start) < $0030) goto sprloop;
+        tya
+        clc
+        sbc.w link_oam_start
+        cmp.w #$0030    // number of OAM bytes that are reserved for Link body
+        sep #$20        //  8-bit m,a
+        bcc loop
+    break:
+    }
+
     // local.oam_count = X
     sep #$20        // 8-bit accumulator mode
     txa
@@ -343,12 +343,10 @@ sprites:
     jmp finalize_local_packet
 
 // copy OAM sprite into table:
-copy_oam_sprite:
-// X = unscaled index into local packet OAM table
-// Y =   scaled index into WRAM OAM table
-// A clobbered
-
-{
+function copy_oam_sprite {
+    // X = unscaled index into local packet OAM table
+    // Y =   scaled index into WRAM OAM table
+    // A clobbered
     php
 
     // store unscaled X
