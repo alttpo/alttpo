@@ -5,6 +5,13 @@ SettingsWindow@ settings;
 bool debug = false;
 bool debugOAM = false;
 
+// ROM patch's expected packet size
+uint16 expected_packet_size = 0;
+// ROM patch's supported packet version
+uint16 supported_packet_version = 0;
+
+const uint oam_max_count = 32;
+
 void init() {
   @settings = SettingsWindow();
   @sprites = SpritesWindow();
@@ -136,8 +143,6 @@ class SpritesWindow {
 SpritesWindow @sprites;
 array<uint16> palette7(16);
 
-const uint packet_total_size = 42 + (12 * 4) + (12 * 1);
-
 class OAMSprite {
   uint8 b0; // xxxxxxxx
   uint8 b1; // yyyyyyyy
@@ -181,11 +186,25 @@ class OAMSprite {
 
 class Packet {
   // WRAM address (including bank) where this packet is read from or written to:
-  uint32 addr;
+  private uint32 addr;
 
   // first bytes of data packet:
-  uint32 location;
-  uint16 x, y, z;
+  uint16 feef;    // $FEEF identifier
+  uint16 size;    // size of packet from version field to end
+  uint16 version; // version number of packet format
+
+  // game module and sub-module:
+  uint8  module;
+  uint8  sub_module;
+
+  // positional information:
+  uint8  world;
+  uint16 room;
+  uint16 x;
+  uint16 y;
+  uint16 z;
+
+  // screen scroll offset:
   uint16 xoffs, yoffs;
 
   // visual aspects of player taken from SRAM at $7EFxxx:
@@ -230,31 +249,56 @@ class Packet {
   array<uint16> dma10_addr(6);
 
   uint8 oam_count;
-  array<OAMSprite> oam_table(12);
+  array<OAMSprite> oam_table(oam_max_count);
 
   Packet(uint32 addr) {
     this.addr = addr;
   }
 
-  void readRAM() {
+  void read_wram() {
     // read entire packet from WRAM into script memory:
-    array<uint8> r(packet_total_size);
-    bus::read_block_u8(addr, 0, packet_total_size, r);
+    array<uint8> r(expected_packet_size);
+    bus::read_block_u8(addr, 0, expected_packet_size, r);
 
-    deserialize(r, 0);
+    auto size = deserialize(r, 0);
+    if (size == -1) {
+      message("read_wram(): bad message header!");
+    } else if (size == -2) {
+      message("read_wram(): bad message size!");
+    } else if (size == -3) {
+      message("read_wram(): message version higher than expected!");
+    }
+
+    if (uint16(size) != expected_packet_size) {
+      message("read_wram(): failed to read the expected size of a packet from WRAM!");
+      return;
+    }
   }
 
-  void writeRAM() {
+  void write_wram() {
     // serialize packet into a byte array:
     array<uint8> r;
     serialize(r);
+
+    if (r.length() != expected_packet_size) {
+      message("write_wram(): failed to produce a packet of the expected size!");
+      return;
+    }
 
     // copy byte array directly into WRAM:
     bus::write_block_u8(addr, 0, r.length(), r);
   }
 
   void serialize(array<uint8> &r) {
-    r.insertLast(location);
+    r.insertLast(feef);
+    r.insertLast(size);
+    r.insertLast(version);
+
+    r.insertLast(module);
+    r.insertLast(sub_module);
+
+    r.insertLast(world);
+    r.insertLast(room);
     r.insertLast(x);
     r.insertLast(y);
     r.insertLast(z);
@@ -267,19 +311,29 @@ class Packet {
     r.insertLast(dma10_addr);
 
     r.insertLast(oam_count);
-    for (uint i = 0; i < 12; i++) {
+    for (uint i = 0; i < oam_max_count; i++) {
       oam_table[i].serialize(r);
     }
-    for (uint i = 0; i < 12; i++) {
+    for (uint i = 0; i < oam_max_count; i++) {
       oam_table[i].serialize_ext(r);
     }
   }
 
   int deserialize(array<uint8> &r, int c) {
-    location = uint32(r[c++])
-               | (uint32(r[c++]) << 8)
-               | (uint32(r[c++]) << 16)
-               | (uint32(r[c++]) << 24);
+    feef    = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (feef != 0xFEEF) return -1;
+
+    size    = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (size != expected_packet_size) return -2;
+
+    version = r[c++];
+    if (version != supported_packet_version) return -3;
+
+    module     = r[c++];
+    sub_module = r[c++];
+
+    world = r[c++];
+    room = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -311,15 +365,14 @@ class Packet {
   }
 
   void sendto(string server, int port) {
-    // send updated state for our GameState to remote player:
+    // send updated state to remote player:
     array<uint8> msg;
-
-    // message header outside data packet:
-    msg.insertLast(uint16(0xFEEF)); // FEEF identifier
-    msg.insertLast(uint16(0));      // message version
-
-    // write the data packet into the message:
     serialize(msg);
+
+    if (msg.length() != expected_packet_size) {
+      message("sendto(): failed to produce a packet of the expected size!");
+      return;
+    }
 
     //message("sent " + fmtInt(msg.length()));
     sock.sendto(msg, server, port);
@@ -331,26 +384,20 @@ class Packet {
     while ((n = sock.recv(r)) != 0) {
       int c = 0;
 
-      // read message header:
-      auto feef = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (feef != 0xFEEF) {
-        message("received bad message header!");
-        continue;
-      }
-
-      auto version = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (version != 0) {
-        message("received message version higher than expected!");
-        continue;
-      }
-
       // deserialize data packet from message:
       c = deserialize(r, c);
+      if (c == -1) {
+        message("receive(): bad message header!");
+      } else if (c == -2) {
+        message("receive(): bad message size!");
+      } else if (c == -3) {
+        message("receive(): message version higher than expected!");
+      }
     }
   }
 
   bool can_see(Packet &other) {
-    return this.location == other.location;
+    return this.world == other.world && this.room == other.room;
   }
 };
 
@@ -358,9 +405,11 @@ Packet  local(0x7F7700);
 Packet remote(0x7F8200);
 
 uint8 module, sub_module;
+bool expectations_fetched;
+bool bad_rom;
 
 void pre_frame() {
-  if (sprites != null) {
+  if (@sprites != null) {
     for (int i = 0; i < 16; i++) {
       palette7[i] = ppu::cgram[(15 << 4) + i];
     }
@@ -368,8 +417,30 @@ void pre_frame() {
     sprites.update();
   }
 
+  if (!expectations_fetched) {
+    // ROM patch's expected packet size
+    expected_packet_size = bus::read_u16(0x7F76FE, 0x7F76FF);
+    // ROM patch's supported packet version
+    supported_packet_version = bus::read_u16(0x7F76FC, 0x7F76FD);
+
+    expectations_fetched = true;
+
+    // verify expected_packet_size is not 0:
+    if (expected_packet_size == 0) {
+      if (!bad_rom) {
+        message("expected_packet_size cannot be 0; incompatible ROM detected. disabling multiplayer enhancement.");
+        bad_rom = true;
+      }
+    } else {
+      bad_rom = false;
+    }
+  }
+
+  // incompatible ROM detected:
+  if (bad_rom) return;
+
   // Fetch local state from game RAM:
-  local.readRAM();
+  local.read_wram();
 
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
@@ -392,7 +463,7 @@ void pre_frame() {
     remote.receive();
 
     // upload remote packet into local WRAM:
-    remote.writeRAM();
+    remote.write_wram();
 
     // send updated state for our Link to remote player:
     local.sendto(settings.clientIP, 4590);
@@ -400,56 +471,54 @@ void pre_frame() {
 }
 
 void post_frame() {
-  module     = bus::read_u8(0x7E0010);
-  sub_module = bus::read_u8(0x7E0011);
+  if (!debug) return;
 
-  if (debug) {
-    ppu::frame.text_shadow = true;
-    ppu::frame.color = 0x7fff;
-    ppu::frame.alpha = 28;
+  ppu::frame.text_shadow = true;
+  ppu::frame.color = 0x7fff;
+  ppu::frame.alpha = 28;
 
-    // module/sub_module:
-    ppu::frame.text(  0, 0, fmtHex(module, 2));
-    ppu::frame.text( 20, 0, fmtHex(sub_module, 2));
+  // module/sub_module:
+  ppu::frame.text(  0, 0, fmtHex(local.module, 2));
+  ppu::frame.text( 20, 0, fmtHex(local.sub_module, 2));
 
-    // read local packet composed during NMI:
-    ppu::frame.text(  0, 8, fmtHex(local.location, 6));
-    ppu::frame.text( 52, 8, fmtHex(local.x, 4));
-    ppu::frame.text( 88, 8, fmtHex(local.y, 4));
-    ppu::frame.text(124, 8, fmtHex(local.z, 4));
-    ppu::frame.text(160, 8, fmtHex(local.xoffs, 4));
-    ppu::frame.text(196, 8, fmtHex(local.yoffs, 4));
+  // read local packet composed during NMI:
+  ppu::frame.text(  0, 8, fmtHex(local.world, 1));
+  ppu::frame.text( 10, 8, fmtHex(local.room, 4));
+  ppu::frame.text( 52, 8, fmtHex(local.x, 4));
+  ppu::frame.text( 88, 8, fmtHex(local.y, 4));
+  ppu::frame.text(124, 8, fmtHex(local.z, 4));
+  ppu::frame.text(160, 8, fmtHex(local.xoffs, 4));
+  ppu::frame.text(196, 8, fmtHex(local.yoffs, 4));
 
-    if (debugOAM) {
-      // draw DMA source addresses:
-      for (uint i = 0; i < 3; i++) {
-        ppu::frame.text((i + 3) * (4 * 8 + 4), 224 - 8, fmtHex(remote.dma10_addr[i * 2 + 0], 4));
-        ppu::frame.text((i + 3) * (4 * 8 + 4), 224 - 16, fmtHex(remote.dma10_addr[i * 2 + 1], 4));
+  if (debugOAM) {
+    // draw DMA source addresses:
+    for (uint i = 0; i < 3; i++) {
+      ppu::frame.text((i + 3) * (4 * 8 + 4), 224 -  8, fmtHex(local.dma10_addr[i * 2 + 0], 4));
+      ppu::frame.text((i + 3) * (4 * 8 + 4), 224 - 16, fmtHex(local.dma10_addr[i * 2 + 1], 4));
 
-        ppu::frame.text((i + 0) * (4 * 8 + 4), 224 - 8, fmtHex(remote.dma7E_addr[i * 2 + 0], 4));
-        ppu::frame.text((i + 0) * (4 * 8 + 4), 224 - 16, fmtHex(remote.dma7E_addr[i * 2 + 1], 4));
-      }
+      ppu::frame.text((i + 0) * (4 * 8 + 4), 224 -  8, fmtHex(local.dma7E_addr[i * 2 + 0], 4));
+      ppu::frame.text((i + 0) * (4 * 8 + 4), 224 - 16, fmtHex(local.dma7E_addr[i * 2 + 1], 4));
+    }
 
-      // limited to 12
-      auto len = remote.oam_count;
-      ppu::frame.text(0, 16, fmtHex(len, 2));
-      if (len <= 12) {
-        for (uint i = 0; i < len; i++) {
-          auto y = 224 - 16 - ((len - i) * 8);
-          //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
-          //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
-          //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
-          //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
-          //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
+    // limited to oam_max_count
+    auto len = remote.oam_count;
+    ppu::frame.text(0, 16, fmtHex(len, 2));
+    if (len <= oam_max_count) {
+      for (uint i = 0; i < len; i++) {
+        auto y = 224 - 16 - ((len - i) * 8);
+        //ppu::frame.text( 0, y, fmtHex(local.oam_table[i].b0, 2));
+        //ppu::frame.text(20, y, fmtHex(local.oam_table[i].b1, 2));
+        //ppu::frame.text(40, y, fmtHex(local.oam_table[i].b2, 2));
+        //ppu::frame.text(60, y, fmtHex(local.oam_table[i].b3, 2));
+        //ppu::frame.text(80, y, fmtHex(local.oam_table[i].b4, 1));
 
-          ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
-          ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
-          ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
-          ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
-          ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
-          ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
-          ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
-        }
+        ppu::frame.text(100, y, fmtHex(local.oam_table[i].x, 3));
+        ppu::frame.text(130, y, fmtHex(local.oam_table[i].y, 2));
+        ppu::frame.text(150, y, fmtHex(local.oam_table[i].chr, 3));
+        ppu::frame.text(180, y, fmtHex(local.oam_table[i].palette, 1));
+        ppu::frame.text(190, y, fmtHex(local.oam_table[i].priority, 1));
+        ppu::frame.text(200, y, fmtBinary(local.oam_table[i].hflip, 1));
+        ppu::frame.text(210, y, fmtBinary(local.oam_table[i].vflip, 1));
       }
     }
   }
