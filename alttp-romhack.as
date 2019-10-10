@@ -262,16 +262,13 @@ class Packet {
 
     auto size = deserialize(r, 0);
     if (size == -1) {
-      message("read_wram(): bad message header!");
+      //message("read_wram(): bad message header!");
     } else if (size == -2) {
       message("read_wram(): bad message size!");
     } else if (size == -3) {
       message("read_wram(): message version higher than expected!");
-    }
-
-    if (uint16(size) != expected_packet_size) {
+    } else if (uint16(size) != expected_packet_size) {
       message("read_wram(): read " + fmtInt(size) + " bytes of a packet from WRAM but expected " + fmtInt(expected_packet_size) + "!");
-      return;
     }
   }
 

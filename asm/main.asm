@@ -607,12 +607,33 @@ nmiPostHook:
     beq nmiPostValidModule
 nmiPostInvalidModule:
     // not a good time to sync state:
-    jmp nmiPostHookDone
+nmiPostHookDone2:
+    sep #$30
+
+    // This is the code our hook JML instruction replaced so we must run it here:
+    lda.b $13 ; sta $2100
+
+    // Jump back to the instruction after our JML interception:
+    jml nmiPostReturn
 
 nmiPostValidModule:
-    // TODO: forego DMA read transfer in favor of script reading ROM directly using
-    // bank $10 addresses for Link's sprite captured from $0ACE, $0AD2, $0AD6, etc.
-    // (see bank00.asm: NMI_DoUpdates)
+    rep #$20    // m,a to 16-bit
+
+    // check remote packet signature:
+    lda.l long(remote, pkt.feef)
+    cmp.w #$feef
+    bne nmiPostHookDone2
+
+    lda.l long(remote, pkt.size)
+    cmp.l expected_packet_size
+    bne nmiPostHookDone2
+
+    lda.l long(remote, pkt.version)
+    cmp.l supported_packet_version
+    bne nmiPostHookDone2
+
+    // TODO: consider a time-to-live counter on remote packet to increment in the case
+    // remote updates don't come through.
 
     // We still need DMA to transfer remote player's sprites into VRAM. Remote player's
     // packet could just refer to local player's ROM addresses for sprites. This would
@@ -649,8 +670,6 @@ nmiPostValidModule:
     // only if bird is active
     // $7E:[$0AF6] -> $40E0 (0x40 bytes) (top of hammer sprites)
     // $7E:[$0AF8] -> $41E0 (0x40 bytes) (bottom of hammer sprites)
-
-    rep #$20    // m,a to 16-bit
 
     lda $4360 ; pha // preserve DMA parameters
     lda $4362 ; pha // preserve DMA parameters
