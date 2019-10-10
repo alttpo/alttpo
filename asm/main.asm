@@ -41,90 +41,55 @@ origin 0x000220
 base   0x008220
 nmiPostReturn:;
 
-
 // our NMI hook:
 origin 0x100000
 base   0xA08000
-mainLoopHook:
-    // our JML hook call replaced this code:
-    //   STZ $12
-    //   BRA .nmi_wait_loop     // aka $008034
-
-    phb
-    rep #$20
-
-    // Sets DP to $0000
-    //lda.w #$0000 ; tcd
-
-    // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
-    // $7F7667[0x6719] = free RAM!
-
-    sep #$30    // 8-bit accumulator and x,y mode
-
-    // set data bank to $7F
-    //lda.b #$7F; pha ; plb
-
-    // $7E0010 = main module
-    lda $10
-    // $07 is dungeon
-    cmp #$07
-    beq validModule
-    // $09 is overworld
-    cmp #$09
-    beq validModule
-    // $0b is overworld special (master sword area)
-    cmp #$0b
-    beq validModule
-    // $0e can be dialogue/monologue or menu
-    cmp #$0e
-    bne invalidModule
-    // check $0e submodule == $02 which is dialogue/monologue
-    lda $11
-    cmp #$02
-    beq validModule
-invalidModule:
-    // not a good time to sync state:
-    jmp mainLoopHookDone
 
 /////////////////////////////////////////////////////////////////////////////
 
-constant pkt.location.lo = 0    // [2]
-constant pkt.location.hi = 2    // [2]
-constant pkt.x = 4              // [2]
-constant pkt.y = 6              // [2]
-constant pkt.z = 8              // [2]
-constant pkt.xoffs = 10              // [2]
-constant pkt.yoffs = 12              // [2]
-constant pkt.sword = 14              // [2]
-constant pkt.shield = 15
-constant pkt.armor = 16
-constant pkt.dma7E_table = 17   // [12]
-constant pkt.dma10_table = 29   // [12]
+constant pkt.feef = 0           // [2]
+constant pkt.size = 2           // [2]
+constant pkt.version = 4        // [2]
+constant pkt.module = 6         // [1]
+constant pkt.sub_module = 7     // [1]
+constant pkt.world = 8          // [1]
+constant pkt.room = 9           // [2]
+constant pkt.x = 11             // [2]
+constant pkt.y = 13             // [2]
+constant pkt.z = 15             // [2]
+constant pkt.xoffs = 17         // [2]
+constant pkt.yoffs = 19         // [2]
+constant pkt.sword = 21         // [1]
+constant pkt.shield = 22        // [1]
+constant pkt.armor = 23         // [1]
+constant pkt.dma7E_table = 24   // [12]
+constant pkt.dma10_table = 36   // [12]
 
 // Each OAM sprite is 4 bytes:
-constant oam_entry_size = 4
 // [0]: xxxxxxxx X coordinate on screen in pixels. This is the lower 8 bits.
 // [1]: yyyyyyyy Y coordinate on screen in pixels.
 // [2]: cccccccc Character number to use. This is the lower 8 bits. See [3]
 // [3]: vhoopppc
 //   v - vertical flip
 //   h - horizontal flip
-//   p - palette (0-7)
 //   o - priority bits (0-3)
+//   p - palette (0-7)
 //   c - the 9th (and most significant) bit of the character number for this sprite.
-// Extended table:
-// [0]: ------sx
-//   x - 9th bit of X coordinate
-//   s - size toggle bit
-constant pkt.oam_count = 41
-constant pkt.oam_table = 42
+constant pkt.oam_count = 48
+constant pkt.oam_table = 49
 constant pkt.oam_table.0 = pkt.oam_table+0
 constant pkt.oam_table.1 = pkt.oam_table+1
 constant pkt.oam_table.2 = pkt.oam_table+2
 constant pkt.oam_table.3 = pkt.oam_table+3
-constant pkt.oam_table_ext = pkt.oam_table + (12 * oam_entry_size)
+constant oam_max_count = 32
+constant oam_entry_size = 4
+// Extended table (5th byte of each OAM sprite in separate table):
+// [0]: ------sx
+//   x - 9th bit of X coordinate
+//   s - size toggle bit
+constant pkt.oam_table_ext = pkt.oam_table + (oam_max_count * oam_entry_size)
 constant pkt.oam_table_ext.0 = pkt.oam_table_ext
-constant pkt.total_size = pkt.oam_table_ext + (12 * 1)
+constant pkt.total_size = pkt.oam_table_ext + (oam_max_count * 1)
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -145,25 +110,75 @@ expression long(base, offs) = (bank << 16) + base + offs
 
 /////////////////////////////////////////////////////////////////////////////
 
+expected_packet_size:
+    dw pkt.total_size   // $A08000
+supported_packet_version:
+    dw 0                // $A08002
+
+mainLoopHook:
+    // our JML hook call replaced this code:
+    //   STZ $12
+    //   BRA .nmi_wait_loop     // aka $008034
+
+    phb
+    rep #$20
+
+    // Sets DP to $0000
+    //lda.w #$0000 ; tcd
+
+    // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
+    // $7F7667[0x6719] = free RAM!
+
+    sep #$30    // 8-bit m,a,x,y mode
+
+    // $7E0011 = sub-module
+    lda $11
+    sta.l long(local, pkt.sub_module)
+    // $7E0010 = main module
+    lda $10
+    sta.l long(local, pkt.module)
+
+    // $07 is dungeon
+    cmp #$07
+    beq validModule
+    // $09 is overworld
+    cmp #$09
+    beq validModule
+    // $0b is overworld special (master sword area)
+    cmp #$0b
+    beq validModule
+    // $0e can be dialogue/monologue or menu
+    cmp #$0e
+    bne invalidModule
+    // check $0e submodule == $02 which is dialogue/monologue
+    lda $11
+    cmp #$02
+    beq validModule
+invalidModule:
+    // not a good time to sync state:
+    jmp mainLoopHookDone
+
 validModule:
+    // sep #$30    // 8-bit m,a,x,y mode
+
     // build local packet to send to remote players:
     lda $0FFF   // in dark world = $01, else $00
     asl
     ora $1B   // in dungeon = $01, else $00
-    sta.l long(local, pkt.location.hi)
+    sta.l long(local, pkt.world)
     // if in dungeon, use dungeon room value:
     and #$01
     beq overworld   // if dungeon == 0, load overworld room number:
 
     // load dungeon room number as word:
-    rep #$30        // 16-bit accumulator and x,y mode
+    rep #$30        // 16-bit m,a,x,y mode
     lda $A0
-    sta.l long(local, pkt.location.lo)
+    sta.l long(local, pkt.room)
     bra coords
 overworld: // load overworld room number as word:
     rep #$30        // 16-bit accumulator and x,y mode
     lda $8A
-    sta.l long(local, pkt.location.lo)
+    sta.l long(local, pkt.room)
 
 coords:
     // load X, Y, Z coords:
@@ -286,8 +301,8 @@ sprites:
 
         // X++
         inx
-        // if (x >= $C) break;
-        cpx.w #$000C
+        // if (X >= oam_max_count) break;
+        cpx.w #oam_max_count
         bcs sprloopend
 
     sprcont:
@@ -311,18 +326,25 @@ sprites:
     sta.l long(local, pkt.oam_count)
     rep #$20
 
-    // TODO: get sword and sword sparkle tiles too
+    // finalize local data packet:
+    // rep #$20
+    lda.w #$feef
+    sta.l long(local, pkt.feef)
+    lda.l expected_packet_size
+    sta.l long(local, pkt.size)
+    lda.l supported_packet_version
+    sta.l long(local, pkt.version)
 
     // attempt to render remote player into local OAM:
 renderRemote:
     // if (remote.location != local.location) return;
     // rep #$20
-    lda.l long(remote, pkt.location.lo)
-    cmp   long(local, pkt.location.lo)
+    lda.l long(remote, pkt.room)
+    cmp   long(local, pkt.room)
     bne mainLoopHookDone
     sep #$20        //  8-bit m,a
-    lda.l long(remote, pkt.location.hi)
-    cmp   long(local, pkt.location.hi)
+    lda.l long(remote, pkt.world)
+    cmp   long(local, pkt.world)
     bne mainLoopHookDone
     jmp renderRemoteOAM
 

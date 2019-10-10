@@ -270,7 +270,7 @@ class Packet {
     }
 
     if (uint16(size) != expected_packet_size) {
-      message("read_wram(): failed to read the expected size of a packet from WRAM!");
+      message("read_wram(): read " + fmtInt(size) + " bytes of a packet from WRAM but expected " + fmtInt(expected_packet_size) + "!");
       return;
     }
   }
@@ -326,7 +326,7 @@ class Packet {
     size    = uint16(r[c++]) | (uint16(r[c++]) << 8);
     if (size != expected_packet_size) return -2;
 
-    version = r[c++];
+    version = uint16(r[c++]) | (uint16(r[c++]) << 8);
     if (version != supported_packet_version) return -3;
 
     module     = r[c++];
@@ -354,10 +354,11 @@ class Packet {
     }
 
     oam_count = r[c++];
-    for (uint i = 0; i < 12; i++) {
+    oam_table.resize(oam_max_count);
+    for (uint i = 0; i < oam_max_count; i++) {
       c = oam_table[i].deserialize(r, c);
     }
-    for (uint i = 0; i < 12; i++) {
+    for (uint i = 0; i < oam_max_count; i++) {
       c = oam_table[i].deserialize_ext(r, c);
     }
 
@@ -419,9 +420,9 @@ void pre_frame() {
 
   if (!expectations_fetched) {
     // ROM patch's expected packet size
-    expected_packet_size = bus::read_u16(0x7F76FE, 0x7F76FF);
+    expected_packet_size     = bus::read_u16(0xA08000, 0xA08001);
     // ROM patch's supported packet version
-    supported_packet_version = bus::read_u16(0x7F76FC, 0x7F76FD);
+    supported_packet_version = bus::read_u16(0xA08002, 0xA08003);
 
     expectations_fetched = true;
 
