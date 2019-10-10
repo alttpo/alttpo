@@ -532,7 +532,7 @@ renderRemoteOAM:
             bne +
             clc
             adc #$3C
-            bra ++
+            bra emitChr
          +; cmp #$20    // if (A >= $20) continue;
             bcs emitChr
             // A = A - 5
