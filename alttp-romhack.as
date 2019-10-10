@@ -363,6 +363,11 @@ class Packet {
   }
 
   void sendto(string server, int port) {
+    // verify that the local data packet is built:
+    if (feef != 0xFEEF) return;
+    if (size != expected_packet_size) return;
+    if (version != supported_packet_version) return;
+
     // send updated state to remote player:
     array<uint8> msg;
     serialize(msg);
