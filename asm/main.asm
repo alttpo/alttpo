@@ -743,6 +743,17 @@ nmiPostValidModule:
     cmp.l supported_packet_version
     bne nmiPostHookDone2
 
+    // if (remote.location != local.location) return;
+    // rep #$20
+    lda.l long(remote, pkt.room)
+    cmp.l long(local, pkt.room)
+    bne nmiPostHookDone2
+    sep #$20        //  8-bit m,a
+    lda.l long(remote, pkt.world)
+    cmp.l long(local, pkt.world)
+    rep #$20
+    bne nmiPostHookDone2
+
     // TODO: consider a time-to-live counter on remote packet to increment in the case
     // remote updates don't come through.
 
