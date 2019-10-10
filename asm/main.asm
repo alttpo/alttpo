@@ -248,56 +248,7 @@ sprites:
         cmp #$f0
         beq sprcont
 
-        // copy OAM sprite into table:
-        {
-            // store unscaled X
-            phx
-
-            // X = X << 2
-            {
-                pha
-                rep #$20        // 16-bit m,a
-                txa
-                asl #2
-                tax
-                sep #$20        //  8-bit m,a
-                pla
-            }
-
-            // store oam.y into local.oam_table[x].b1:
-            sta.l long(local, pkt.oam_table.1),x
-            // copy oam.b0 into local.oam_table[x].b0:
-            lda $0800,y
-            sta.l long(local, pkt.oam_table.0),x
-            // copy oam.b2 into local.oam_table[x].b2:
-            lda $0802,y
-            sta.l long(local, pkt.oam_table.2),x
-            // copy oam.b3 into local.oam_table[x].b3:
-            lda $0803,y
-            sta.l long(local, pkt.oam_table.3),x
-
-            // restore unscaled X
-            plx
-
-            // load extra bits from extended table:
-            phy
-
-            // Y = Y >> 2
-            {
-                rep #$20        // 16-bit m,a
-                tya
-                lsr
-                lsr
-                tay
-                sep #$20        //  8-bit m,a
-
-                // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
-                lda $0A20,y
-                sta.l long(local, pkt.oam_table_ext.0),x
-            }
-
-            ply
-        }
+        jsr copy_oam_sprite
 
         // X++
         inx
@@ -326,6 +277,67 @@ sprites:
     sta.l long(local, pkt.oam_count)
     rep #$20
 
+    jmp finalize_local_packet
+
+// copy OAM sprite into table:
+copy_oam_sprite:
+// X = unscaled index into local packet OAM table
+// Y =   scaled index into WRAM OAM table
+// A clobbered
+
+{
+    // store unscaled X
+    phx
+
+    // X = X << 2
+    {
+        pha
+        rep #$20        // 16-bit m,a
+        txa
+        asl #2
+        tax
+        sep #$20        //  8-bit m,a
+        pla
+    }
+
+    // store oam.y into local.oam_table[x].b1:
+    sta.l long(local, pkt.oam_table.1),x
+    // copy oam.b0 into local.oam_table[x].b0:
+    lda $0800,y
+    sta.l long(local, pkt.oam_table.0),x
+    // copy oam.b2 into local.oam_table[x].b2:
+    lda $0802,y
+    sta.l long(local, pkt.oam_table.2),x
+    // copy oam.b3 into local.oam_table[x].b3:
+    lda $0803,y
+    sta.l long(local, pkt.oam_table.3),x
+
+    // restore unscaled X
+    plx
+
+    // load extra bits from extended table:
+    phy
+
+    // Y = Y >> 2
+    {
+        rep #$20        // 16-bit m,a
+        tya
+        lsr
+        lsr
+        tay
+        sep #$20        //  8-bit m,a
+
+        // luckily for us, $0A20 through $0A9F contain each sprite's extra 2-bits at byte boundaries and are not compacted
+        lda $0A20,y
+        sta.l long(local, pkt.oam_table_ext.0),x
+    }
+
+    ply
+
+    rts
+}
+
+finalize_local_packet:
     // finalize local data packet:
     // rep #$20
     lda.w #$feef
