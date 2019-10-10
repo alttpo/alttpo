@@ -27,6 +27,6 @@ void post_frame() {
       ppu::frame.color = ppu::rgb(8, 8, 12);
     }
 
-    ppu::frame.text((i / 28) * (4*8 + 8) + 16, (i % 28) * 8, fmtHex(tile.y, 2));
+    ppu::frame.text((i / 28) * (4*8 + 8) + 16, (i % 28) * 8, fmtHex(tile.character, 2));
   }
 }
