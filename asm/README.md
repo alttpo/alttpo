@@ -39,7 +39,7 @@ rarely-used sprites in this same page of VRAM to use to render the remote player
 You may ask, "where are all the other animation frames used for Link's walking and slashing etc."? The
 answer is that only those 4 16x16 and 2 8x8 blocks are used to render Link but their contents are
 updated when Link's animation frame changes. This graphics update happens every video frame (at 60fps)
-via DMA during the vertical blank period (aka v-blank) because is the one of the few times the PPU
+via DMA during the vertical blank period (aka v-blank) because it is the one of the few times the PPU
 allows VRAM data to be updated.
 
 This DMA updating procedure is only used for Link (and rupee shimmer animations) while all other
@@ -134,23 +134,24 @@ Both data packets share an identical format and there is no need for external pr
 within these packets. The data packet is natively produced by this ROM patch and intended for direct
 consumption by this ROM patch as well.
 
-It is recommended to wrap the data packet with a message envelope when sending on the wire to
-include things like a packet version, an identifying header, and possibly a checksum for error
-detection / correction purposes. This message envelope must be stripped away when copying the
-data into WRAM though since the ROM patch only recognizes the `struct Packet` raw binary layout
-described above. The ROM patch does not need to concern itself with those kinds of details since
-it won't have any means of reporting a data packet error or checksum failure to the end users.
-
-Data packet format is defined by `struct Packet`:
+The data packet format is defined by `struct Packet` with no padding and no alignment; bytes are
+packed and appear in serial order:
 
     struct Packet {
-        // positional information about the player:
+        uint16 feef;        // $FEEF identifier
+        uint16 size;        // size of packet from version field to end
+        uint16 version;     // version number of packet format
 
-        // -------- ------wd rrrrrrrr rrrrrrrr
-        //   w: 0 = light world, 1 = dark world
-        //   d: 0 = overworld, 1 = dungeon
-        //   r: 16-bit area/room number (overworld/dungeon)
-        uint32 location;
+        // game module and sub-module:
+        uint8  module;      // $07 = dungeon, $09 = overworld, etc.
+        uint8  sub_module;  // varies per module, usually $00 for normal gameplay
+
+        // positional information about the player:
+        // ------wd
+        //                  w: 0 = light world, 1 = dark world
+        //                  d: 0 = overworld,   1 = dungeon
+        uint8  world;
+        uint16 room;
         uint16 x;
         uint16 y;
         uint16 z;
@@ -159,9 +160,9 @@ Data packet format is defined by `struct Packet`:
         uint16 yoffs;
 
         // visual aspects of player taken from SRAM at $7EFxxx:
-        uint8  sword;  // $359
-        uint8  shield; // $35A
-        uint8  armor;  // $35B
+        uint8  sword;       // $359
+        uint8  shield;      // $35A
+        uint8  armor;       // $35B
 
         // DMA source address words read from WRAM at $7E0AC0..$7E0ACA which point to bank $7E:
         // These are pointers to 4bpp sprite data for sword, shield, and others. They are in
@@ -171,27 +172,25 @@ Data packet format is defined by `struct Packet`:
         // These are pointers to 4bpp sprite data for Link's body.
         uint16 dma10_addr[6];
 
-        // Number of OAM sprites used to render Link:
+        // Number of OAM sprites used to render Link (max 32):
         uint8        oam_count;
-        // Main OAM table data (fixed array of max 12 OAM sprites):
-        // (found in WRAM at $7E0800)
-        OAMSprite    oam_table[12];
-        // Extended OAM table data (fixed array of max 12 OAM sprites):
-        // (found in WRAM at $7E0A20)
-        OAMSpriteExt oam_table_ext[12];
+        // Main OAM table data (fixed array size) (found in WRAM at $7E0800):
+        OAMSprite    oam_table[32];
+        // Extended OAM table data (fixed array size) (found in WRAM at $7E0A20):
+        OAMSpriteExt oam_table_ext[32];
     }
 
     // 4 byte struct that represents a hardware OAM sprite:
     struct OAMSprite {
-        uint8 b0; // xxxxxxxx | x = X coordinate (lower 8 bits)
-        uint8 b1; // yyyyyyyy | y = Y coordinate
-        uint8 b2; // cccccccc | c = CHR (lower 8-bits)
-        uint8 b3; // vhoopppc | c = CHR 9th bit, p = priority, o = palette, v = vertical flip, h = horiz flip
+        uint8 b0;           // xxxxxxxx | x = X coordinate (lower 8 bits)
+        uint8 b1;           // yyyyyyyy | y = Y coordinate
+        uint8 b2;           // cccccccc | c = CHR (lower 8-bits)
+        uint8 b3;           // vhoopppc | c = CHR 9th bit, p = priority, o = palette, v = vertical flip, h = horiz flip
     }
 
     // 1 byte struct represents the extra 2 bits that couldn't fit in the 4 byte OAM struct:
     struct OAMSpriteExt {
-        uint8 b4; // ------sx | s = size toggle (8x8 vs 16x16), x = X coordinate 9th bit
+        uint8 b4;           // ------sx | s = size toggle (8x8 vs 16x16), x = X coordinate 9th bit
     }
 
 The data packet is laid out optimally considering the limitations of 65816 assembly and the lack of
