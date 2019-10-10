@@ -231,11 +231,11 @@ sprites:
     sep #$20        //  8-bit m,a
     sta.l long(local, pkt.oam_count)
 
-    {
-        // X is our index into local packet OAM table (array index, not byte index):
-        // X = 0
-        ldx.w #$0000
+    // X is our index into local packet OAM table (array index, not byte index):
+    // X = 0
+    ldx.w #$0000
 
+    function link_body {
         // Y is our index into tmp OAM (multiple of 4 bytes):
         // Y = link_oam_start
         ldy.w link_oam_start
@@ -248,6 +248,7 @@ sprites:
         cmp #$f0
         beq sprcont
 
+        // copy WRAM OAM entry to local data packet:
         jsr copy_oam_sprite
 
         // X++
@@ -271,11 +272,48 @@ sprites:
     sprloopend:
     }
 
+    // jump back to $0C OAM index and find sprites to sync:
+    function spark_loop {
+        sep #$20        //  8-bit m,a
+        rep #$10        // 16-bit x,y
+
+        // leave X alone; it is our current local packet OAM write index.
+        ldy.w #($000C << 2)     // start at WRAM OAM index $0C
+
+    loop:
+        cpy.w #($0012 << 2)     // stop at index $12 inclusive
+        bcs break
+
+        lda $0801,y             // read Y coordinate
+        cmp #$f0 ; beq continue // skip if $F0
+
+        lda $0802,y             // read CHR
+        cmp #$80 ; beq sync     // compare against known sword sparkle sprites
+        cmp #$83 ; beq sync
+        cmp #$b7 ; beq sync
+        cmp #$92 ; beq sync
+        cmp #$8c ; beq sync
+        cmp #$d6 ; beq sync
+        cmp #$93 ; beq sync
+        cmp #$d7 ; beq sync
+        cmp #$d7 ; beq sync
+        bra continue
+
+    sync:
+        jsr copy_oam_sprite
+        inx
+
+    continue:
+        iny #4
+        jmp loop
+
+    break:
+    }
+
     // local.oam_count = X
     sep #$20        // 8-bit accumulator mode
     txa
     sta.l long(local, pkt.oam_count)
-    rep #$20
 
     jmp finalize_local_packet
 
@@ -286,25 +324,26 @@ copy_oam_sprite:
 // A clobbered
 
 {
+    php
+
     // store unscaled X
     phx
 
     // X = X << 2
     {
-        pha
         rep #$20        // 16-bit m,a
         txa
         asl #2
         tax
         sep #$20        //  8-bit m,a
-        pla
     }
 
-    // store oam.y into local.oam_table[x].b1:
-    sta.l long(local, pkt.oam_table.1),x
     // copy oam.b0 into local.oam_table[x].b0:
     lda $0800,y
     sta.l long(local, pkt.oam_table.0),x
+    // copy oam.b1 into local.oam_table[x].b1:
+    lda $0801,y
+    sta.l long(local, pkt.oam_table.1),x
     // copy oam.b2 into local.oam_table[x].b2:
     lda $0802,y
     sta.l long(local, pkt.oam_table.2),x
@@ -334,12 +373,14 @@ copy_oam_sprite:
 
     ply
 
+    plp
+
     rts
 }
 
 finalize_local_packet:
     // finalize local data packet:
-    // rep #$20
+    rep #$20
     lda.w #$feef
     sta.l long(local, pkt.feef)
     lda.l expected_packet_size
