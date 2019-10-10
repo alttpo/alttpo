@@ -288,7 +288,9 @@ sprites:
         cmp #$f0 ; beq continue // skip if $F0
 
         lda $0802,y             // read CHR
-        cmp #$80 ; beq sync     // compare against known sword sparkle sprites
+
+        // sword charge and spin attack sparkles:
+        cmp #$80 ; beq sync
         cmp #$83 ; beq sync
         cmp #$b7 ; beq sync
         cmp #$92 ; beq sync
@@ -297,6 +299,29 @@ sprites:
         cmp #$93 ; beq sync
         cmp #$d7 ; beq sync
         cmp #$d7 ; beq sync
+
+        // sword clinks on solid tile:
+        cmp #$b9 ; beq sync
+        cmp #$90 ; beq sync
+        //cmp #$92 ; beq sync  // already included above
+
+        // lantern fire:
+        cmp #$e3 ; beq sync
+        cmp #$f3 ; beq sync
+        cmp #$a4 ; beq sync
+        cmp #$a5 ; beq sync
+        cmp #$b2 ; beq sync
+        cmp #$b3 ; beq sync
+        cmp #$9c ; beq sync     // tiny flame dot; reused by ghost in graveyard?
+
+        // boomerang:
+        cmp #$26 ; beq sync     // boomerang itself
+        //cmp #$80 ; beq sync   // first    tink
+        //cmp #$92 ; beq sync   // second   tink
+        cmp #$81 ; beq sync     // X cross  tink
+        cmp #$82 ; beq sync     // circular thick tink
+        //cmp #$93 ; beq sync   // circular light tink
+
         bra continue
 
     sync:
