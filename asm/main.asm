@@ -129,7 +129,7 @@ mainLoopHook:
     // $7EC84A[0x1FB6] - seemingly free ram (nearly 8K!)
     // $7F7667[0x6719] = free RAM!
 
-    sep #$30    // 8-bit m,a,x,y mode
+    sep #$30                        // 8-bit m,a,x,y
 
     // $7E0011 = sub-module
     lda $11
@@ -138,45 +138,35 @@ mainLoopHook:
     lda $10
     sta.l long(local, pkt.module)
 
-    // $07 is dungeon
-    cmp #$07
-    beq validModule
-    // $09 is overworld
-    cmp #$09
-    beq validModule
-    // $0b is overworld special (master sword area)
-    cmp #$0b
-    beq validModule
-    // $0e can be dialogue/monologue or menu
-    cmp #$0e
-    bne invalidModule
-    // check $0e submodule == $02 which is dialogue/monologue
-    lda $11
-    cmp #$02
-    beq validModule
+    cmp #$07 ; beq validModule      // $07 is dungeon
+    cmp #$09 ; beq validModule      // overworld
+    cmp #$0b ; beq validModule      // overworld special (master sword area)
+    cmp #$0e ; beq validModule      // dialogue/monologue or inventory menu
+    cmp #$0f ; beq validModule      // close spotlight
+    cmp #$10 ; beq validModule      // open spotlight
 invalidModule:
     // not a good time to sync state:
     jmp mainLoopHookDone
 
 validModule:
-    // sep #$30    // 8-bit m,a,x,y mode
+    // sep #$30    //  8-bit m,a,x,y
 
     // build local packet to send to remote players:
-    lda $0FFF   // in dark world = $01, else $00
+    lda $0FFF       // in dark world = $01, else $00
     asl
-    ora $1B   // in dungeon = $01, else $00
+    ora $1B         // in dungeon = $01, else $00
     sta.l long(local, pkt.world)
     // if in dungeon, use dungeon room value:
     and #$01
     beq overworld   // if dungeon == 0, load overworld room number:
 
     // load dungeon room number as word:
-    rep #$30        // 16-bit m,a,x,y mode
+    rep #$30        // 16-bit m,a,x,y
     lda $A0
     sta.l long(local, pkt.room)
     bra coords
 overworld: // load overworld room number as word:
-    rep #$30        // 16-bit accumulator and x,y mode
+    rep #$30        // 16-bit m,a,x,y
     lda $8A
     sta.l long(local, pkt.room)
 
@@ -219,7 +209,7 @@ coords:
     plb
 
 sprites:
-    // rep #$30     // 16-bit m,a,x,y mode
+    // rep #$30     // 16-bit m,a,x,y
 
     // $0352 = OAM index where Link sprites were written to
     constant link_oam_start = $0352
@@ -376,7 +366,7 @@ sprites:
     }
 
     // local.oam_count = X
-    sep #$20        // 8-bit accumulator mode
+    sep #$20            //  8-bit m,a
     txa
     sta.l long(local, pkt.oam_count)
 
@@ -704,30 +694,15 @@ renderRemoteOAM:
 
 // Runs after main NMI routine has completed, i.e. after all DMA writes to VRAM, OAM, and CGRAM.
 nmiPostHook:
-    sep #$30    // 8-bit accumulator and x,y mode
+    sep #$30    // 8-bit m,a,x,y
 
-    // flag used to indicate that special screen updates need to happen.
-    //lda $0710
-    //bne nmiPostHookDone
-
-    // $7E0010 = main module
-    lda $10
-    // $07 is dungeon
-    cmp #$07
-    beq nmiPostValidModule
-    // $09 is overworld
-    cmp #$09
-    beq nmiPostValidModule
-    // $0b is overworld special (master sword area)
-    cmp #$0b
-    beq nmiPostValidModule
-    // $0e can be dialogue/monologue or menu
-    cmp #$0e
-    bne nmiPostInvalidModule
-    // check $0e submodule == $02 which is dialogue/monologue
-    lda $11
-    cmp #$02
-    beq nmiPostValidModule
+    lda $10                             // $7E0010 = main module
+    cmp #$07 ; beq nmiPostValidModule   // dungeon
+    cmp #$09 ; beq nmiPostValidModule   // overworld
+    cmp #$0b ; beq nmiPostValidModule   // overworld special (master sword area)
+    cmp #$0e ; beq nmiPostValidModule   // dialogue/monologue or inventory menu
+    cmp #$0f ; beq nmiPostValidModule   // close spotlight
+    cmp #$10 ; beq nmiPostValidModule   // open spotlight
 nmiPostInvalidModule:
     // not a good time to sync state:
 nmiPostHookDone2:
