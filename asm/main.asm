@@ -273,7 +273,7 @@ sprites:
 
         // picked up items:
         cmp #$42 ; beq sync    // sign
-        cmp #$34 ; beq sync    // room-specific item (mushroom, powder, etc.)
+        cmp #$24 ; beq sync    // room-specific item (mushroom, powder, etc.)
         cmp #$44 ; beq sync    // stone
         cmp #$46 ; beq sync    // bush
         cmp #$4A ; beq sync    // big stone
@@ -720,6 +720,13 @@ nmiPostHook:
     beq nmiPostValidModule
     // $0b is overworld special (master sword area)
     cmp #$0b
+    beq nmiPostValidModule
+    // $0e can be dialogue/monologue or menu
+    cmp #$0e
+    bne nmiPostInvalidModule
+    // check $0e submodule == $02 which is dialogue/monologue
+    lda $11
+    cmp #$02
     beq nmiPostValidModule
 nmiPostInvalidModule:
     // not a good time to sync state:
