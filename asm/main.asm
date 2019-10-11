@@ -250,6 +250,10 @@ sprites:
         lda $0801,y                 // read Y coordinate
         cmp #$f0 ; beq continue     // skip if $F0
 
+        lda $0803,y             // read CHR.9
+        and #$01
+        bne continue            // skip if 9th bit of CHR is high (second page of sprite VRAM)
+
         lda $0802,y             // read CHR
 
         // sword charge and spin attack sparkles:
@@ -269,6 +273,7 @@ sprites:
 
         // picked up items:
         cmp #$42 ; beq sync    // sign
+        cmp #$34 ; beq sync    // room-specific item (mushroom, powder, etc.)
         cmp #$44 ; beq sync    // stone
         cmp #$46 ; beq sync    // bush
         cmp #$4A ; beq sync    // big stone
