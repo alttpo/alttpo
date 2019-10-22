@@ -1,5 +1,5 @@
 // Communicate with ROM hack via memory at $7F7667[0x6719]
-net::UDPSocket@ sock;
+net::WebSocketServer@ wsServer;
 SettingsWindow@ settings;
 
 bool debug = false;
@@ -19,44 +19,33 @@ void init() {
 
 class SettingsWindow {
   private gui::Window @window;
-  private gui::LineEdit @txtServerIP;
-  private gui::LineEdit @txtClientIP;
+  private gui::LineEdit @txtWsUri;
   private gui::Button @ok;
 
-  string clientIP;
-  string serverIP;
+  string wsUri;
   bool started;
 
   SettingsWindow() {
     @window = gui::Window(164, 22, true);
-    window.title = "Connect to IP address";
-    window.size = gui::Size(256, 24*3);
+    window.title = "Network Configuration";
+    window.size = gui::Size(380, 24*3);
 
     auto vl = gui::VerticalLayout();
     {
       auto @hz = gui::HorizontalLayout();
       {
         auto @lbl = gui::Label();
-        lbl.text = "Server IP:";
+        lbl.text = "Listen URI:";
         hz.append(lbl, gui::Size(80, 0));
 
-        @txtServerIP = gui::LineEdit();
-        txtServerIP.text = "127.0.0.1";
-        hz.append(txtServerIP, gui::Size(128, 20));
+        @txtWsUri = gui::LineEdit();
+        txtWsUri.text = "ws://localhost:25887/";
+        hz.append(txtWsUri, gui::Size(300, 22));
       }
       vl.append(hz, gui::Size(0, 0));
 
-      @hz = gui::HorizontalLayout();
-      {
-        auto @lbl = gui::Label();
-        lbl.text = "Client IP:";
-        hz.append(lbl, gui::Size(80, 0));
-
-        @txtClientIP = gui::LineEdit();
-        txtClientIP.text = "127.0.0.2";
-        hz.append(txtClientIP, gui::Size(128, 20));
-      }
-      vl.append(hz, gui::Size(-1, -1));
+      // TODO: add URL to connect to for discovery?
+      // TODO: add player name for discovery?
 
       @hz = gui::HorizontalLayout();
       {
@@ -64,11 +53,6 @@ class SettingsWindow {
         ok.text = "Start";
         @ok.on_activate = @gui::ButtonCallback(this.startClicked);
         hz.append(ok, gui::Size(-1, -1));
-
-        auto swap = gui::Button();
-        swap.text = "Swap";
-        @swap.on_activate = @gui::ButtonCallback(this.swapClicked);
-        hz.append(swap, gui::Size(-1, -1));
       }
       vl.append(hz, gui::Size(-1, -1));
     }
@@ -78,16 +62,9 @@ class SettingsWindow {
     window.visible = true;
   }
 
-  private void swapClicked(gui::Button @self) {
-    auto tmp = txtServerIP.text;
-    txtServerIP.text = txtClientIP.text;
-    txtClientIP.text = tmp;
-  }
-
   private void startClicked(gui::Button @self) {
     message("Start!");
-    clientIP = txtClientIP.text;
-    serverIP = txtServerIP.text;
+    wsUri = txtWsUri.text;
     started = true;
     hide();
   }
@@ -362,41 +339,25 @@ class Packet {
     return c;
   }
 
-  void sendto(string server, int port) {
+  void send(net::WebSocket@ client) {
     // verify that the local data packet is built:
     if (feef != 0xFEEF) return;
     if (size != expected_packet_size) return;
     if (version != supported_packet_version) return;
 
     // send updated state to remote player:
-    array<uint8> msg;
-    serialize(msg);
+    array<uint8> packet;
+    serialize(packet);
 
-    if (msg.length() != expected_packet_size) {
-      message("sendto(): failed to produce a packet of the expected size!");
+    if (packet.length() != expected_packet_size) {
+      message("send(): failed to produce a packet of the expected size!");
       return;
     }
 
-    //message("sent " + fmtInt(msg.length()));
-    sock.sendto(msg, server, port);
-  }
-
-  void receive() {
-    array<uint8> r(9500);
-    int n;
-    while ((n = sock.recv(r)) != 0) {
-      int c = 0;
-
-      // deserialize data packet from message:
-      c = deserialize(r, c);
-      if (c == -1) {
-        message("receive(): bad message header!");
-      } else if (c == -2) {
-        message("receive(): bad message size!");
-      } else if (c == -3) {
-        message("receive(): message version higher than expected!");
-      }
-    }
+    //message("sent " + fmtInt(packet.length()));
+    auto@ msg = net::WebSocketMessage(2);
+    msg.payload_as_array = packet;
+    client.send(msg);
   }
 
   bool can_see(Packet &other) {
@@ -410,6 +371,7 @@ Packet remote(0x7F8200);
 uint8 module, sub_module;
 bool expectations_fetched;
 bool bad_rom;
+int frame_counter = 0;
 
 void pre_frame() {
   if (@sprites != null) {
@@ -448,28 +410,71 @@ void pre_frame() {
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
-  // Attempt to open a server socket:
-  if (@sock == null) {
+  // Attempt to start a server:
+  if (@wsServer == null) {
     try {
-      // open a UDP socket to receive data from:
-      @sock = net::UDPSocket(settings.serverIP, 4590);
+      // Start a WebSocket server:
+      @wsServer = net::WebSocketServer(settings.wsUri);
     } catch {
-      // Probably server IP field is invalid; prompt user again:
-      @sock = null;
+      // Probably failed to bind:
+      @wsServer = null;
       settings.started = false;
       settings.show();
     }
   }
 
-  if (@sock != null) {
+  if (@wsServer != null) {
+    ++frame_counter;
+
+    // accept new incoming connections and process HTTP/1.1 upgrades to WebSockets:
+    wsServer.process();
+
     // receive network update from remote player:
-    remote.receive();
+    auto clients = wsServer.clients;
+    int len = clients.length();
+    for (int i = 0; i < len; i++) {
+      // ping each client every 15 seconds:
+      if (frame_counter == 60 * 15) {
+        frame_counter = 0;
+        auto@ ping = net::WebSocketMessage(9);
+        clients[i].send(ping);
+      }
 
-    // upload remote packet into local WRAM:
-    remote.write_wram();
+      // send updated state for our Link to remote player:
+      local.send(clients[i]);
 
-    // send updated state for our Link to remote player:
-    local.sendto(settings.clientIP, 4590);
+      // attempt to receive a message from this client:
+      auto@ msg = wsServer.clients[i].process();
+      if (!clients[i].is_valid) {
+        // socket closed:
+        message("socket closed by remote peer");
+        clients.removeAt(i);
+        continue;
+      }
+      if (@msg == null) {
+        continue;
+      }
+
+      if (msg.opcode != 2) {
+        message("remote: " + msg.as_string());
+        continue;
+      }
+
+      auto r = msg.as_array();
+      // deserialize data packet from message:
+      int c = 0;
+      c = remote.deserialize(r, c);
+      if (c == -1) {
+        message("receive(): bad message header!");
+      } else if (c == -2) {
+        message("receive(): bad message size!");
+      } else if (c == -3) {
+        message("receive(): message version higher than expected!");
+      }
+
+      // upload remote packet into local game's WRAM:
+      remote.write_wram();
+    }
   }
 }
 

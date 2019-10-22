@@ -1,14 +1,16 @@
-let ws = new WebSocket("ws://localhost:4590/alttp");
-ws.onerror = (ev) => {
+let wsLocal = new WebSocket("ws://localhost:25887/");
+
+wsLocal.onerror = (ev) => {
   console.log(ev);
 };
-ws.onclose = (ev) => {
+wsLocal.onclose = (ev) => {
   console.log(ev);
 };
-ws.onopen = (ev) => {
+wsLocal.onopen = (ev) => {
   console.log(ev);
 };
-ws.onmessage = (ev) => {
-  // echo back message:
-  ws.send(ev.data);
+wsLocal.onmessage = (ev) => {
+  //console.log(ev);
+  // echo back:
+  wsLocal.send(ev.data);
 };
