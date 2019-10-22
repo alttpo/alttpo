@@ -444,36 +444,48 @@ void pre_frame() {
       local.send(clients[i]);
 
       // attempt to receive a message from this client:
-      auto@ msg = wsServer.clients[i].process();
-      if (!clients[i].is_valid) {
-        // socket closed:
-        message("socket closed by remote peer");
-        clients.removeAt(i);
-        continue;
-      }
-      if (@msg == null) {
-        continue;
+      array<uint8>@ packet;
+      net::WebSocketMessage@ msg;
+      while ((@msg = wsServer.clients[i].process()) != null) {
+        if (!clients[i].is_valid) {
+          // socket closed:
+          message("socket closed by remote peer");
+          clients.removeAt(i);
+          continue;
+        }
+        if (@msg == null) {
+          continue;
+        }
+
+        if (msg.opcode == 1) {
+          message("remote: " + msg.as_string());
+          continue;
+        }
+        if (msg.opcode != 2) {
+          continue;
+        }
+
+        @packet = msg.as_array();
       }
 
-      if (msg.opcode != 2) {
-        message("remote: " + msg.as_string());
-        continue;
-      }
-
-      auto r = msg.as_array();
       // deserialize data packet from message:
-      int c = 0;
-      c = remote.deserialize(r, c);
-      if (c == -1) {
-        message("receive(): bad message header!");
-      } else if (c == -2) {
-        message("receive(): bad message size!");
-      } else if (c == -3) {
-        message("receive(): message version higher than expected!");
-      }
+      if (@packet != null) {
+        int c = 0;
+        c = remote.deserialize(packet, c);
+        if (c == -1) {
+          message("receive(): bad message header!");
+          continue;
+        } else if (c == -2) {
+          message("receive(): bad message size!");
+          continue;
+        } else if (c == -3) {
+          message("receive(): message version higher than expected!");
+          continue;
+        }
 
-      // upload remote packet into local game's WRAM:
-      remote.write_wram();
+        // upload latest remote packet into local game's WRAM:
+        remote.write_wram();
+      }
     }
   }
 }
