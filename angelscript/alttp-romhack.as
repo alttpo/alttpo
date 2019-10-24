@@ -432,7 +432,7 @@ void pre_frame() {
     // receive network update from remote player:
     auto clients = wsServer.clients;
     int len = clients.length();
-    for (int i = 0; i < len; i++) {
+    for (int i = len-1; i >= 0; i--) {
       // ping each client every 15 seconds:
       if (frame_counter == 60 * 15) {
         frame_counter = 0;
