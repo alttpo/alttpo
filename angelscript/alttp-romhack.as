@@ -424,6 +424,8 @@ void pre_frame() {
   }
 
   if (@wsServer != null) {
+    message("pre_frame() start");
+
     ++frame_counter;
 
     // accept new incoming connections and process HTTP/1.1 upgrades to WebSockets:
@@ -434,11 +436,11 @@ void pre_frame() {
     int len = clients.length();
     for (int i = len-1; i >= 0; i--) {
       // ping each client every 15 seconds:
-      if (frame_counter == 60 * 15) {
-        frame_counter = 0;
-        auto@ ping = net::WebSocketMessage(9);
-        clients[i].send(ping);
-      }
+//      if (frame_counter == 60 * 15) {
+//        frame_counter = 0;
+//        auto@ ping = net::WebSocketMessage(9);
+//        clients[i].send(ping);
+//      }
 
       // send updated state for our Link to remote player:
       local.send(clients[i]);
@@ -487,6 +489,8 @@ void pre_frame() {
         remote.write_wram();
       }
     }
+
+    message("pre_frame() end");
   }
 }
 
