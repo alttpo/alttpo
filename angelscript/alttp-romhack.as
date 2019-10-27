@@ -1,5 +1,6 @@
 // Communicate with ROM hack via memory at $7F7667[0x6719]
-net::UDPSocket@ sock;
+net::Socket@ sock;
+net::Address@ address;
 SettingsWindow@ settings;
 
 bool debug = false;
@@ -20,16 +21,14 @@ void init() {
 class SettingsWindow {
   private gui::Window @window;
   private gui::LineEdit @txtServerIP;
-  private gui::LineEdit @txtClientIP;
   private gui::Button @ok;
 
-  string clientIP;
   string serverIP;
   bool started;
 
   SettingsWindow() {
     @window = gui::Window(164, 22, true);
-    window.title = "Connect to IP address";
+    window.title = "Connect to Server";
     window.size = gui::Size(256, 24*3);
 
     auto vl = gui::VerticalLayout();
@@ -37,38 +36,21 @@ class SettingsWindow {
       auto @hz = gui::HorizontalLayout();
       {
         auto @lbl = gui::Label();
-        lbl.text = "Server IP:";
+        lbl.text = "Address:";
         hz.append(lbl, gui::Size(80, 0));
 
         @txtServerIP = gui::LineEdit();
-        txtServerIP.text = "127.0.0.1";
+        txtServerIP.text = "bittwiddlers.org";
         hz.append(txtServerIP, gui::Size(128, 20));
       }
       vl.append(hz, gui::Size(0, 0));
 
       @hz = gui::HorizontalLayout();
       {
-        auto @lbl = gui::Label();
-        lbl.text = "Client IP:";
-        hz.append(lbl, gui::Size(80, 0));
-
-        @txtClientIP = gui::LineEdit();
-        txtClientIP.text = "127.0.0.2";
-        hz.append(txtClientIP, gui::Size(128, 20));
-      }
-      vl.append(hz, gui::Size(-1, -1));
-
-      @hz = gui::HorizontalLayout();
-      {
         @ok = gui::Button();
-        ok.text = "Start";
+        ok.text = "Connect";
         @ok.on_activate = @gui::ButtonCallback(this.startClicked);
         hz.append(ok, gui::Size(-1, -1));
-
-        auto swap = gui::Button();
-        swap.text = "Swap";
-        @swap.on_activate = @gui::ButtonCallback(this.swapClicked);
-        hz.append(swap, gui::Size(-1, -1));
       }
       vl.append(hz, gui::Size(-1, -1));
     }
@@ -78,15 +60,8 @@ class SettingsWindow {
     window.visible = true;
   }
 
-  private void swapClicked(gui::Button @self) {
-    auto tmp = txtServerIP.text;
-    txtServerIP.text = txtClientIP.text;
-    txtClientIP.text = tmp;
-  }
-
   private void startClicked(gui::Button @self) {
-    message("Start!");
-    clientIP = txtClientIP.text;
+    message("Connect!");
     serverIP = txtServerIP.text;
     started = true;
     hide();
@@ -362,7 +337,7 @@ class Packet {
     return c;
   }
 
-  void sendto(string server, int port) {
+  void sendto(net::Socket& sock, net::Address& addr) {
     // verify that the local data packet is built:
     if (feef != 0xFEEF) return;
     if (size != expected_packet_size) return;
@@ -378,13 +353,13 @@ class Packet {
     }
 
     //message("sent " + fmtInt(msg.length()));
-    sock.sendto(msg, server, port);
+    sock.sendto(0, msg.length(), msg, addr);
   }
 
-  void receive() {
+  void receive(net::Socket& sock) {
     array<uint8> r(9500);
     int n;
-    while ((n = sock.recv(r)) != 0) {
+    while ((n = sock.recv(0, 9500, r)) > 0) {
       int c = 0;
 
       // deserialize data packet from message:
@@ -451,8 +426,9 @@ void pre_frame() {
   // Attempt to open a server socket:
   if (@sock == null) {
     try {
+      @address = net::resolve_udp(settings.serverIP, 4590);
       // open a UDP socket to receive data from:
-      @sock = net::UDPSocket(settings.serverIP, 4590);
+      @sock = net::Socket(address);
     } catch {
       // Probably server IP field is invalid; prompt user again:
       @sock = null;
@@ -462,14 +438,14 @@ void pre_frame() {
   }
 
   if (@sock != null) {
-    // receive network update from remote player:
-    remote.receive();
+    // receive network update from server:
+    remote.receive(sock);
 
     // upload remote packet into local WRAM:
     remote.write_wram();
 
-    // send updated state for our Link to remote player:
-    local.sendto(settings.clientIP, 4590);
+    // send updated state for our Link to server:
+    local.sendto(sock, address);
   }
 }
 
