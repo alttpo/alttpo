@@ -1,0 +1,6 @@
+.DS_Store
+.idea/
+*.bsz
+*.smc
+*.smc.bak
+*.srm
