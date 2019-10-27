@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"log"
 	"net"
@@ -25,7 +27,31 @@ type ClientKey struct {
 type Client struct {
 	net.UDPAddr
 
+	Name     string
+	Group    string
 	LastSeen time.Time
+}
+
+type ClientGroup map[ClientKey]*Client
+
+func readTinyString(buf *bytes.Buffer) (value string, err error) {
+	var valueLength uint8
+	if err = binary.Read(buf, binary.LittleEndian, &valueLength); err != nil {
+		return
+	}
+
+	valueBytes := make([]byte, 0, valueLength)
+	var n int
+	n, err = buf.Read(valueBytes)
+	if err != nil {
+		return
+	}
+	if n < int(valueLength) {
+		return
+	}
+
+	value = string(valueBytes)
+	return
 }
 
 func main() {
@@ -42,7 +68,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	clients := make(map[ClientKey]*Client)
+	clientGroups := make(map[string]ClientGroup)
 
 	// we only need a single receive buffer:
 	b := make([]byte, 1500)
@@ -54,11 +80,58 @@ func main() {
 			log.Fatal(err)
 		}
 
-		// grab the slice of the message:
-		msg := b[:n]
+		// grab the slice of the envelope:
+		envelope := b[:n]
 		//fmt.Printf("received %v bytes\n", n)
 
-		// TODO: create groups to connect players together and only broadcast back to each client in the group
+		if len(envelope) < 3 {
+			continue
+		}
+
+		buf := bytes.NewBuffer(envelope)
+
+		var header uint16
+		if binary.Read(buf, binary.LittleEndian, &header) != nil {
+			continue
+		}
+
+		// 0x651F = 25887 = "ALTTP" on dialpad (T9)
+		if header != 25887 {
+			continue
+		}
+
+		var name string
+		var group string
+		name, err = readTinyString(buf)
+		if err != nil {
+			continue
+		}
+		group, err = readTinyString(buf)
+		if err != nil {
+			continue
+		}
+
+		// TODO: use name somewhere
+		_ = name
+
+		// read the size of the remaining payload:
+		var payloadSize uint16
+		if binary.Read(buf, binary.LittleEndian, &payloadSize) != nil {
+			continue
+		}
+
+		if buf.Len() < int(payloadSize) {
+			continue
+		}
+
+		msg := buf.Bytes()[:payloadSize]
+		buf = nil
+
+		clientGroup, ok := clientGroups[group]
+		if !ok {
+			clientGroup = make(ClientGroup)
+			clientGroups[group] = clientGroup
+		}
 
 		// create a key that represents the client from the received address:
 		key := ClientKey{
@@ -67,14 +140,14 @@ func main() {
 		}
 		copy(key.IP[:], addr.IP)
 
-		client, ok := clients[key]
+		client, ok := clientGroup[key]
 		if !ok {
 			// add this client to set of clients:
 			client = &Client{
 				UDPAddr:  *addr,
 				LastSeen: time.Now(),
 			}
-			clients[key] = client
+			clientGroup[key] = client
 			log.Printf("(%v) new client\n", client)
 		} else {
 			// update time last seen:
@@ -82,7 +155,7 @@ func main() {
 		}
 
 		// broadcast message received to all other clients:
-		for otherKey, other := range clients {
+		for otherKey, other := range clientGroup {
 			// don't echo back to client received from:
 			if other == client {
 				//log.Printf("(%v) skip echo\n", otherKey.IP)
@@ -92,7 +165,7 @@ func main() {
 			// expunge expired clients:
 			if other.LastSeen.Add(disconnectTimeout).Before(time.Now()) {
 				log.Printf("(%v) forget client\n", other)
-				delete(clients, otherKey)
+				delete(clientGroup, otherKey)
 				continue
 			}
 
@@ -102,6 +175,11 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+		}
+
+		// remove the client group if no more clients left:
+		if len(clientGroup) == 0 {
+			delete(clientGroups, group)
 		}
 	}
 }
