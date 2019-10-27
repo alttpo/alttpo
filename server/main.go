@@ -182,17 +182,17 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	clientGroup, ok := clientGroups[groupKey]
 	if !ok {
 		clientGroup = make(ClientGroup)
-		clientGroups[group] = clientGroup
+		clientGroups[groupKey] = clientGroup
 	}
 
 	// create a key that represents the client from the received address:
-	key := ClientKey{
+	clientKey := ClientKey{
 		Port: addr.Port,
 		Zone: addr.Zone,
 	}
-	copy(key.IP[:], addr.IP)
+	copy(clientKey.IP[:], addr.IP)
 
-	client, ok := clientGroup[key]
+	client, ok := clientGroup[clientKey]
 	if !ok {
 		// add this client to set of clients:
 		client = &Client{
@@ -201,8 +201,8 @@ func processMessage(message UDPMessage) (fatalErr error) {
 			Name:     name,
 			Group:    group,
 		}
-		clientGroup[key] = client
-		log.Printf("(%v) new client\n", client)
+		clientGroup[clientKey] = client
+		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, len(clientGroup))
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
@@ -230,20 +230,23 @@ func processMessage(message UDPMessage) (fatalErr error) {
 }
 
 func expireClients(seconds time.Time) {
+	// TODO: find a better way than linear search and iterating over all groups and all clients
+
 	// find all client groups with clients to expire in them:
-	for groupName, clientGroup := range clientGroups {
+	for groupKey, clientGroup := range clientGroups {
 		// find all clients to be expired:
 		for otherKey, other := range clientGroup {
 			// expunge expired clients:
 			if other.LastSeen.Add(disconnectTimeout).Before(seconds) {
-				log.Printf("(%v) forget client\n", other)
+				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, other, len(clientGroup))
 				delete(clientGroup, otherKey)
 			}
 		}
 
 		// remove the client group if no more clients left within:
 		if len(clientGroup) == 0 {
-			delete(clientGroups, groupName)
+			log.Printf("[group %s] forget group\n", groupKey)
+			delete(clientGroups, groupKey)
 		}
 	}
 }
