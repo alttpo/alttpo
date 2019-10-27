@@ -111,9 +111,6 @@ func main() {
 			continue
 		}
 
-		// TODO: use name somewhere
-		_ = name
-
 		// read the size of the remaining payload:
 		var payloadSize uint16
 		if binary.Read(buf, binary.LittleEndian, &payloadSize) != nil {
@@ -146,12 +143,16 @@ func main() {
 			client = &Client{
 				UDPAddr:  *addr,
 				LastSeen: time.Now(),
+				Name:     name,
+				Group:    group,
 			}
 			clientGroup[key] = client
 			log.Printf("(%v) new client\n", client)
 		} else {
 			// update time last seen:
 			client.LastSeen = time.Now()
+			client.Name = name
+			client.Group = group
 		}
 
 		// broadcast message received to all other clients:
