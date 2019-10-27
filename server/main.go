@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -172,10 +173,13 @@ func processMessage(message UDPMessage) (fatalErr error) {
 		return
 	}
 
-	msg := buf.Bytes()[:payloadSize]
+	//msg := buf.Bytes()[:payloadSize]
 	buf = nil
 
-	clientGroup, ok := clientGroups[group]
+	// trim whitespace and convert to lowercase for key lookup:
+	groupKey := strings.Trim(group, " \t\r\n")
+	groupKey = strings.ToLower(groupKey)
+	clientGroup, ok := clientGroups[groupKey]
 	if !ok {
 		clientGroup = make(ClientGroup)
 		clientGroups[group] = clientGroup
@@ -216,7 +220,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 
 		// send message to this client:
 		//log.Printf("(%v) sent message\n", otherKey.IP)
-		_, fatalErr = conn.WriteToUDP(msg, &other.UDPAddr)
+		_, fatalErr = conn.WriteToUDP(envelope, &other.UDPAddr)
 		if fatalErr != nil {
 			return
 		}
