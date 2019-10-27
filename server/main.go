@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -21,15 +20,6 @@ type ClientKey struct {
 	IP   [16]byte
 	Port int
 	Zone string // IPv6 scoped addressing zone
-}
-
-func (a *ClientKey) String() string {
-	ip := net.IP(a.IP[:]).String()
-
-	if a.Zone != "" {
-		return net.JoinHostPort(ip+"%"+a.Zone, strconv.Itoa(a.Port))
-	}
-	return net.JoinHostPort(ip, strconv.Itoa(a.Port))
 }
 
 type Client struct {
@@ -68,6 +58,8 @@ func main() {
 		msg := b[:n]
 		//fmt.Printf("received %v bytes\n", n)
 
+		// TODO: create groups to connect players together and only broadcast back to each client in the group
+
 		// create a key that represents the client from the received address:
 		key := ClientKey{
 			Port: addr.Port,
@@ -99,7 +91,7 @@ func main() {
 
 			// expunge expired clients:
 			if other.LastSeen.Add(disconnectTimeout).Before(time.Now()) {
-				log.Printf("(%v) forget client\n", otherKey)
+				log.Printf("(%v) forget client\n", other)
 				delete(clients, otherKey)
 				continue
 			}
