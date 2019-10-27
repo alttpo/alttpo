@@ -28,10 +28,16 @@ type ClientKey struct {
 type Client struct {
 	net.UDPAddr
 
-	Name     string
-	Group    string
-	LastSeen time.Time
+	ClientType uint8
+	Group      string
+	Name       string
+	LastSeen   time.Time
 }
+
+const (
+	ClientTypeSpectator = uint8(iota)
+	ClientTypePlayer
+)
 
 type ClientGroup map[ClientKey]*Client
 
@@ -135,10 +141,6 @@ func processMessage(message UDPMessage) (fatalErr error) {
 
 	//fmt.Printf("received %v bytes\n", n)
 
-	if len(envelope) < 3 {
-		return
-	}
-
 	buf := bytes.NewBuffer(envelope)
 
 	var header uint16
@@ -151,33 +153,28 @@ func processMessage(message UDPMessage) (fatalErr error) {
 		return
 	}
 
-	var name string
-	var group string
-	var err error
-	name, err = readTinyString(buf)
-	if err != nil {
+	var clientType uint8
+	if binary.Read(buf, binary.LittleEndian, &clientType) != nil {
 		return
 	}
+
+	var err error
+	var group string
 	group, err = readTinyString(buf)
 	if err != nil {
 		return
 	}
 
-	// read the size of the remaining payload:
-	var payloadSize uint16
-	if binary.Read(buf, binary.LittleEndian, &payloadSize) != nil {
+	var name string
+	name, err = readTinyString(buf)
+	if err != nil {
 		return
 	}
 
-	if buf.Len() < int(payloadSize) {
-		return
-	}
-
-	//msg := buf.Bytes()[:payloadSize]
 	buf = nil
 
 	// trim whitespace and convert to lowercase for key lookup:
-	groupKey := strings.Trim(group, " \t\r\n")
+	groupKey := strings.Trim(group, " \t\r\n+='\",.<>[]{}()*&^%$#@!~`?|\\;:/")
 	groupKey = strings.ToLower(groupKey)
 	clientGroup, ok := clientGroups[groupKey]
 	if !ok {
@@ -196,18 +193,20 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	if !ok {
 		// add this client to set of clients:
 		client = &Client{
-			UDPAddr:  *addr,
-			LastSeen: time.Now(),
-			Name:     name,
-			Group:    group,
+			UDPAddr:    *addr,
+			LastSeen:   time.Now(),
+			ClientType: clientType,
+			Group:      group,
+			Name:       name,
 		}
 		clientGroup[clientKey] = client
 		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, len(clientGroup))
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
-		client.Name = name
+		client.ClientType = clientType
 		client.Group = group
+		client.Name = name
 	}
 
 	// broadcast message received to all other clients:
