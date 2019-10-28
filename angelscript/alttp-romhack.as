@@ -58,7 +58,7 @@ class SettingsWindow {
         hz.append(lbl, gui::Size(100, 0));
 
         @txtGroup = gui::LineEdit();
-        txtGroup.text = "";
+        txtGroup.text = "test";
         hz.append(txtGroup, gui::Size(140, 20));
       }
       vl.append(hz, gui::Size(0, 0));
@@ -70,7 +70,7 @@ class SettingsWindow {
         hz.append(lbl, gui::Size(100, 0));
 
         @txtName = gui::LineEdit();
-        txtName.text = "";
+        txtName.text = "player";
         hz.append(txtName, gui::Size(140, 20));
       }
       vl.append(hz, gui::Size(0, 0));
@@ -410,16 +410,23 @@ class Packet {
 
       // verify envelope header:
       uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (header != 25887) continue;
+      if (header != 25887) {
+        message("receive(): bad envelope header!");
+        continue;
+      }
 
       // check client type (spectator=0, player=1):
       uint8 clientType = r[c++];
       // skip messages from non-players (e.g. spectators):
-      if (clientType != 1) continue;
+      if (clientType != 1) {
+        message("receive(): ignore non-player message");
+        continue;
+      }
 
       // skip group name:
       uint8 groupLen = r[c++];
       c += groupLen;
+
       // skip player name:
       uint8 nameLen = r[c++];
       c += nameLen;
@@ -428,10 +435,13 @@ class Packet {
       c = deserialize(r, c);
       if (c == -1) {
         message("receive(): bad message header!");
+        continue;
       } else if (c == -2) {
         message("receive(): bad message size!");
+        continue;
       } else if (c == -3) {
         message("receive(): message version higher than expected!");
+        continue;
       }
     }
   }
