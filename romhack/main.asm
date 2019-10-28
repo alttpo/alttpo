@@ -364,7 +364,7 @@ sprites:
         rep #$20        // 16-bit m,a
         // if ((y - link_oam_start) < $0030) goto sprloop;
         tya
-        clc
+        sec
         sbc.w link_oam_start
         cmp.w #$0030    // number of OAM bytes that are reserved for Link body
         sep #$20        //  8-bit m,a
