@@ -15,21 +15,27 @@ const uint oam_max_count = 32;
 
 void init() {
   @settings = SettingsWindow();
-  @sprites = SpritesWindow();
+  if (debug) {
+    @sprites = SpritesWindow();
+  }
 }
 
 class SettingsWindow {
   private gui::Window @window;
-  private gui::LineEdit @txtServerIP;
+  private gui::LineEdit @txtServerAddress;
+  private gui::LineEdit @txtGroup;
+  private gui::LineEdit @txtName;
   private gui::Button @ok;
 
-  string serverIP;
+  string ServerAddress;
+  string Group;
+  string Name;
   bool started;
 
   SettingsWindow() {
     @window = gui::Window(164, 22, true);
-    window.title = "Connect to Server";
-    window.size = gui::Size(256, 24*3);
+    window.title = "Join a Game";
+    window.size = gui::Size(256, 24*5);
 
     auto vl = gui::VerticalLayout();
     {
@@ -37,11 +43,35 @@ class SettingsWindow {
       {
         auto @lbl = gui::Label();
         lbl.text = "Address:";
-        hz.append(lbl, gui::Size(80, 0));
+        hz.append(lbl, gui::Size(100, 0));
 
-        @txtServerIP = gui::LineEdit();
-        txtServerIP.text = "bittwiddlers.org";
-        hz.append(txtServerIP, gui::Size(128, 20));
+        @txtServerAddress = gui::LineEdit();
+        txtServerAddress.text = "bittwiddlers.org";
+        hz.append(txtServerAddress, gui::Size(140, 20));
+      }
+      vl.append(hz, gui::Size(0, 0));
+
+      @hz = gui::HorizontalLayout();
+      {
+        auto @lbl = gui::Label();
+        lbl.text = "Group:";
+        hz.append(lbl, gui::Size(100, 0));
+
+        @txtGroup = gui::LineEdit();
+        txtGroup.text = "";
+        hz.append(txtGroup, gui::Size(140, 20));
+      }
+      vl.append(hz, gui::Size(0, 0));
+
+      @hz = gui::HorizontalLayout();
+      {
+        auto @lbl = gui::Label();
+        lbl.text = "Player Name:";
+        hz.append(lbl, gui::Size(100, 0));
+
+        @txtName = gui::LineEdit();
+        txtName.text = "";
+        hz.append(txtName, gui::Size(140, 20));
       }
       vl.append(hz, gui::Size(0, 0));
 
@@ -61,8 +91,9 @@ class SettingsWindow {
   }
 
   private void startClicked(gui::Button @self) {
-    message("Connect!");
-    serverIP = txtServerIP.text;
+    ServerAddress = txtServerAddress.text;
+    Group = txtGroup.text;
+    Name = txtName.text;
     started = true;
     hide();
   }
@@ -343,17 +374,32 @@ class Packet {
     if (size != expected_packet_size) return;
     if (version != supported_packet_version) return;
 
-    // send updated state to remote player:
-    array<uint8> msg;
-    serialize(msg);
+    // build envelope:
+    array<uint8> envelope;
+    // header
+    envelope.insertLast(uint16(25887));
+    // clientType = 1 (player)
+    envelope.insertLast(uint8(1));
+    // group name:
+    envelope.insertLast(uint8(settings.Group.length()));
+    envelope.insertLast(settings.Group);
+    // player name:
+    envelope.insertLast(uint8(settings.Name.length()));
+    envelope.insertLast(settings.Name);
 
-    if (msg.length() != expected_packet_size) {
+    // append local state to remote player:
+    int beforeLen = envelope.length();
+    serialize(envelope);
+
+    // length check:
+    if ((envelope.length() - beforeLen) != int(expected_packet_size)) {
       message("sendto(): failed to produce a packet of the expected size!");
       return;
     }
 
-    //message("sent " + fmtInt(msg.length()));
-    sock.sendto(0, msg.length(), msg, addr);
+    // send envelope to server:
+    //message("sent " + fmtInt(envelope.length()));
+    sock.sendto(0, envelope.length(), envelope, addr);
   }
 
   void receive(net::Socket& sock) {
@@ -361,6 +407,22 @@ class Packet {
     int n;
     while ((n = sock.recv(0, 9500, r)) > 0) {
       int c = 0;
+
+      // verify envelope header:
+      uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      if (header != 25887) continue;
+
+      // check client type (spectator=0, player=1):
+      uint8 clientType = r[c++];
+      // skip messages from non-players (e.g. spectators):
+      if (clientType != 1) continue;
+
+      // skip group name:
+      uint8 groupLen = r[c++];
+      c += groupLen;
+      // skip player name:
+      uint8 nameLen = r[c++];
+      c += nameLen;
 
       // deserialize data packet from message:
       c = deserialize(r, c);
@@ -426,7 +488,8 @@ void pre_frame() {
   // Attempt to open a server socket:
   if (@sock == null) {
     try {
-      @address = net::resolve_udp(settings.serverIP, 4590);
+      // resolve address of server:
+      @address = net::resolve_udp(settings.ServerAddress, 4590);
       // open a UDP socket to receive data from:
       @sock = net::Socket(address);
     } catch {
