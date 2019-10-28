@@ -228,7 +228,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 		}
 
 		// send message to this client:
-		log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
+		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		_, fatalErr = conn.WriteToUDP(envelope, &other.UDPAddr)
 		if fatalErr != nil {
 			return
