@@ -189,6 +189,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	if !ok {
 		clientGroup = make(ClientGroup)
 		clientGroups[groupKey] = clientGroup
+		log.Printf("[group %s] new group\n", groupKey)
 	}
 
 	// create a key that represents the client from the received address:
@@ -227,7 +228,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 		}
 
 		// send message to this client:
-		//log.Printf("(%v) sent message\n", otherKey.IP)
+		log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		_, fatalErr = conn.WriteToUDP(envelope, &other.UDPAddr)
 		if fatalErr != nil {
 			return
@@ -246,15 +247,15 @@ func expireClients(seconds time.Time) {
 		for otherKey, other := range clientGroup {
 			// expunge expired clients:
 			if other.LastSeen.Add(disconnectTimeout).Before(seconds) {
-				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, other, len(clientGroup))
 				delete(clientGroup, otherKey)
+				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, other, len(clientGroup))
 			}
 		}
 
 		// remove the client group if no more clients left within:
 		if len(clientGroup) == 0 {
-			log.Printf("[group %s] forget group\n", groupKey)
 			delete(clientGroups, groupKey)
+			log.Printf("[group %s] forget group\n", groupKey)
 		}
 	}
 }
