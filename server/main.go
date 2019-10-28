@@ -132,7 +132,6 @@ eventloop:
 			}
 		case seconds := <-secondsTicker:
 			// expunge any expired clients every 5 seconds:
-			log.Print("tick!\n")
 			expireClients(seconds)
 		}
 	}
@@ -144,7 +143,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	envelope := message.Envelope
 	addr := message.ReceivedFrom
 
-	log.Printf("(%v) received %v bytes\n", addr, len(envelope))
+	//log.Printf("(%v) received %v bytes\n", addr, len(envelope))
 
 	buf := bytes.NewBuffer(envelope)
 
@@ -240,8 +239,6 @@ func processMessage(message UDPMessage) (fatalErr error) {
 
 func expireClients(seconds time.Time) {
 	// TODO: find a better way than linear search and iterating over all groups and all clients
-
-	log.Printf("expire clients (seconds=%v)...\n", seconds)
 
 	// find all client groups with clients to expire in them:
 	for groupKey, clientGroup := range clientGroups {
