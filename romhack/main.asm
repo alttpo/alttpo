@@ -147,7 +147,9 @@ mainLoopHook:
     cmp #$0e    // dialogue/monologue or inventory menu
     bne invalidModule
     lda $11     // submodule
-    cmp #$03    // anything but $03 submodule (dungeon map screen)
+    cmp #$03    // exclude $03 dungeon map screen
+    beq invalidModule
+    cmp #$07    // exclude $07 overworld map screen
     bne validModule
 invalidModule:
     // not a good time to sync state:
@@ -711,7 +713,9 @@ nmiPostHook:
     cmp #$0e    // dialogue/monologue or inventory menu
     bne nmiPostInvalidModule
     lda $11     // submodule
-    cmp #$03    // anything but $03 submodule (dungeon map screen)
+    cmp #$03    // exclude $03 dungeon map screen
+    beq nmiPostInvalidModule
+    cmp #$07    // exclude $07 overworld map screen
     bne nmiPostValidModule
 nmiPostInvalidModule:
     // not a good time to sync state:
