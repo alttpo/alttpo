@@ -47,7 +47,7 @@ func readTinyString(buf *bytes.Buffer) (value string, err error) {
 		return
 	}
 
-	valueBytes := make([]byte, 0, valueLength)
+	valueBytes := make([]byte, valueLength)
 	var n int
 	n, err = buf.Read(valueBytes)
 	if err != nil {
@@ -144,7 +144,8 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	buf := bytes.NewBuffer(envelope)
 
 	var header uint16
-	if binary.Read(buf, binary.LittleEndian, &header) != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &header); err != nil {
+		log.Print(err)
 		return
 	}
 
@@ -154,7 +155,8 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	}
 
 	var clientType uint8
-	if binary.Read(buf, binary.LittleEndian, &clientType) != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &clientType); err != nil {
+		log.Print(err)
 		return
 	}
 
@@ -162,12 +164,14 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	var group string
 	group, err = readTinyString(buf)
 	if err != nil {
+		log.Print(err)
 		return
 	}
 
 	var name string
 	name, err = readTinyString(buf)
 	if err != nil {
+		log.Print(err)
 		return
 	}
 
