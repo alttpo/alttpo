@@ -138,12 +138,17 @@ mainLoopHook:
     lda $10
     sta.l long(local, pkt.module)
 
-    cmp #$07 ; beq validModule      // $07 is dungeon
+    cmp #$07 ; beq validModule      // dungeon
     cmp #$09 ; beq validModule      // overworld
     cmp #$0b ; beq validModule      // overworld special (master sword area)
-    cmp #$0e ; beq validModule      // dialogue/monologue or inventory menu
     cmp #$0f ; beq validModule      // close spotlight
     cmp #$10 ; beq validModule      // open spotlight
+    cmp #$12 ; beq validModule      // dying / dead / game over screen
+    cmp #$0e    // dialogue/monologue or inventory menu
+    bne invalidModule
+    lda $11     // submodule
+    cmp #$03    // anything but $03 submodule (dungeon map screen)
+    bne validModule
 invalidModule:
     // not a good time to sync state:
     jmp mainLoopHookDone
@@ -700,9 +705,14 @@ nmiPostHook:
     cmp #$07 ; beq nmiPostValidModule   // dungeon
     cmp #$09 ; beq nmiPostValidModule   // overworld
     cmp #$0b ; beq nmiPostValidModule   // overworld special (master sword area)
-    cmp #$0e ; beq nmiPostValidModule   // dialogue/monologue or inventory menu
     cmp #$0f ; beq nmiPostValidModule   // close spotlight
     cmp #$10 ; beq nmiPostValidModule   // open spotlight
+    cmp #$12 ; beq nmiPostValidModule   // dying / dead / game over screen
+    cmp #$0e    // dialogue/monologue or inventory menu
+    bne nmiPostInvalidModule
+    lda $11     // submodule
+    cmp #$03    // anything but $03 submodule (dungeon map screen)
+    bne nmiPostValidModule
 nmiPostInvalidModule:
     // not a good time to sync state:
 nmiPostHookDone2:
