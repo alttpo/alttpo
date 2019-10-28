@@ -151,6 +151,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 
 	// 0x651F = 25887 = "ALTTP" on dialpad (T9)
 	if header != 25887 {
+		log.Print("bad header\n")
 		return
 	}
 
@@ -234,6 +235,8 @@ func processMessage(message UDPMessage) (fatalErr error) {
 
 func expireClients(seconds time.Time) {
 	// TODO: find a better way than linear search and iterating over all groups and all clients
+
+	log.Printf("expire clients (seconds=%v)...\n", seconds)
 
 	// find all client groups with clients to expire in them:
 	for groupKey, clientGroup := range clientGroups {
