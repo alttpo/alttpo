@@ -116,12 +116,14 @@ func main() {
 
 	secondsTicker := time.Tick(time.Second * 5)
 
+eventloop:
 	for {
 		select {
 		case udpMessage, more := <-udpMessages:
 			// exit loop if udpMessages channel is closed:
 			if !more {
-				break
+				log.Print("channel closed\n")
+				break eventloop
 			}
 			// process incoming message:
 			err = processMessage(udpMessage)
@@ -130,16 +132,19 @@ func main() {
 			}
 		case seconds := <-secondsTicker:
 			// expunge any expired clients every 5 seconds:
+			log.Print("tick!\n")
 			expireClients(seconds)
 		}
 	}
+
+	log.Print("main loop done\n")
 }
 
 func processMessage(message UDPMessage) (fatalErr error) {
 	envelope := message.Envelope
 	addr := message.ReceivedFrom
 
-	//fmt.Printf("received %v bytes\n", n)
+	log.Printf("(%v) received %v bytes\n", addr, len(envelope))
 
 	buf := bytes.NewBuffer(envelope)
 
