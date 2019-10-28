@@ -79,8 +79,9 @@ func getPackets(conn *net.UDPConn, messages chan<- UDPMessage) {
 			return
 		}
 
-		// grab the slice of the envelope:
-		envelope := b[:n]
+		// copy the envelope:
+		envelope := make([]byte, n)
+		copy(envelope, b[:n])
 
 		messages <- UDPMessage{
 			Envelope:     envelope,
