@@ -15,7 +15,7 @@ const uint oam_max_count = 32;
 
 void init() {
   @settings = SettingsWindow();
-  if (debug) {
+  if (debugOAM) {
     @sprites = SpritesWindow();
   }
 }
@@ -502,6 +502,8 @@ void pre_frame() {
       @address = net::resolve_udp(settings.ServerAddress, 4590);
       // open a UDP socket to receive data from:
       @sock = net::Socket(address);
+      // connect to remote address so recv() and send() work:
+      sock.connect(address);
     } catch {
       // Probably server IP field is invalid; prompt user again:
       @sock = null;
