@@ -368,7 +368,7 @@ class Packet {
     return c;
   }
 
-  void sendto(net::Socket& sock, net::Address& addr) {
+  void send(net::Socket& sock) {
     // verify that the local data packet is built:
     if (feef != 0xFEEF) return;
     if (size != expected_packet_size) return;
@@ -399,7 +399,7 @@ class Packet {
 
     // send envelope to server:
     //message("sent " + fmtInt(envelope.length()));
-    sock.sendto(0, envelope.length(), envelope, addr);
+    sock.send(0, envelope.length(), envelope);
   }
 
   void receive(net::Socket& sock) {
@@ -520,7 +520,7 @@ void pre_frame() {
     remote.write_wram();
 
     // send updated state for our Link to server:
-    local.sendto(sock, address);
+    local.send(sock);
   }
 }
 
