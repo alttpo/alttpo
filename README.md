@@ -5,9 +5,6 @@ See [here](romhack/README.md) for documentation on the ROM hack and how it works
 
 See a demo video: https://www.youtube.com/watch?v=_MTfXCUXawg
 
-Download nightly binary builds of 
-Download nightly binary builds of 
-
 Instructions to reproduce the demo with two emulators running on your machine:
 **PREREQUISITES**: You need your own copy of the ALTTP game ROM image. DO NOT ASK ME FOR ONE; I will ignore you so hard. It is illegal to redistribute ROM images.
 
