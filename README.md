@@ -5,26 +5,65 @@ See [here](romhack/README.md) for documentation on the ROM hack and how it works
 
 See a demo video: https://www.youtube.com/watch?v=_MTfXCUXawg
 
-Instructions to reproduce the demo with two emulators running on your machine:
+# Play with a friend over the Internet
+
 **PREREQUISITES**: You need your own copy of the ALTTP game ROM image. DO NOT ASK ME FOR ONE; I will ignore you so hard. It is illegal to redistribute ROM images.
 
-1. Download a nightly build of bsnes-angelscript here:
-https://cirrus-ci.com/github/JamesDunne/bsnes-angelscript
-1. Download a nightly build of bass assembler here:
-https://cirrus-ci.com/github/JamesDunne/bass
-1. Make a safe backup copy of your original ALTTP ROM file!!!
-1. COPY (do not MOVE) your ALTTP ROM file into this `romhack/` directory and rename it to `alttp.smc`.
-1. Run `bass -m alttp.smc main.asm` to patch the `alttp.smc` file. Note you'll need `bass` (downloaded from step 2) on your $PATH or you can copy the `bass`(`.exe`) file from the nightly build ZIP file here.
-1. [Mac OS X Only] In a Terminal tab, run `sudo ifconfig lo0 alias 127.0.0.2 up`.
-1. Launch TWO instances of `bsnes-angelscript`(`.exe`) (downloaded from step 1)
-1. Move the emulator windows so that they don't overlap.
-1. In both instances, load the `alttp.rom` patched file.
-1. In both instances, Tools > Load Script... and select `angelscript/alttp-romhack.as` file.
-1. In instance 1, the IP addresses should work as-is so just click Start there.
-1. In instance 2 press the Swap button to swap the two values so the Server IP is `127.0.0.2` and the client IP is `127.0.0.1`.
-1. Click Start on both instances and load a saved state or play through the game on both emulators to see both Link avatars on both screens.
+1. Download the pre-built package for your system: https://cirrus-ci.com/github/JamesDunne/alttp-multiplayer
+1. **IMPORTANT**: If you cloned the github repository then stop, go back to step 1, and download the pre-built image for your system instead.
+1. Copy your ALTTP ROM file into this directory and rename it to `alttp.smc`.
+1. Run `bass -m alttp.smc main.asm` to patch the `alttp.smc` file to work with the multiplayer ROM hack.
+1. Launch `bsnes.app` (macOS) or `bsnes.exe` (windows) depending on your system.
+1. In bsnes, System > Load Game... and select `alttp.smc` from the current directory.
+1. In bsnes, Tools > Load Script... and select `alttp-script.as` from the current directory.
+1. Find the "Join a Game" window that should have popped up after loading the script. It may have popped under the main BSNES window. ![Join a Game](join-a-game.png)
+1. Find a friend to play with; make sure they follow all these steps up to this point.
+1. Leave the "Address" field alone unless you intend on running your own ALTTP multiplayer server instance. [See below](#running-your-own-server) if you wish to do so.
+1. Agree with your friend on a unique group name and enter it into the "Group" field. This group name can be anything but make sure it's unique enough for others not to guess otherwise they might be able to join your game.
+1. Enter your player name in the "Player Name" field. Currently this name doesn't matter very much because players don't have a way to see player names yet.
+1. Click "Connect" button.
+1. Play through the game together and report bugs and/or feature requests back to me at https://github.com/JamesDunne/alttp-multiplayer/issues .
 
-# Internet play
-I'm working on a WebRTC-based solution to enable players to find one another and play together over the public Internet.
+Thanks for testing!
 
-This should be technically possible to do right now if both players are savvy enough to open UDP port `4590` on their home routers and exchange their public IPv4 addresses with one another.
+# Running Your Own Server
+
+If you wish to run your own ALTTP multiplayer server, you will need:
+
+1. a server, publicly accessible from the Internet
+1. a static IP address assigned to your server
+1. optionally a DNS name assigned to your static IP address
+1. access to UDP port 4590 through firewall
+1. server operating system supported by Golang 1.12+ (linux is preferable)
+1. golang development environment installed on the server
+
+Log in to your server (I'll assume it's Linux or at least has a bash-like shell) and follow these steps:
+
+TODO: elaborate on this better!!!
+1. `go install github.com/JamesDunne/alttp-multiplayer/alttp-server`
+1. `$HOME/go/bin/alttp-server`
+
+Consult your system documentation on how to create a service wrapper around the `alttp-server` process.
+
+My server is running an older variant of Ubuntu 14.04 LTS and as such still uses the old `upstart` service manager. Here is my `/etc/init/alttp-server.conf` upstart conf file for reference:
+
+```
+# configuration for upstart
+
+description     "ALTTP UDP multiplayer group server on port 4590"
+author          "James Dunne <james.jdunne@gmail.com>"
+
+start on runlevel [2345]
+stop on starting rc RUNLEVEL=[016]
+
+respawn
+respawn limit 2 5
+
+setuid nobody
+setgid nogroup
+
+console log
+exec /srv/bittwiddlers.org/go/bin/alttp-server
+```
+
+The main takeaways here are that you just need a nice place to store the compiled binary `alttp-server` and you should be able to run it as `nobody` UID with `nogroup` GID to limit its access to the rest of your system. Definitely DO NOT run it as a privileged user of any kind. The less privileges it has, the better. All it needs to do is bind to UDP port 4590 and send UDP messages and nothing else.
