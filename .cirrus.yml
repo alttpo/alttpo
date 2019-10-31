@@ -1,0 +1,68 @@
+linux-x86_64-binaries_task:
+    container:
+        image: golang:1.13-buster
+
+    environment:
+        PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
+        PACKAGER_TARGET_ARCH: linux-x86_64-binaries
+    compile_script:
+        - go run packager/main.go
+
+    package_script:
+        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - cp -a romhack/main.asm alttp-multiplayer-nightly
+
+    alttp-multiplayer-nightly_artifacts:
+        path: "alttp-multiplayer-nightly/**"
+
+windows-x86_64-binaries_task:
+    container:
+        image: golang:1.13-buster
+
+    environment:
+        PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
+        PACKAGER_TARGET_ARCH: windows-x86_64-binaries
+    compile_script:
+        - go run packager/main.go
+
+    package_script:
+        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - cp -a romhack/main.asm alttp-multiplayer-nightly
+
+    alttp-multiplayer-nightly_artifacts:
+        path: "alttp-multiplayer-nightly/**"
+
+windows-x86_32-binaries_task:
+    container:
+        image: golang:1.13-buster
+
+    environment:
+        PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
+        PACKAGER_TARGET_ARCH: windows-x86_32-binaries
+    compile_script:
+        - go run packager/main.go
+
+    package_script:
+        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - cp -a romhack/main.asm alttp-multiplayer-nightly
+
+    alttp-multiplayer-nightly_artifacts:
+        path: "alttp-multiplayer-nightly/**"
+
+
+macOS-x86_64-binaries_task:
+    container:
+        image: golang:1.13-buster
+
+    environment:
+        PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
+        PACKAGER_TARGET_ARCH: macOS-x86_64-binaries
+    compile_script:
+        - go run packager/main.go
+
+    package_script:
+        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - cp -a romhack/main.asm alttp-multiplayer-nightly
+
+    alttp-multiplayer-nightly_artifacts:
+        path: "alttp-multiplayer-nightly/**"
