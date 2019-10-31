@@ -9,8 +9,12 @@ linux-x86_64-binaries_task:
         - go run packager/main.go
 
     package_script:
-        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - mkdir -p alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
+        - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
         - cp -a romhack/main.asm alttp-multiplayer-nightly
+        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
 
     alttp-multiplayer-nightly_artifacts:
         path: "alttp-multiplayer-nightly/**"
@@ -26,8 +30,12 @@ windows-x86_64-binaries_task:
         - go run packager/main.go
 
     package_script:
-        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - mkdir -p alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
+        - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
         - cp -a romhack/main.asm alttp-multiplayer-nightly
+        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
 
     alttp-multiplayer-nightly_artifacts:
         path: "alttp-multiplayer-nightly/**"
@@ -43,8 +51,12 @@ windows-x86_32-binaries_task:
         - go run packager/main.go
 
     package_script:
-        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - mkdir -p alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
+        - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
         - cp -a romhack/main.asm alttp-multiplayer-nightly
+        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
 
     alttp-multiplayer-nightly_artifacts:
         path: "alttp-multiplayer-nightly/**"
@@ -61,8 +73,12 @@ macOS-x86_64-binaries_task:
         - go run packager/main.go
 
     package_script:
-        - cp -a angelscript/*.as alttp-multiplayer-nightly
+        - mkdir -p alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
+        - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
         - cp -a romhack/main.asm alttp-multiplayer-nightly
+        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
 
     alttp-multiplayer-nightly_artifacts:
         path: "alttp-multiplayer-nightly/**"
