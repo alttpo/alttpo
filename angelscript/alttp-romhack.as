@@ -3,8 +3,9 @@ net::Socket@ sock;
 net::Address@ address;
 SettingsWindow@ settings;
 
-bool debug = false;
+bool debug = true;
 bool debugOAM = false;
+bool debugSprites = true;
 
 // ROM patch's expected packet size
 uint16 expected_packet_size = 0;
@@ -15,7 +16,7 @@ const uint oam_max_count = 32;
 
 void init() {
   @settings = SettingsWindow();
-  if (debugOAM) {
+  if (debugSprites) {
     @sprites = SpritesWindow();
   }
 }
