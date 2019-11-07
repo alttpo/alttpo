@@ -270,7 +270,7 @@ sprites:
 
         // picked up items:
         cmp #$42 ; beq sync    // sign
-        cmp #$24 ; beq sync    // room-specific item (mushroom, powder, etc.)
+        //cmp #$24 ; beq sync    // room-specific item (mushroom, powder, etc.)
         cmp #$44 ; beq sync    // stone
         cmp #$46 ; beq sync    // bush
         cmp #$4A ; beq sync    // big stone
@@ -636,6 +636,8 @@ renderRemoteOAM:
             // oam[2] is chr, need to remap to new sprite locations:
             lda long(remote, pkt.oam_table.2),x
 
+            cmp #$20    // if (A >= $20) continue;
+            bcs emitChr
             bit #$EC    // $00..$03,$10..$13 -> $CB..$CE,$DB..$DE
             bne +
             clc
@@ -646,9 +648,7 @@ renderRemoteOAM:
             clc
             adc #$3C
             bra emitChr
-         +; cmp #$20    // if (A >= $20) continue;
-            bcs emitChr
-            // A = A - 5
+         +; // A = A - 5
             sec
             sbc #$05
             // if (A & $EC)
