@@ -324,6 +324,13 @@ class Packet {
   }
 
   int deserialize(array<uint8> &r, int c) {
+    c = deserialize_loc_only(r, c);
+    if (c < 0) return c;
+    c = deserialize_remainder(r, c);
+    return c;
+  }
+
+  int deserialize_loc_only(array<uint8> &r, int c) {
     feef    = uint16(r[c++]) | (uint16(r[c++]) << 8);
     if (feef != 0xFEEF) return -1;
 
@@ -338,7 +345,10 @@ class Packet {
 
     world = r[c++];
     room = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    return c;
+  }
 
+  int deserialize_remainder(array<uint8> &r, int c) {
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
     z = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -403,57 +413,16 @@ class Packet {
     sock.send(0, envelope.length(), envelope);
   }
 
-  void receive(net::Socket& sock) {
-    array<uint8> r(9500);
-    int n;
-    while ((n = sock.recv(0, 9500, r)) > 0) {
-      int c = 0;
-
-      // verify envelope header:
-      uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (header != 25887) {
-        message("receive(): bad envelope header!");
-        continue;
-      }
-
-      // check client type (spectator=0, player=1):
-      uint8 clientType = r[c++];
-      // skip messages from non-players (e.g. spectators):
-      if (clientType != 1) {
-        message("receive(): ignore non-player message");
-        continue;
-      }
-
-      // skip group name:
-      uint8 groupLen = r[c++];
-      c += groupLen;
-
-      // skip player name:
-      uint8 nameLen = r[c++];
-      c += nameLen;
-
-      // deserialize data packet from message:
-      c = deserialize(r, c);
-      if (c == -1) {
-        message("receive(): bad message header!");
-        continue;
-      } else if (c == -2) {
-        message("receive(): bad message size!");
-        continue;
-      } else if (c == -3) {
-        message("receive(): message version higher than expected!");
-        continue;
-      }
-    }
-  }
-
   bool can_see(Packet &other) {
     return this.world == other.world && this.room == other.room;
   }
 };
 
-Packet  local(0x7F7700);
-Packet remote(0x7F8200);
+const uint32 local_addr = 0x7F7700;
+const uint32 remote_addr = 0x7F8200;
+
+Packet@  local = Packet(local_addr);
+Packet@ remote = Packet(remote_addr);
 
 uint8 module, sub_module;
 bool expectations_fetched;
@@ -515,13 +484,70 @@ void pre_frame() {
 
   if (@sock != null) {
     // receive network update from server:
-    remote.receive(sock);
+    receive(sock);
 
     // upload remote packet into local WRAM:
     remote.write_wram();
 
     // send updated state for our Link to server:
     local.send(sock);
+  }
+}
+
+void receive(net::Socket& sock) {
+  array<uint8> r(9500);
+  int n;
+  while ((n = sock.recv(0, 9500, r)) > 0) {
+    int c = 0;
+
+    // verify envelope header:
+    uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (header != 25887) {
+      message("receive(): bad envelope header!");
+      continue;
+    }
+
+    // check client type (spectator=0, player=1):
+    uint8 clientType = r[c++];
+    // skip messages from non-players (e.g. spectators):
+    if (clientType != 1) {
+      message("receive(): ignore non-player message");
+      continue;
+    }
+
+    // skip group name:
+    uint8 groupLen = r[c++];
+    c += groupLen;
+
+    // skip player name:
+    uint8 nameLen = r[c++];
+    c += nameLen;
+
+    // deserialize data packet from message:
+    Packet@ tmp = Packet(remote_addr);
+    c = tmp.deserialize_loc_only(r, c);
+    if (c == -1) {
+      message("receive(): bad message header!");
+      continue;
+    } else if (c == -2) {
+      message("receive(): bad message size!");
+      continue;
+    } else if (c == -3) {
+      message("receive(): message version higher than expected!");
+      continue;
+    }
+
+    // Only deserialize remainder of packet if remote player is in the same room as local player:
+    if (tmp.world != local.world) {
+      continue;
+    }
+    if (tmp.room != local.room) {
+      continue;
+    }
+
+    c = tmp.deserialize_remainder(r, c);
+
+    @remote = tmp;
   }
 }
 
