@@ -486,9 +486,6 @@ void pre_frame() {
     // receive network update from server:
     receive(sock);
 
-    // upload remote packet into local WRAM:
-    remote.write_wram();
-
     // send updated state for our Link to server:
     local.send(sock);
   }
@@ -497,6 +494,7 @@ void pre_frame() {
 void receive(net::Socket& sock) {
   array<uint8> r(9500);
   int n;
+  bool updated = false;
   while ((n = sock.recv(0, 9500, r)) > 0) {
     int c = 0;
 
@@ -546,8 +544,13 @@ void receive(net::Socket& sock) {
     }
 
     c = tmp.deserialize_remainder(r, c);
-
     @remote = tmp;
+    updated = true;
+  }
+
+  if (updated) {
+    // upload remote packet into local WRAM:
+    remote.write_wram();
   }
 }
 
