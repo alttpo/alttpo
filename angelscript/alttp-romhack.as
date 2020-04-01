@@ -3,9 +3,9 @@ net::Socket@ sock;
 net::Address@ address;
 SettingsWindow@ settings;
 
-bool debug = true;
+bool debug = false;
 bool debugOAM = false;
-bool debugSprites = true;
+bool debugSprites = false;
 
 // ROM patch's expected packet size
 uint16 expected_packet_size = 0;
