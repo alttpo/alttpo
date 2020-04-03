@@ -4,7 +4,7 @@ net::Address@ address;
 SettingsWindow @settings;
 
 bool debug = false;
-bool debugOAM = true;
+bool debugOAM = false;
 bool debugSprites = false;
 
 void init() {
@@ -153,6 +153,37 @@ class Sprite {
   uint8 priority;
   bool hflip;
   bool vflip;
+
+  // b0-b3 are main 4 bytes of OAM table
+  // b4 is the 5th byte of extended OAM table
+  // b4 must be right-shifted to be the two least significant bits and all other bits cleared.
+  void decodeOAMTableBytes(uint8 i, uint8 b0, uint8 b1, uint8 b2, uint8 b3, uint8 b4) {
+    index = i;
+    x    = b0;
+    y    = b1;
+    chr  = b2;
+    chr  = chr | ((b3 >> 0 & 1) << 8);
+    palette  = b3 >> 1 & 7;
+    priority = b3 >> 4 & 3;
+    hflip    = (b3 >> 6 & 1) != 0 ? true : false;
+    vflip    = (b3 >> 7 & 1) != 0 ? true : false;
+
+    x    = (x & 0xff) | ((b4 << 8) & 0x100);
+    size = (b4 >> 1) & 1;
+  }
+
+  void adjustXY(int16 rx, int16 ry) {
+    int16 ax = x;
+    int16 ay = y;
+
+    // adjust x to allow for slightly off-screen sprites:
+    if (ax >= 256) ax -= 512;
+    //if (ay + tile.height >= 256) ay -= 256;
+
+    // Make sprite x,y relative to incoming rx,ry coordinates (where Link is in screen coordinates):
+    x = ax - rx;
+    y = ay - ry;
+  }
 
   // fetches all the OAM sprite data for OAM sprite at `index`
   void fetchOAM(uint8 j, int16 rx, int16 ry) {
@@ -436,23 +467,30 @@ class GameState {
     // start from reserved region for Link at 0x64 and cycle back around to 0x63 (up to 0x7F and wrap to 0x00):
     for (int j = 0; j < 0x0C; j++) {
       auto i = (link_oam_start + j) & 0x7F;
-      // access current OAM sprite index:
-      auto tile = ppu::oam[i];
+
+      // fetch ALTTP's copy of the OAM sprite data from WRAM:
+      Sprite sprite;
+      uint8 b0, b1, b2, b3, b4;
+      b0 = bus::read_u8(0x7E0800 + (i << 2));
+      b1 = bus::read_u8(0x7E0801 + (i << 2));
+      b2 = bus::read_u8(0x7E0802 + (i << 2));
+      b3 = bus::read_u8(0x7E0803 + (i << 2));
+      b4 = bus::read_u8(0x7E0A00 + (i >> 2));
+      b4 = (b4 >> ((i&3)<<1)) & 3;
+      sprite.decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (!tile.is_enabled) continue;
+      if (sprite.y == 0xF0) continue;
 
-      auto chr = tile.character;
-      if (chr >= 0x100) continue;
+      message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
 
-      // fetch the sprite data from OAM and VRAM:
-      Sprite sprite;
-      sprite.fetchOAM(i, rx, ry);
+      sprite.adjustXY(rx, ry);
+
       capture_sprite(sprite);
     }
 
     // capture effects sprites:
-    for (int i = 0; i < 0x12; i++) {
+    for (int i = 0x0C; i < 0x12; i++) {
       // access current OAM sprite index:
       auto tile = ppu::oam[i];
 
