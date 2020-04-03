@@ -4,7 +4,7 @@ net::Address@ address;
 SettingsWindow @settings;
 
 bool debug = false;
-bool debugOAM = false;
+bool debugOAM = true;
 bool debugSprites = false;
 
 void init() {
@@ -419,21 +419,23 @@ class GameState {
   }
 */
 
+  int numsprites;
   void fetch_sprites() {
     // get link's on-screen coordinates in OAM space:
     int16 rx = int16(x) - xoffs;
     int16 ry = int16(y) - yoffs;
 
     // read OAM offset where link's sprites start at:
-    int link_oam_start = bus::read_u8(0x0352);
+    int link_oam_start = bus::read_u16(0x7E0352, 0x7E0353) >> 2;
+    //message(fmtInt(link_oam_start));
 
     // read in relevant sprites from OAM and VRAM:
     sprites.resize(0);
     sprites.reserve(8);
-    int numsprites = 0;
+    numsprites = 0;
     // start from reserved region for Link at 0x64 and cycle back around to 0x63 (up to 0x7F and wrap to 0x00):
-    for (int j = 0x64; j < 0xE4; j++) {
-      auto i = j & 0x7F;
+    for (int j = 0; j < 0x0C; j++) {
+      auto i = (link_oam_start + j) & 0x7F;
       // access current OAM sprite index:
       auto tile = ppu::oam[i];
 
@@ -443,7 +445,23 @@ class GameState {
       auto chr = tile.character;
       if (chr >= 0x100) continue;
 
-      bool body = (i >= 0x64 && i <= 0x6f);
+      // fetch the sprite data from OAM and VRAM:
+      Sprite sprite;
+      sprite.fetchOAM(i, rx, ry);
+      capture_sprite(sprite);
+    }
+
+    // capture effects sprites:
+    for (int i = 0; i < 0x12; i++) {
+      // access current OAM sprite index:
+      auto tile = ppu::oam[i];
+
+      // skip OAM sprite if not enabled (X, Y coords are out of display range):
+      if (!tile.is_enabled) continue;
+
+      auto chr = tile.character;
+      if (chr >= 0x100) continue;
+
       bool fx = (
         // sparkles around sword spin attack AND magic boomerang:
         chr == 0x80 || chr == 0x81 || chr == 0x82 || chr == 0x83 || chr == 0xb7 ||
@@ -492,37 +510,42 @@ class GameState {
       );
 
       // skip OAM sprites that are not related to Link:
-      if (!(body || fx || weapons || bombs || follower)) continue;
+      if (!(fx || weapons || bombs || follower)) continue;
 
       // fetch the sprite data from OAM and VRAM:
       Sprite sprite;
       sprite.fetchOAM(i, rx, ry);
 
-      // load character(s) from VRAM:
-      if (sprite.size == 0) {
-        // 8x8 sprite:
-        if (chrs[sprite.chr].length() == 0) {
-          chrs[sprite.chr].resize(16);
-          ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, chrs[sprite.chr]);
-        }
-      } else {
-        // 16x16 sprite:
-        if (chrs[sprite.chr].length() == 0) {
-          chrs[sprite.chr + 0x00].resize(16);
-          chrs[sprite.chr + 0x01].resize(16);
-          chrs[sprite.chr + 0x10].resize(16);
-          chrs[sprite.chr + 0x11].resize(16);
-          ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x00), 0, 16, chrs[sprite.chr + 0x00]);
-          ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, chrs[sprite.chr + 0x01]);
-          ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, chrs[sprite.chr + 0x10]);
-          ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
-        }
-      }
-
-      // append the sprite to our array:
-      sprites.resize(++numsprites);
-      @sprites[numsprites-1] = sprite;
+      capture_sprite(sprite);
     }
+  }
+
+  void capture_sprite(Sprite &sprite) {
+    //message("capture_sprite " + fmtInt(sprite.index));
+    // load character(s) from VRAM:
+    if (sprite.size == 0) {
+      // 8x8 sprite:
+      if (chrs[sprite.chr].length() == 0) {
+        chrs[sprite.chr].resize(16);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, chrs[sprite.chr]);
+      }
+    } else {
+      // 16x16 sprite:
+      if (chrs[sprite.chr].length() == 0) {
+        chrs[sprite.chr + 0x00].resize(16);
+        chrs[sprite.chr + 0x01].resize(16);
+        chrs[sprite.chr + 0x10].resize(16);
+        chrs[sprite.chr + 0x11].resize(16);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x00), 0, 16, chrs[sprite.chr + 0x00]);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, chrs[sprite.chr + 0x01]);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, chrs[sprite.chr + 0x10]);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
+      }
+    }
+
+    // append the sprite to our array:
+    sprites.resize(++numsprites);
+    @sprites[numsprites-1] = sprite;
   }
 
   bool can_see(uint32 other_location) {
@@ -852,6 +875,7 @@ void pre_frame() {
 
 void receive() {
   array<GameState@> packets;
+
   array<uint8> r(9500);
   int n;
   while ((n = sock.recv(0, 9500, r)) > 0) {
@@ -917,6 +941,36 @@ void post_frame() {
         ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
       );
       ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E012C + i), 2));
+    }
+  }
+
+  if (debugOAM) {
+    ppu::frame.draw_op = ppu::draw_op::op_alpha;
+    ppu::frame.color = ppu::rgb(28, 28, 28);
+    ppu::frame.alpha = 28;
+    ppu::frame.text_shadow = true;
+
+    for (int i = 0; i < 128; i++) {
+      // access current OAM sprite index:
+      auto tile = ppu::oam[i];
+
+      auto chr = tile.character;
+      auto x = int16(tile.x);
+      auto y = int16(tile.y);
+      if (x >= 256) x -= 512;
+
+      //ppu::frame.rect(x, y, width, height);
+
+      ppu::frame.color = ppu::rgb(28, 28, 0);
+      ppu::frame.text((i / 28) * (4*8 + 8), (i % 28) * 8, fmtHex(i, 2));
+
+      if (tile.is_enabled) {
+        ppu::frame.color = ppu::rgb(28, 28, 28);
+      } else {
+        ppu::frame.color = ppu::rgb(8, 8, 12);
+      }
+
+      ppu::frame.text((i / 28) * (4*8 + 8) + 16, (i % 28) * 8, fmtHex(tile.character, 2));
     }
   }
 
