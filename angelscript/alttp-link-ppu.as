@@ -103,41 +103,41 @@ class SettingsWindow {
 
 const int scale = 2;
 class SpritesWindow {
-private gui::Window @window;
-private gui::VerticalLayout @vl;
+  private gui::Window @window;
+  private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
 
   array<uint16> fgtiles(0x1000);
 
   SpritesWindow() {
-      // relative position to bsnes window:
-      @window = gui::Window(0, 256*2, true);
-      window.title = "Sprite VRAM";
-      window.size = gui::Size(256*scale, 256*scale);
+    // relative position to bsnes window:
+    @window = gui::Window(0, 256*2, true);
+    window.title = "Sprite VRAM";
+    window.size = gui::Size(256*scale, 256*scale);
 
-      @vl = gui::VerticalLayout();
-      window.append(vl);
+    @vl = gui::VerticalLayout();
+    window.append(vl);
 
-      @canvas = gui::Canvas();
-      canvas.size = gui::Size(128, 128);
-      vl.append(canvas, gui::Size(-1, -1));
+    @canvas = gui::Canvas();
+    canvas.size = gui::Size(128, 128);
+    vl.append(canvas, gui::Size(-1, -1));
 
-      vl.resize();
-      canvas.update();
-      window.visible = true;
+    vl.resize();
+    canvas.update();
+    window.visible = true;
   }
 
   void update() {
-      canvas.update();
+    canvas.update();
   }
 
   void render(const array<uint16> &palette) {
-      // read VRAM:
-      ppu::vram.read_block(0x4000, 0, 0x1000, fgtiles);
+    // read VRAM:
+    ppu::vram.read_block(0x4000, 0, 0x1000, fgtiles);
 
-      // draw VRAM as 4bpp tiles:
-      sprites.canvas.fill(0x0000);
-      sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 128, fgtiles, palette);
+    // draw VRAM as 4bpp tiles:
+    sprites.canvas.fill(0x0000);
+    sprites.canvas.draw_sprite_4bpp(0, 0, 0, 128, 128, fgtiles, palette);
   }
 };
 SpritesWindow @sprites;
@@ -424,6 +424,9 @@ class GameState {
     int16 rx = int16(x) - xoffs;
     int16 ry = int16(y) - yoffs;
 
+    // read OAM offset where link's sprites start at:
+    int link_oam_start = bus::read_u8(0x0352);
+
     // read in relevant sprites from OAM and VRAM:
     sprites.resize(0);
     sprites.reserve(8);
@@ -562,106 +565,79 @@ class GameState {
   }
 
   void send() {
-	// build envelope:
-	array<uint8> envelope;
-	// header
-	envelope.insertLast(uint16(25887));
-	// clientType = 1 (player)
-	envelope.insertLast(uint8(1));
-	// group name:
-	envelope.insertLast(uint8(settings.Group.length()));
-	envelope.insertLast(settings.Group);
-	// player name:
-	envelope.insertLast(uint8(settings.Name.length()));
-	envelope.insertLast(settings.Name);
+    // build envelope:
+    array<uint8> envelope;
+    // header
+    envelope.insertLast(uint16(25887));
+    // clientType = 1 (player)
+    envelope.insertLast(uint8(1));
+    // group name:
+    envelope.insertLast(uint8(settings.Group.length()));
+    envelope.insertLast(settings.Group);
+    // player name:
+    envelope.insertLast(uint8(settings.Name.length()));
+    envelope.insertLast(settings.Name);
 
-	// append local state to remote player:
-	int beforeLen = envelope.length();
-	serialize(envelope);
+    // append local state to remote player:
+    int beforeLen = envelope.length();
+    serialize(envelope);
 
-	// length check:
-	//if ((envelope.length() - beforeLen) != int(expected_packet_size)) {
-	//  message("send(): failed to produce a packet of the expected size!");
-	//  return;
-	//}
+    // length check:
+    //if ((envelope.length() - beforeLen) != int(expected_packet_size)) {
+    //  message("send(): failed to produce a packet of the expected size!");
+    //  return;
+    //}
 
-	// send envelope to server:
-	//message("sent " + fmtInt(envelope.length()));
-	sock.send(0, envelope.length(), envelope);
+    // send envelope to server:
+    //message("sent " + fmtInt(envelope.length()));
+    sock.send(0, envelope.length(), envelope);
   }
 
-  void receive() {
-	array<uint8> r(9500);
-    int n;
-    while ((n = sock.recv(0, 9500, r)) > 0) {
-      int c = 0;
+  bool deserialize(array<uint8> r, int c) {
+    // deserialize data packet:
+    auto sentinel = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (sentinel != 0xFEEF) {
+      // garbled or split packet
+      message("garbled packet");
+      return false;
+    }
 
-      // verify envelope header:
-      uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (header != 25887) {
-        message("receive(): bad envelope header!");
-        continue;
-      }
+    location = uint32(r[c++])
+               | (uint32(r[c++]) << 8)
+               | (uint32(r[c++]) << 16)
+               | (uint32(r[c++]) << 24);
 
-      // check client type (spectator=0, player=1):
-      uint8 clientType = r[c++];
-      // skip messages from non-players (e.g. spectators):
-      if (clientType != 1) {
-        message("receive(): ignore non-player message");
-        continue;
-      }
+    x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    z = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
-      // skip group name:
-      uint8 groupLen = r[c++];
-      c += groupLen;
+    // read in OAM sprites:
+    auto numsprites = r[c++];
+    sprites.resize(numsprites);
+    for (uint i = 0; i < numsprites; i++) {
+      @sprites[i] = Sprite();
+      c = sprites[i].deserialize(r, c);
+    }
 
-      // skip player name:
-      uint8 nameLen = r[c++];
-      c += nameLen;
+    // clear previous chr tile data:
+    for (uint i = 0; i < 512; i++) {
+      chrs[i].resize(0);
+    }
 
-      // deserialize data packet:
-      auto sentinel = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (sentinel != 0xFEEF) {
-        // garbled or split packet
-        message("garbled packet, len=" + fmtInt(n));
-        return;
-      }
+    // read in chr data:
+    auto chr_count = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    for (uint i = 0; i < chr_count; i++) {
+      // read chr number:
+      auto h = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
-      location = uint32(r[c++])
-                 | (uint32(r[c++]) << 8)
-                 | (uint32(r[c++]) << 16)
-                 | (uint32(r[c++]) << 24);
-
-      x = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      y = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      z = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-      // read in OAM sprites:
-      auto numsprites = r[c++];
-      sprites.resize(numsprites);
-      for (uint i = 0; i < numsprites; i++) {
-        @sprites[i] = Sprite();
-        c = sprites[i].deserialize(r, c);
-      }
-
-      // clear previous chr tile data:
-      for (uint i = 0; i < 512; i++) {
-        chrs[i].resize(0);
-      }
-
-      // read in chr data:
-      auto chr_count = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      for (uint i = 0; i < chr_count; i++) {
-        // read chr number:
-        auto h = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-        // read chr tile data:
-        chrs[h].resize(16);
-        for (int k = 0; k < 16; k++) {
-          chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-        }
+      // read chr tile data:
+      chrs[h].resize(16);
+      for (int k = 0; k < 16; k++) {
+        chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
       }
     }
+
+    return true;
   }
 
   void overwrite_tile(uint16 addr, array<uint16> tiledata) {
@@ -818,7 +794,7 @@ class GameState {
 };
 
 GameState local;
-GameState remote;
+array<GameState@> players;
 uint8 isRunning;
 
 bool intercepting = false;
@@ -859,21 +835,11 @@ void pre_frame() {
   // fetch local game state from WRAM:
   local.fetch();
 
-  // receive network update from remote player:
-  remote.receive();
-
-  // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-  if (local.can_see(remote.location) && local.can_sync()) {
-    // subtract BG2 offset from sprite x,y coords to get local screen coords:
-    int16 rx = int16(remote.x) - local.xoffs;
-    int16 ry = int16(remote.y) - local.yoffs;
-
-    // draw remote player relative to current BG offsets:
-    remote.render(rx, ry);
-  }
-
   // send updated state for our Link to player 2:
   local.send();
+
+  // receive network update from remote players:
+  receive();
 
   // load 8 sprite palettes from CGRAM:
   array<array<uint16>> palettes(8, array<uint16>(16));
@@ -882,6 +848,56 @@ void pre_frame() {
       palettes[i][c] = ppu::cgram[128 + (i << 4) + c];
     }
   }
+}
+
+void receive() {
+  array<GameState@> packets;
+  array<uint8> r(9500);
+  int n;
+  while ((n = sock.recv(0, 9500, r)) > 0) {
+    int c = 0;
+
+    // verify envelope header:
+    uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (header != 25887) {
+      message("receive(): bad envelope header!");
+      continue;
+    }
+
+    // check client type (spectator=0, player=1):
+    uint8 clientType = r[c++];
+    // skip messages from non-players (e.g. spectators):
+    if (clientType != 1) {
+      message("receive(): ignore non-player message");
+      continue;
+    }
+
+    // skip group name:
+    uint8 groupLen = r[c++];
+    c += groupLen;
+
+    // skip player name:
+    uint8 nameLen = r[c++];
+    c += nameLen;
+
+    // deserialize data packet:
+    GameState @remote = GameState();
+    remote.deserialize(r, c);
+
+    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+    if (local.can_see(remote.location) && local.can_sync()) {
+      // subtract BG2 offset from sprite x,y coords to get local screen coords:
+      int16 rx = int16(remote.x) - local.xoffs;
+      int16 ry = int16(remote.y) - local.yoffs;
+
+      // draw remote player relative to current BG offsets:
+      remote.render(rx, ry);
+    }
+
+    packets.insertLast(remote);
+  }
+
+  players = packets;
 }
 
 void post_frame() {
@@ -911,5 +927,7 @@ void post_frame() {
   if (!settings.started) return;
 
   // restore previous VRAM tiles:
-  remote.cleanup();
+  for (uint i = 0; i < players.length(); i++) {
+    players[i].cleanup();
+  }
 }
