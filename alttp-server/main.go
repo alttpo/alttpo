@@ -28,18 +28,27 @@ type ClientKey struct {
 type Client struct {
 	net.UDPAddr
 
+	IsAlive   bool
+	Group     string
+	ClientKey ClientKey
+	Index     uint16
+
 	ClientType uint8
-	Group      string
 	Name       string
 	LastSeen   time.Time
 }
 
-const (
-	ClientTypeSpectator = uint8(iota)
-	ClientTypePlayer
-)
+//type ClientGroup map[ClientKey]*Client
+type ClientGroup struct {
+	Group string
 
-type ClientGroup map[ClientKey]*Client
+	Clients     []Client
+	ActiveCount int
+}
+
+var udpAddr *net.UDPAddr
+var conn *net.UDPConn
+var clientGroups map[string]*ClientGroup
 
 func readTinyString(buf *bytes.Buffer) (value string, err error) {
 	var valueLength uint8
@@ -90,10 +99,6 @@ func getPackets(conn *net.UDPConn, messages chan<- UDPMessage) {
 	}
 }
 
-var udpAddr *net.UDPAddr
-var conn *net.UDPConn
-var clientGroups map[string]ClientGroup
-
 func main() {
 	flag.Parse()
 
@@ -113,7 +118,7 @@ func main() {
 	udpMessages := make(chan UDPMessage)
 	go getPackets(conn, udpMessages)
 
-	clientGroups = make(map[string]ClientGroup)
+	clientGroups = make(map[string]*ClientGroup)
 
 	secondsTicker := time.Tick(time.Second * 5)
 
@@ -141,12 +146,9 @@ eventloop:
 }
 
 func processMessage(message UDPMessage) (fatalErr error) {
-	envelope := message.Envelope
-	addr := message.ReceivedFrom
-
 	//log.Printf("(%v) received %v bytes\n", addr, len(envelope))
 
-	buf := bytes.NewBuffer(envelope)
+	buf := bytes.NewBuffer(message.Envelope)
 
 	var header uint16
 	if err := binary.Read(buf, binary.LittleEndian, &header); err != nil {
@@ -160,12 +162,23 @@ func processMessage(message UDPMessage) (fatalErr error) {
 		return
 	}
 
-	var clientType uint8
-	if err := binary.Read(buf, binary.LittleEndian, &clientType); err != nil {
+	var protocol uint8
+	if err := binary.Read(buf, binary.LittleEndian, &protocol); err != nil {
 		log.Print(err)
 		return
 	}
 
+	switch protocol {
+	case 1:
+		return processProtocol01(message, buf)
+	default:
+		log.Printf("Unknown protocol 0x%02x\n", protocol)
+	}
+
+	return
+}
+
+func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	var err error
 	var group string
 	group, err = readTinyString(buf)
@@ -181,6 +194,15 @@ func processMessage(message UDPMessage) (fatalErr error) {
 		return
 	}
 
+	var clientType uint8
+	if err := binary.Read(buf, binary.LittleEndian, &clientType); err != nil {
+		log.Print(err)
+		return
+	}
+
+	// TODO: emit Index back to clients
+	payload := buf.Bytes()
+
 	buf = nil
 
 	// trim whitespace and convert to lowercase for key lookup:
@@ -188,73 +210,142 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	groupKey = strings.ToLower(groupKey)
 	clientGroup, ok := clientGroups[groupKey]
 	if !ok {
-		clientGroup = make(ClientGroup)
+		clientGroup = &ClientGroup{
+			Group:   groupKey,
+			Clients: make([]Client, 0, 8),
+		}
 		clientGroups[groupKey] = clientGroup
 		log.Printf("[group %s] new group\n", groupKey)
 	}
 
 	// create a key that represents the client from the received address:
+	addr := message.ReceivedFrom
 	clientKey := ClientKey{
 		Port: addr.Port,
 		Zone: addr.Zone,
 	}
 	copy(clientKey.IP[:], addr.IP)
 
-	client, ok := clientGroup[clientKey]
-	if !ok {
-		// add this client to set of clients:
-		client = &Client{
-			UDPAddr:    *addr,
-			LastSeen:   time.Now(),
-			ClientType: clientType,
-			Group:      group,
-			Name:       name,
+	// Find client in Clients array by ClientKey
+	// Find first free slot to reuse
+	// Find total count of active clients
+	var client *Client
+	ci := -1
+	free := -1
+	var i int
+	activeCount := 0
+	for i = range clientGroup.Clients {
+		c := &clientGroup.Clients[i]
+		if !c.IsAlive {
+			if free == -1 {
+				free = i
+			}
+			continue
 		}
-		clientGroup[clientKey] = client
-		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, len(clientGroup))
+
+		activeCount++
+		if c.ClientKey == clientKey {
+			client = c
+			ci = i
+		}
+	}
+
+	// update ActiveCount:
+	clientGroup.ActiveCount = activeCount
+
+	// Add new or update existing client:
+	if client == nil {
+		// No free slot?
+		if free == -1 {
+			// Extend Clients array:
+			clientGroup.Clients = append(clientGroup.Clients, Client{})
+			free = len(clientGroup.Clients) - 1
+		}
+		ci = free
+		client = &clientGroup.Clients[free]
+
+		// add this client to set of clients:
+		*client = Client{
+			UDPAddr:    *addr,
+			IsAlive:    true,
+			Group:      group,
+			ClientKey:  clientKey,
+			Index:      uint16(free),
+			ClientType: clientType,
+			Name:       name,
+			LastSeen:   time.Now(),
+		}
+
+		clientGroup.ActiveCount++
+		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
 		client.ClientType = clientType
-		client.Group = group
 		client.Name = name
 	}
 
 	// broadcast message received to all other clients:
-	for _, other := range clientGroup {
+	for i = range clientGroup.Clients {
+		c := &clientGroup.Clients[i]
 		// don't echo back to client received from:
-		if other == client {
+		if c == client {
 			//log.Printf("(%v) skip echo\n", otherKey.IP)
 			continue
 		}
+		if !c.IsAlive {
+			continue
+		}
+
+		// construct message:
+		buf = &bytes.Buffer{}
+		header := uint16(25887)
+		binary.Write(buf, binary.LittleEndian, &header)
+		protocol := byte(0x01)
+		buf.WriteByte(protocol)
+
+		// protocol packet:
+		buf.WriteByte(uint8(len(group)))
+		buf.WriteString(group)
+		buf.WriteByte(uint8(len(name)))
+		buf.WriteString(name)
+		index := uint16(ci)
+		binary.Write(buf, binary.LittleEndian, &index)
+		buf.WriteByte(clientType)
+		buf.Write(payload)
 
 		// send message to this client:
-		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
-		_, fatalErr = conn.WriteToUDP(envelope, &other.UDPAddr)
+		_, fatalErr = conn.WriteToUDP(buf.Bytes(), &c.UDPAddr)
 		if fatalErr != nil {
 			return
 		}
+		buf = nil
+		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 	}
 
 	return
 }
 
 func expireClients(seconds time.Time) {
-	// TODO: find a better way than linear search and iterating over all groups and all clients
-
 	// find all client groups with clients to expire in them:
 	for groupKey, clientGroup := range clientGroups {
 		// find all clients to be expired:
-		for otherKey, other := range clientGroup {
+		for i := range clientGroup.Clients {
+			c := &clientGroup.Clients[i]
+			if !c.IsAlive {
+				continue
+			}
+
 			// expunge expired clients:
-			if other.LastSeen.Add(disconnectTimeout).Before(seconds) {
-				delete(clientGroup, otherKey)
-				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, other, len(clientGroup))
+			if c.LastSeen.Add(disconnectTimeout).Before(seconds) {
+				c.IsAlive = false
+				clientGroup.ActiveCount--
+				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, c, clientGroup.ActiveCount)
 			}
 		}
 
 		// remove the client group if no more clients left within:
-		if len(clientGroup) == 0 {
+		if clientGroup.ActiveCount == 0 {
 			delete(clientGroups, groupKey)
 			log.Printf("[group %s] forget group\n", groupKey)
 		}

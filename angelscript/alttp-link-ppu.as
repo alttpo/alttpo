@@ -247,6 +247,8 @@ class Tile {
 };
 
 class GameState {
+  int ttl;
+
   // graphics data for current frame:
   array<Sprite@> sprites;
   array<array<uint16>> chrs(512);
@@ -628,16 +630,18 @@ class GameState {
   void send() {
     // build envelope:
     array<uint8> envelope;
-    // header
+    // header:
     envelope.insertLast(uint16(25887));
-    // clientType = 1 (player)
-    envelope.insertLast(uint8(1));
+    // protocol:
+    envelope.insertLast(uint8(0x01));
     // group name:
     envelope.insertLast(uint8(settings.Group.length()));
     envelope.insertLast(settings.Group);
     // player name:
     envelope.insertLast(uint8(settings.Name.length()));
     envelope.insertLast(settings.Name);
+    // clientType = 1 (player)
+    envelope.insertLast(uint8(1));
 
     // append local state to remote player:
     int beforeLen = envelope.length();
@@ -855,7 +859,7 @@ class GameState {
 };
 
 GameState local;
-array<GameState@> players;
+array<GameState> players(8);
 uint8 isRunning;
 
 bool intercepting = false;
@@ -915,6 +919,10 @@ void pre_frame() {
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
     auto remote = players[i];
+    if (remote.ttl == 0) {
+      continue;
+    }
+    remote.ttl = remote.ttl - 1;
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location) && local.can_sync()) {
@@ -929,8 +937,6 @@ void pre_frame() {
 }
 
 void receive() {
-  array<GameState@> packets;
-
   array<uint8> r(9500);
   int n;
   while ((n = sock.recv(0, 9500, r)) > 0) {
@@ -943,11 +949,11 @@ void receive() {
       continue;
     }
 
-    // check client type (spectator=0, player=1):
-    uint8 clientType = r[c++];
+    // check protocol:
+    uint8 protocol = r[c++];
     // skip messages from non-players (e.g. spectators):
-    if (clientType != 1) {
-      message("receive(): ignore non-player message");
+    if (protocol != 1) {
+      message("receive(): unknown protocol 0x" + fmtHex(protocol, 2));
       continue;
     }
 
@@ -959,14 +965,25 @@ void receive() {
     uint8 nameLen = r[c++];
     c += nameLen;
 
+    // read player index:
+    uint16 index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    // check client type (spectator=0, player=1):
+    uint8 clientType = r[c++];
+    // skip messages from non-players (e.g. spectators):
+    if (clientType != 1) {
+      message("receive(): ignore non-player message");
+      continue;
+    }
+
+    while (index >= players.length()) {
+      players.insertLast(GameState());
+    }
+
     // deserialize data packet:
-    GameState @remote = GameState();
-    remote.deserialize(r, c);
-
-    packets.insertLast(remote);
+    players[index].deserialize(r, c);
+    players[index].ttl = 255;
   }
-
-  players = packets;
 }
 
 void post_frame() {
