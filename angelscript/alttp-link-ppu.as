@@ -482,7 +482,7 @@ class GameState {
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
       if (sprite.y == 0xF0) continue;
 
-      message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
+      //message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
 
       sprite.adjustXY(rx, ry);
 
@@ -860,15 +860,7 @@ uint8 isRunning;
 
 bool intercepting = false;
 
-void pre_frame() {
-  if (@sprites != null) {
-    for (int i = 0; i < 16; i++) {
-      palette7[i] = ppu::cgram[(15 << 4) + i];
-    }
-    sprites.render(palette7);
-    sprites.update();
-  }
-
+void pre_nmi() {
   // Wait until the game starts:
   isRunning = bus::read_u8(0x7E0010);
   if (isRunning < 0x06 || isRunning > 0x13) return;
@@ -901,12 +893,37 @@ void pre_frame() {
 
   // receive network update from remote players:
   receive();
+}
+
+void pre_frame() {
+  if (@sprites != null) {
+    for (int i = 0; i < 16; i++) {
+      palette7[i] = ppu::cgram[(15 << 4) + i];
+    }
+    sprites.render(palette7);
+    sprites.update();
+  }
 
   // load 8 sprite palettes from CGRAM:
   array<array<uint16>> palettes(8, array<uint16>(16));
   for (int i = 0; i < 8; i++) {
     for (int c = 0; c < 16; c++) {
       palettes[i][c] = ppu::cgram[128 + (i << 4) + c];
+    }
+  }
+
+  // render remote players:
+  for (uint i = 0; i < players.length(); i++) {
+    auto remote = players[i];
+
+    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+    if (local.can_see(remote.location) && local.can_sync()) {
+      // subtract BG2 offset from sprite x,y coords to get local screen coords:
+      int16 rx = int16(remote.x) - local.xoffs;
+      int16 ry = int16(remote.y) - local.yoffs;
+
+      // draw remote player relative to current BG offsets:
+      remote.render(rx, ry);
     }
   }
 }
@@ -945,16 +962,6 @@ void receive() {
     // deserialize data packet:
     GameState @remote = GameState();
     remote.deserialize(r, c);
-
-    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location) && local.can_sync()) {
-      // subtract BG2 offset from sprite x,y coords to get local screen coords:
-      int16 rx = int16(remote.x) - local.xoffs;
-      int16 ry = int16(remote.y) - local.yoffs;
-
-      // draw remote player relative to current BG offsets:
-      remote.render(rx, ry);
-    }
 
     packets.insertLast(remote);
   }
