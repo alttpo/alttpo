@@ -162,13 +162,13 @@ class Sprite {
     x    = b0;
     y    = b1;
     chr  = b2;
-    chr  = chr | ((b3 >> 0 & 1) << 8);
+    chr  = chr | (uint16(b3 >> 0 & 1) << 8);
     palette  = b3 >> 1 & 7;
     priority = b3 >> 4 & 3;
     hflip    = (b3 >> 6 & 1) != 0 ? true : false;
     vflip    = (b3 >> 7 & 1) != 0 ? true : false;
 
-    x    = (x & 0xff) | ((b4 << 8) & 0x100);
+    x    = (x & 0xff) | (uint16(b4) << 8 & 0x100);
     size = (b4 >> 1) & 1;
   }
 
@@ -265,6 +265,7 @@ class LocalFrameState {
   array<Tile@> chr_backup;
 
   void capture() {
+    //message("frame.capture");
     // assume first 0x100 characters are in-use (Link body, sword, shield, weapons, rupees, etc):
     for (uint j = 0; j < 0x100; j++) {
       chr[j] = true;
@@ -302,9 +303,6 @@ class LocalFrameState {
         chr[addr+0x11] = true;
       }
     }
-
-    // clear backup of VRAM data:
-    chr_backup.resize(0);
   }
 
   void overwrite_tile(uint16 addr, array<uint16> tiledata) {
@@ -320,6 +318,8 @@ class LocalFrameState {
   }
 
   void cleanup() {
+    //message("frame.cleanup");
+
     // restore VRAM contents:
     auto len = chr_backup.length();
     for (uint i = 0; i < len; i++) {
@@ -404,7 +404,7 @@ class GameState {
       if (sub_module == 0x00 || sub_module <= 0x08) {
         return true;
       }
-      message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+      //message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
     } else if (module == 0x07) {
       // in dungeon:
@@ -417,7 +417,7 @@ class GameState {
       if (sub_module == 0x02) {
         return true;
       } else {
-        message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+        //message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
         return false;
       }
     } else {
@@ -431,21 +431,21 @@ class GameState {
       if (sub_module == 0x00 || sub_module <= 0x08) {
         return true;
       }
-      message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+      //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
     } else if (module == 0x07) {
       // in dungeon:
       if (sub_module == 0x00) {
         return true;
       }
-      message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+      //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
     } else if (module == 0x0e) {
       // dialogue:
       if (sub_module == 0x02) {
         return true;
       } else {
-        message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+        //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
         return false;
       }
     } else {
@@ -824,18 +824,14 @@ class GameState {
 
       // determine which OAM sprite slot is free around the desired index:
       int j;
-      for (j = sprite.index; j < 128; j++) {
-        if (!ppu::oam[j].is_enabled) break;
+      for (j = sprite.index; j < sprite.index + 128; j++) {
+        if (!ppu::oam[j & 127].is_enabled) break;
       }
-      if (j == 128) {
-        for (j = sprite.index; j >= 0; j--) {
-          if (!ppu::oam[j].is_enabled) break;
-        }
-        // no more free slots?
-        if (j == -1) return;
-      }
+      // no more free slots?
+      if (j == sprite.index + 128) return;
 
       // start building a new OAM sprite:
+      j = j & 127;
       auto oam = ppu::oam[j];
       oam.x = uint16(sprite.x + x);
       oam.y = sprite.y + y;
@@ -866,11 +862,12 @@ class GameState {
       } else {
         // 16x16 sprite:
         if (reloc[sprite.chr] == 0) { // assumes use of chr=0 is invalid, which it is since it is for local Link.
-          for (uint k = 0x20; k < 512; k += 2) {
-            // skip every odd row since 16x16 are aligned on even rows 0x00, 0x20, 0x40, etc:
-            if ((k & 0x10) != 0) continue;
+          for (uint k = 0x20; k < 512; k++) {
             // skip chr if in-use:
-            if (localFrameState.chr[k]) continue;
+            if (localFrameState.chr[k + 0x00]) continue;
+            if (localFrameState.chr[k + 0x01]) continue;
+            if (localFrameState.chr[k + 0x10]) continue;
+            if (localFrameState.chr[k + 0x11]) continue;
 
             oam.character = k;
             localFrameState.chr[k + 0x00] = true;
@@ -990,6 +987,7 @@ void pre_nmi() {
 }
 
 void post_frame() {
+  //message("post-frame");
   if (debug) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
@@ -1044,8 +1042,6 @@ void post_frame() {
 
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
-
-  //message("post-frame");
 }
 
 void pre_frame() {
