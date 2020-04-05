@@ -5,7 +5,7 @@ SettingsWindow @settings;
 
 bool debug = false;
 bool debugOAM = false;
-bool debugSprites = false;
+bool debugSprites = true;
 
 void init() {
   @settings = SettingsWindow();
@@ -404,6 +404,7 @@ class GameState {
       if (sub_module == 0x00 || sub_module <= 0x08) {
         return true;
       }
+      message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
     } else if (module == 0x07) {
       // in dungeon:
@@ -413,7 +414,12 @@ class GameState {
       return true;
     } else if (module == 0x0e) {
       // dialogue:
-      return (sub_module == 0x02);
+      if (sub_module == 0x02) {
+        return true;
+      } else {
+        message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+        return false;
+      }
     } else {
       return false;
     }
@@ -425,16 +431,23 @@ class GameState {
       if (sub_module == 0x00 || sub_module <= 0x08) {
         return true;
       }
+      message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
     } else if (module == 0x07) {
       // in dungeon:
       if (sub_module == 0x00) {
         return true;
       }
+      message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
     } else if (module == 0x0e) {
       // dialogue:
-      return (sub_module == 0x02);
+      if (sub_module == 0x02) {
+        return true;
+      } else {
+        message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
+        return false;
+      }
     } else {
       return false;
     }
@@ -892,83 +905,6 @@ uint8 isRunning;
 
 bool intercepting = false;
 
-void pre_nmi() {
-  // Wait until the game starts:
-  isRunning = bus::read_u8(0x7E0010);
-  if (isRunning < 0x06 || isRunning > 0x13) return;
-
-  // Don't do anything until user fills out Settings window inputs:
-  if (!settings.started) return;
-
-  // Attempt to open a server socket:
-  if (@sock == null) {
-    try {
-      // open a UDP socket to receive data from:
-      @address = net::resolve_udp(settings.ServerAddress, 4590);
-      // open a UDP socket to receive data from:
-      @sock = net::Socket(address);
-      // connect to remote address so recv() and send() work:
-      sock.connect(address);
-    } catch {
-      // Probably server IP field is invalid; prompt user again:
-      @sock = null;
-      settings.started = false;
-      settings.show();
-    }
-  }
-
-  // fetch local game state from WRAM:
-  local.fetch();
-}
-
-void pre_frame() {
-  if (@sprites != null) {
-    for (int i = 0; i < 16; i++) {
-      palette7[i] = ppu::cgram[(15 << 4) + i];
-    }
-    sprites.render(palette7);
-    sprites.update();
-  }
-
-  if (isRunning < 0x06 || isRunning > 0x13) return;
-
-  // Don't do anything until user fills out Settings window inputs:
-  if (!settings.started) return;
-
-  if (null == @sock) return;
-
-  localFrameState.capture();
-
-  // fetch local VRAM data for sprites:
-  local.capture_sprites_vram();
-
-  // send updated state for our Link to server:
-  local.send();
-
-  // receive network updates from remote players:
-  receive();
-
-  // render remote players:
-  for (uint i = 0; i < players.length(); i++) {
-    auto remote = players[i];
-    if (remote.ttl <= 0) {
-      remote.ttl = 0;
-      continue;
-    }
-    remote.ttl = remote.ttl - 1;
-
-    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location) && local.can_sync()) {
-      // subtract BG2 offset from sprite x,y coords to get local screen coords:
-      int16 rx = int16(remote.x) - local.xoffs;
-      int16 ry = int16(remote.y) - local.yoffs;
-
-      // draw remote player relative to current BG offsets:
-      remote.render(rx, ry);
-    }
-  }
-}
-
 void receive() {
   array<uint8> r(9500);
   int n;
@@ -1017,6 +953,40 @@ void receive() {
     players[index].deserialize(r, c);
     players[index].ttl = 255;
   }
+}
+
+void pre_nmi() {
+  // Wait until the game starts:
+  isRunning = bus::read_u8(0x7E0010);
+  if (isRunning < 0x06 || isRunning > 0x13) return;
+
+  // Don't do anything until user fills out Settings window inputs:
+  if (!settings.started) return;
+
+  // Attempt to open a server socket:
+  if (@sock == null) {
+    try {
+      // open a UDP socket to receive data from:
+      @address = net::resolve_udp(settings.ServerAddress, 4590);
+      // open a UDP socket to receive data from:
+      @sock = net::Socket(address);
+      // connect to remote address so recv() and send() work:
+      sock.connect(address);
+    } catch {
+      // Probably server IP field is invalid; prompt user again:
+      @sock = null;
+      settings.started = false;
+      settings.show();
+    }
+  }
+
+  //message("pre-nmi");
+
+  // restore previous VRAM tiles:
+  localFrameState.cleanup();
+
+  // fetch next frame's game state from WRAM:
+  local.fetch();
 }
 
 void post_frame() {
@@ -1075,6 +1045,56 @@ void post_frame() {
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
-  // restore previous VRAM tiles:
-  localFrameState.cleanup();
+  //message("post-frame");
+}
+
+void pre_frame() {
+  if (isRunning < 0x06 || isRunning > 0x13) return;
+
+  // Don't do anything until user fills out Settings window inputs:
+  if (!settings.started) return;
+
+  if (null == @sock) return;
+
+  //message("pre-frame");
+
+  // capture which OAM tiles are allocated:
+  localFrameState.capture();
+
+  // fetch local VRAM data for sprites:
+  local.capture_sprites_vram();
+
+  // send updated state for our Link to server:
+  local.send();
+
+  // receive network updates from remote players:
+  receive();
+
+  // render remote players:
+  for (uint i = 0; i < players.length(); i++) {
+    auto remote = players[i];
+    if (remote.ttl <= 0) {
+      remote.ttl = 0;
+      continue;
+    }
+    remote.ttl = remote.ttl - 1;
+
+    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+    if (local.can_see(remote.location) && local.can_sync()) {
+      // subtract BG2 offset from sprite x,y coords to get local screen coords:
+      int16 rx = int16(remote.x) - local.xoffs;
+      int16 ry = int16(remote.y) - local.yoffs;
+
+      // draw remote player relative to current BG offsets:
+      remote.render(rx, ry);
+    }
+  }
+
+  if (@sprites != null) {
+    for (int i = 0; i < 16; i++) {
+      palette7[i] = ppu::cgram[(15 << 4) + i];
+    }
+    sprites.render(palette7);
+    sprites.update();
+  }
 }
