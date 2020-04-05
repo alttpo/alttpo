@@ -291,7 +291,7 @@ class LocalFrameState {
     for (uint j = 0; j < 128; j++) {
       auto tile = ppu::oam[j];
       // NOTE: we could skip the is_enabled check which would make the OAM appear to be a LRU cache of characters
-      //if (!tile.is_enabled) continue;
+      if (!tile.is_enabled) continue;
 
       // mark chr as used in current frame:
       uint addr = tile.character;
