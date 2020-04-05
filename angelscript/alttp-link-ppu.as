@@ -157,7 +157,7 @@ class Sprite {
   // b0-b3 are main 4 bytes of OAM table
   // b4 is the 5th byte of extended OAM table
   // b4 must be right-shifted to be the two least significant bits and all other bits cleared.
-  void decodeOAMTableBytes(uint8 i, uint8 b0, uint8 b1, uint8 b2, uint8 b3, uint8 b4) {
+  void decodeOAMTableBytes(uint16 i, uint8 b0, uint8 b1, uint8 b2, uint8 b3, uint8 b4) {
     index = i;
     x    = b0;
     y    = b1;
@@ -170,6 +170,17 @@ class Sprite {
 
     x    = (x & 0xff) | ((b4 << 8) & 0x100);
     size = (b4 >> 1) & 1;
+  }
+
+  void decodeOAMTable(uint16 i) {
+    uint8 b0, b1, b2, b3, b4;
+    b0 = bus::read_u8(0x7E0800 + (i << 2));
+    b1 = bus::read_u8(0x7E0801 + (i << 2));
+    b2 = bus::read_u8(0x7E0802 + (i << 2));
+    b3 = bus::read_u8(0x7E0803 + (i << 2));
+    b4 = bus::read_u8(0x7E0A00 + (i >> 2));
+    b4 = (b4 >> ((i&3)<<1)) & 3;
+    decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
   }
 
   void adjustXY(int16 rx, int16 ry) {
@@ -246,14 +257,94 @@ class Tile {
   }
 };
 
+// captures local frame state for rendering purposes:
+class LocalFrameState {
+  // true/false map to determine which local characters are free for replacement in current frame:
+  array<bool> chr(512);
+  // backup of VRAM tiles overwritten:
+  array<Tile@> chr_backup;
+
+  void capture() {
+    // assume first 0x100 characters are in-use (Link body, sword, shield, weapons, rupees, etc):
+    for (uint j = 0; j < 0x100; j++) {
+      chr[j] = true;
+    }
+    for (uint j = 0x100; j < 0x200; j++) {
+      chr[j] = false;
+    }
+
+    // exclude follower sprite from default assumption of in-use:
+    chr[0x20] = false;
+    chr[0x21] = false;
+    chr[0x30] = false;
+    chr[0x31] = false;
+    chr[0x22] = false;
+    chr[0x23] = false;
+    chr[0x32] = false;
+    chr[0x33] = false;
+
+    // run through OAM sprites and determine which characters are actually in-use:
+    for (uint j = 0; j < 128; j++) {
+      auto tile = ppu::oam[j];
+      // NOTE: we could skip the is_enabled check which would make the OAM appear to be a LRU cache of characters
+      //if (!tile.is_enabled) continue;
+
+      // mark chr as used in current frame:
+      uint addr = tile.character;
+      if (tile.size == 0) {
+        // 8x8 tile:
+        chr[addr] = true;
+      } else {
+        // 16x16 tile:
+        chr[addr+0x00] = true;
+        chr[addr+0x01] = true;
+        chr[addr+0x10] = true;
+        chr[addr+0x11] = true;
+      }
+    }
+
+    // clear backup of VRAM data:
+    chr_backup.resize(0);
+  }
+
+  void overwrite_tile(uint16 addr, array<uint16> tiledata) {
+    // read previous VRAM tile:
+    array<uint16> backup(16);
+    ppu::vram.read_block(addr, 0, 16, backup);
+
+    // overwrite VRAM tile:
+    ppu::vram.write_block(addr, 0, 16, tiledata);
+
+    // store backup:
+    chr_backup.insertLast(Tile(addr, backup));
+  }
+
+  void cleanup() {
+    // restore VRAM contents:
+    auto len = chr_backup.length();
+    for (uint i = 0; i < len; i++) {
+      ppu::vram.write_block(
+        chr_backup[i].addr,
+        0,
+        16,
+        chr_backup[i].tiledata
+      );
+    }
+
+    // clear backup of VRAM data:
+    chr_backup.resize(0);
+  }
+};
+LocalFrameState localFrameState;
+
 class GameState {
   int ttl;
 
   // graphics data for current frame:
   array<Sprite@> sprites;
   array<array<uint16>> chrs(512);
-  // backup of VRAM tiles overwritten:
-  array<Tile@> chr_backup;
+  // lookup remote chr number to find local chr number mapped to:
+  array<uint16> reloc(512);
 
   // values copied from RAM:
   uint32 location;
@@ -472,14 +563,7 @@ class GameState {
 
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite sprite;
-      uint8 b0, b1, b2, b3, b4;
-      b0 = bus::read_u8(0x7E0800 + (i << 2));
-      b1 = bus::read_u8(0x7E0801 + (i << 2));
-      b2 = bus::read_u8(0x7E0802 + (i << 2));
-      b3 = bus::read_u8(0x7E0803 + (i << 2));
-      b4 = bus::read_u8(0x7E0A00 + (i >> 2));
-      b4 = (b4 >> ((i&3)<<1)) & 3;
-      sprite.decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
+      sprite.decodeOAMTable(i);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
       if (sprite.y == 0xF0) continue;
@@ -488,18 +572,22 @@ class GameState {
 
       sprite.adjustXY(rx, ry);
 
-      capture_sprite(sprite);
+      // append the sprite to our array:
+      sprites.resize(++numsprites);
+      @sprites[numsprites-1] = sprite;
     }
 
     // capture effects sprites:
+    /*
     for (int i = 0x0C; i < 0x12; i++) {
-      // access current OAM sprite index:
-      auto tile = ppu::oam[i];
+      // fetch ALTTP's copy of the OAM sprite data from WRAM:
+      Sprite sprite;
+      sprite.decodeOAMTable(i);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (!tile.is_enabled) continue;
+      if (sprite.y == 0xF0) continue;
 
-      auto chr = tile.character;
+      auto chr = sprite.chr;
       if (chr >= 0x100) continue;
 
       bool fx = (
@@ -552,11 +640,16 @@ class GameState {
       // skip OAM sprites that are not related to Link:
       if (!(fx || weapons || bombs || follower)) continue;
 
-      // fetch the sprite data from OAM and VRAM:
-      Sprite sprite;
-      sprite.fetchOAM(i, rx, ry);
+      // append the sprite to our array:
+      sprites.resize(++numsprites);
+      @sprites[numsprites-1] = sprite;
+    }
+    */
+  }
 
-      capture_sprite(sprite);
+  void capture_sprites_vram() {
+    for (int i = 0; i < numsprites; i++) {
+      capture_sprite(sprites[i]);
     }
   }
 
@@ -582,10 +675,6 @@ class GameState {
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
       }
     }
-
-    // append the sprite to our array:
-    sprites.resize(++numsprites);
-    @sprites[numsprites-1] = sprite;
   }
 
   bool can_see(uint32 other_location) {
@@ -705,58 +794,11 @@ class GameState {
     return true;
   }
 
-  void overwrite_tile(uint16 addr, array<uint16> tiledata) {
-    // read previous VRAM tile:
-    array<uint16> backup(16);
-    ppu::vram.read_block(addr, 0, 16, backup);
-
-    // overwrite VRAM tile:
-    ppu::vram.write_block(addr, 0, 16, tiledata);
-
-    // store backup:
-    chr_backup.insertLast(Tile(addr, backup));
-  }
-
   void render(int x, int y) {
-    // true/false map to determine which local characters are free for replacement in current frame:
-    array<bool> chr(512);
-    // lookup remote chr number to find local chr number mapped to:
-    array<uint16> reloc(512);
-    // assume first 0x100 characters are in-use (Link body, sword, shield, weapons, rupees, etc):
-    for (uint j = 0; j < 0x100; j++) {
-      chr[j] = true;
-    }
-    // exclude follower sprite from default assumption of in-use:
-    chr[0x20] = false;
-    chr[0x21] = false;
-    chr[0x30] = false;
-    chr[0x31] = false;
-    chr[0x22] = false;
-    chr[0x23] = false;
-    chr[0x32] = false;
-    chr[0x33] = false;
-    // run through OAM sprites and determine which characters are actually in-use:
-    for (uint j = 0; j < 128; j++) {
-      auto tile = ppu::oam[j];
-      // NOTE: we could skip the is_enabled check which would make the OAM appear to be a LRU cache of characters
-      //if (!tile.is_enabled) continue;
-
-      // mark chr as used in current frame:
-      uint addr = tile.character;
-      if (tile.size == 0) {
-        // 8x8 tile:
-        chr[addr] = true;
-      } else {
-        // 16x16 tile:
-        chr[addr+0x00] = true;
-        chr[addr+0x01] = true;
-        chr[addr+0x10] = true;
-        chr[addr+0x11] = true;
-      }
+    for (uint i = 0; i < 512; i++) {
+      reloc[i] = 0;
     }
 
-    // add in remote sprites:
-    chr_backup.resize(0);
     for (uint i = 0; i < sprites.length(); i++) {
       auto sprite = sprites[i];
       auto px = sprite.size == 0 ? 8 : 16;
@@ -796,12 +838,12 @@ class GameState {
         if (reloc[sprite.chr] == 0) { // assumes use of chr=0 is invalid, which it is since it is for local Link.
           for (uint k = 0x20; k < 512; k++) {
             // skip chr if in-use:
-            if (chr[k]) continue;
+            if (localFrameState.chr[k]) continue;
 
             oam.character = k;
-            chr[k] = true;
+            localFrameState.chr[k] = true;
             reloc[sprite.chr] = k;
-            overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
+            localFrameState.overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
             break;
           }
         } else {
@@ -815,21 +857,21 @@ class GameState {
             // skip every odd row since 16x16 are aligned on even rows 0x00, 0x20, 0x40, etc:
             if ((k & 0x10) != 0) continue;
             // skip chr if in-use:
-            if (chr[k]) continue;
+            if (localFrameState.chr[k]) continue;
 
             oam.character = k;
-            chr[k + 0x00] = true;
-            chr[k + 0x01] = true;
-            chr[k + 0x10] = true;
-            chr[k + 0x11] = true;
+            localFrameState.chr[k + 0x00] = true;
+            localFrameState.chr[k + 0x01] = true;
+            localFrameState.chr[k + 0x10] = true;
+            localFrameState.chr[k + 0x11] = true;
             reloc[sprite.chr + 0x00] = k + 0x00;
             reloc[sprite.chr + 0x01] = k + 0x01;
             reloc[sprite.chr + 0x10] = k + 0x10;
             reloc[sprite.chr + 0x11] = k + 0x11;
-            overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
-            overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
-            overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
-            overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
+            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
+            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
+            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
+            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
             break;
           }
         } else {
@@ -838,23 +880,9 @@ class GameState {
         }
       }
 
-      // TODO: do this via NMI and DMA transfers in real hardware (aka not faking it via emulator hacks).
       // update sprite in OAM memory:
       @ppu::oam[j] = oam;
     }
-  }
-
-  void cleanup() {
-    auto len = chr_backup.length();
-    for (uint i = 0; i < len; i++) {
-      ppu::vram.write_block(
-        chr_backup[i].addr,
-        0,
-        16,
-        chr_backup[i].tiledata
-      );
-    }
-    chr_backup.resize(0);
   }
 };
 
@@ -891,12 +919,6 @@ void pre_nmi() {
 
   // fetch local game state from WRAM:
   local.fetch();
-
-  // send updated state for our Link to player 2:
-  local.send();
-
-  // receive network update from remote players:
-  receive();
 }
 
 void pre_frame() {
@@ -908,18 +930,29 @@ void pre_frame() {
     sprites.update();
   }
 
-  // load 8 sprite palettes from CGRAM:
-  array<array<uint16>> palettes(8, array<uint16>(16));
-  for (int i = 0; i < 8; i++) {
-    for (int c = 0; c < 16; c++) {
-      palettes[i][c] = ppu::cgram[128 + (i << 4) + c];
-    }
-  }
+  if (isRunning < 0x06 || isRunning > 0x13) return;
+
+  // Don't do anything until user fills out Settings window inputs:
+  if (!settings.started) return;
+
+  if (null == @sock) return;
+
+  localFrameState.capture();
+
+  // fetch local VRAM data for sprites:
+  local.capture_sprites_vram();
+
+  // send updated state for our Link to server:
+  local.send();
+
+  // receive network updates from remote players:
+  receive();
 
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
     auto remote = players[i];
-    if (remote.ttl == 0) {
+    if (remote.ttl <= 0) {
+      remote.ttl = 0;
       continue;
     }
     remote.ttl = remote.ttl - 1;
@@ -1043,7 +1076,5 @@ void post_frame() {
   if (!settings.started) return;
 
   // restore previous VRAM tiles:
-  for (uint i = 0; i < players.length(); i++) {
-    players[i].cleanup();
-  }
+  localFrameState.cleanup();
 }
