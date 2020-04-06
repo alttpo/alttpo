@@ -3,9 +3,9 @@ net::Socket@ sock;
 net::Address@ address;
 SettingsWindow @settings;
 
-bool debug = false;
+bool debug = true;
 bool debugOAM = false;
-bool debugSprites = true;
+bool debugSprites = false;
 
 void init() {
   @settings = SettingsWindow();
@@ -362,6 +362,9 @@ class GameState {
   uint8 sub_module;
   uint8 sub_sub_module;
 
+  uint8 sfx1;
+  uint8 sfx2;
+
   void update_module() {
     // module     = 0x07 in dungeons
     //            = 0x09 in overworld
@@ -455,12 +458,17 @@ class GameState {
     }
   }
 
+  void fetch_sfx() {
+    sfx1 = bus::read_u8(0x7E012E);
+    sfx2 = bus::read_u8(0x7E012F);
+  }
+
   void fetch() {
+    update_module();
+
     y = bus::read_u16(0x7E0020, 0x7E0021);
     x = bus::read_u16(0x7E0022, 0x7E0023);
     z = bus::read_u16(0x7E0024, 0x7E0025);
-
-    update_module();
 
     // $7E0410 = OW screen transitioning directional
     //ow_screen_transition = bus::read_u8(0x7E0410);
@@ -699,41 +707,6 @@ class GameState {
     return (location == other_location);
   }
 
-  void serialize(array<uint8> &r) {
-    // start with sentinel value to make sure deserializer knows it's the start of a message:
-    r.insertLast(uint16(0xFEEF));
-    r.insertLast(location);
-    r.insertLast(x);
-    r.insertLast(y);
-    r.insertLast(z);
-    r.insertLast(uint8(sprites.length()));
-    //message("serialize: numsprites = " + fmtInt(sprites.length()));
-    for (uint i = 0; i < sprites.length(); i++) {
-      sprites[i].serialize(r);
-    }
-
-    // how many distinct characters:
-    uint16 chr_count = 0;
-    for (uint16 i = 0; i < 512; i++) {
-      if (chrs[i].length() == 0) continue;
-      ++chr_count;
-    }
-
-    // emit how many chrs:
-    r.insertLast(chr_count);
-    for (uint16 i = 0; i < 512; ++i) {
-      if (chrs[i].length() == 0) continue;
-
-      // which chr is it:
-      r.insertLast(i);
-      // emit the tile data:
-      r.insertLast(chrs[i]);
-
-      // clear the chr tile data for next frame:
-      chrs[i].resize(0);
-    }
-  }
-
   void send() {
     // build envelope:
     array<uint8> envelope;
@@ -765,6 +738,45 @@ class GameState {
     sock.send(0, envelope.length(), envelope);
   }
 
+  void serialize(array<uint8> &r) {
+    // start with sentinel value to make sure deserializer knows it's the start of a message:
+    r.insertLast(uint16(0xFEEF));
+    r.insertLast(location);
+    r.insertLast(x);
+    r.insertLast(y);
+    r.insertLast(z);
+
+    r.insertLast(sfx1);
+    r.insertLast(sfx2);
+
+    r.insertLast(uint8(sprites.length()));
+    //message("serialize: numsprites = " + fmtInt(sprites.length()));
+    for (uint i = 0; i < sprites.length(); i++) {
+      sprites[i].serialize(r);
+    }
+
+    // how many distinct characters:
+    uint16 chr_count = 0;
+    for (uint16 i = 0; i < 512; i++) {
+      if (chrs[i].length() == 0) continue;
+      ++chr_count;
+    }
+
+    // emit how many chrs:
+    r.insertLast(chr_count);
+    for (uint16 i = 0; i < 512; ++i) {
+      if (chrs[i].length() == 0) continue;
+
+      // which chr is it:
+      r.insertLast(i);
+      // emit the tile data:
+      r.insertLast(chrs[i]);
+
+      // clear the chr tile data for next frame:
+      chrs[i].resize(0);
+    }
+  }
+
   bool deserialize(array<uint8> r, int c) {
     // deserialize data packet:
     auto sentinel = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -782,6 +794,9 @@ class GameState {
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
     z = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    sfx1 = r[c++];
+    sfx2 = r[c++];
 
     // read in OAM sprites:
     auto numsprites = r[c++];
@@ -810,6 +825,23 @@ class GameState {
     }
 
     return true;
+  }
+
+  void play_sfx() {
+    if (sfx1 != 0) {
+      //message("sfx1 = " + fmtHex(sfx1,2));
+      if (bus::read_u8(0x7E012E) == 0) {
+        bus::write_u8(0x7E012E, sfx1);
+      }
+      sfx1 = 0;
+    }
+    if (sfx2 != 0) {
+      //message("sfx2 = " + fmtHex(sfx2,2));
+      if (bus::read_u8(0x7E012F) == 0) {
+        bus::write_u8(0x7E012F, sfx2);
+      }
+      sfx2 = 0;
+    }
   }
 
   void render(int x, int y) {
@@ -984,6 +1016,23 @@ void pre_nmi() {
 
   // restore previous VRAM tiles:
   localFrameState.restore();
+
+  local.fetch_sfx();
+
+  // play remote sfx:
+  for (uint i = 0; i < players.length(); i++) {
+    auto remote = players[i];
+    if (remote.ttl <= 0) {
+      remote.ttl = 0;
+      continue;
+    }
+
+    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+    if (local.can_see(remote.location) && local.can_sync()) {
+      // attempt to play remote sfx:
+      remote.play_sfx();
+    }
+  }
 }
 
 void pre_frame() {
@@ -1028,6 +1077,9 @@ void pre_frame() {
 
       // draw remote player relative to current BG offsets:
       remote.render(rx, ry);
+
+      // attempt to play remote sfx:
+      remote.play_sfx();
     }
   }
 }
@@ -1036,9 +1088,11 @@ void post_frame() {
   if (debug) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
-    ppu::frame.text(0, 0, fmtHex(local.module, 2));
+    ppu::frame.text( 0, 0, fmtHex(local.module, 2));
     ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
     ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
+    ppu::frame.text(60, 0, fmtHex(local.sfx1, 2));
+    ppu::frame.text(80, 0, fmtHex(local.sfx2, 2));
 
     for (uint i = 0; i < 0x10; i++) {
       // generate CGA 16-color palette, lol.
@@ -1048,7 +1102,7 @@ void post_frame() {
         ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
         ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
       );
-      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E012C + i), 2));
+      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E0120 + i), 2));
     }
   }
 
