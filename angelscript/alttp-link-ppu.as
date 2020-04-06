@@ -157,6 +157,25 @@ class Sprite {
   bool hflip;
   bool vflip;
 
+  bool is_enabled;
+
+  // fetches all the OAM sprite data for OAM sprite at `index`
+  void fetchOAM(uint8 i) {
+    auto tile = ppu::oam[i];
+
+    index    = i;
+    chr      = tile.character;
+    x        = int16(tile.x);
+    y        = int16(tile.y);
+    size     = tile.size;
+    palette  = tile.palette;
+    priority = tile.priority;
+    hflip    = tile.hflip;
+    vflip    = tile.vflip;
+
+    is_enabled = tile.is_enabled;
+  }
+
   // b0-b3 are main 4 bytes of OAM table
   // b4 is the 5th byte of extended OAM table
   // b4 must be right-shifted to be the two least significant bits and all other bits cleared.
@@ -197,31 +216,6 @@ class Sprite {
     // Make sprite x,y relative to incoming rx,ry coordinates (where Link is in screen coordinates):
     x = ax - rx;
     y = ay - ry;
-  }
-
-  // fetches all the OAM sprite data for OAM sprite at `index`
-  void fetchOAM(uint8 j, int16 rx, int16 ry) {
-    auto tile = ppu::oam[j];
-
-    index = j;
-
-    int16 ax = int16(tile.x);
-    int16 ay = int16(tile.y);
-
-    // adjust x to allow for slightly off-screen sprites:
-    if (ax >= 256) ax -= 512;
-    if (ay + tile.height >= 256) ay -= 256;
-
-    // Make sprite x,y relative to incoming rx,ry coordinates (where Link is in screen coordinates):
-    x = ax - rx;
-    y = ay - ry;
-
-    chr      = tile.character;
-    size     = tile.size;
-    palette  = tile.palette;
-    priority = tile.priority;
-    hflip    = tile.hflip;
-    vflip    = tile.vflip;
   }
 
   void serialize(array<uint8> &r) {
@@ -267,8 +261,8 @@ class LocalFrameState {
   // backup of VRAM tiles overwritten:
   array<Tile@> chr_backup;
 
-  void capture() {
-    //message("frame.capture");
+  void backup() {
+    //message("frame.backup");
     // assume first 0x100 characters are in-use (Link body, sword, shield, weapons, rupees, etc):
     for (uint j = 0; j < 0x100; j++) {
       chr[j] = true;
@@ -309,6 +303,11 @@ class LocalFrameState {
   }
 
   void overwrite_tile(uint16 addr, array<uint16> tiledata) {
+    if (tiledata.length() == 0) {
+      message("overwrite_tile: empty tiledata for addr=0x" + fmtHex(addr,4));
+      return;
+    }
+
     // read previous VRAM tile:
     array<uint16> backup(16);
     ppu::vram.read_block(addr, 0, 16, backup);
@@ -320,8 +319,8 @@ class LocalFrameState {
     chr_backup.insertLast(Tile(addr, backup));
   }
 
-  void cleanup() {
-    //message("frame.cleanup");
+  void restore() {
+    //message("frame.restore");
 
     // restore VRAM contents:
     auto len = chr_backup.length();
@@ -579,10 +578,11 @@ class GameState {
 
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite sprite;
-      sprite.decodeOAMTable(i);
+      sprite.fetchOAM(i);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (sprite.y == 0xF0) continue;
+      //if (sprite.y == 0xF0) continue;
+      if (!sprite.is_enabled) continue;
 
       //message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
 
@@ -674,12 +674,14 @@ class GameState {
     // load character(s) from VRAM:
     if (sprite.size == 0) {
       // 8x8 sprite:
+      //message("capture  x8 chr=0x" + fmtHex(sprite.chr, 2));
       if (chrs[sprite.chr].length() == 0) {
         chrs[sprite.chr].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, chrs[sprite.chr]);
       }
     } else {
       // 16x16 sprite:
+      //message("capture x16 chr=0x" + fmtHex(sprite.chr, 2));
       if (chrs[sprite.chr].length() == 0) {
         chrs[sprite.chr + 0x00].resize(16);
         chrs[sprite.chr + 0x01].resize(16);
@@ -980,71 +982,8 @@ void pre_nmi() {
     }
   }
 
-  //message("pre-nmi");
-
   // restore previous VRAM tiles:
-  localFrameState.cleanup();
-
-  // fetch next frame's game state from WRAM:
-  local.fetch();
-}
-
-void post_frame() {
-  //message("post-frame");
-  if (debug) {
-    ppu::frame.text_shadow = true;
-    ppu::frame.color = 0x7fff;
-    ppu::frame.text(0, 0, fmtHex(local.module, 2));
-    ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
-    ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
-
-    for (uint i = 0; i < 0x10; i++) {
-      // generate CGA 16-color palette, lol.
-      auto j = i + 1;
-      ppu::frame.color = ppu::rgb(
-        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
-      );
-      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E012C + i), 2));
-    }
-  }
-
-  if (debugOAM) {
-    ppu::frame.draw_op = ppu::draw_op::op_alpha;
-    ppu::frame.color = ppu::rgb(28, 28, 28);
-    ppu::frame.alpha = 28;
-    ppu::frame.text_shadow = true;
-
-    for (int i = 0; i < 128; i++) {
-      // access current OAM sprite index:
-      auto tile = ppu::oam[i];
-
-      auto chr = tile.character;
-      auto x = int16(tile.x);
-      auto y = int16(tile.y);
-      if (x >= 256) x -= 512;
-
-      //ppu::frame.rect(x, y, width, height);
-
-      ppu::frame.color = ppu::rgb(28, 28, 0);
-      ppu::frame.text((i / 28) * (4*8 + 8), (i % 28) * 8, fmtHex(i, 2));
-
-      if (tile.is_enabled) {
-        ppu::frame.color = ppu::rgb(28, 28, 28);
-      } else {
-        ppu::frame.color = ppu::rgb(8, 8, 12);
-      }
-
-      ppu::frame.text((i / 28) * (4*8 + 8) + 16, (i % 28) * 8, fmtHex(tile.character, 2));
-    }
-  }
-
-  // module check:
-  if (isRunning < 0x06 || isRunning > 0x13) return;
-
-  // Don't do anything until user fills out Settings window inputs:
-  if (!settings.started) return;
+  localFrameState.restore();
 }
 
 void pre_frame() {
@@ -1057,8 +996,11 @@ void pre_frame() {
 
   //message("pre-frame");
 
-  // capture which OAM tiles are allocated:
-  localFrameState.capture();
+  // backup VRAM for OAM tiles which are in-use by game:
+  localFrameState.backup();
+
+  // fetch next frame's game state from WRAM:
+  local.fetch();
 
   // fetch local VRAM data for sprites:
   local.capture_sprites_vram();
@@ -1086,6 +1028,57 @@ void pre_frame() {
 
       // draw remote player relative to current BG offsets:
       remote.render(rx, ry);
+    }
+  }
+}
+
+void post_frame() {
+  if (debug) {
+    ppu::frame.text_shadow = true;
+    ppu::frame.color = 0x7fff;
+    ppu::frame.text(0, 0, fmtHex(local.module, 2));
+    ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
+    ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
+
+    for (uint i = 0; i < 0x10; i++) {
+      // generate CGA 16-color palette, lol.
+      auto j = i + 1;
+      ppu::frame.color = ppu::rgb(
+        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
+        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
+        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
+      );
+      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E012C + i), 2));
+    }
+  }
+
+  if (debugOAM) {
+    ppu::frame.draw_op = ppu::draw_op::op_alpha;
+    ppu::frame.color = ppu::rgb(28, 28, 28);
+    ppu::frame.alpha = 15;
+    ppu::frame.text_shadow = true;
+
+    for (int i = 0; i < 128; i++) {
+      // access current OAM sprite index:
+      auto tile = ppu::oam[i];
+
+      auto chr = tile.character;
+      auto x = int16(tile.x);
+      auto y = int16(tile.y);
+      if (x >= 256) x -= 512;
+
+      //ppu::frame.rect(x, y, width, height);
+
+      ppu::frame.color = ppu::rgb(28, 28, 0);
+      ppu::frame.text((i / 28) * (4 * 8 + 8), (i % 28) * 8, fmtHex(i, 2));
+
+      if (tile.is_enabled) {
+        ppu::frame.color = ppu::rgb(28, 28, 28);
+      } else {
+        ppu::frame.color = ppu::rgb(8, 8, 12);
+      }
+
+      ppu::frame.text((i / 28) * (4 * 8 + 8) + 16, (i % 28) * 8, fmtHex(tile.character, 2));
     }
   }
 
