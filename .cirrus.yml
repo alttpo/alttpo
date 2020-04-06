@@ -12,9 +12,9 @@ linux-x86_64-binaries_task:
         - mkdir -p alttp-multiplayer-nightly/test-scripts
         - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
         - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
-        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
-        - cp -a romhack/main.asm alttp-multiplayer-nightly
-        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-link-ppu.as alttp-multiplayer-nightly/alttp-script.as
+        #- cp -a romhack/main.asm alttp-multiplayer-nightly
+        #- cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
         - cp -a README.md alttp-multiplayer-nightly
         - cp -a join-a-game.png alttp-multiplayer-nightly
 
@@ -35,9 +35,9 @@ windows-x86_64-binaries_task:
         - mkdir -p alttp-multiplayer-nightly/test-scripts
         - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
         - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
-        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
-        - cp -a romhack/main.asm alttp-multiplayer-nightly
-        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-link-ppu.as alttp-multiplayer-nightly/alttp-script.as
+        #- cp -a romhack/main.asm alttp-multiplayer-nightly
+        #- cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
         - cp -a README.md alttp-multiplayer-nightly
         - cp -a join-a-game.png alttp-multiplayer-nightly
 
@@ -58,9 +58,9 @@ windows-x86_32-binaries_task:
         - mkdir -p alttp-multiplayer-nightly/test-scripts
         - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
         - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
-        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
-        - cp -a romhack/main.asm alttp-multiplayer-nightly
-        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-link-ppu.as alttp-multiplayer-nightly/alttp-script.as
+        #- cp -a romhack/main.asm alttp-multiplayer-nightly
+        #- cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
         - cp -a README.md alttp-multiplayer-nightly
         - cp -a join-a-game.png alttp-multiplayer-nightly
 
@@ -82,9 +82,9 @@ macOS-x86_64-binaries_task:
         - mkdir -p alttp-multiplayer-nightly/test-scripts
         - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
         - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
-        - mv alttp-multiplayer-nightly/test-scripts/alttp-romhack.as alttp-multiplayer-nightly/alttp-script.as
-        - cp -a romhack/main.asm alttp-multiplayer-nightly
-        - cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
+        - mv alttp-multiplayer-nightly/test-scripts/alttp-link-ppu.as alttp-multiplayer-nightly/alttp-script.as
+        #- cp -a romhack/main.asm alttp-multiplayer-nightly
+        #- cp -a romhack/build.sh alttp-multiplayer-nightly/build-romhack.sh
         - cp -a README.md alttp-multiplayer-nightly
         - cp -a join-a-game.png alttp-multiplayer-nightly
 

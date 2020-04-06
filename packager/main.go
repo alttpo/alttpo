@@ -21,31 +21,55 @@ type GQLQuery struct {
 type GQLResponse struct {
 	Data struct {
 		GithubRepository struct {
-			LastDefaultBranchBuild struct {
-				LatestGroupTasks []struct {
-					Id     string `json:"id"`
-					Name   string `json:"name"`
-					Status string `json:"status"`
-				} `json:"latestGroupTasks"`
-			} `json:"lastDefaultBranchBuild"`
+			Builds struct {
+				Edges []struct {
+					Node struct {
+						Id string `json:"id"`
+						Status string `json:"status"`
+						Branch string `json:"branch"`
+						LatestGroupTasks []struct {
+							Id     string `json:"id"`
+							Name   string `json:"name"`
+							Status string `json:"status"`
+						} `json:"latestGroupTasks"`
+					} `json:"node"`
+				} `json:"edges"`
+			} `json:"builds"`
 		} `json:"githubRepository"`
 	} `json:"data"`
 }
 
-func fetchBuildArtifacts(owner, repository string) (gqlResponse *GQLResponse, err error) {
+func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResponse, err error) {
 	// build graphQL query POST body:
-	//query := `{"query":"query GitHubRepositoryQuery($owner: String!, $name: String!) { githubRepository(owner: $owner, name: $name) { lastDefaultBranchBuild { latestGroupTasks { id name status } } } }","variables":{"owner":"JamesDunne","name":"bsnes-angelscript"}}`
+	// gqlQuery := GQLQuery{
+	//   Query: `query GitHubRepositoryQuery($owner: String!, $name: String!) {
+	//   githubRepository(owner: $owner, name: $name) {
+	//     lastDefaultBranchBuild {
+	//       latestGroupTasks { id name status }
+	//     }
+	//   }
+	// }`,
+	//   Variables: map[string]interface{}{
+	//     "owner": owner,
+	//     "name":  repository,
+	//   },
+	// }
 	gqlQuery := GQLQuery{
-		Query: `query GitHubRepositoryQuery($owner: String!, $name: String!) {
-	  githubRepository(owner: $owner, name: $name) {
-	    lastDefaultBranchBuild {
-	      latestGroupTasks { id name status }
-	    }
-	  }
-	}`,
+		Query: `query GitHubRepositoryQuery($owner: String!, $name: String!, $branch: String!) {
+  githubRepository(owner: $owner, name: $name) {
+    builds(last: 1, branch: $branch) {
+      edges {
+        node {
+          latestGroupTasks { id name status }
+        }
+      }
+    }
+  }
+}`,
 		Variables: map[string]interface{}{
-			"owner": owner,
-			"name":  repository,
+			"owner":  owner,
+			"name":   repository,
+			"branch": branch,
 		},
 	}
 	buf := &bytes.Buffer{}
@@ -150,6 +174,8 @@ func extractZip(zipBytes []byte, dir string, rename func(path string) string) (e
 				log.Printf("WARN: chtimes: %v\n", err)
 			}
 
+			// TODO apply `f.Mode().Perm()`
+
 			return nil
 		}()
 		if err != nil {
@@ -166,6 +192,7 @@ func main() {
 	// grab env vars:
 	outputDir := os.Getenv("PACKAGER_OUTPUT_DIR")
 	targetArch := os.Getenv("PACKAGER_TARGET_ARCH")
+	branch := os.Getenv("CIRRUS_BRANCH")
 
 	if outputDir == "" {
 		// create a temporary directory to store artifacts:
@@ -177,49 +204,70 @@ func main() {
 
 	fmt.Printf("PACKAGER_OUTPUT_DIR=%s\n", outputDir)
 	fmt.Printf("PACKAGER_TARGET_ARCH=%s\n", targetArch)
+	fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
+
+	if branch == "" {
+		branch = "master"
+	}
 
 	archs := make(map[string]*Arch)
 
 	// BSNES emulator customized with AngelScript integration
-	log.Print("query latest build for github.com/JamesDunne/bsnes-angelscript\n")
-	bsnesArtifactIds, err := fetchBuildArtifacts("JamesDunne", "bsnes-angelscript")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, t := range bsnesArtifactIds.Data.GithubRepository.LastDefaultBranchBuild.LatestGroupTasks {
-		//log.Printf("bsnes %s: %s\n", t.Name, t.Id)
-		arch, ok := archs[t.Name]
-		if !ok {
-			arch = &Arch{}
-			archs[t.Name] = arch
+	{
+		log.Printf("query latest build for github.com/JamesDunne/bsnes-angelscript on branch '%s'\n", branch)
+		bsnesArtifactIds, err := fetchBuildArtifacts("JamesDunne", "bsnes-angelscript", branch)
+		if err != nil {
+			log.Fatal(err)
 		}
-		arch.Name = t.Name
-		arch.BsnesArtifactId = t.Id
-	}
 
-	// SNES assembler
-	log.Print("query latest build for github.com/JamesDunne/bass\n")
-	bassArtifactIds, err := fetchBuildArtifacts("JamesDunne", "bass")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, t := range bassArtifactIds.Data.GithubRepository.LastDefaultBranchBuild.LatestGroupTasks {
-		//log.Printf("bass  %s: %s %s\n", t.Name, t.Id, t.Status)
-		arch, ok := archs[t.Name]
-		if !ok {
-			arch = &Arch{}
-			archs[t.Name] = arch
+		bsnesBuildEdges := bsnesArtifactIds.Data.GithubRepository.Builds.Edges
+		if len(bsnesBuildEdges) == 0 {
+			log.Fatal("no builds found!")
 		}
-		arch.Name = t.Name
-		arch.BassArtifactId = t.Id
+
+		bsnesBuildNode := bsnesBuildEdges[0].Node
+		for _, t := range bsnesBuildNode.LatestGroupTasks {
+			//log.Printf("bsnes %s: %s\n", t.Name, t.Id)
+			arch, ok := archs[t.Name]
+			if !ok {
+				arch = &Arch{}
+				archs[t.Name] = arch
+			}
+			arch.Name = t.Name
+			arch.BsnesArtifactId = t.Id
+		}
+	}
+
+	// BASS = SNES assembler
+	{
+		log.Print("query latest build for github.com/JamesDunne/bass on branch 'master'\n")
+		bassArtifactIds, err := fetchBuildArtifacts("JamesDunne", "bass", "master")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		bassBuildEdges := bassArtifactIds.Data.GithubRepository.Builds.Edges
+		if len(bassBuildEdges) == 0 {
+			log.Fatal("no builds found!")
+		}
+
+		bassBuildNode := bassBuildEdges[0].Node
+		for _, t := range bassBuildNode.LatestGroupTasks {
+			//log.Printf("bass  %s: %s %s\n", t.Name, t.Id, t.Status)
+			arch, ok := archs[t.Name]
+			if !ok {
+				arch = &Arch{}
+				archs[t.Name] = arch
+			}
+			arch.Name = t.Name
+			arch.BassArtifactId = t.Id
+		}
 	}
 
 	// look up target arch to extract:
 	arch, ok := archs[targetArch]
 	if !ok {
-		log.Print("could not find requested PACKAGER_TARGET_ARCH; available archs are:\n")
+		log.Printf("could not find requested PACKAGER_TARGET_ARCH='%s'; available archs are:\n", targetArch)
 		for archName := range archs {
 			log.Printf("  %s\n", archName)
 		}
