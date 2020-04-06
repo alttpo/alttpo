@@ -795,8 +795,15 @@ class GameState {
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
     z = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
-    sfx1 = r[c++];
-    sfx2 = r[c++];
+    uint8 tx1, tx2;
+    tx1 = r[c++];
+    tx2 = r[c++];
+    //if (tx1 != 0) {
+      sfx1 = tx1;
+    //}
+    //if (tx2 != 0) {
+      sfx2 = tx2;
+    //}
 
     // read in OAM sprites:
     auto numsprites = r[c++];
@@ -830,17 +837,19 @@ class GameState {
   void play_sfx() {
     if (sfx1 != 0) {
       //message("sfx1 = " + fmtHex(sfx1,2));
-      if (bus::read_u8(0x7E012E) == 0) {
+      uint8 lfx1 = bus::read_u8(0x7E012E);
+      if (lfx1 == 0) {
         bus::write_u8(0x7E012E, sfx1);
+        sfx1 = 0;
       }
-      sfx1 = 0;
     }
     if (sfx2 != 0) {
       //message("sfx2 = " + fmtHex(sfx2,2));
-      if (bus::read_u8(0x7E012F) == 0) {
+      uint8 lfx2 = bus::read_u8(0x7E012F);
+      if (lfx2 == 0) {
         bus::write_u8(0x7E012F, sfx2);
+        sfx2 = 0;
       }
-      sfx2 = 0;
     }
   }
 
@@ -1077,9 +1086,6 @@ void pre_frame() {
 
       // draw remote player relative to current BG offsets:
       remote.render(rx, ry);
-
-      // attempt to play remote sfx:
-      remote.play_sfx();
     }
   }
 }
