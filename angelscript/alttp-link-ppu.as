@@ -466,6 +466,8 @@ class GameState {
   }
 
   void fetch_sfx() {
+    // NOTE: sfx are 6-bit values with top 2 MSBs indicating panning:
+    //   00 = center, 01 = right, 10 = left, 11 = left
     sfx1 = bus::read_u8(0x7E012E);
     sfx2 = bus::read_u8(0x7E012F);
   }
