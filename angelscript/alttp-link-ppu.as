@@ -798,12 +798,12 @@ class GameState {
     uint8 tx1, tx2;
     tx1 = r[c++];
     tx2 = r[c++];
-    //if (tx1 != 0) {
+    if (tx1 != 0) {
       sfx1 = tx1;
-    //}
-    //if (tx2 != 0) {
+    }
+    if (tx2 != 0) {
       sfx2 = tx2;
-    //}
+    }
 
     // read in OAM sprites:
     auto numsprites = r[c++];
