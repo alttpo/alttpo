@@ -3,14 +3,15 @@ net::Socket@ sock;
 net::Address@ address;
 SettingsWindow @settings;
 
-bool debug = true;
+bool debug = false;
 bool debugOAM = false;
 bool debugSprites = false;
+const string debugServer = "127.0.0.1";
 
 void init() {
   @settings = SettingsWindow();
   if (debug) {
-    settings.ServerAddress = "127.0.0.1";
+    settings.ServerAddress = debugServer;
     settings.Group = "debug";
     settings.Name = "link";
     settings.started = true;
