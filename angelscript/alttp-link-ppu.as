@@ -843,20 +843,39 @@ class GameState {
     return true;
   }
 
+  uint8 adjust_sfx_pan(uint8 sfx) {
+    // Try to infer the sound's relative(ish) position from the remote player
+    // based on the encoded pan information from their screen:
+    int sx = x;
+    if ((sfx & 0x80) == 0x80) sx -= 40;
+    else if ((sfx & 0x40) == 0x40) sx += 40;
+
+    // clear original panning from remote player:
+    sfx = sfx & 0x3F;
+    // adjust pan based on sound's relative position to local player:
+    if (sx - int(local.x) <= -40) sfx |= 0x80;
+    else if (sx - int(local.x) >= 40) sfx |= 0x40;
+
+    return sfx;
+  }
+
   void play_sfx() {
     if (sfx1 != 0) {
       //message("sfx1 = " + fmtHex(sfx1,2));
       uint8 lfx1 = bus::read_u8(0x7E012E);
       if (lfx1 == 0) {
-        bus::write_u8(0x7E012E, sfx1);
+        uint8 sfx = adjust_sfx_pan(sfx1);
+        bus::write_u8(0x7E012E, sfx);
         sfx1 = 0;
       }
     }
+
     if (sfx2 != 0) {
       //message("sfx2 = " + fmtHex(sfx2,2));
       uint8 lfx2 = bus::read_u8(0x7E012F);
       if (lfx2 == 0) {
-        bus::write_u8(0x7E012F, sfx2);
+        uint8 sfx = adjust_sfx_pan(sfx2);
+        bus::write_u8(0x7E012F, sfx);
         sfx2 = 0;
       }
     }
