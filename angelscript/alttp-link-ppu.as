@@ -9,6 +9,13 @@ bool debugSprites = false;
 
 void init() {
   @settings = SettingsWindow();
+  if (debug) {
+    settings.ServerAddress = "127.0.0.1";
+    settings.Group = "debug";
+    settings.Name = "link";
+    settings.started = true;
+    settings.hide();
+  }
   if (debugSprites) {
     @sprites = SpritesWindow();
   }
