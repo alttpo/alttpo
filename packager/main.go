@@ -106,7 +106,6 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
 type Arch struct {
 	Name            string
 	BsnesArtifactId string
-	BassArtifactId  string
 }
 
 func downloadAndExtractZip(url string, dir string, rename func(path string) string) (err error) {
@@ -238,32 +237,6 @@ func main() {
 		}
 	}
 
-	// BASS = SNES assembler
-	{
-		log.Print("query latest build for github.com/JamesDunne/bass on branch 'master'\n")
-		bassArtifactIds, err := fetchBuildArtifacts("JamesDunne", "bass", "master")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		bassBuildEdges := bassArtifactIds.Data.GithubRepository.Builds.Edges
-		if len(bassBuildEdges) == 0 {
-			log.Fatal("no builds found!")
-		}
-
-		bassBuildNode := bassBuildEdges[0].Node
-		for _, t := range bassBuildNode.LatestGroupTasks {
-			//log.Printf("bass  %s: %s %s\n", t.Name, t.Id, t.Status)
-			arch, ok := archs[t.Name]
-			if !ok {
-				arch = &Arch{}
-				archs[t.Name] = arch
-			}
-			arch.Name = t.Name
-			arch.BassArtifactId = t.Id
-		}
-	}
-
 	// look up target arch to extract:
 	arch, ok := archs[targetArch]
 	if !ok {
@@ -280,19 +253,6 @@ func main() {
 		// remove bsnes-angelscript-nightly/ prefix from ZIP filenames:
 		if strings.HasPrefix(path, "bsnes-angelscript-nightly/") {
 			return path[len("bsnes-angelscript-nightly/"):]
-		}
-		return path
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// download artifact ZIP and extract:
-	bassZipUrl := fmt.Sprintf("https://api.cirrus-ci.com/v1/artifact/task/%s/bass-nightly.zip", arch.BassArtifactId)
-	err = downloadAndExtractZip(bassZipUrl, outputDir, func(path string) string {
-		// remove bass-nightly/ prefix from ZIP filenames:
-		if strings.HasPrefix(path, "bass-nightly/") {
-			return path[len("bass-nightly/"):]
 		}
 		return path
 	})

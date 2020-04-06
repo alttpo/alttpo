@@ -4,3 +4,6 @@
 *.smc
 *.smc.bak
 *.srm
+alttp-server/alttp-server
+video/
+test.sh
