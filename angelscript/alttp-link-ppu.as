@@ -417,7 +417,17 @@ class GameState {
       // enter cave from overworld?
       case 0x06: return true;
       // dungeon:
-      case 0x07: return true;
+      case 0x07:
+        // climbing/descending stairs
+        if (sub_module == 0x0e) {
+          // once main climb animation finishes, sample new location:
+          if (sub_sub_module > 0x02) {
+            return true;
+          }
+          // continue sampling old location:
+          return false;
+        }
+        return true;
       // overworld:
       case 0x09: return true;
       // overworld master sword grove:
