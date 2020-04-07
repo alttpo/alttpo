@@ -469,8 +469,22 @@ class GameState {
   void fetch_sfx() {
     // NOTE: sfx are 6-bit values with top 2 MSBs indicating panning:
     //   00 = center, 01 = right, 10 = left, 11 = left
-    sfx1 = bus::read_u8(0x7E012E);
-    sfx2 = bus::read_u8(0x7E012F);
+
+    uint8 lfx1 = bus::read_u8(0x7E012E);
+    // filter out unwanted synced sounds:
+    switch (lfx1) {
+      case 0x2B: break; // low life warning beep
+      default:
+        sfx1 = lfx1;
+    }
+
+    uint8 lfx2 = bus::read_u8(0x7E012F);
+    // filter out unwanted synced sounds:
+    switch (lfx2) {
+      case 0x0C: break; // text scrolling flute noise
+      default:
+        sfx2 = lfx2;
+    }
   }
 
   void fetch() {
@@ -612,14 +626,13 @@ class GameState {
     }
 
     // capture effects sprites:
-    /*
     for (int i = 0x0C; i < 0x12; i++) {
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite sprite;
-      sprite.decodeOAMTable(i);
+      sprite.fetchOAM(i);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (sprite.y == 0xF0) continue;
+      if (!sprite.is_enabled) continue;
 
       auto chr = sprite.chr;
       if (chr >= 0x100) continue;
@@ -674,11 +687,12 @@ class GameState {
       // skip OAM sprites that are not related to Link:
       if (!(fx || weapons || bombs || follower)) continue;
 
+      sprite.adjustXY(rx, ry);
+
       // append the sprite to our array:
       sprites.resize(++numsprites);
       @sprites[numsprites-1] = sprite;
     }
-    */
   }
 
   void capture_sprites_vram() {
@@ -1120,7 +1134,7 @@ void pre_frame() {
 }
 
 void post_frame() {
-  if (debug) {
+  if (debugData) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
     ppu::frame.text( 0, 0, fmtHex(local.module, 2));
