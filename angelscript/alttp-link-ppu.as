@@ -4,6 +4,7 @@ net::Address@ address;
 SettingsWindow @settings;
 
 bool debug = false;
+bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
 const string debugServer = "127.0.0.1";
