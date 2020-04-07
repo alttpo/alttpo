@@ -412,36 +412,6 @@ class GameState {
     sub_sub_module = bus::read_u8(0x7E00B0);
   }
 
-  bool can_sync() {
-    if (module == 0x09) {
-      // in overworld, in a room, and during screen transitions:
-      if (sub_module == 0x00 || sub_module <= 0x08) {
-        return true;
-      }
-      //message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
-      return false;
-    } else if (module == 0x0b) {
-      // in overworld, in master sword grove, in a room, and during screen transitions:
-      return true;
-    } else if (module == 0x07) {
-      // in dungeon:
-      if (sub_module == 0x00) {
-        return true;
-      }
-      return true;
-    } else if (module == 0x0e) {
-      // dialogue:
-      if (sub_module == 0x02) {
-        return true;
-      } else {
-        //message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
-        return false;
-      }
-    } else {
-      return false;
-    }
-  }
-
   bool can_sample_location() {
     if (module == 0x09) {
       // in overworld, in a room, and NOT during screen transitions:
@@ -455,19 +425,9 @@ class GameState {
       return true;
     } else if (module == 0x07) {
       // in dungeon:
-      if (sub_module == 0x00) {
-        return true;
-      }
-      //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
-      return false;
+      return true;
     } else if (module == 0x0e) {
-      // dialogue:
-      if (sub_module == 0x02) {
-        return true;
-      } else {
-        //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
-        return false;
-      }
+      return false;
     } else {
       return false;
     }
@@ -498,6 +458,10 @@ class GameState {
     }
   }
 
+  uint8 in_dark_world;
+  uint8 in_dungeon;
+  uint16 overworld_room;
+  uint16 dungeon_room;
   void fetch() {
     update_module();
 
@@ -513,16 +477,23 @@ class GameState {
       last_location = location;
 
       // fetch various room indices and flags about where exactly Link currently is:
-      auto in_dark_world = bus::read_u8(0x7E0FFF);
-      auto in_dungeon = bus::read_u8(0x7E001B);
-      auto overworld_room = bus::read_u16(0x7E008A, 0x7E008B);
-      auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
+      in_dark_world = bus::read_u8(0x7E0FFF);
+      in_dungeon = bus::read_u8(0x7E001B);
+      overworld_room = bus::read_u16(0x7E008A, 0x7E008B);
+      dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
 
       // compute aggregated location for Link into a single 24-bit number:
       location =
         uint32(in_dark_world & 1) << 17 |
         uint32(in_dungeon & 1) << 16 |
         uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
+
+      // if in master sword grove:
+      if (module == 0x0b) {
+        location |= (1 << 18);
+        location &= 0xFF0000;
+        location |= 0x000080;
+      }
 
       // clear out list of room changes if location changed:
       if (last_location != location) {
@@ -552,7 +523,7 @@ class GameState {
 
   void fetch_enemies() {
     // $7E0D00 - $7E0FA0
-
+    // TODO
   }
 
   array<uint8> rooms;
@@ -656,7 +627,7 @@ class GameState {
     }
 
     // capture effects sprites:
-    for (int i = 0x0C; i < 0x12; i++) {
+    for (int i = 0x0C; i <= 0x12; i++) {
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite sprite;
       sprite.fetchOAM(i);
@@ -939,6 +910,10 @@ class GameState {
   }
 
   void update_room_current() {
+    // only update dungeon room state:
+    auto in_dungeon = bus::read_u8(0x7E001B);
+    if (in_dungeon == 0) return;
+
     auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
 
     // $0400
@@ -1174,7 +1149,7 @@ void pre_nmi() {
     remote.update_rooms_sram();
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location) && local.can_sync()) {
+    if (local.can_see(remote.location)) {
       // attempt to play remote sfx:
       remote.play_sfx();
 
@@ -1185,7 +1160,7 @@ void pre_nmi() {
 }
 
 void pre_frame() {
-  if (isRunning < 0x06 || isRunning > 0x13) return;
+  //if (isRunning < 0x06 || isRunning > 0x13) return;
 
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
@@ -1219,7 +1194,7 @@ void pre_frame() {
     remote.ttl = remote.ttl - 1;
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location) && local.can_sync()) {
+    if (local.can_see(remote.location)) {
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
       int16 rx = int16(remote.x) - local.xoffs;
       int16 ry = int16(remote.y) - local.yoffs;
@@ -1237,8 +1212,9 @@ void post_frame() {
     ppu::frame.text( 0, 0, fmtHex(local.module, 2));
     ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
     ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
-    ppu::frame.text(60, 0, fmtHex(local.location, 5));
+    ppu::frame.text(60, 0, fmtHex(local.location, 6));
 
+    /*
     for (uint i = 0; i < 0x10; i++) {
       // generate CGA 16-color palette, lol.
       auto j = i + 1;
@@ -1249,6 +1225,7 @@ void post_frame() {
       );
       ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E0400 + i), 2));
     }
+    */
   }
 
   if (debugOAM) {
