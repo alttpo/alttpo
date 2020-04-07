@@ -413,24 +413,30 @@ class GameState {
   }
 
   bool can_sample_location() {
-    if (module == 0x09) {
-      // in overworld, in a room, and NOT during screen transitions:
-      if (sub_module == 0x00 || sub_module <= 0x08) {
-        return true;
-      }
-      //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
-      return false;
-    } else if (module == 0x0b) {
-      // in overworld, in master sword grove, in a room, and NOT during screen transitions:
-      return true;
-    } else if (module == 0x07) {
-      // in dungeon:
-      return true;
-    } else if (module == 0x0e) {
-      return false;
-    } else {
-      return false;
+    switch (module) {
+      // enter cave from overworld?
+      case 0x06: return true;
+      // dungeon:
+      case 0x07: return true;
+      // overworld:
+      case 0x09: return true;
+      // overworld master sword grove:
+      case 0x0b: return true;
+      // exit cave to overworld
+      case 0x08: return true;
+      // closing spotlight
+      case 0x0f: return true;
+      // opening spotlight
+      case 0x10: return true;
+      // falling / fade out?
+      case 0x11: return true;
+      // death
+      case 0x12: return true;
+      // dialogs/maps etc. disable sync due to gfx glitch when scrolling text
+      case 0x0e: return false;
     }
+    // disallow any other module:
+    return false;
   }
 
   void fetch_sfx() {
@@ -1018,7 +1024,7 @@ class GameState {
       } else {
         // 16x16 sprite:
         if (reloc[sprite.chr] == 0) { // assumes use of chr=0 is invalid, which it is since it is for local Link.
-          for (uint k = 0x20; k < 512; k++) {
+          for (uint k = 0x20; k < 0x1EF; k++) {
             // skip chr if in-use:
             if (localFrameState.chr[k + 0x00]) continue;
             if (localFrameState.chr[k + 0x01]) continue;
