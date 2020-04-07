@@ -419,6 +419,9 @@ class GameState {
       }
       //message("can_sync false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
+    } else if (module == 0x0b) {
+      // in overworld, in master sword grove, in a room, and during screen transitions:
+      return true;
     } else if (module == 0x07) {
       // in dungeon:
       if (sub_module == 0x00) {
@@ -446,6 +449,9 @@ class GameState {
       }
       //message("can_sample_location false; module=0x" + fmtHex(module,2) + ",sub=0x" + fmtHex(sub_module,2));
       return false;
+    } else if (module == 0x0b) {
+      // in overworld, in master sword grove, in a room, and NOT during screen transitions:
+      return true;
     } else if (module == 0x07) {
       // in dungeon:
       if (sub_module == 0x00) {
