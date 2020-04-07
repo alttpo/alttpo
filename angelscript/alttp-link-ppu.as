@@ -537,6 +537,25 @@ class GameState {
 */
 
     fetch_sprites();
+
+    fetch_enemies();
+
+    fetch_rooms();
+  }
+
+  void fetch_enemies() {
+    // $7E0D00 - $7E0FA0
+
+  }
+
+  array<uint8> rooms;
+  void fetch_rooms() {
+    // SRAM copy at $7EF000 - $7EF24F
+    // room data live in WRAM at $0400,$0401
+    // $0403 = 6 chests, key, heart piece
+
+    rooms.resize(0x250);
+    bus::read_block_u8(0x7EF000, 0, 0x250, rooms);
   }
 
 /*
@@ -803,6 +822,9 @@ class GameState {
       // clear the chr tile data for next frame:
       chrs[i].resize(0);
     }
+
+    // write room state:
+    r.insertLast(rooms);
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -859,6 +881,12 @@ class GameState {
       }
     }
 
+    // read rooms state:
+    rooms.resize(0x250);
+    for (uint i = 0; i < 0x250; i++) {
+      rooms[i] = r[c++];
+    }
+
     return true;
   }
 
@@ -876,6 +904,59 @@ class GameState {
     else if (sx - int(local.x) >= 40) sfx |= 0x40;
 
     return sfx;
+  }
+
+  void update_rooms_sram() {
+    for (uint i = 0; i < 0x128; i++) {
+      // High Byte           Low Byte
+      // d d d d b k ck cr   c c c c q q q q
+      // c - chest, big key chest, or big key lock. Any combination of them totalling to 6 is valid.
+      // q - quadrants visited:
+      // k - key or item (such as a 300 rupee gift)
+      // 638
+      // d - door opened (either unlocked, bombed or other means)
+      // r - special rupee tiles, whether they've been obtained or not.
+      // b - boss battle won
+
+      //uint8 lo = rooms[(i << 1) + 0];
+      uint8 hi = rooms[(i << 1) + 1];
+
+      // mask off everything but doors opened state:
+      hi = hi & 0xF0;
+
+      // OR door state with local WRAM:
+      uint8 lhi = bus::read_u8(0x7EF000 + (i << 1) + 1);
+      lhi |= hi;
+      bus::write_u8(0x7EF000 + (i << 1) + 1, lhi);
+    }
+  }
+
+  void update_room_current() {
+    auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
+
+    // $0400
+    // $0401 - Tops four bits: In a given room, each bit corresponds to a door being opened.
+    //  If set, it has been opened by some means (bomb, key, etc.)
+    // $0402[0x01] - Certainly related to $0403, but contains other information I haven’t looked at yet.
+    // $0403[0x01] - Contains room information, such as whether the boss in this room has been defeated.
+    //  Loaded on every room load according to map information that is stored as you play the game.
+    //  Bit 0: Chest 1
+    //  Bit 1: Chest 2
+    //  Bit 2: Chest 3
+    //  Bit 3: Chest 4
+    //  Bit 4: Chest 5
+    //  Bit 5: Chest 6 / A second Key. Having 2 keys and 6 chests will cause conflicts here.
+    //  Bit 6: A key has been obtained in this room.
+    //  Bit 7: Heart Piece has been obtained in this room.
+
+    uint8 hi = rooms[(dungeon_room << 1) + 1];
+    // mask off everything but doors opened state:
+    hi = hi & 0xF0;
+
+    // OR door state with current room state:
+    uint8 lhi = bus::read_u8(0x7E0401);
+    lhi |= hi;
+    bus::write_u8(0x7E0401, lhi);
   }
 
   void play_sfx() {
@@ -1083,10 +1164,15 @@ void pre_nmi() {
       continue;
     }
 
+    remote.update_rooms_sram();
+
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location) && local.can_sync()) {
       // attempt to play remote sfx:
       remote.play_sfx();
+
+      // update current room state in WRAM:
+      remote.update_room_current();
     }
   }
 }
@@ -1144,8 +1230,7 @@ void post_frame() {
     ppu::frame.text( 0, 0, fmtHex(local.module, 2));
     ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
     ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
-    ppu::frame.text(60, 0, fmtHex(local.sfx1, 2));
-    ppu::frame.text(80, 0, fmtHex(local.sfx2, 2));
+    ppu::frame.text(60, 0, fmtHex(local.location, 5));
 
     for (uint i = 0; i < 0x10; i++) {
       // generate CGA 16-color palette, lol.
@@ -1155,7 +1240,7 @@ void post_frame() {
         ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
         ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
       );
-      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E0120 + i), 2));
+      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E0400 + i), 2));
     }
   }
 
