@@ -7,15 +7,15 @@ bool debug = false;
 bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
-const string debugServer = "127.0.0.1";
 
 void init() {
   @settings = SettingsWindow();
+  settings.ServerAddress = "bittwiddlers.org";
+  settings.Group = "test";
+  settings.Name = "link";
   if (debug) {
-    settings.ServerAddress = debugServer;
-    settings.Group = "debug";
-    settings.Name = "link";
-    settings.started = true;
+    settings.ServerAddress = "127.0.0.1";
+    settings.start();
     settings.hide();
   }
   if (debugSprites) {
@@ -30,9 +30,21 @@ class SettingsWindow {
   private gui::LineEdit @txtName;
   private gui::Button @ok;
 
-  string ServerAddress;
-  string Group;
-  string Name;
+  string serverAddress;
+  string ServerAddress {
+    get { return serverAddress; }
+    set { serverAddress = value; txtServerAddress.text = value; }
+  }
+  string group;
+  string Group {
+    get { return group; }
+    set { group = value; txtGroup.text = value; }
+  }
+  string name;
+  string Name {
+    get { return name; }
+    set { name = value; txtName.text = value; }
+  }
   bool started;
 
   SettingsWindow() {
@@ -49,7 +61,6 @@ class SettingsWindow {
         hz.append(lbl, gui::Size(100, 0));
 
         @txtServerAddress = gui::LineEdit();
-        txtServerAddress.text = "bittwiddlers.org";
         hz.append(txtServerAddress, gui::Size(140, 20));
       }
       vl.append(hz, gui::Size(0, 0));
@@ -61,7 +72,6 @@ class SettingsWindow {
         hz.append(lbl, gui::Size(100, 0));
 
         @txtGroup = gui::LineEdit();
-        txtGroup.text = "test";
         hz.append(txtGroup, gui::Size(140, 20));
       }
       vl.append(hz, gui::Size(0, 0));
@@ -73,7 +83,6 @@ class SettingsWindow {
         hz.append(lbl, gui::Size(100, 0));
 
         @txtName = gui::LineEdit();
-        txtName.text = "player";
         hz.append(txtName, gui::Size(140, 20));
       }
       vl.append(hz, gui::Size(0, 0));
@@ -94,11 +103,15 @@ class SettingsWindow {
   }
 
   private void startClicked(gui::Button @self) {
-    ServerAddress = txtServerAddress.text;
-    Group = txtGroup.text;
-    Name = txtName.text;
-    started = true;
+    start();
     hide();
+  }
+
+  void start() {
+    serverAddress = txtServerAddress.text;
+    group = txtGroup.text;
+    name = txtName.text;
+    started = true;
   }
 
   void show() {
@@ -201,6 +214,8 @@ class Sprite {
 
     x    = (x & 0xff) | (uint16(b4) << 8 & 0x100);
     size = (b4 >> 1) & 1;
+
+    is_enabled = (y != 0xF0);
   }
 
   void decodeOAMTable(uint16 i) {
@@ -292,13 +307,14 @@ class LocalFrameState {
 
     // run through OAM sprites and determine which characters are actually in-use:
     for (uint j = 0; j < 128; j++) {
-      auto tile = ppu::oam[j];
+      Sprite sprite;
+      sprite.decodeOAMTable(j);
       // NOTE: we could skip the is_enabled check which would make the OAM appear to be a LRU cache of characters
-      if (!tile.is_enabled) continue;
+      if (!sprite.is_enabled) continue;
 
       // mark chr as used in current frame:
-      uint addr = tile.character;
-      if (tile.size == 0) {
+      uint addr = sprite.chr;
+      if (sprite.size == 0) {
         // 8x8 tile:
         chr[addr] = true;
       } else {
@@ -414,8 +430,6 @@ class GameState {
 
   bool can_sample_location() {
     switch (module) {
-      // enter cave from overworld?
-      case 0x06: return true;
       // dungeon:
       case 0x07:
         // climbing/descending stairs
@@ -428,25 +442,19 @@ class GameState {
           return false;
         }
         return true;
-      // overworld:
-      case 0x09: return true;
-      // overworld master sword grove:
-      case 0x0b: return true;
-      // exit cave to overworld
-      case 0x08: return true;
-      // closing spotlight
-      case 0x0f: return true;
-      // opening spotlight
-      case 0x10: return true;
-      // falling / fade out?
-      case 0x11: return true;
-      // death
-      case 0x12: return true;
-      // dialogs/maps etc. disable sync due to gfx glitch when scrolling text
-      case 0x0e: return false;
+      case 0x06:  // enter cave from overworld?
+      case 0x09:  // overworld
+      case 0x0b:  // overworld master sword grove
+      case 0x08:  // exit cave to overworld
+      case 0x0f:  // closing spotlight
+      case 0x10:  // opening spotlight
+      case 0x11:  // falling / fade out?
+      case 0x12:  // death
+      case 0x0e:  // dialogs, maps etc.
+      default:
+        return true;
     }
-    // disallow any other module:
-    return false;
+    return true;
   }
 
   void fetch_sfx() {
@@ -503,13 +511,6 @@ class GameState {
         uint32(in_dark_world & 1) << 17 |
         uint32(in_dungeon & 1) << 16 |
         uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
-
-      // if in master sword grove:
-      if (module == 0x0b) {
-        location |= (1 << 18);
-        location &= 0xFF0000;
-        location |= 0x000080;
-      }
 
       // clear out list of room changes if location changed:
       if (last_location != location) {
@@ -627,10 +628,9 @@ class GameState {
 
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite sprite;
-      sprite.fetchOAM(i);
+      sprite.decodeOAMTable(i);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      //if (sprite.y == 0xF0) continue;
       if (!sprite.is_enabled) continue;
 
       //message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
@@ -645,13 +645,20 @@ class GameState {
     // capture effects sprites:
     for (int i = 0x0C; i <= 0x12; i++) {
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
-      Sprite sprite;
-      sprite.fetchOAM(i);
+      Sprite spr, sprp1, sprp2, sprn1, sprn2;
+      // current sprite:
+      spr.decodeOAMTable(i);
+      // prev 2 sprites:
+      sprp1.decodeOAMTable(i-1);
+      sprp2.decodeOAMTable(i-2);
+      // next 2 sprites:
+      sprn1.decodeOAMTable(i+1);
+      sprn2.decodeOAMTable(i+2);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (!sprite.is_enabled) continue;
+      if (!spr.is_enabled) continue;
 
-      auto chr = sprite.chr;
+      auto chr = spr.chr;
       if (chr >= 0x100) continue;
 
       bool fx = (
@@ -685,7 +692,7 @@ class GameState {
         // holding pot / bush or small stone or sign
         chr == 0x46 || chr == 0x44 || chr == 0x42 ||
         // shadow underneath pot / bush or small stone
-        (i >= 1 && (ppu::oam[i-1].character == 0x46 || ppu::oam[i-1].character == 0x44) && chr == 0x6c) ||
+        (i >= 1 && (sprp1.chr == 0x46 || sprp1.chr == 0x44) && chr == 0x6c) ||
         // pot shards or stone shards (large and small)
         chr == 0x58 || chr == 0x48
       );
@@ -693,9 +700,9 @@ class GameState {
         // explosion:
         chr == 0x84 || chr == 0x86 || chr == 0x88 || chr == 0x8a || chr == 0x8c || chr == 0x9b ||
         // bomb and its shadow:
-        (i <= 125 && chr == 0x6e && ppu::oam[i+1].character == 0x6c && ppu::oam[i+2].character == 0x6c) ||
-        (i >= 1 && ppu::oam[i-1].character == 0x6e && chr == 0x6c && ppu::oam[i+1].character == 0x6c) ||
-        (i >= 2 && ppu::oam[i-2].character == 0x6e && ppu::oam[i-1].character == 0x6c && chr == 0x6c)
+        (i <= 125 && chr == 0x6e && sprn1.chr == 0x6c && sprn2.chr == 0x6c) ||
+        (i >= 1 && sprp1.chr == 0x6e && chr == 0x6c && sprn1.chr == 0x6c) ||
+        (i >= 2 && sprp2.chr == 0x6e && sprp1.chr == 0x6c && chr == 0x6c)
       );
       bool follower = (
         chr == 0x20 || chr == 0x22
@@ -704,11 +711,11 @@ class GameState {
       // skip OAM sprites that are not related to Link:
       if (!(fx || weapons || bombs || follower)) continue;
 
-      sprite.adjustXY(rx, ry);
+      spr.adjustXY(rx, ry);
 
       // append the sprite to our array:
       sprites.resize(++numsprites);
-      @sprites[numsprites-1] = sprite;
+      @sprites[numsprites-1] = spr;
     }
   }
 
@@ -1154,6 +1161,9 @@ void pre_nmi() {
 
   local.fetch_sfx();
 
+  // fetch next frame's game state from WRAM:
+  local.fetch();
+
   // play remote sfx:
   for (uint i = 0; i < players.length(); i++) {
     auto remote = players[i];
@@ -1187,9 +1197,6 @@ void pre_frame() {
 
   // backup VRAM for OAM tiles which are in-use by game:
   localFrameState.backup();
-
-  // fetch next frame's game state from WRAM:
-  local.fetch();
 
   // fetch local VRAM data for sprites:
   local.capture_sprites_vram();
@@ -1228,7 +1235,12 @@ void post_frame() {
     ppu::frame.text( 0, 0, fmtHex(local.module, 2));
     ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
     ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
+
     ppu::frame.text(60, 0, fmtHex(local.location, 6));
+    //ppu::frame.text(60, 0, fmtHex(local.in_dark_world, 1));
+    //ppu::frame.text(68, 0, fmtHex(local.in_dungeon, 1));
+    //ppu::frame.text(76, 0, fmtHex(local.overworld_room, 2));
+    //ppu::frame.text(92, 0, fmtHex(local.dungeon_room, 2));
 
     /*
     for (uint i = 0; i < 0x10; i++) {
@@ -1247,7 +1259,7 @@ void post_frame() {
   if (debugOAM) {
     ppu::frame.draw_op = ppu::draw_op::op_alpha;
     ppu::frame.color = ppu::rgb(28, 28, 28);
-    ppu::frame.alpha = 15;
+    ppu::frame.alpha = 24;
     ppu::frame.text_shadow = true;
 
     for (int i = 0; i < 128; i++) {
