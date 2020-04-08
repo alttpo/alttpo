@@ -682,7 +682,7 @@ class GameState {
         // holding pot / bush or small stone or sign
         chr == 0x46 || chr == 0x44 || chr == 0x42 ||
         // shadow underneath pot / bush or small stone
-        (i >= 1 && (sprp1.chr == 0x46 || sprp1.chr == 0x44) && chr == 0x6c) ||
+        (i >= 1 && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42) && chr == 0x6c) ||
         // pot shards or stone shards (large and small)
         chr == 0x58 || chr == 0x48
       );
