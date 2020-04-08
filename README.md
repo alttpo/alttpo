@@ -1,9 +1,9 @@
 # alttp-multiplayer
-ALTTP Multiplayer ROM hack and supporting scripts for [bsnes-angelscript](//github.com/JamesDunne/bsnes-angelscript).
-
-See [here](romhack/README.md) for documentation on the ROM hack and how it works.
+ALTTP Multiplayer script integration for [bsnes-angelscript](//github.com/JamesDunne/bsnes-angelscript).
 
 See a demo video: https://www.youtube.com/watch?v=_MTfXCUXawg
+
+Join us on discord! https://discord.gg/AVQ2yKd
 
 # Play with a friend over the Internet
 
