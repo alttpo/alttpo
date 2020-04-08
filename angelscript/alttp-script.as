@@ -14,7 +14,7 @@ void init() {
   settings.Group = "test";
   settings.Name = "link";
   if (debug) {
-    settings.ServerAddress = "127.0.0.1";
+    //settings.ServerAddress = "127.0.0.1";
     settings.start();
     settings.hide();
   }
@@ -788,8 +788,15 @@ class GameState {
     r.insertLast(sfx2);
 
     r.insertLast(uint8(sprites.length()));
+
     //message("serialize: numsprites = " + fmtInt(sprites.length()));
+    // sort 16x16 sprites first so that 8x8 can fit within them if needed (fixes shadows under thrown items):
     for (uint i = 0; i < sprites.length(); i++) {
+      if (sprites[i].size == 0) continue;
+      sprites[i].serialize(r);
+    }
+    for (uint i = 0; i < sprites.length(); i++) {
+      if (sprites[i].size != 0) continue;
       sprites[i].serialize(r);
     }
 
@@ -980,6 +987,12 @@ class GameState {
     for (uint i = 0; i < 512; i++) {
       reloc[i] = 0;
     }
+
+    // shadow sprites copy over directly:
+    reloc[0x6c] = 0x6c;
+    reloc[0x6d] = 0x6d;
+    reloc[0x7c] = 0x7c;
+    reloc[0x7d] = 0x7d;
 
     for (uint i = 0; i < sprites.length(); i++) {
       auto sprite = sprites[i];
