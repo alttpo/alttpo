@@ -295,16 +295,6 @@ class LocalFrameState {
       chr[j] = false;
     }
 
-    // exclude follower sprite from default assumption of in-use:
-    chr[0x20] = false;
-    chr[0x21] = false;
-    chr[0x30] = false;
-    chr[0x31] = false;
-    chr[0x22] = false;
-    chr[0x23] = false;
-    chr[0x32] = false;
-    chr[0x33] = false;
-
     // run through OAM sprites and determine which characters are actually in-use:
     for (uint j = 0; j < 128; j++) {
       Sprite sprite;
