@@ -21,6 +21,7 @@ void init() {
   if (debugSprites) {
     @sprites = SpritesWindow();
   }
+  @worldMap = WorldMap();
 }
 
 class SettingsWindow {
@@ -160,13 +161,97 @@ class SpritesWindow {
     ppu::vram.read_block(0x5000, 0, 0x1000, page1);
 
     // draw VRAM as 4bpp tiles:
-    sprites.canvas.fill(0x0000);
-    sprites.canvas.draw_sprite_4bpp(  0, 0, 0, 128, 128, page0, palette);
-    sprites.canvas.draw_sprite_4bpp(128, 0, 0, 128, 128, page1, palette);
+    canvas.fill(0x0000);
+    canvas.draw_sprite_4bpp(  0, 0, 0, 128, 128, page0, palette);
+    canvas.draw_sprite_4bpp(128, 0, 0, 128, 128, page1, palette);
   }
 };
 SpritesWindow @sprites;
 array<uint16> palette7(16);
+
+class WorldMap {
+  private gui::Window @window;
+  private gui::VerticalLayout @vl;
+  gui::Canvas @canvas;
+
+  WorldMap() {
+    // relative position to bsnes window:
+    @window = gui::Window(256*3*8/7, 0, true);
+    window.title = "World Map";
+    window.size = gui::Size(512, 512);
+
+    @vl = gui::VerticalLayout();
+    window.append(vl);
+
+    @canvas = gui::Canvas();
+    canvas.size = gui::Size(512, 512);
+    vl.append(canvas, gui::Size(-1, -1));
+
+    vl.resize();
+    canvas.update();
+    window.visible = true;
+  }
+
+  void update() {
+    canvas.update();
+  }
+
+  bool loaded = false;
+  void loadMap() {
+    if (loaded) return;
+
+    // read world map palette:
+    array<uint16> palette;
+    palette.resize(0x100);
+    bus::read_block_u16(0x0ADB27, 0, 0x100, palette);
+
+    // mode7 tile map and gfx data for world map:
+    array<uint8> map;
+    map.resize(0x4000);
+    array<uint8> gfx;
+    gfx.resize(0x4000);
+
+    // direct translation of NMI_LightWorldMode7Tilemap from bank00.asm:
+    // 0x008E4C
+    int p02 = 0;
+    for (int p04 = 0; p04 < 8; p04 += 2) {
+      uint16 p00 = bus::read_u16(0x008E4C + p04, 0x008E4C + p04 + 1);
+      for (int p06 = 0; p06 < 0x20; p06++) {
+        int dest = p00;
+        p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
+        bus::read_block_u8(0x0AC727 + p02, dest, 0x20, map);
+        p02 += 0x20;
+      }
+    }
+
+    // from bank00.asm CopyMode7Chr:
+    bus::read_block_u8(0x18C000, 0, 0x4000, gfx);
+
+    // draw map as mode 7 tiles:
+    canvas.fill(0x0000);
+    for (int my = 0; my < 64; my++) {
+      for (int mx = 0; mx < 64; mx++) {
+        // pick tile:
+        uint8 t = map[(my*128+mx)];
+
+        // draw tile:
+        for (int y = 0; y < 8; y++) {
+          for (int x = 0; x < 8; x++) {
+            uint8 c = gfx[(t*64)+((y*8)+x)];
+            canvas.pixel(mx*8+x, my*8+y, palette[c]);
+          }
+        }
+      }
+    }
+
+    loaded = true;
+  }
+
+  void renderPlayers(const array<GameState@> players) {
+
+  }
+};
+WorldMap @worldMap;
 
 class Sprite {
   uint8 index;
@@ -1160,6 +1245,10 @@ void pre_nmi() {
     }
   }
 
+  if (@worldMap != null) {
+    worldMap.loadMap();
+  }
+
   // restore previous VRAM tiles:
   localFrameState.restore();
 
@@ -1296,5 +1385,9 @@ void post_frame() {
     }
     sprites.render(palette7);
     sprites.update();
+  }
+
+  if (@worldMap != null) {
+    worldMap.update();
   }
 }
