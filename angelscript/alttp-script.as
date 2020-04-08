@@ -466,6 +466,7 @@ class GameState {
       case 0x10: break; // switching to map sound effect
       case 0x11: break; // menu screen going down
       case 0x12: break; // menu screen going up
+      case 0x20: break; // switch menu item
       case 0x24: break; // switching between different mode 7 map perspectives
       default:
         sfx2 = lfx2;
