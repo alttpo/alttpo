@@ -676,7 +676,11 @@ class GameState {
   }
 
   void fetch_sfx() {
-    if (is_it_a_bad_time()) return;
+    if (is_it_a_bad_time()) {
+      sfx1 = 0;
+      sfx2 = 0;
+      return;
+    }
 
     // NOTE: sfx are 6-bit values with top 2 MSBs indicating panning:
     //   00 = center, 01 = right, 10 = left, 11 = left
@@ -708,7 +712,14 @@ class GameState {
   uint16 overworld_room;
   uint16 dungeon_room;
   void fetch() {
-    if (is_it_a_bad_time()) return;
+    if (is_it_a_bad_time()) {
+      if (module < 0x06 || module > 0x12) {
+        x = 0;
+        y = 0;
+        z = 0;
+      }
+      return;
+    }
 
     y = bus::read_u16(0x7E0020, 0x7E0021);
     x = bus::read_u16(0x7E0022, 0x7E0023);
@@ -834,6 +845,12 @@ class GameState {
 
   int numsprites;
   void fetch_sprites() {
+    if (is_it_a_bad_time()) {
+      numsprites = 0;
+      sprites.resize(0);
+      return;
+    }
+
     // get link's on-screen coordinates in OAM space:
     int16 rx = int16(x) - xoffs;
     int16 ry = int16(y) - yoffs;
@@ -1381,10 +1398,6 @@ void receive() {
 }
 
 void pre_nmi() {
-  // Wait until the game starts:
-  isRunning = bus::read_u8(0x7E0010);
-  if (isRunning < 0x06 || isRunning > 0x13) return;
-
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
@@ -1453,10 +1466,8 @@ void pre_frame() {
   // backup VRAM for OAM tiles which are in-use by game:
   localFrameState.backup();
 
-  if (!local.is_it_a_bad_time()) {
-    // fetch local VRAM data for sprites:
-    local.capture_sprites_vram();
-  }
+  // fetch local VRAM data for sprites:
+  local.capture_sprites_vram();
 
   // send updated state for our Link to server:
   local.send();
