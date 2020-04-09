@@ -15,7 +15,7 @@ void init() {
   settings.Name = "link";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
-    settings.Group = "debug";
+    //settings.Group = "debug";
     settings.start();
     settings.hide();
   }
@@ -176,7 +176,7 @@ class WorldMap {
   gui::Canvas @canvas;
 
   gui::Canvas @localDot;
-  array<gui::Canvas@> dots(8);
+  array<gui::Canvas@> dots;
 
   WorldMap() {
     // relative position to bsnes window:
@@ -265,21 +265,60 @@ class WorldMap {
     return c;
   }
 
-  void mapCoord(const GameState &in p, int &out x, int &out y) {
-    x = p.x % 512;
-    y = p.y % 512;
+  void mapCoord(const GameState &in p, float &out x, float &out y) {
+    // in master sword grove:
+    if (p.location == 0x000080) {
+      x = float((p.x >> 4) + 128 % 512);
+      y = float((p.y >> 4) + 128 % 512);
+      return;
+    }
+
+    // in a dungeon:
+    if (p.location & 0x010000 == 0x010000) {
+      x = -128;
+      y = -128;
+      return;
+    }
+
+    // overworld:
+    x = float((p.x >> 4) + 128 % 512);
+    y = float((p.y >> 4) + 128 % 512);
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
-    //for (uint i = 0; i < players.length(); i++) {
-    //  auto @p = players[i];
-    //  if (p.ttl == 0) continue;
-    //  playerCanvas.pixel(p.x, p.y, ppu::rgb(0, 0, 0x1f));
-    //}
+    // grow dots array and create new Canvas instances:
+    if (players.length() > dots.length()) {
+      dots.resize(players.length());
+      for (uint i = 0; i < dots.length(); i++) {
+        if (null != @dots[i]) continue;
 
-    int x, y;
+        // create new dot:
+        auto j = i + 1;
+        auto color = ppu::rgb(
+          ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
+          ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
+          ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
+        );
+        @dots[i] = makeDot(color);
+      }
+    }
+
+    // Map world-pixel coordinates to world-map coordinates:
+    float x, y;
+    for (uint i = 0; i < players.length(); i++) {
+      auto @p = players[i];
+      if (p.ttl == 0) {
+        // If player disappeared, hide their dot:
+        dots[i].setPosition(-128, -128);
+        continue;
+      }
+
+      mapCoord(p, x, y);
+      dots[i].setPosition(x, y);
+    }
+
     mapCoord(local, x, y);
-    localDot.setPosition(float(x), float(y));
+    localDot.setPosition(x, y);
   }
 };
 WorldMap @worldMap;
