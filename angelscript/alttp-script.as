@@ -279,9 +279,12 @@ class WorldMap {
   }
 
   gui::Canvas @makeDot(uint16 color) {
+    int diam = 8;
+    int max = diam-1;
+
     auto @c = gui::Canvas();
-    vl.append(c, gui::Size(6, 6));
-    c.size = gui::Size(6, 6);
+    vl.append(c, gui::Size(diam, diam));
+    c.size = gui::Size(diam, diam);
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
 
@@ -290,20 +293,20 @@ class WorldMap {
 
     uint16 outline = ppu::rgb(0x1f, 0x1f, 0x1f) | 0x8000;
 
-    int s = 3;
+    int s = diam/2;
     for (int i = 0; i < s; i++) {
       // top line:
-      c.pixel(  i,   0, outline);
-      c.pixel(5-i,   0, outline);
+      c.pixel(    i,     0, outline);
+      c.pixel(max-i,     0, outline);
       // bottom line:
-      c.pixel(  i,   5, outline);
-      c.pixel(5-i,   5, outline);
+      c.pixel(    i,   max, outline);
+      c.pixel(max-i,   max, outline);
       // left line:
-      c.pixel(  0,   i, outline);
-      c.pixel(  0, 5-i, outline);
+      c.pixel(    0,     i, outline);
+      c.pixel(    0, max-i, outline);
       // right line:
-      c.pixel(  5,   i, outline);
-      c.pixel(  5, 5-i, outline);
+      c.pixel(  max,     i, outline);
+      c.pixel(  max, max-i, outline);
     }
 
     // TODO: get to this shape
