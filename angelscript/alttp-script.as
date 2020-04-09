@@ -1191,7 +1191,7 @@ class GameState {
       j = j & 127;
       auto oam = ppu::oam[j];
       oam.x = uint16(sprite.x + x);
-      oam.y = sprite.y + y;
+      oam.y = sprite.y + 1 + y;
       oam.hflip = sprite.hflip;
       oam.vflip = sprite.vflip;
       oam.priority = sprite.priority;
