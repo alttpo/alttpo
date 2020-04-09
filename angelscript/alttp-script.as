@@ -178,18 +178,30 @@ class WorldMap {
   gui::Canvas @localDot;
   array<gui::Canvas@> dots;
 
+  // expressed in map 8x8 tile sizes:
+  int mtop = 14;
+  int mleft = 14;
+  int mwidth = 35;
+  int mheight = 35;
+
+  int top = mtop*8;
+  int left = mleft*8;
+  int width = mwidth*8;
+  int height = mheight*8;
+  int mapscale = 2;
+
   WorldMap() {
     // relative position to bsnes window:
     @window = gui::Window(256*3*8/7, 0, true);
     window.title = "World Map";
-    window.size = gui::Size(512, 512);
+    window.size = gui::Size(width*mapscale, height*mapscale);
 
     @vl = gui::VerticalLayout();
     window.append(vl);
 
     @canvas = gui::Canvas();
-    vl.append(canvas, gui::Size(512, 512));
-    canvas.size = gui::Size(512, 512);
+    vl.append(canvas, gui::Size(width*mapscale, height*mapscale));
+    canvas.size = gui::Size(width, height);
     canvas.setAlignment(0.0, 0.0);
     canvas.setCollapsible(true);
 
@@ -236,8 +248,8 @@ class WorldMap {
 
     // draw map as mode 7 tiles:
     canvas.fill(0x0000);
-    for (int my = 0; my < 64; my++) {
-      for (int mx = 0; mx < 64; mx++) {
+    for (int my = mtop; my < mtop + mheight; my++) {
+      for (int mx = mleft; mx < mleft + mwidth; mx++) {
         // pick tile:
         uint8 t = map[(my*128+mx)];
 
@@ -245,7 +257,7 @@ class WorldMap {
         for (int y = 0; y < 8; y++) {
           for (int x = 0; x < 8; x++) {
             uint8 c = gfx[(t*64)+((y*8)+x)];
-            canvas.pixel(mx*8+x, my*8+y, palette[c]);
+            canvas.pixel((mx-mleft)*8+x, (my-mtop)*8+y, palette[c] | 0x8000);
           }
         }
       }
@@ -257,9 +269,16 @@ class WorldMap {
 
   gui::Canvas @makeDot(uint16 color) {
     auto @c = gui::Canvas();
-    vl.append(c, gui::Size(4, 4));
-    c.size = gui::Size(4, 4);
-    c.setPosition(-1, -1);
+    vl.append(c, gui::Size(6, 6));
+    c.size = gui::Size(6, 6);
+    c.setPosition(-128, -128);
+    c.setAlignment(0.5, 0.5);
+    // _ _ 1 1 _ _
+    // _ 1 2 2 1 _
+    // 1 2 2 2 2 1
+    // 1 2 2 2 2 1
+    // _ 1 2 2 1 _
+    // _ _ 1 1 _ _
     c.fill(color | 0x8000);
     c.update();
     return c;
@@ -268,8 +287,8 @@ class WorldMap {
   void mapCoord(const GameState &in p, float &out x, float &out y) {
     // in master sword grove:
     if (p.location == 0x000080) {
-      x = float((p.x >> 4) + 128 % 512);
-      y = float((p.y >> 4) + 128 % 512);
+      x = float((p.x >> 4) + 128 - left) * mapscale;
+      y = float((p.y >> 4) + 128 - top) * mapscale;
       return;
     }
 
@@ -281,8 +300,8 @@ class WorldMap {
     }
 
     // overworld:
-    x = float((p.x >> 4) + 126 % 512);
-    y = float((p.y >> 4) + 132 % 512);
+    x = float((p.x >> 4) + 127 - left) * mapscale;
+    y = float((p.y >> 4) + 133 - top) * mapscale;
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
