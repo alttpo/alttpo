@@ -321,11 +321,13 @@ class WorldMap {
     return c;
   }
 
+  int mapsprleft = 127;
+  int mapsprtop = 133;
   void mapCoord(const GameState &in p, float &out x, float &out y) {
     // in master sword grove:
     if (p.location == 0x000080) {
-      x = float((p.x >> 4) + 128 - left) * mapscale;
-      y = float((p.y >> 4) + 128 - top) * mapscale;
+      x = float((int(p.x + 0x20) / 16) + mapsprleft - left) * mapscale;
+      y = float((int(p.y - 0x146) / 16) + mapsprtop - top) * mapscale;
       return;
     }
 
@@ -337,8 +339,8 @@ class WorldMap {
     }
 
     // overworld:
-    x = float((p.x >> 4) + 127 - left) * mapscale;
-    y = float((p.y >> 4) + 133 - top) * mapscale;
+    x = float((p.x >> 4) + mapsprleft - left) * mapscale;
+    y = float((p.y >> 4) + mapsprtop - top) * mapscale;
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
