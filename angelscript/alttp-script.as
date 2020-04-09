@@ -747,14 +747,15 @@ class GameState {
     // TODO
   }
 
-  array<uint8> rooms;
+  array<uint16> rooms;
+  uint roomsOpened;
   void fetch_rooms() {
     // SRAM copy at $7EF000 - $7EF24F
     // room data live in WRAM at $0400,$0401
     // $0403 = 6 chests, key, heart piece
 
-    rooms.resize(0x250);
-    bus::read_block_u8(0x7EF000, 0, 0x250, rooms);
+    rooms.resize(0x128);
+    bus::read_block_u16(0x7EF000, 0, 0x128, rooms);
   }
 
 /*
