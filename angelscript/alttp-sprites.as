@@ -68,17 +68,17 @@ void pre_frame() {
   // [$10]$0AD2 -> $4120 (0x40 bytes) (bottom of body)
   // [$10]$0AD6 -> $4140 (0x20 bytes) (bottom sweat/arm/hand)
 
-  dma10bot[0] = bus::read_u16(0x7E0ACE, 0x7E0ACF);
-  dma10bot[1] = bus::read_u16(0x7E0AD2, 0x7E0AD3);
-  dma10bot[2] = bus::read_u16(0x7E0AD6, 0x7E0AD7);
+  dma10bot[0] = bus::read_u16(0x7E0ACE);
+  dma10bot[1] = bus::read_u16(0x7E0AD2);
+  dma10bot[2] = bus::read_u16(0x7E0AD6);
 
   // [$10]$0ACC -> $4000 (0x40 bytes) (top of head)
   // [$10]$0AD0 -> $4020 (0x40 bytes) (top of body)
   // [$10]$0AD4 -> $4040 (0x20 bytes) (top sweat/arm/hand)
 
-  dma10top[0] = bus::read_u16(0x7E0ACC, 0x7E0ACD);
-  dma10top[1] = bus::read_u16(0x7E0AD0, 0x7E0AD1);
-  dma10top[2] = bus::read_u16(0x7E0AD4, 0x7E0AD5);
+  dma10top[0] = bus::read_u16(0x7E0ACC);
+  dma10top[1] = bus::read_u16(0x7E0AD0);
+  dma10top[2] = bus::read_u16(0x7E0AD4);
 
   // bank $7E (WRAM) is used to store decompressed 3bpp->4bpp tile data
   // need to call Do3To4HighAnimated at $5619-$566D to decomp to $7E9000,X
@@ -89,15 +89,15 @@ void pre_frame() {
   // [$7E]$0AE0 -> $40B0 (0x20 bytes) (top of rupee)
   // [$7E]$0AD8 -> $40C0 (0x40 bytes) (top of movable block)
 
-  dma7Etop[0] = bus::read_u16(0x7E0AC0, 0x7E0AC1);
-  dma7Etop[1] = bus::read_u16(0x7E0AC4, 0x7E0AC5);
-  dma7Etop[2] = bus::read_u16(0x7E0AC8, 0x7E0AC9);
-  dma7Etop[3] = bus::read_u16(0x7E0AE0, 0x7E0AE1);
-  dma7Etop[4] = bus::read_u16(0x7E0AD8, 0x7E0AD9);
+  dma7Etop[0] = bus::read_u16(0x7E0AC0);
+  dma7Etop[1] = bus::read_u16(0x7E0AC4);
+  dma7Etop[2] = bus::read_u16(0x7E0AC8);
+  dma7Etop[3] = bus::read_u16(0x7E0AE0);
+  dma7Etop[4] = bus::read_u16(0x7E0AD8);
 
   // only if bird is active
   // [$7E]$0AF6 -> $40E0 (0x40 bytes) (top of hammer sprites)
-  dma7Etop[5] = bus::read_u16(0x7E0AF6, 0x7E0AF7);
+  dma7Etop[5] = bus::read_u16(0x7E0AF6);
 
   // [$7E]$0AC2 -> $4150 (0x40 bytes) (bottom of sword slash)
   // [$7E]$0AC6 -> $4170 (0x40 bytes) (bottom of shield)
@@ -105,21 +105,21 @@ void pre_frame() {
   // [$7E]$0AE2 -> $41B0 (0x20 bytes) (bottom of rupee)
   // [$7E]$0ADA -> $41C0 (0x40 bytes) (bottom of movable block)
 
-  dma7Ebot[0] = bus::read_u16(0x7E0AC2, 0x7E0AC3);
-  dma7Ebot[1] = bus::read_u16(0x7E0AC6, 0x7E0AC7);
-  dma7Ebot[2] = bus::read_u16(0x7E0ACA, 0x7E0ACB);
-  dma7Ebot[3] = bus::read_u16(0x7E0AE2, 0x7E0AE3);
-  dma7Ebot[4] = bus::read_u16(0x7E0ADA, 0x7E0ADB);
+  dma7Ebot[0] = bus::read_u16(0x7E0AC2);
+  dma7Ebot[1] = bus::read_u16(0x7E0AC6);
+  dma7Ebot[2] = bus::read_u16(0x7E0ACA);
+  dma7Ebot[3] = bus::read_u16(0x7E0AE2);
+  dma7Ebot[4] = bus::read_u16(0x7E0ADA);
 
   // only if bird is active
   // [$7E]$0AF8 -> $41E0 (0x40 bytes) (bottom of hammer sprites)
-  dma7Ebot[5] = bus::read_u16(0x7E0AF8, 0x7E0AF9);
+  dma7Ebot[5] = bus::read_u16(0x7E0AF8);
 
   // fetch various room indices and flags about where exactly Link currently is:
   auto in_dark_world  = bus::read_u8 (0x7E0FFF);
   auto in_dungeon     = bus::read_u8 (0x7E001B);
-  auto overworld_room = bus::read_u16(0x7E008A, 0x7E008B);
-  auto dungeon_room   = bus::read_u16(0x7E00A0, 0x7E00A1);
+  auto overworld_room = bus::read_u16(0x7E008A);
+  auto dungeon_room   = bus::read_u16(0x7E00A0);
 
   // compute aggregated location for Link into a single 24-bit number:
   location =
@@ -128,13 +128,13 @@ void pre_frame() {
     uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
 
   // get screen x,y offset by reading BG2 scroll registers:
-  xoffs = bus::read_u16(0x7E00E2, 0x7E00E3);
-  yoffs = bus::read_u16(0x7E00E8, 0x7E00E9);
+  xoffs = bus::read_u16(0x7E00E2);
+  yoffs = bus::read_u16(0x7E00E8);
 
   for (int i = 0; i < 16; i++) {
     // sprite x,y coords are absolute from BG2 top-left:
-    spry[i] = bus::read_u16(0x7E0D00 + i, 0x7E0D20 + i);
-    sprx[i] = bus::read_u16(0x7E0D10 + i, 0x7E0D30 + i);
+    spry[i] = bus::read_u16(0x7E0D00 + i);
+    sprx[i] = bus::read_u16(0x7E0D10 + i);
     // sprite state (0 = dead, else alive):
     sprs[i] = bus::read_u8(0x7E0DD0 + i);
     // sprite kind:

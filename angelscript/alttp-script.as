@@ -234,7 +234,7 @@ class WorldMap {
     // 0x008E4C
     int p02 = 0;
     for (int p04 = 0; p04 < 8; p04 += 2) {
-      uint16 p00 = bus::read_u16(0x008E4C + p04, 0x008E4C + p04 + 1);
+      uint16 p00 = bus::read_u16(0x008E4C + p04);
       for (int p06 = 0; p06 < 0x20; p06++) {
         int dest = p00;
         p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
@@ -721,9 +721,9 @@ class GameState {
       return;
     }
 
-    y = bus::read_u16(0x7E0020, 0x7E0021);
-    x = bus::read_u16(0x7E0022, 0x7E0023);
-    z = bus::read_u16(0x7E0024, 0x7E0025);
+    y = bus::read_u16(0x7E0020);
+    x = bus::read_u16(0x7E0022);
+    z = bus::read_u16(0x7E0024);
 
     // $7E0410 = OW screen transitioning directional
     //ow_screen_transition = bus::read_u8(0x7E0410);
@@ -735,8 +735,8 @@ class GameState {
       // fetch various room indices and flags about where exactly Link currently is:
       in_dark_world = bus::read_u8(0x7E0FFF);
       in_dungeon = bus::read_u8(0x7E001B);
-      overworld_room = bus::read_u16(0x7E008A, 0x7E008B);
-      dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
+      overworld_room = bus::read_u16(0x7E008A);
+      dungeon_room = bus::read_u16(0x7E00A0);
 
       // compute aggregated location for Link into a single 24-bit number:
       location =
@@ -751,8 +751,8 @@ class GameState {
     }
 
     // get screen x,y offset by reading BG2 scroll registers:
-    xoffs = int16(bus::read_u16(0x7E00E2, 0x7E00E3)) - int16(bus::read_u16(0x7E011A, 0x7E011B));
-    yoffs = int16(bus::read_u16(0x7E00E8, 0x7E00E9)) - int16(bus::read_u16(0x7E011C, 0x7E011D));
+    xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
+    yoffs = int16(bus::read_u16(0x7E00E8)) - int16(bus::read_u16(0x7E011C));
 
 /*
     if (!intercepting) {
@@ -856,7 +856,7 @@ class GameState {
     int16 ry = int16(y) - yoffs;
 
     // read OAM offset where link's sprites start at:
-    int link_oam_start = bus::read_u16(0x7E0352, 0x7E0353) >> 2;
+    int link_oam_start = bus::read_u16(0x7E0352) >> 2;
     //message(fmtInt(link_oam_start));
 
     // read in relevant sprites from OAM and VRAM:
@@ -1196,7 +1196,7 @@ class GameState {
     auto in_dungeon = bus::read_u8(0x7E001B);
     if (in_dungeon == 0) return;
 
-    auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
+    auto dungeon_room = bus::read_u16(0x7E00A0);
     if (dungeon_room >= rooms.length()) return;
 
     // $0400
