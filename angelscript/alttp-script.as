@@ -274,15 +274,15 @@ class WorldMap {
     }
 
     // in a dungeon:
-    if (p.location & 0x010000 == 0x010000) {
+    if ((p.location & 0x010000) == 0x010000) {
       x = -128;
       y = -128;
       return;
     }
 
     // overworld:
-    x = float((p.x >> 4) + 128 % 512);
-    y = float((p.y >> 4) + 128 % 512);
+    x = float((p.x >> 4) + 126 % 512);
+    y = float((p.y >> 4) + 132 % 512);
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
