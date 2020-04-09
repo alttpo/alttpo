@@ -284,13 +284,36 @@ class WorldMap {
     c.size = gui::Size(6, 6);
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
+
+    color |= 0x8000;
+    c.fill(color);
+
+    uint16 outline = ppu::rgb(0x1f, 0x1f, 0x1f) | 0x8000;
+
+    int s = 3;
+    for (int i = 0; i < s; i++) {
+      // top line:
+      c.pixel(  i,   0, outline);
+      c.pixel(5-i,   0, outline);
+      // bottom line:
+      c.pixel(  i,   5, outline);
+      c.pixel(5-i,   5, outline);
+      // left line:
+      c.pixel(  0,   i, outline);
+      c.pixel(  0, 5-i, outline);
+      // right line:
+      c.pixel(  5,   i, outline);
+      c.pixel(  5, 5-i, outline);
+    }
+
+    // TODO: get to this shape
     // _ _ 1 1 _ _
     // _ 1 2 2 1 _
     // 1 2 2 2 2 1
     // 1 2 2 2 2 1
     // _ 1 2 2 1 _
     // _ _ 1 1 _ _
-    c.fill(color | 0x8000);
+
     c.update();
     return c;
   }
