@@ -513,7 +513,7 @@ class LocalFrameState {
       Sprite sprite;
       sprite.decodeOAMTable(j);
       // NOTE: we could skip the is_enabled check which would make the OAM appear to be a LRU cache of characters
-      if (!sprite.is_enabled) continue;
+      //if (!sprite.is_enabled) continue;
 
       // mark chr as used in current frame:
       uint addr = sprite.chr;
