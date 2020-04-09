@@ -957,6 +957,11 @@ class GameState {
   }
 
   bool can_see(uint32 other_location) {
+    // using in-game mode-7 map:
+    if (module == 0x0e && sub_module == 0x07) {
+      return false;
+    }
+
     return (location == other_location);
   }
 
