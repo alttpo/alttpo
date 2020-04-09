@@ -748,14 +748,16 @@ class GameState {
   }
 
   array<uint16> rooms;
-  uint roomsOpened;
   void fetch_rooms() {
     // SRAM copy at $7EF000 - $7EF24F
     // room data live in WRAM at $0400,$0401
     // $0403 = 6 chests, key, heart piece
 
-    rooms.resize(0x128);
-    bus::read_block_u16(0x7EF000, 0, 0x128, rooms);
+    // BUGS: encountered one-way door effect in fairy cave 0x010008
+    // disabling room door sync for now.
+
+    //rooms.resize(0x128);
+    //bus::read_block_u16(0x7EF000, 0, 0x128, rooms);
   }
 
 /*
@@ -1041,8 +1043,12 @@ class GameState {
       chrs[i].resize(0);
     }
 
-    // write room state:
-    r.insertLast(rooms);
+    // DISABLED: room sync
+    //r.insertLast(uint16(rooms.length()));
+    //if (rooms.length() > 0) {
+    //  // write room state:
+    //  r.insertLast(rooms);
+    //}
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -1100,10 +1106,14 @@ class GameState {
     }
 
     // read rooms state:
-    rooms.resize(0x250);
-    for (uint i = 0; i < 0x250; i++) {
-      rooms[i] = r[c++];
-    }
+    //uint16 roomCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    //if (roomCount > 0x128) {
+    //  roomCount = 0x128;
+    //}
+    //rooms.resize(roomCount);
+    //for (uint i = 0; i < roomCount; i++) {
+    //  rooms[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    //}
 
     return true;
   }
@@ -1125,7 +1135,7 @@ class GameState {
   }
 
   void update_rooms_sram() {
-    for (uint i = 0; i < 0x128; i++) {
+    for (uint i = 0; i < rooms.length(); i++) {
       // High Byte           Low Byte
       // d d d d b k ck cr   c c c c q q q q
       // c - chest, big key chest, or big key lock. Any combination of them totalling to 6 is valid.
@@ -1136,8 +1146,8 @@ class GameState {
       // r - special rupee tiles, whether they've been obtained or not.
       // b - boss battle won
 
-      //uint8 lo = rooms[(i << 1) + 0];
-      uint8 hi = rooms[(i << 1) + 1];
+      //uint8 lo = rooms[i] & 0xff;
+      uint8 hi = rooms[i] >> 8;
 
       // mask off everything but doors opened state:
       hi = hi & 0xF0;
@@ -1150,11 +1160,14 @@ class GameState {
   }
 
   void update_room_current() {
+    if (rooms.length() == 0) return;
+
     // only update dungeon room state:
     auto in_dungeon = bus::read_u8(0x7E001B);
     if (in_dungeon == 0) return;
 
     auto dungeon_room = bus::read_u16(0x7E00A0, 0x7E00A1);
+    if (dungeon_room >= rooms.length()) return;
 
     // $0400
     // $0401 - Tops four bits: In a given room, each bit corresponds to a door being opened.
@@ -1171,7 +1184,7 @@ class GameState {
     //  Bit 6: A key has been obtained in this room.
     //  Bit 7: Heart Piece has been obtained in this room.
 
-    uint8 hi = rooms[(dungeon_room << 1) + 1];
+    uint8 hi = rooms[dungeon_room] >> 8;
     // mask off everything but doors opened state:
     hi = hi & 0xF0;
 
