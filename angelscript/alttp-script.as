@@ -593,7 +593,7 @@ class GameState {
   uint8 sfx1;
   uint8 sfx2;
 
-  void update_module() {
+  void fetch_module() {
     // module     = 0x07 in dungeons
     //            = 0x09 in overworld
     module = bus::read_u8(0x7E0010);
@@ -631,6 +631,21 @@ class GameState {
     sub_sub_module = bus::read_u8(0x7E00B0);
   }
 
+  bool is_it_a_bad_time() {
+    if (module < 0x06) return true;
+    if (module > 0x12) return true;
+
+    if (module == 0x0e) {
+      if ( sub_module == 0x07 // mode-7 map
+           || sub_module == 0x0b // player select
+        ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   bool can_sample_location() {
     switch (module) {
       // dungeon:
@@ -661,6 +676,8 @@ class GameState {
   }
 
   void fetch_sfx() {
+    if (is_it_a_bad_time()) return;
+
     // NOTE: sfx are 6-bit values with top 2 MSBs indicating panning:
     //   00 = center, 01 = right, 10 = left, 11 = left
 
@@ -691,7 +708,7 @@ class GameState {
   uint16 overworld_room;
   uint16 dungeon_room;
   void fetch() {
-    update_module();
+    if (is_it_a_bad_time()) return;
 
     y = bus::read_u16(0x7E0020, 0x7E0021);
     x = bus::read_u16(0x7E0022, 0x7E0023);
@@ -959,11 +976,7 @@ class GameState {
   }
 
   bool can_see(uint32 other_location) {
-    // using in-game mode-7 map:
-    if (module == 0x0e && sub_module == 0x07) {
-      return false;
-    }
-
+    if (is_it_a_bad_time()) return false;
     return (location == other_location);
   }
 
@@ -1399,35 +1412,37 @@ void pre_nmi() {
   // restore previous VRAM tiles:
   localFrameState.restore();
 
+  // fetch next frame's game state from WRAM:
+  local.fetch_module();
+
   local.fetch_sfx();
 
-  // fetch next frame's game state from WRAM:
   local.fetch();
 
-  // play remote sfx:
-  for (uint i = 0; i < players.length(); i++) {
-    auto @remote = players[i];
-    if (remote.ttl <= 0) {
-      remote.ttl = 0;
-      continue;
-    }
+  if (!local.is_it_a_bad_time()) {
+    // play remote sfx:
+    for (uint i = 0; i < players.length(); i++) {
+      auto @remote = players[i];
+      if (remote.ttl <= 0) {
+        remote.ttl = 0;
+        continue;
+      }
 
-    remote.update_rooms_sram();
+      remote.update_rooms_sram();
 
-    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location)) {
-      // attempt to play remote sfx:
-      remote.play_sfx();
+      // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+      if (local.can_see(remote.location)) {
+        // attempt to play remote sfx:
+        remote.play_sfx();
 
-      // update current room state in WRAM:
-      remote.update_room_current();
+        // update current room state in WRAM:
+        remote.update_room_current();
+      }
     }
   }
 }
 
 void pre_frame() {
-  //if (isRunning < 0x06 || isRunning > 0x13) return;
-
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
@@ -1438,8 +1453,10 @@ void pre_frame() {
   // backup VRAM for OAM tiles which are in-use by game:
   localFrameState.backup();
 
-  // fetch local VRAM data for sprites:
-  local.capture_sprites_vram();
+  if (!local.is_it_a_bad_time()) {
+    // fetch local VRAM data for sprites:
+    local.capture_sprites_vram();
+  }
 
   // send updated state for our Link to server:
   local.send();
