@@ -201,7 +201,7 @@ class WorldMap {
 
     @canvas = gui::Canvas();
     vl.append(canvas, gui::Size(width*mapscale, height*mapscale));
-    canvas.size = gui::Size(width, height);
+    canvas.size = gui::Size(width*mapscale, height*mapscale);
     canvas.setAlignment(0.0, 0.0);
     canvas.setCollapsible(true);
 
@@ -257,7 +257,18 @@ class WorldMap {
         for (int y = 0; y < 8; y++) {
           for (int x = 0; x < 8; x++) {
             uint8 c = gfx[(t*64)+((y*8)+x)];
-            canvas.pixel((mx-mleft)*8+x, (my-mtop)*8+y, palette[c] | 0x8000);
+            uint16 color = palette[c] | 0x8000;
+
+            // scale up:
+            int px = (mx-mleft)*8+x;
+            int py = (my-mtop)*8+y;
+            px *= mapscale;
+            py *= mapscale;
+            for (int sy = 0; sy < mapscale; sy++) {
+              for (int sx = 0; sx < mapscale; sx++) {
+                canvas.pixel(px+sx, py+sy, color);
+              }
+            }
           }
         }
       }
