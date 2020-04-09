@@ -15,6 +15,7 @@ void init() {
   settings.Name = "link";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
+    settings.Group = "debug";
     settings.start();
     settings.hide();
   }
@@ -173,7 +174,9 @@ class WorldMap {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
-  gui::Canvas @playerCanvas;
+
+  gui::Canvas @localDot;
+  array<gui::Canvas@> dots(8);
 
   WorldMap() {
     // relative position to bsnes window:
@@ -190,22 +193,14 @@ class WorldMap {
     canvas.setAlignment(0.0, 0.0);
     canvas.setCollapsible(true);
 
-    @playerCanvas = gui::Canvas();
-    vl.append(playerCanvas, gui::Size(4, 4));
-    playerCanvas.size = gui::Size(4, 4);
-    playerCanvas.setAlignment(0.0, 0.0);
-    playerCanvas.setCollapsible(true);
-    playerCanvas.setPosition(48, 48);
-    playerCanvas.fill(ppu::rgb(0, 0, 0x1f) | 0x8000);
+    @localDot = makeDot(ppu::rgb(0, 0, 0x1f));
 
     vl.resize();
 
-    update();
     window.visible = true;
   }
 
   void update() {
-    playerCanvas.update();
   }
 
   bool loaded = false;
@@ -260,21 +255,31 @@ class WorldMap {
     loaded = true;
   }
 
-  void mapCoord(const GameState &in p, int &out x, int &out y) {
+  gui::Canvas @makeDot(uint16 color) {
+    auto @c = gui::Canvas();
+    vl.append(c, gui::Size(4, 4));
+    c.size = gui::Size(4, 4);
+    c.setPosition(-1, -1);
+    c.fill(color | 0x8000);
+    c.update();
+    return c;
+  }
 
+  void mapCoord(const GameState &in p, int &out x, int &out y) {
+    x = p.x % 512;
+    y = p.y % 512;
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
-    //playerCanvas.fill(0x0000);
-
-    //playerCanvas.pixel(local.x, local.y, ppu::rgb(0, 0, 0x1f));
     //for (uint i = 0; i < players.length(); i++) {
     //  auto @p = players[i];
     //  if (p.ttl == 0) continue;
     //  playerCanvas.pixel(p.x, p.y, ppu::rgb(0, 0, 0x1f));
     //}
 
-    playerCanvas.setPosition(float(local.x % 512), float(local.y % 512));
+    int x, y;
+    mapCoord(local, x, y);
+    localDot.setPosition(float(x), float(y));
   }
 };
 WorldMap @worldMap;
