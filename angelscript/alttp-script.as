@@ -247,15 +247,17 @@ class WorldMap {
     gfx.resize(0x4000);
 
     // load light world's map:
-    // direct translation of NMI_LightWorldMode7Tilemap from bank00.asm:
-    int p02 = 0;
-    for (int p04 = 0; p04 < 8; p04 += 2) {
-      uint16 p00 = bus::read_u16(0x008E4C + p04);
-      for (int p06 = 0; p06 < 0x20; p06++) {
-        int dest = p00;
-        p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
-        bus::read_block_u8(0x0AC727 + p02, dest, 0x20, tilemap);
-        p02 += 0x20;
+    {
+      // direct translation of NMI_LightWorldMode7Tilemap from bank00.asm:
+      int p02 = 0;
+      for (int p04 = 0; p04 < 8; p04 += 2) {
+        uint16 p00 = bus::read_u16(0x008E4C + p04);
+        for (int p06 = 0; p06 < 0x20; p06++) {
+          int dest = p00;
+          p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
+          bus::read_block_u8(0x0AC727 + p02, dest, 0x20, tilemap);
+          p02 += 0x20;
+        }
       }
     }
 
@@ -266,8 +268,20 @@ class WorldMap {
     drawMode7Map(lightWorld, tilemap, gfx, palette);
     lightWorld.update();
 
-    // load dark world map:
-    // TODO
+    // load dark world palette:
+    bus::read_block_u16(0x0ADC27, 0, 0x100, palette);
+
+    // load dark world tilemap:
+    {
+      int p02 = 0;
+      uint16 p00 = 0x0810;
+      for (int p06 = 0; p06 < 0x20; p06++) {
+        int dest = p00;
+        p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
+        bus::read_block_u8(0x0AD727 + p02, dest, 0x20, tilemap);
+        p02 += 0x20;
+      }
+    }
 
     darkWorld.fill(0x0000);
     drawMode7Map(darkWorld, tilemap, gfx, palette);
@@ -696,8 +710,17 @@ class GameState {
           return false;
         }
         return true;
-      case 0x06:  // enter cave from overworld?
       case 0x09:  // overworld
+        // normal mirror is 0x23
+        // mirror fail back to dark world is 0x2c
+        if (sub_module == 0x23 || sub_module == 0x2c) {
+          // once sub-sub module hits 3 then we are in light world
+          if (sub_sub_module < 0x03) {
+            return false;
+          }
+        }
+        return true;
+      case 0x06:  // enter cave from overworld?
       case 0x0b:  // overworld master sword grove
       case 0x08:  // exit cave to overworld
       case 0x0f:  // closing spotlight
