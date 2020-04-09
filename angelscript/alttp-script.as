@@ -173,6 +173,7 @@ class WorldMap {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
   gui::Canvas @canvas;
+  gui::Canvas @playerCanvas;
 
   WorldMap() {
     // relative position to bsnes window:
@@ -184,16 +185,27 @@ class WorldMap {
     window.append(vl);
 
     @canvas = gui::Canvas();
+    vl.append(canvas, gui::Size(512, 512));
     canvas.size = gui::Size(512, 512);
-    vl.append(canvas, gui::Size(-1, -1));
+    canvas.setAlignment(0.0, 0.0);
+    canvas.setCollapsible(true);
+
+    @playerCanvas = gui::Canvas();
+    vl.append(playerCanvas, gui::Size(4, 4));
+    playerCanvas.size = gui::Size(4, 4);
+    playerCanvas.setAlignment(0.0, 0.0);
+    playerCanvas.setCollapsible(true);
+    playerCanvas.setPosition(48, 48);
+    playerCanvas.fill(ppu::rgb(0, 0, 0x1f) | 0x8000);
 
     vl.resize();
-    canvas.update();
+
+    update();
     window.visible = true;
   }
 
   void update() {
-    canvas.update();
+    playerCanvas.update();
   }
 
   bool loaded = false;
@@ -244,11 +256,25 @@ class WorldMap {
       }
     }
 
+    canvas.update();
     loaded = true;
   }
 
-  void renderPlayers(const array<GameState@> players) {
+  void mapCoord(const GameState &in p, int &out x, int &out y) {
 
+  }
+
+  void renderPlayers(const GameState &in local, const array<GameState> &in players) {
+    //playerCanvas.fill(0x0000);
+
+    //playerCanvas.pixel(local.x, local.y, ppu::rgb(0, 0, 0x1f));
+    //for (uint i = 0; i < players.length(); i++) {
+    //  auto @p = players[i];
+    //  if (p.ttl == 0) continue;
+    //  playerCanvas.pixel(p.x, p.y, ppu::rgb(0, 0, 0x1f));
+    //}
+
+    playerCanvas.setPosition(float(local.x % 512), float(local.y % 512));
   }
 };
 WorldMap @worldMap;
@@ -1259,7 +1285,7 @@ void pre_nmi() {
 
   // play remote sfx:
   for (uint i = 0; i < players.length(); i++) {
-    auto remote = players[i];
+    auto @remote = players[i];
     if (remote.ttl <= 0) {
       remote.ttl = 0;
       continue;
@@ -1302,7 +1328,7 @@ void pre_frame() {
 
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
-    auto remote = players[i];
+    auto @remote = players[i];
     if (remote.ttl <= 0) {
       remote.ttl = 0;
       continue;
@@ -1319,6 +1345,10 @@ void pre_frame() {
       remote.render(rx, ry);
     }
   }
+
+  if (@worldMap != null) {
+    worldMap.renderPlayers(local, players);
+  }
 }
 
 void post_frame() {
@@ -1334,6 +1364,9 @@ void post_frame() {
     //ppu::frame.text(68, 0, fmtHex(local.in_dungeon, 1));
     //ppu::frame.text(76, 0, fmtHex(local.overworld_room, 2));
     //ppu::frame.text(92, 0, fmtHex(local.dungeon_room, 2));
+
+    ppu::frame.text(120, 0, fmtHex(local.x, 4));
+    ppu::frame.text(160, 0, fmtHex(local.y, 4));
 
     /*
     for (uint i = 0; i < 0x10; i++) {
