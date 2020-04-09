@@ -173,7 +173,8 @@ array<uint16> palette7(16);
 class WorldMap {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
-  gui::Canvas @canvas;
+  gui::Canvas @lightWorld;
+  gui::Canvas @darkWorld;
 
   gui::Canvas @localDot;
   array<gui::Canvas@> dots;
@@ -199,11 +200,21 @@ class WorldMap {
     @vl = gui::VerticalLayout();
     window.append(vl);
 
-    @canvas = gui::Canvas();
-    vl.append(canvas, gui::Size(width*mapscale, height*mapscale));
-    canvas.size = gui::Size(width*mapscale, height*mapscale);
-    canvas.setAlignment(0.0, 0.0);
-    canvas.setCollapsible(true);
+    @lightWorld = gui::Canvas();
+    vl.append(lightWorld, gui::Size(width*mapscale, height*mapscale));
+    lightWorld.size = gui::Size(width*mapscale, height*mapscale);
+    lightWorld.setAlignment(0.0, 0.0);
+    lightWorld.setCollapsible(true);
+    lightWorld.setPosition(0, 0);
+    lightWorld.visible = true;
+
+    @darkWorld = gui::Canvas();
+    vl.append(darkWorld, gui::Size(width*mapscale, height*mapscale));
+    darkWorld.size = gui::Size(width*mapscale, height*mapscale);
+    darkWorld.setAlignment(0.0, 0.0);
+    darkWorld.setCollapsible(true);
+    darkWorld.setPosition(0, 0);
+    darkWorld.visible = false;
 
     @localDot = makeDot(ppu::rgb(0, 0, 0x1f));
 
@@ -212,7 +223,11 @@ class WorldMap {
     window.visible = true;
   }
 
-  void update() {
+  void update(const GameState &in local) {
+    bool is_dark = local.is_in_dark_world();
+
+    darkWorld.visible = is_dark;
+    lightWorld.visible = !is_dark;
   }
 
   bool loaded = false;
@@ -224,21 +239,22 @@ class WorldMap {
     palette.resize(0x100);
     bus::read_block_u16(0x0ADB27, 0, 0x100, palette);
 
-    // mode7 tile map and gfx data for world map:
-    array<uint8> map;
-    map.resize(0x4000);
+    // mode7 tile map and gfx data for world maps:
+    array<uint8> tilemap;
     array<uint8> gfx;
+
+    tilemap.resize(0x4000);
     gfx.resize(0x4000);
 
+    // load light world's map:
     // direct translation of NMI_LightWorldMode7Tilemap from bank00.asm:
-    // 0x008E4C
     int p02 = 0;
     for (int p04 = 0; p04 < 8; p04 += 2) {
       uint16 p00 = bus::read_u16(0x008E4C + p04);
       for (int p06 = 0; p06 < 0x20; p06++) {
         int dest = p00;
         p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
-        bus::read_block_u8(0x0AC727 + p02, dest, 0x20, map);
+        bus::read_block_u8(0x0AC727 + p02, dest, 0x20, tilemap);
         p02 += 0x20;
       }
     }
@@ -246,12 +262,26 @@ class WorldMap {
     // from bank00.asm CopyMode7Chr:
     bus::read_block_u8(0x18C000, 0, 0x4000, gfx);
 
+    lightWorld.fill(0x0000);
+    drawMode7Map(lightWorld, tilemap, gfx, palette);
+    lightWorld.update();
+
+    // load dark world map:
+    // TODO
+
+    darkWorld.fill(0x0000);
+    drawMode7Map(darkWorld, tilemap, gfx, palette);
+    darkWorld.update();
+
+    loaded = true;
+  }
+
+  void drawMode7Map(gui::Canvas @canvas, const array<uint8> &in tilemap, const array<uint8> &in gfx, const array<uint16> &in palette) {
     // draw map as mode 7 tiles:
-    canvas.fill(0x0000);
     for (int my = mtop; my < mtop + mheight; my++) {
       for (int mx = mleft; mx < mleft + mwidth; mx++) {
         // pick tile:
-        uint8 t = map[(my*128+mx)];
+        uint8 t = tilemap[(my*128+mx)];
 
         // draw tile:
         for (int y = 0; y < 8; y++) {
@@ -273,9 +303,6 @@ class WorldMap {
         }
       }
     }
-
-    canvas.update();
-    loaded = true;
   }
 
   gui::Canvas @makeDot(uint16 color) {
@@ -631,7 +658,11 @@ class GameState {
     sub_sub_module = bus::read_u8(0x7E00B0);
   }
 
-  bool is_it_a_bad_time() {
+  bool is_in_dark_world() const {
+    return (location & 0x020000) == 0x020000;
+  }
+
+  bool is_it_a_bad_time() const {
     if (module < 0x06) return true;
     if (module > 0x12) return true;
 
@@ -646,7 +677,12 @@ class GameState {
     return false;
   }
 
-  bool can_sample_location() {
+  bool can_see(uint32 other_location) const {
+    if (is_it_a_bad_time()) return false;
+    return (location == other_location);
+  }
+
+  bool can_sample_location() const {
     switch (module) {
       // dungeon:
       case 0x07:
@@ -990,11 +1026,6 @@ class GameState {
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
       }
     }
-  }
-
-  bool can_see(uint32 other_location) {
-    if (is_it_a_bad_time()) return false;
-    return (location == other_location);
   }
 
   void send() {
@@ -1570,6 +1601,6 @@ void post_frame() {
   }
 
   if (@worldMap != null) {
-    worldMap.update();
+    worldMap.update(local);
   }
 }
