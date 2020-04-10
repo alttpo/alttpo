@@ -562,6 +562,7 @@ class LocalFrameState {
         // 8x8 tile:
         chr[addr] = true;
       } else {
+        if (addr > 0x1EE) continue;
         // 16x16 tile:
         chr[addr+0x00] = true;
         chr[addr+0x01] = true;
