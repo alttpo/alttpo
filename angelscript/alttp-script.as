@@ -609,8 +609,78 @@ class LocalFrameState {
 };
 LocalFrameState localFrameState;
 
+// list of SRAM values to sync as items:
+class SyncableItem {
+  uint16  offs;   // SRAM offset from $7EF000 base address
+  uint8   size;   // 1 - byte, 2 - word
+  uint8   type;   // 1 - highest wins, 2 - sync by delta, 3+ TBD...
+
+  SyncableItem(uint16 offs, uint8 size, uint8 type) {
+    this.offs = offs;
+    this.size = size;
+    this.type = type;
+  }
+};
+array<SyncableItem@> @syncableItems = {
+  // bow
+  SyncableItem(0x340, 1, 1),
+  // boomerang
+  SyncableItem(0x341, 1, 1),
+  // hookshot
+  SyncableItem(0x342, 1, 1),
+  // bombs
+  //SyncableItem(0x343, 1, 2),
+  // mushroom
+  SyncableItem(0x344, 1, 1),
+  // fire rod
+  SyncableItem(0x345, 1, 1),
+  // ice rod
+  SyncableItem(0x346, 1, 1),
+  // bombos
+  SyncableItem(0x347, 1, 1),
+  // ether
+  SyncableItem(0x348, 1, 1),
+  // quake
+  SyncableItem(0x349, 1, 1),
+  // lantern
+  SyncableItem(0x34A, 1, 1),
+  // hammer
+  SyncableItem(0x34B, 1, 1),
+  // flute
+  SyncableItem(0x34C, 1, 1),
+  // bug net
+  SyncableItem(0x34D, 1, 1),
+  // book
+  SyncableItem(0x34E, 1, 1),
+  // have bottles
+  SyncableItem(0x34F, 1, 1),
+  // cane of somaria
+  SyncableItem(0x350, 1, 1),
+  // cane of byrna
+  SyncableItem(0x351, 1, 1),
+  // magic cape
+  SyncableItem(0x352, 1, 1),
+  // magic mirror
+  SyncableItem(0x353, 1, 1),
+  // gloves
+  SyncableItem(0x354, 1, 1),
+  // boots
+  SyncableItem(0x355, 1, 1),
+  // flippers
+  SyncableItem(0x356, 1, 1),
+  // moon pearl
+  SyncableItem(0x357, 1, 1)
+};
+
+class SyncedItem {
+  uint16  offs;
+  uint16  value;
+  uint16  lastValue;
+};
+
 class GameState {
-  int ttl;
+  int ttl;        // time to live for last update packet
+  int index = -1; // player index in server's array (local is always -1)
 
   // graphics data for current frame:
   array<Sprite@> sprites;
@@ -634,70 +704,6 @@ class GameState {
 
   uint8 sfx1;
   uint8 sfx2;
-
-  void fetch_module() {
-    // 0x00 - Triforce / Zelda startup screens
-    // 0x01 - File Select screen
-    // 0x02 - Copy Player Mode
-    // 0x03 - Erase Player Mode
-    // 0x04 - Name Player Mode
-    // 0x05 - Loading Game Mode
-    // 0x06 - Pre Dungeon Mode
-    // 0x07 - Dungeon Mode
-    // 0x08 - Pre Overworld Mode
-    // 0x09 - Overworld Mode
-    // 0x0A - Pre Overworld Mode (special overworld)
-    // 0x0B - Overworld Mode (special overworld)
-    // 0x0C - ???? I think we can declare this one unused, almost with complete certainty.
-    // 0x0D - Blank Screen
-    // 0x0E - Text Mode/Item Screen/Map
-    // 0x0F - Closing Spotlight
-    // 0x10 - Opening Spotlight
-    // 0x11 - Happens when you fall into a hole from the OW.
-    // 0x12 - Death Mode
-    // 0x13 - Boss Victory Mode (refills stats)
-    // 0x14 - Attract Mode
-    // 0x15 - Module for Magic Mirror
-    // 0x16 - Module for refilling stats after boss.
-    // 0x17 - Quitting mode (save and quit)
-    // 0x18 - Ganon exits from Agahnim's body. Chase Mode.
-    // 0x19 - Triforce Room scene
-    // 0x1A - End sequence
-    // 0x1B - Screen to select where to start from (House, sanctuary, etc.)
-    module = bus::read_u8(0x7E0010);
-
-    // when module = 0x07: dungeon
-    //    sub_module = 0x00 normal gameplay in dungeon
-    //               = 0x01 going through door
-    //               = 0x03 triggered a star tile to change floor hole configuration
-    //               = 0x05 initializing room? / locked doors?
-    //               = 0x07 falling down hole in floor
-    //               = 0x0e going up/down stairs
-    //               = 0x0f entering dungeon first time (or from mirror)
-    //               = 0x16 when orange/blue barrier blocks transition
-    //               = 0x19 when using mirror
-    // when module = 0x09: overworld
-    //    sub_module = 0x00 normal gameplay in overworld
-    //               = 0x0e
-    //      sub_sub_module = 0x01 in item menu
-    //                     = 0x02 in dialog with NPC
-    //               = 0x23 transitioning from light world to dark world or vice-versa
-    // when module = 0x12: Link is dying
-    //    sub_module = 0x00
-    //               = 0x02 bonk
-    //               = 0x03 black oval closing in
-    //               = 0x04 red screen and spinning animation
-    //               = 0x05 red screen and Link face down
-    //               = 0x06 fade to black
-    //               = 0x07 game over animation
-    //               = 0x08 game over screen done
-    //               = 0x09 save and continue menu
-    sub_module = bus::read_u8(0x7E0011);
-
-    // sub-sub-module goes from 01 to 0f during special animations such as link walking up/down stairs and
-    // falling from ceiling and used as a counter for orange/blue barrier blocks transition going up/down
-    sub_sub_module = bus::read_u8(0x7E00B0);
-  }
 
   bool is_in_dark_world() const {
     return (location & 0x020000) == 0x020000;
@@ -767,36 +773,68 @@ class GameState {
     return true;
   }
 
-  void fetch_sfx() {
-    if (is_it_a_bad_time()) {
-      sfx1 = 0;
-      sfx2 = 0;
-      return;
-    }
+  void fetch_module() {
+    // 0x00 - Triforce / Zelda startup screens
+    // 0x01 - File Select screen
+    // 0x02 - Copy Player Mode
+    // 0x03 - Erase Player Mode
+    // 0x04 - Name Player Mode
+    // 0x05 - Loading Game Mode
+    // 0x06 - Pre Dungeon Mode
+    // 0x07 - Dungeon Mode
+    // 0x08 - Pre Overworld Mode
+    // 0x09 - Overworld Mode
+    // 0x0A - Pre Overworld Mode (special overworld)
+    // 0x0B - Overworld Mode (special overworld)
+    // 0x0C - ???? I think we can declare this one unused, almost with complete certainty.
+    // 0x0D - Blank Screen
+    // 0x0E - Text Mode/Item Screen/Map
+    // 0x0F - Closing Spotlight
+    // 0x10 - Opening Spotlight
+    // 0x11 - Happens when you fall into a hole from the OW.
+    // 0x12 - Death Mode
+    // 0x13 - Boss Victory Mode (refills stats)
+    // 0x14 - Attract Mode
+    // 0x15 - Module for Magic Mirror
+    // 0x16 - Module for refilling stats after boss.
+    // 0x17 - Quitting mode (save and quit)
+    // 0x18 - Ganon exits from Agahnim's body. Chase Mode.
+    // 0x19 - Triforce Room scene
+    // 0x1A - End sequence
+    // 0x1B - Screen to select where to start from (House, sanctuary, etc.)
+    module = bus::read_u8(0x7E0010);
 
-    // NOTE: sfx are 6-bit values with top 2 MSBs indicating panning:
-    //   00 = center, 01 = right, 10 = left, 11 = left
+    // when module = 0x07: dungeon
+    //    sub_module = 0x00 normal gameplay in dungeon
+    //               = 0x01 going through door
+    //               = 0x03 triggered a star tile to change floor hole configuration
+    //               = 0x05 initializing room? / locked doors?
+    //               = 0x07 falling down hole in floor
+    //               = 0x0e going up/down stairs
+    //               = 0x0f entering dungeon first time (or from mirror)
+    //               = 0x16 when orange/blue barrier blocks transition
+    //               = 0x19 when using mirror
+    // when module = 0x09: overworld
+    //    sub_module = 0x00 normal gameplay in overworld
+    //               = 0x0e
+    //      sub_sub_module = 0x01 in item menu
+    //                     = 0x02 in dialog with NPC
+    //               = 0x23 transitioning from light world to dark world or vice-versa
+    // when module = 0x12: Link is dying
+    //    sub_module = 0x00
+    //               = 0x02 bonk
+    //               = 0x03 black oval closing in
+    //               = 0x04 red screen and spinning animation
+    //               = 0x05 red screen and Link face down
+    //               = 0x06 fade to black
+    //               = 0x07 game over animation
+    //               = 0x08 game over screen done
+    //               = 0x09 save and continue menu
+    sub_module = bus::read_u8(0x7E0011);
 
-    uint8 lfx1 = bus::read_u8(0x7E012E);
-    // filter out unwanted synced sounds:
-    switch (lfx1) {
-      case 0x2B: break; // low life warning beep
-      default:
-        sfx1 = lfx1;
-    }
-
-    uint8 lfx2 = bus::read_u8(0x7E012F);
-    // filter out unwanted synced sounds:
-    switch (lfx2) {
-      case 0x0C: break; // text scrolling flute noise
-      case 0x10: break; // switching to map sound effect
-      case 0x11: break; // menu screen going down
-      case 0x12: break; // menu screen going up
-      case 0x20: break; // switch menu item
-      case 0x24: break; // switching between different mode 7 map perspectives
-      default:
-        sfx2 = lfx2;
-    }
+    // sub-sub-module goes from 01 to 0f during special animations such as link walking up/down stairs and
+    // falling from ceiling and used as a counter for orange/blue barrier blocks transition going up/down
+    sub_sub_module = bus::read_u8(0x7E00B0);
   }
 
   uint8 in_dark_world;
@@ -854,12 +892,72 @@ class GameState {
       intercepting = true;
     }
 */
+    fetch_items();
 
     fetch_sprites();
 
     fetch_enemies();
 
     fetch_rooms();
+  }
+
+  void fetch_sfx() {
+    if (is_it_a_bad_time()) {
+      sfx1 = 0;
+      sfx2 = 0;
+      return;
+    }
+
+    // NOTE: sfx are 6-bit values with top 2 MSBs indicating panning:
+    //   00 = center, 01 = right, 10 = left, 11 = left
+
+    uint8 lfx1 = bus::read_u8(0x7E012E);
+    // filter out unwanted synced sounds:
+    switch (lfx1) {
+      case 0x2B: break; // low life warning beep
+      default:
+        sfx1 = lfx1;
+    }
+
+    uint8 lfx2 = bus::read_u8(0x7E012F);
+    // filter out unwanted synced sounds:
+    switch (lfx2) {
+      case 0x0C: break; // text scrolling flute noise
+      case 0x10: break; // switching to map sound effect
+      case 0x11: break; // menu screen going down
+      case 0x12: break; // menu screen going up
+      case 0x20: break; // switch menu item
+      case 0x24: break; // switching between different mode 7 map perspectives
+      default:
+        sfx2 = lfx2;
+    }
+  }
+
+  array<SyncedItem@> items;
+  void fetch_items() {
+    // items: (MUST be sorted by offs)
+    items.resize(syncableItems.length());
+    for (uint i = 0; i < syncableItems.length(); i++) {
+      auto @syncable = syncableItems[i];
+
+      auto @item = items[i];
+      if (@item == null) {
+        @item = @items[i] = SyncedItem();
+        item.lastValue = 0;
+        item.value = 0;
+        item.offs = syncable.offs;
+      }
+
+      // record previous frame's value:
+      item.lastValue = item.value;
+
+      // read latest value:
+      if (syncable.size == 1) {
+        item.value = bus::read_u8(0x7EF000 + syncable.offs);
+      } else if (syncable.size == 2) {
+        item.value = bus::read_u16(0x7EF000 + syncable.offs);
+      }
+    }
   }
 
   void fetch_enemies() {
@@ -1166,6 +1264,17 @@ class GameState {
     //  // write room state:
     //  r.insertLast(rooms);
     //}
+
+    // items: (MUST be sorted by offs)
+    r.insertLast(uint8(items.length()));
+    for (uint8 i = 0; i < items.length(); i++) {
+      auto @item = items[i];
+      // NOTE if @item == null a null exception will occur which is better to know about than to ignore.
+
+      // possible offsets are between 0x340 to 0x406 max, so subtract 0x340 to get a single byte between 0x00 and 0xC6
+      r.insertLast(uint8(items[i].offs - 0x340));
+      r.insertLast(items[i].value);
+    }
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -1232,7 +1341,79 @@ class GameState {
     //  rooms[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     //}
 
+    // items: (MUST be sorted by offs)
+    uint8 itemCount = r[c++];
+    items.resize(itemCount);
+    for (uint8 i = 0; i < itemCount; i++) {
+      auto @item = items[i];
+      if (@item == null) {
+        @item = @items[i] = SyncedItem();
+        item.lastValue = 0;
+        item.value = 0;
+      }
+
+      // copy current value to last value:
+      item.lastValue = item.value;
+
+      // deserialize offset and new value:
+      item.offs = uint16(r[c++]) + 0x340;
+      item.value = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      //message("["+fmtInt(index)+"]["+fmtHex(item.offs, 3)+"] = "+fmtHex(item.value,4));
+    }
+
     return true;
+  }
+
+  void update_items() {
+    if (is_it_a_bad_time()) return;
+
+    // update local player with items from all remote players:
+
+    array<uint16> maxValues;
+    maxValues.resize(syncableItems.length());
+    // start with max at our own values:
+    for (uint k = 0; k < syncableItems.length(); k++) {
+      if (syncableItems[k].type != 1) continue;
+
+      maxValues[k] = this.items[k].value;
+    }
+
+    // find higher max values among remote players:
+    for (uint i = 0; i < players.length(); i++) {
+      auto @remote = players[i];
+      if (remote.ttl <= 0) {
+        continue;
+      }
+
+      for (uint j = 0; j < remote.items.length(); j++) {
+        // find a match by offs:
+        uint k = 0;
+        for (; k < syncableItems.length(); k++) {
+          if (syncableItems[k].type != 1) continue;
+
+          if (remote.items[j].offs == syncableItems[k].offs) {
+            break;
+          }
+        }
+        if (k == syncableItems.length()) continue;
+
+        // apply to maxValues:
+        uint16 value = remote.items[j].value;
+        if (value > maxValues[k]) maxValues[k] = value;
+      }
+    }
+
+    // set our values to max:
+    for (uint k = 0; k < syncableItems.length(); k++) {
+      if (syncableItems[k].type != 1) continue;
+
+      this.items[k].value = maxValues[k];
+      if (syncableItems[k].size == 1) {
+        bus::write_u8(0x7EF000 + syncableItems[k].offs, uint8(this.items[k].value));
+      } else if (syncableItems[k].size == 2) {
+        bus::write_u16(0x7EF000 + syncableItems[k].offs, 0x7EF001 + syncableItems[k].offs, this.items[k].value);
+      }
+    }
   }
 
   uint8 adjust_sfx_pan(uint8 sfx) {
@@ -1355,7 +1536,7 @@ class GameState {
       if (sprite.y + y >= 240) continue;
 
       // determine which OAM sprite slot is free around the desired index:
-      int j;
+      uint j;
       for (j = sprite.index; j < sprite.index + 128; j++) {
         if (!ppu::oam[j & 127].is_enabled) break;
       }
@@ -1481,6 +1662,7 @@ void receive() {
     // deserialize data packet:
     players[index].deserialize(r, c);
     players[index].ttl = 255;
+    players[index].index = index;
   }
 }
 
@@ -1528,15 +1710,10 @@ void pre_nmi() {
         continue;
       }
 
-      remote.update_rooms_sram();
-
       // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
       if (local.can_see(remote.location)) {
         // attempt to play remote sfx:
         remote.play_sfx();
-
-        // update current room state in WRAM:
-        remote.update_room_current();
       }
     }
   }
@@ -1571,6 +1748,8 @@ void pre_frame() {
     }
     remote.ttl = remote.ttl - 1;
 
+    remote.update_rooms_sram();
+
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
@@ -1579,8 +1758,13 @@ void pre_frame() {
 
       // draw remote player relative to current BG offsets:
       remote.render(rx, ry);
+
+      // update current room state in WRAM:
+      remote.update_room_current();
     }
   }
+
+  local.update_items();
 
   if (@worldMap != null) {
     worldMap.renderPlayers(local, players);
