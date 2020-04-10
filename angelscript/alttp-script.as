@@ -1453,7 +1453,7 @@ class GameState {
       if (syncable.size == 1) {
         bus::write_u8 (0x7EF000 + syncable.offs, uint8(this.items[k].value));
       } else if (syncable.size == 2) {
-        bus::write_u16(0x7EF000 + syncable.offs, 0x7EF001 + syncable.offs, this.items[k].value);
+        bus::write_u16(0x7EF000 + syncable.offs, this.items[k].value);
       }
     }
   }
