@@ -613,7 +613,7 @@ LocalFrameState localFrameState;
 class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
   uint8   size;   // 1 - byte, 2 - word
-  uint8   type;   // 1 - highest wins, 2 - sync by delta, 3+ TBD...
+  uint8   type;   // 1 - highest wins, 2 - bitfield, 3+ TBD...
 
   SyncableItem(uint16 offs, uint8 size, uint8 type) {
     this.offs = offs;
@@ -621,71 +621,63 @@ class SyncableItem {
     this.type = type;
   }
 };
+// items MUST be sorted by offs:
 array<SyncableItem@> @syncableItems = {
-  // bow
-  SyncableItem(0x340, 1, 1),
-  // boomerang
-  SyncableItem(0x341, 1, 1),
-  // hookshot
-  SyncableItem(0x342, 1, 1),
-  // bombs
-  //SyncableItem(0x343, 1, 2),
-  // mushroom
-  SyncableItem(0x344, 1, 1),
-  // fire rod
-  SyncableItem(0x345, 1, 1),
-  // ice rod
-  SyncableItem(0x346, 1, 1),
-  // bombos
-  SyncableItem(0x347, 1, 1),
-  // ether
-  SyncableItem(0x348, 1, 1),
-  // quake
-  SyncableItem(0x349, 1, 1),
-  // lantern
-  SyncableItem(0x34A, 1, 1),
-  // hammer
-  SyncableItem(0x34B, 1, 1),
-  // flute
-  SyncableItem(0x34C, 1, 1),
-  // bug net
-  SyncableItem(0x34D, 1, 1),
-  // book
-  SyncableItem(0x34E, 1, 1),
-  // have bottles
-  SyncableItem(0x34F, 1, 1),
-  // cane of somaria
-  SyncableItem(0x350, 1, 1),
-  // cane of byrna
-  SyncableItem(0x351, 1, 1),
-  // magic cape
-  SyncableItem(0x352, 1, 1),
-  // magic mirror
-  SyncableItem(0x353, 1, 1),
-  // gloves
-  SyncableItem(0x354, 1, 1),
-  // boots
-  SyncableItem(0x355, 1, 1),
-  // flippers
-  SyncableItem(0x356, 1, 1),
-  // moon pearl
-  SyncableItem(0x357, 1, 1),
-
-  // sword
-  SyncableItem(0x359, 1, 1),
-  // shield
-  SyncableItem(0x35A, 1, 1),
-  // armor
-  SyncableItem(0x35B, 1, 1),
+  SyncableItem(0x340, 1, 1),  // bow
+  SyncableItem(0x341, 1, 1),  // boomerang
+  SyncableItem(0x342, 1, 1),  // hookshot
+  //SyncableItem(0x343, 1, 3),  // bombs
+  SyncableItem(0x344, 1, 1),  // mushroom
+  SyncableItem(0x345, 1, 1),  // fire rod
+  SyncableItem(0x346, 1, 1),  // ice rod
+  SyncableItem(0x347, 1, 1),  // bombos
+  SyncableItem(0x348, 1, 1),  // ether
+  SyncableItem(0x349, 1, 1),  // quake
+  SyncableItem(0x34A, 1, 1),  // lantern
+  SyncableItem(0x34B, 1, 1),  // hammer
+  SyncableItem(0x34C, 1, 1),  // flute
+  SyncableItem(0x34D, 1, 1),  // bug net
+  SyncableItem(0x34E, 1, 1),  // book
+  SyncableItem(0x34F, 1, 1),  // have bottles
+  SyncableItem(0x350, 1, 1),  // cane of somaria
+  SyncableItem(0x351, 1, 1),  // cane of byrna
+  SyncableItem(0x352, 1, 1),  // magic cape
+  SyncableItem(0x353, 1, 1),  // magic mirror
+  SyncableItem(0x354, 1, 1),  // gloves
+  SyncableItem(0x355, 1, 1),  // boots
+  SyncableItem(0x356, 1, 1),  // flippers
+  SyncableItem(0x357, 1, 1),  // moon pearl
+  // 0x358 unused
+  SyncableItem(0x359, 1, 1),  // sword
+  SyncableItem(0x35A, 1, 1),  // shield
+  SyncableItem(0x35B, 1, 1),  // armor
 
   // bottle contents 0x35C-0x35F
 
-  // heart pieces (out of four)
-  SyncableItem(0x36B, 1, 1),
-  // health capacity
-  SyncableItem(0x36C, 1, 1),
-  // magic usage
-  SyncableItem(0x37B, 1, 1)
+  SyncableItem(0x364, 1, 2),  // dungeon compasses 1/2
+  SyncableItem(0x365, 1, 2),  // dungeon compasses 2/2
+  SyncableItem(0x366, 1, 2),  // dungeon big keys 1/2
+  SyncableItem(0x367, 1, 2),  // dungeon big keys 2/2
+  SyncableItem(0x368, 1, 2),  // dungeon maps 1/2
+  SyncableItem(0x369, 1, 2),  // dungeon maps 2/2
+
+  SyncableItem(0x36B, 1, 1),  // heart pieces (out of four)
+  SyncableItem(0x36C, 1, 1),  // health capacity
+
+  SyncableItem(0x370, 1, 1),  // bombs capacity
+  SyncableItem(0x371, 1, 1),  // arrows capacity
+
+  SyncableItem(0x374, 1, 2),  // pendants
+  SyncableItem(0x379, 1, 2),  // player ability flags
+  SyncableItem(0x37A, 1, 2),  // crystals
+
+  SyncableItem(0x37B, 1, 1),  // magic usage
+
+  SyncableItem(0x3C5, 1, 1),  // general progress indicator
+  SyncableItem(0x3C6, 1, 2),  // progress event flags 1/2
+  SyncableItem(0x3C7, 1, 1),  // map icons shown
+  SyncableItem(0x3C8, 1, 1),  // start at location… options
+  SyncableItem(0x3C9, 1, 2)   // progress event flags 2/2
 
 // NO TRAILING COMMA HERE!
 };
@@ -975,6 +967,9 @@ class GameState {
       } else if (syncable.size == 2) {
         item.value = bus::read_u16(0x7EF000 + syncable.offs);
       }
+      //if (item.value != item.lastValue) {
+      //  message("local[" + fmtHex(item.offs, 3) + "]=" + fmtHex(item.value, 4));
+      //}
     }
   }
 
@@ -1376,7 +1371,9 @@ class GameState {
       // deserialize offset and new value:
       item.offs = uint16(r[c++]) + 0x340;
       item.value = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      //message("["+fmtInt(index)+"]["+fmtHex(item.offs, 3)+"] = "+fmtHex(item.value,4));
+      //if (item.value != item.lastValue) {
+      //  message("deser[" + fmtInt(index) + "][" + fmtHex(item.offs, 3) + "] = " + fmtHex(item.value, 4));
+      //}
     }
 
     return true;
@@ -1386,14 +1383,20 @@ class GameState {
     if (is_it_a_bad_time()) return;
 
     // update local player with items from all remote players:
+    array<uint16> values;
+    values.resize(syncableItems.length());
 
-    array<uint16> maxValues;
-    maxValues.resize(syncableItems.length());
-    // start with max at our own values:
+    // start with our own values:
     for (uint k = 0; k < syncableItems.length(); k++) {
-      if (syncableItems[k].type != 1) continue;
+      auto @syncable = syncableItems[k];
 
-      maxValues[k] = this.items[k].value;
+      if (syncable.type == 1) {
+        // max value:
+        values[k] = this.items[k].value;
+      } else if (syncable.type == 2) {
+        // bitfield:
+        values[k] = this.items[k].value;
+      }
     }
 
     // find higher max values among remote players:
@@ -1404,32 +1407,53 @@ class GameState {
       }
 
       for (uint j = 0; j < remote.items.length(); j++) {
+        uint16 offs = remote.items[j].offs;
+
         // find a match by offs:
         uint k = 0;
         for (; k < syncableItems.length(); k++) {
-          if (syncableItems[k].type != 1) continue;
-
-          if (remote.items[j].offs == syncableItems[k].offs) {
+          if (offs == syncableItems[k].offs) {
             break;
           }
         }
-        if (k == syncableItems.length()) continue;
+        if (k == syncableItems.length()) {
+          message("["+fmtInt(i)+"] offs="+fmtHex(offs,3)+" not found!");
+          continue;
+        }
 
-        // apply to maxValues:
+        auto @syncable = syncableItems[k];
+
+        // apply operation to values:
         uint16 value = remote.items[j].value;
-        if (value > maxValues[k]) maxValues[k] = value;
+        if (syncable.type == 1) {
+          // max value:
+          if (value > values[k]) {
+            values[k] = value;
+          }
+        } else if (syncable.type == 2) {
+          // bitfield OR:
+          values[k] = values[k] | value;
+        }
       }
     }
 
-    // set our values to max:
+    // write back our values:
     for (uint k = 0; k < syncableItems.length(); k++) {
-      if (syncableItems[k].type != 1) continue;
+      auto @syncable = syncableItems[k];
 
-      this.items[k].value = maxValues[k];
-      if (syncableItems[k].size == 1) {
-        bus::write_u8(0x7EF000 + syncableItems[k].offs, uint8(this.items[k].value));
-      } else if (syncableItems[k].size == 2) {
-        bus::write_u16(0x7EF000 + syncableItems[k].offs, 0x7EF001 + syncableItems[k].offs, this.items[k].value);
+      if (syncable.type == 1) {
+        // max value:
+        this.items[k].value = values[k];
+      } else if (syncable.type == 2) {
+        // bitfield:
+        this.items[k].value |= values[k];
+      }
+
+      // write back to SRAM:
+      if (syncable.size == 1) {
+        bus::write_u8 (0x7EF000 + syncable.offs, uint8(this.items[k].value));
+      } else if (syncable.size == 2) {
+        bus::write_u16(0x7EF000 + syncable.offs, 0x7EF001 + syncable.offs, this.items[k].value);
       }
     }
   }
@@ -1678,9 +1702,9 @@ void receive() {
     }
 
     // deserialize data packet:
-    players[index].deserialize(r, c);
     players[index].ttl = 255;
     players[index].index = index;
+    players[index].deserialize(r, c);
   }
 }
 
