@@ -636,8 +636,34 @@ class GameState {
   uint8 sfx2;
 
   void fetch_module() {
-    // module     = 0x07 in dungeons
-    //            = 0x09 in overworld
+    // 0x00 - Triforce / Zelda startup screens
+    // 0x01 - File Select screen
+    // 0x02 - Copy Player Mode
+    // 0x03 - Erase Player Mode
+    // 0x04 - Name Player Mode
+    // 0x05 - Loading Game Mode
+    // 0x06 - Pre Dungeon Mode
+    // 0x07 - Dungeon Mode
+    // 0x08 - Pre Overworld Mode
+    // 0x09 - Overworld Mode
+    // 0x0A - Pre Overworld Mode (special overworld)
+    // 0x0B - Overworld Mode (special overworld)
+    // 0x0C - ???? I think we can declare this one unused, almost with complete certainty.
+    // 0x0D - Blank Screen
+    // 0x0E - Text Mode/Item Screen/Map
+    // 0x0F - Closing Spotlight
+    // 0x10 - Opening Spotlight
+    // 0x11 - Happens when you fall into a hole from the OW.
+    // 0x12 - Death Mode
+    // 0x13 - Boss Victory Mode (refills stats)
+    // 0x14 - Attract Mode
+    // 0x15 - Module for Magic Mirror
+    // 0x16 - Module for refilling stats after boss.
+    // 0x17 - Quitting mode (save and quit)
+    // 0x18 - Ganon exits from Agahnim's body. Chase Mode.
+    // 0x19 - Triforce Room scene
+    // 0x1A - End sequence
+    // 0x1B - Screen to select where to start from (House, sanctuary, etc.)
     module = bus::read_u8(0x7E0010);
 
     // when module = 0x07: dungeon
@@ -678,8 +704,9 @@ class GameState {
   }
 
   bool is_it_a_bad_time() const {
-    if (module < 0x06) return true;
-    if (module > 0x12) return true;
+    if (module <= 0x05) return true;
+    if (module >= 0x14 && module <= 0x18) return true;
+    if (module >= 0x1B) return true;
 
     if (module == 0x0e) {
       if ( sub_module == 0x07 // mode-7 map
@@ -721,6 +748,12 @@ class GameState {
           }
         }
         return true;
+      case 0x0e:  // dialogs, maps etc.
+        if (sub_module == 0x07) {
+          // in-game mode7 map:
+          return false;
+        }
+        return true;
       case 0x06:  // enter cave from overworld?
       case 0x0b:  // overworld master sword grove
       case 0x08:  // exit cave to overworld
@@ -728,7 +761,6 @@ class GameState {
       case 0x10:  // opening spotlight
       case 0x11:  // falling / fade out?
       case 0x12:  // death
-      case 0x0e:  // dialogs, maps etc.
       default:
         return true;
     }
@@ -773,10 +805,10 @@ class GameState {
   uint16 dungeon_room;
   void fetch() {
     if (is_it_a_bad_time()) {
-      if (module < 0x06 || module > 0x12) {
-        x = 0;
-        y = 0;
-        z = 0;
+      if (!can_sample_location()) {
+        x = 0xFFFF;
+        y = 0xFFFF;
+        z = 0xFFFF;
       }
       return;
     }
