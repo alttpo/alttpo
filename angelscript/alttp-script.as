@@ -669,7 +669,25 @@ array<SyncableItem@> @syncableItems = {
   // flippers
   SyncableItem(0x356, 1, 1),
   // moon pearl
-  SyncableItem(0x357, 1, 1)
+  SyncableItem(0x357, 1, 1),
+
+  // sword
+  SyncableItem(0x359, 1, 1),
+  // shield
+  SyncableItem(0x35A, 1, 1),
+  // armor
+  SyncableItem(0x35B, 1, 1),
+
+  // bottle contents 0x35C-0x35F
+
+  // heart pieces (out of four)
+  SyncableItem(0x36B, 1, 1),
+  // health capacity
+  SyncableItem(0x36C, 1, 1),
+  // magic usage
+  SyncableItem(0x37B, 1, 1)
+
+// NO TRAILING COMMA HERE!
 };
 
 class SyncedItem {
