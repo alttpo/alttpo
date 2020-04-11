@@ -303,9 +303,10 @@ class WorldMap {
             uint8 c = gfx[(t*64)+((y*8)+x)];
             uint16 color = palette[c] | 0x8000;
 
-            // scale up:
             int px = (mx-mleft)*8+x;
             int py = (my-mtop)*8+y;
+
+            // nearest-neighbor scaling:
             px *= mapscale;
             py *= mapscale;
             for (int sy = 0; sy < mapscale; sy++) {
@@ -313,15 +314,62 @@ class WorldMap {
                 canvas.pixel(px+sx, py+sy, color);
               }
             }
+
           }
         }
       }
     }
   }
 
+  void horizontalLine(gui::Canvas @c, uint16 color, int x0, int y0, int x1) {
+    for (int x = x0; x <= x1; ++x)
+      c.pixel(x, y0, color);
+  }
+
+  void plot4points(gui::Canvas @c, uint16 color, bool fill, int cx, int cy, int x, int y) {
+    if (fill) {
+      horizontalLine(c, color, cx - x, cy + y, cx + x);
+      if (y != 0)
+        horizontalLine(c, color, cx - x, cy - y, cx + x);
+    } else {
+      c.pixel(cx + x, cy + y, color);
+      c.pixel(cx - x, cy + y, color);
+      c.pixel(cx + x, cy - y, color);
+      c.pixel(cx - x, cy - y, color);
+    }
+  }
+
+  void circle(gui::Canvas @c, uint16 color, bool fill, int x0, int y0, int radius) {
+    int error = -radius;
+    int x = radius;
+    int y = 0;
+
+    while (x >= y) {
+      plot4points(c, color, fill, x0, y0, x, y);
+      if (!fill && (x != y)) {
+        plot4points(c, color, fill, x0, y0, y, x);
+      }
+
+      error += y;
+      ++y;
+      error += y;
+
+      if (error >= 0) {
+        if (fill) {
+          plot4points(c, color, fill, x0, y0, y - 1, x);
+        }
+
+        error -= x;
+        --x;
+        error -= x;
+      }
+    }
+  }
+
   gui::Canvas @makeDot(uint16 color) {
-    int diam = 8;
+    int diam = 10;
     int max = diam-1;
+    int s = diam/2;
 
     auto @c = gui::Canvas();
     vl.append(c, gui::Size(diam, diam));
@@ -329,34 +377,32 @@ class WorldMap {
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
 
-    color |= 0x8000;
-    c.fill(color);
-
     uint16 outline = ppu::rgb(0x1f, 0x1f, 0x1f) | 0x8000;
+    color |= 0x8000;
 
-    int s = diam/2;
-    for (int i = 0; i < s; i++) {
-      // top line:
-      c.pixel(    i,     0, outline);
-      c.pixel(max-i,     0, outline);
-      // bottom line:
-      c.pixel(    i,   max, outline);
-      c.pixel(max-i,   max, outline);
-      // left line:
-      c.pixel(    0,     i, outline);
-      c.pixel(    0, max-i, outline);
-      // right line:
-      c.pixel(  max,     i, outline);
-      c.pixel(  max, max-i, outline);
+    if (false) {
+      // filled square with outline:
+      c.fill(color);
+
+      for (int i = 0; i < s; i++) {
+        // top line:
+        c.pixel(    i,     0, outline);
+        c.pixel(max-i,     0, outline);
+        // bottom line:
+        c.pixel(    i,   max, outline);
+        c.pixel(max-i,   max, outline);
+        // left line:
+        c.pixel(    0,     i, outline);
+        c.pixel(    0, max-i, outline);
+        // right line:
+        c.pixel(  max,     i, outline);
+        c.pixel(  max, max-i, outline);
+      }
+    } else {
+      // filled circle with outline:
+      circle(c, color,   true,  s, s, s-2);
+      circle(c, outline, false, s, s, s-2);
     }
-
-    // TODO: get to this shape
-    // _ _ 1 1 _ _
-    // _ 1 2 2 1 _
-    // 1 2 2 2 2 1
-    // 1 2 2 2 2 1
-    // _ 1 2 2 1 _
-    // _ _ 1 1 _ _
 
     c.update();
     return c;
