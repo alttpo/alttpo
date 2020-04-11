@@ -1731,34 +1731,57 @@ class GameState {
   }
 
   void update_tilemap() {
+    // read current local arrays:
+    uint16 localTilemapCount = bus::read_u16(0x7E04AC) >> 1;
+    array<uint16> localTilemapAddress;
+    localTilemapAddress.resize(localTilemapCount);
+    bus::read_block_u16(0x7EF800, 0, localTilemapCount, localTilemapAddress);
+    array<uint16> localTilemapTile;
+    localTilemapTile.resize(localTilemapCount);
+    bus::read_block_u16(0x7EFA00, 0, localTilemapCount, localTilemapTile);
 
-    bus::write_u16(0x7E04AC, tilemapCount << 1);
-    bus::write_block_u16(0x7EF800, 0, tilemapCount, tilemapAddress);
-    bus::write_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
+    // merge in changes from remote tilemap:
+    for (int j = tilemapCount - 1; j >= 0; j--) {
+      // try to find the change in local tilemap:
+      int i = localTilemapAddress.find(tilemapAddress[j]);
+      if (i >= 0) {
+        // already have it:
+        tilemapAddress.removeAt(j);
+        tilemapTile.removeAt(j);
+        tilemapCount--;
+      }
+    }
 
-    // update VRAM with changes:
-    for (uint i = 0; i < tilemapCount; i++) {
-      array<uint16> t(4);
+    if (tilemapCount > 0) {
+      // update VRAM with changes:
+      for (uint i = 0; i < tilemapCount; i++) {
+        array <uint16> t(4);
 
-      uint16 addr = tilemapAddress[i];
-      uint16 tile = tilemapTile[i];
+        uint16 addr = tilemapAddress[i];
+        uint16 tile = tilemapTile[i];
 
-      // convert tilemap address to VRAM address:
-      uint16 vaddr = ow_tilemap_to_vram_address(addr);
+        // convert tilemap address to VRAM address:
+        uint16 vaddr = ow_tilemap_to_vram_address(addr);
 
-      // look up tile in tile gfx:
-      uint16 a = tile << 3;
-      t[0] = bus::read_u16(0x0F8000 + a);
-      t[1] = bus::read_u16(0x0F8002 + a);
-      t[2] = bus::read_u16(0x0F8004 + a);
-      t[3] = bus::read_u16(0x0F8006 + a);
+        // look up tile in tile gfx:
+        uint16 a = tile << 3;
+        t[0] = bus::read_u16(0x0F8000 + a);
+        t[1] = bus::read_u16(0x0F8002 + a);
+        t[2] = bus::read_u16(0x0F8004 + a);
+        t[3] = bus::read_u16(0x0F8006 + a);
 
-      // update 16x16 tilemap in VRAM:
-      ppu::vram.write_block(vaddr, 0, 2, t);
-      ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
+        // update 16x16 tilemap in VRAM:
+        ppu::vram.write_block(vaddr, 0, 2, t);
+        ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
 
-      // apply change to 0x7E2000 in-memory map:
-      bus::write_u16(0x7E2000 + addr, tile);
+        // apply change to 0x7E2000 in-memory map:
+        bus::write_u16(0x7E2000 + addr, tile);
+      }
+
+      // append our changes to end of local tilemap change array:
+      bus::write_u16(0x7E04AC, (localTilemapCount + tilemapCount) << 1);
+      bus::write_block_u16(0x7EF800 + (localTilemapCount << 1), 0, tilemapCount, tilemapAddress);
+      bus::write_block_u16(0x7EFA00 + (localTilemapCount << 1), 0, tilemapCount, tilemapTile);
     }
   }
 
@@ -1962,9 +1985,6 @@ void pre_nmi() {
       if (local.can_see(remote.location)) {
         // attempt to play remote sfx:
         remote.play_sfx();
-
-        // update tilemap:
-        remote.update_tilemap();
       }
     }
   }
@@ -2012,6 +2032,9 @@ void pre_frame() {
 
       // update current room state in WRAM:
       remote.update_room_current();
+
+      // update tilemap:
+      remote.update_tilemap();
     }
   }
 
