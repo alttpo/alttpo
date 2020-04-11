@@ -365,13 +365,6 @@ class WorldMap {
   int mapsprleft = 127;
   int mapsprtop = 133;
   void mapCoord(const GameState &in p, float &out x, float &out y) {
-    // in master sword grove:
-    if (p.location == 0x000080) {
-      x = float((int(p.x + 0x20) / 16) + mapsprleft - left) * mapscale;
-      y = float((int(p.y - 0x146) / 16) + mapsprtop - top) * mapscale;
-      return;
-    }
-
     // in a dungeon:
     if ((p.location & 0x010000) == 0x010000) {
       x = -128;
@@ -379,9 +372,21 @@ class WorldMap {
       return;
     }
 
-    // overworld:
-    x = float((p.x >> 4) + mapsprleft - left) * mapscale;
-    y = float((p.y >> 4) + mapsprtop - top) * mapscale;
+    int px = p.x;
+    int py = p.y;
+
+    if (p.location == 0x000080) {
+      // in master sword grove:
+      px += 0x20;
+      py += -0x146;
+    } else if (p.location == 0x000081) {
+      // in zora's waterfall:
+      px = 0xf50;
+      py = 0x213;
+    }
+
+    x = float((px / 16) + mapsprleft - left) * mapscale;
+    y = float((py / 16) + mapsprtop - top) * mapscale;
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
@@ -406,7 +411,7 @@ class WorldMap {
     float x, y;
     for (uint i = 0; i < players.length(); i++) {
       auto @p = players[i];
-      if (p.ttl == 0) {
+      if (p.ttl <= 0) {
         // If player disappeared, hide their dot:
         dots[i].setPosition(-128, -128);
         continue;
@@ -794,7 +799,7 @@ class GameState {
         }
         return true;
       case 0x06:  // enter cave from overworld?
-      case 0x0b:  // overworld master sword grove
+      case 0x0b:  // overworld master sword grove / zora waterfall
       case 0x08:  // exit cave to overworld
       case 0x0f:  // closing spotlight
       case 0x10:  // opening spotlight
