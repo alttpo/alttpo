@@ -651,7 +651,8 @@ void LoadShieldGfx(uint16 offs, uint16 oldValue, uint16 newValue) {
 
 void MoonPearlBunnyLink(uint16 offs, uint16 oldValue, uint16 newValue) {
   // Switch Link's graphics between bunny and regular:
-  bus::write_u8(0x7E0056, uint8(1 - newValue));
+  // FAIL: This doesn't work immediately and instead causes bunny to retain even into light world until dashing.
+  //bus::write_u8(0x7E0056, 0);
 }
 
 // items MUST be sorted by offs:
