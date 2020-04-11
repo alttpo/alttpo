@@ -1296,10 +1296,23 @@ class GameState {
   array<uint16> tilemapAddress;
   array<uint16> tilemapTile;
   void fetch_tilemap_changes() {
-    if (is_it_a_bad_time()) return;
+    tilemapCount = 0;
+    tilemapAddress.resize(0);
+    tilemapTile.resize(0);
+    if (is_it_a_bad_time()) {
+      return;
+    }
+    if (local.module == 0x09) {
+      // don't fetch tilemap during screen transition:
+      if (local.sub_module >= 0x01 && local.sub_module < 0x07) {
+        return;
+      }
+    }
 
     // overworld only for the moment:
-    if (is_in_dungeon()) return;
+    if (is_in_dungeon()) {
+      return;
+    }
 
     // 0x7E04AC : word        = pointer to end of array (in bytes)
     tilemapCount = bus::read_u16(0x7E04AC) >> 1;
@@ -1731,6 +1744,13 @@ class GameState {
   }
 
   void update_tilemap() {
+    if (local.module == 0x09) {
+      // don't update tilemap during screen transition:
+      if (local.sub_module >= 0x01 && local.sub_module < 0x07) {
+        return;
+      }
+    }
+
     // read current local arrays:
     uint16 localTilemapCount = bus::read_u16(0x7E04AC) >> 1;
     array<uint16> localTilemapAddress;
