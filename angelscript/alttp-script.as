@@ -367,7 +367,7 @@ class WorldMap {
   }
 
   gui::Canvas @makeDot(uint16 color) {
-    int diam = 10;
+    int diam = 12;
     int max = diam-1;
     int s = diam/2;
 
@@ -400,16 +400,16 @@ class WorldMap {
       }
     } else {
       // filled circle with outline:
-      circle(c, color,   true,  s, s, s-2);
-      circle(c, outline, false, s, s, s-2);
+      circle(c, color,   true,  s, s, s-1);
+      circle(c, outline, false, s, s, s-1);
     }
 
     c.update();
     return c;
   }
 
-  int mapsprleft = 127;
-  int mapsprtop = 133;
+  int mapsprleft = 126;
+  int mapsprtop = 130;
   void mapCoord(const GameState &in p, float &out x, float &out y) {
     int px = p.x;
     int py = p.y;
