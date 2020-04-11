@@ -1292,7 +1292,7 @@ class GameState {
     }
   }
 
-  uint16 changeCount;
+  uint16 tilemapCount;
   array<uint16> tilemapAddress;
   array<uint16> tilemapTile;
   void fetch_tilemap_changes() {
@@ -1301,16 +1301,16 @@ class GameState {
     // overworld only for the moment:
     if (is_in_dungeon()) return;
 
-    // 0x7E04AC : word        = length of array
-    changeCount = bus::read_u16(0x7E04AC);
+    // 0x7E04AC : word        = pointer to end of array (in bytes)
+    tilemapCount = bus::read_u16(0x7E04AC) >> 1;
 
     // 0x7EF800 : array[word] = tilemap address for changed tile
-    tilemapAddress.resize(changeCount);
-    bus::read_block_u16(0x7EF800, 0, changeCount>>1, tilemapAddress);
+    tilemapAddress.resize(tilemapCount);
+    bus::read_block_u16(0x7EF800, 0, tilemapCount, tilemapAddress);
 
     // 0x7EFA00 : array[word] = tilemap tile number
-    tilemapTile.resize(changeCount);
-    bus::read_block_u16(0x7EFA00, 0, changeCount>>1, tilemapTile);
+    tilemapTile.resize(tilemapCount);
+    bus::read_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
   }
 
   void send() {
@@ -1410,7 +1410,7 @@ class GameState {
     r.insertLast(last_overworld_x);
     r.insertLast(last_overworld_y);
 
-    r.insertLast(changeCount);
+    r.insertLast(tilemapCount);
     r.insertLast(tilemapAddress);
     r.insertLast(tilemapTile);
   }
@@ -1506,13 +1506,13 @@ class GameState {
     last_overworld_y = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     // tilemap changes:
-    changeCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    tilemapAddress.resize(changeCount);
-    for (uint i = 0; i < changeCount; i++) {
+    tilemapCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    tilemapAddress.resize(tilemapCount);
+    for (uint i = 0; i < tilemapCount; i++) {
       tilemapAddress[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     }
-    tilemapTile.resize(changeCount);
-    for (uint i = 0; i < changeCount; i++) {
+    tilemapTile.resize(tilemapCount);
+    for (uint i = 0; i < tilemapCount; i++) {
       tilemapTile[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     }
 
@@ -1712,10 +1712,54 @@ class GameState {
     }
   }
 
+  // convert overworld tilemap address to VRAM address:
+  uint16 ow_tilemap_to_vram_address(uint16 addr) {
+    uint16 vaddr = 0;
+
+    if ((addr & 0x003F) >= 0x0020) {
+      vaddr = 0x0400;
+    }
+
+    if ((addr & 0x0FFF) >= 0x0800) {
+      vaddr += 0x0800;
+    }
+
+    vaddr += (addr & 0x001F);
+    vaddr += (addr & 0x0780) >> 1;
+
+    return vaddr;
+  }
+
   void update_tilemap() {
-    bus::write_u16(0x7E04AC, changeCount);
-    bus::write_block_u16(0x7EF800, 0, changeCount>>1, tilemapAddress);
-    bus::write_block_u16(0x7EFA00, 0, changeCount>>1, tilemapTile);
+
+    bus::write_u16(0x7E04AC, tilemapCount << 1);
+    bus::write_block_u16(0x7EF800, 0, tilemapCount, tilemapAddress);
+    bus::write_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
+
+    // update VRAM with changes:
+    for (uint i = 0; i < tilemapCount; i++) {
+      array<uint16> t(4);
+
+      uint16 addr = tilemapAddress[i];
+      uint16 tile = tilemapTile[i];
+
+      // convert tilemap address to VRAM address:
+      uint16 vaddr = ow_tilemap_to_vram_address(addr);
+
+      // look up tile in tile gfx:
+      uint16 a = tile << 3;
+      t[0] = bus::read_u16(0x0F8000 + a);
+      t[1] = bus::read_u16(0x0F8002 + a);
+      t[2] = bus::read_u16(0x0F8004 + a);
+      t[3] = bus::read_u16(0x0F8006 + a);
+
+      // update 16x16 tilemap in VRAM:
+      ppu::vram.write_block(vaddr, 0, 2, t);
+      ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
+
+      // apply change to 0x7E2000 in-memory map:
+      bus::write_u16(0x7E2000 + addr, tile);
+    }
   }
 
   void render(int x, int y) {
@@ -1918,6 +1962,9 @@ void pre_nmi() {
       if (local.can_see(remote.location)) {
         // attempt to play remote sfx:
         remote.play_sfx();
+
+        // update tilemap:
+        remote.update_tilemap();
       }
     }
   }
@@ -1965,9 +2012,6 @@ void pre_frame() {
 
       // update current room state in WRAM:
       remote.update_room_current();
-
-      // update tilemap:
-      remote.update_tilemap();
     }
   }
 
