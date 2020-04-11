@@ -365,15 +365,17 @@ class WorldMap {
   int mapsprleft = 127;
   int mapsprtop = 133;
   void mapCoord(const GameState &in p, float &out x, float &out y) {
-    // in a dungeon:
-    if ((p.location & 0x010000) == 0x010000) {
-      x = -128;
-      y = -128;
-      return;
-    }
-
     int px = p.x;
     int py = p.y;
+
+    // in a dungeon:
+    if ((p.location & 0x010000) == 0x010000) {
+      px = p.last_overworld_x;
+      py = p.last_overworld_y;
+      //x = -128;
+      //y = -128;
+      //return;
+    }
 
     if (p.location == 0x000080) {
       // in master sword grove:
@@ -885,6 +887,10 @@ class GameState {
   uint8 in_dungeon;
   uint16 overworld_room;
   uint16 dungeon_room;
+
+  uint16 last_overworld_x;
+  uint16 last_overworld_y;
+
   void fetch() {
     if (is_it_a_bad_time()) {
       if (!can_sample_location()) {
@@ -894,10 +900,6 @@ class GameState {
       }
       return;
     }
-
-    y = bus::read_u16(0x7E0020);
-    x = bus::read_u16(0x7E0022);
-    z = bus::read_u16(0x7E0024);
 
     // $7E0410 = OW screen transitioning directional
     //ow_screen_transition = bus::read_u8(0x7E0410);
@@ -921,8 +923,17 @@ class GameState {
       // clear out list of room changes if location changed:
       if (last_location != location) {
         message("room from 0x" + fmtHex(last_location, 6) + " to 0x" + fmtHex(location, 6));
+        // when moving from overworld to dungeon, track last overworld location:
+        if ((last_location & (1 << 16)) < (location & (1 << 16))) {
+          last_overworld_x = x;
+          last_overworld_y = y;
+        }
       }
     }
+
+    y = bus::read_u16(0x7E0020);
+    x = bus::read_u16(0x7E0022);
+    z = bus::read_u16(0x7E0024);
 
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
@@ -1322,6 +1333,9 @@ class GameState {
       r.insertLast(uint8(items[i].offs - 0x340));
       r.insertLast(items[i].value);
     }
+
+    r.insertLast(last_overworld_x);
+    r.insertLast(last_overworld_y);
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -1409,6 +1423,9 @@ class GameState {
       //  message("deser[" + fmtInt(index) + "][" + fmtHex(item.offs, 3) + "] = " + fmtHex(item.value, 4));
       //}
     }
+
+    last_overworld_x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    last_overworld_y = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     return true;
   }
