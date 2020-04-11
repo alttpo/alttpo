@@ -614,7 +614,7 @@ class LocalFrameState {
 };
 LocalFrameState localFrameState;
 
-funcdef void PostSyncCallback();
+funcdef void ItemModifiedCallback(uint16 offs, uint16 oldValue, uint16 newValue);
 
 // list of SRAM values to sync as items:
 class SyncableItem {
@@ -622,7 +622,7 @@ class SyncableItem {
   uint8   size;   // 1 - byte, 2 - word
   uint8   type;   // 1 - highest wins, 2 - bitfield, 3+ TBD...
 
-  PostSyncCallback@ modifiedCallback = null;
+  ItemModifiedCallback@ modifiedCallback = null;
 
   SyncableItem(uint16 offs, uint8 size, uint8 type) {
     this.offs = offs;
@@ -631,22 +631,27 @@ class SyncableItem {
     @this.modifiedCallback = null;
   }
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, PostSyncCallback@ callback) {
+  SyncableItem(uint16 offs, uint8 size, uint8 type, ItemModifiedCallback@ callback) {
     this.offs = offs;
     this.size = size;
     this.type = type;
     @this.modifiedCallback = @callback;
   }
 
-  void modified() {
+  void modified(uint16 oldValue, uint16 newValue) {
     if (modifiedCallback is null) return;
-    modifiedCallback();
+    modifiedCallback(offs, oldValue, newValue);
   }
 };
 
-void LoadShieldGfx() {
+void LoadShieldGfx(uint16 offs, uint16 oldValue, uint16 newValue) {
   // JSL DecompShieldGfx
   //cpu::call(0x005308);
+}
+
+void MoonPearlBunnyLink(uint16 offs, uint16 oldValue, uint16 newValue) {
+  // Switch Link's graphics between bunny and regular:
+  bus::write_u8(0x7E0056, uint8(1 - newValue));
 }
 
 // items MUST be sorted by offs:
@@ -674,7 +679,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x354, 1, 1),  // gloves
   SyncableItem(0x355, 1, 1),  // boots
   SyncableItem(0x356, 1, 1),  // flippers
-  SyncableItem(0x357, 1, 1),  // moon pearl
+  SyncableItem(0x357, 1, 1, @MoonPearlBunnyLink),  // moon pearl
   // 0x358 unused
   SyncableItem(0x359, 1, 1),  // sword
   SyncableItem(0x35A, 1, 1, @LoadShieldGfx),  // shield
@@ -1471,16 +1476,17 @@ class GameState {
 
       bool modified = false;
       uint16 oldValue = this.items[k].value;
+      uint16 newValue = oldValue;
       if (syncable.type == 1) {
         // max value:
-        uint16 newValue = values[k];
+        newValue = values[k];
         if (newValue > oldValue) {
           this.items[k].value = newValue;
           modified = true;
         }
       } else if (syncable.type == 2) {
         // bitfield:
-        uint16 newValue = oldValue | values[k];
+        newValue = oldValue | values[k];
         if (newValue != oldValue) {
           this.items[k].value = newValue;
           modified = true;
@@ -1496,7 +1502,7 @@ class GameState {
         }
 
         // call post-modification function if applicable:
-        syncable.modified();
+        syncable.modified(oldValue, newValue);
       }
     }
   }
