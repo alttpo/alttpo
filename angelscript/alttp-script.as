@@ -609,24 +609,47 @@ class LocalFrameState {
 };
 LocalFrameState localFrameState;
 
+funcdef void PostSyncCallback();
+
 // list of SRAM values to sync as items:
 class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
   uint8   size;   // 1 - byte, 2 - word
   uint8   type;   // 1 - highest wins, 2 - bitfield, 3+ TBD...
 
+  PostSyncCallback@ modifiedCallback = null;
+
   SyncableItem(uint16 offs, uint8 size, uint8 type) {
     this.offs = offs;
     this.size = size;
     this.type = type;
+    @this.modifiedCallback = null;
+  }
+
+  SyncableItem(uint16 offs, uint8 size, uint8 type, PostSyncCallback@ callback) {
+    this.offs = offs;
+    this.size = size;
+    this.type = type;
+    @this.modifiedCallback = @callback;
+  }
+
+  void modified() {
+    if (modifiedCallback is null) return;
+    modifiedCallback();
   }
 };
+
+void LoadShieldGfx() {
+  // JSL DecompShieldGfx
+  //cpu::call(0x005308);
+}
+
 // items MUST be sorted by offs:
 array<SyncableItem@> @syncableItems = {
   SyncableItem(0x340, 1, 1),  // bow
   SyncableItem(0x341, 1, 1),  // boomerang
   SyncableItem(0x342, 1, 1),  // hookshot
-  //SyncableItem(0x343, 1, 3),  // bombs
+  //SyncableItem(0x343, 1, 3),  // bombs (TODO)
   SyncableItem(0x344, 1, 1),  // mushroom
   SyncableItem(0x345, 1, 1),  // fire rod
   SyncableItem(0x346, 1, 1),  // ice rod
@@ -649,7 +672,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x357, 1, 1),  // moon pearl
   // 0x358 unused
   SyncableItem(0x359, 1, 1),  // sword
-  SyncableItem(0x35A, 1, 1),  // shield
+  SyncableItem(0x35A, 1, 1, @LoadShieldGfx),  // shield
   SyncableItem(0x35B, 1, 1),  // armor
 
   // bottle contents 0x35C-0x35F
@@ -1441,19 +1464,34 @@ class GameState {
     for (uint k = 0; k < syncableItems.length(); k++) {
       auto @syncable = syncableItems[k];
 
+      bool modified = false;
+      uint16 oldValue = this.items[k].value;
       if (syncable.type == 1) {
         // max value:
-        this.items[k].value = values[k];
+        uint16 newValue = values[k];
+        if (newValue > oldValue) {
+          this.items[k].value = newValue;
+          modified = true;
+        }
       } else if (syncable.type == 2) {
         // bitfield:
-        this.items[k].value |= values[k];
+        uint16 newValue = oldValue | values[k];
+        if (newValue != oldValue) {
+          this.items[k].value = newValue;
+          modified = true;
+        }
       }
 
       // write back to SRAM:
-      if (syncable.size == 1) {
-        bus::write_u8 (0x7EF000 + syncable.offs, uint8(this.items[k].value));
-      } else if (syncable.size == 2) {
-        bus::write_u16(0x7EF000 + syncable.offs, this.items[k].value);
+      if (modified) {
+        if (syncable.size == 1) {
+          bus::write_u8(0x7EF000 + syncable.offs, uint8(this.items[k].value));
+        } else if (syncable.size == 2) {
+          bus::write_u16(0x7EF000 + syncable.offs, this.items[k].value);
+        }
+
+        // call post-modification function if applicable:
+        syncable.modified();
       }
     }
   }
