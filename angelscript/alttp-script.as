@@ -170,6 +170,35 @@ class SpritesWindow {
 SpritesWindow @sprites;
 array<uint16> palette7(16);
 
+class Entrance {
+  uint16 x;
+  uint16 y;
+
+  Entrance(uint16 x, uint16 y) {
+    this.x = x;
+    this.y = y;
+  }
+};
+array<Entrance@> entrances;
+const int entranceCount = 0x85;
+
+void loadEntrances() {
+  if (entrances.length() == entranceCount) return;
+
+  entrances.resize(entranceCount);
+  // 0x0DB96F - area numbers
+  // 0x0DBA71 - map16 coords
+  // 0x04C635 - area widths (0xC0 bytes, each value 4 or 2)
+  // 0x012884 = area X
+  // 0x0128C4 = area Y
+  for (uint i = 0; i < entranceCount; i++) {
+    uint16 a = bus::read_u16(0x0DB96F + i*2);
+    uint16 x = bus::read_u8 (0x0DBA71 + i*2 + 0);
+    uint16 y = bus::read_u8 (0x0DBA71 + i*2 + 1);
+    @entrances[i] = Entrance(x, y);
+  }
+}
+
 class WorldMap {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
@@ -367,8 +396,11 @@ class WorldMap {
   void mapCoord(const GameState &in p, float &out x, float &out y) {
     // in a dungeon:
     if ((p.location & 0x010000) == 0x010000) {
-      x = -128;
-      y = -128;
+      auto @entrance = @entrances[p.dungeon_entrance];
+      x = entrance.x;
+      y = entrance.y;
+      //x = -128;
+      //y = -128;
       return;
     }
 
@@ -884,6 +916,7 @@ class GameState {
   uint8 in_dungeon;
   uint16 overworld_room;
   uint16 dungeon_room;
+  uint16 dungeon_entrance;
   void fetch() {
     if (is_it_a_bad_time()) {
       if (!can_sample_location()) {
@@ -910,6 +943,7 @@ class GameState {
       in_dungeon = bus::read_u8(0x7E001B);
       overworld_room = bus::read_u16(0x7E008A);
       dungeon_room = bus::read_u16(0x7E00A0);
+      dungeon_entrance = bus::read_u16(0x7E010E);
 
       // compute aggregated location for Link into a single 24-bit number:
       location =
@@ -1321,6 +1355,8 @@ class GameState {
       r.insertLast(uint8(items[i].offs - 0x340));
       r.insertLast(items[i].value);
     }
+
+    r.insertLast(dungeon_entrance);
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -1408,6 +1444,8 @@ class GameState {
       //  message("deser[" + fmtInt(index) + "][" + fmtHex(item.offs, 3) + "] = " + fmtHex(item.value, 4));
       //}
     }
+
+    dungeon_entrance = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     return true;
   }
@@ -1779,6 +1817,7 @@ void pre_nmi() {
   }
 
   if (@worldMap != null) {
+    loadEntrances();
     worldMap.loadMap();
   }
 
