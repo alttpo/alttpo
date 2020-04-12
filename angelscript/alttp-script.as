@@ -1357,7 +1357,7 @@ class GameState {
     //}
 
     // send envelope to server:
-    //message("sent " + fmtInt(envelope.length()));
+    //message("sent " + fmtInt(envelope.length()) + " bytes");
     sock.send(0, envelope.length(), envelope);
   }
 
@@ -1393,6 +1393,7 @@ class GameState {
     }
 
     // emit how many chrs:
+    //message("serialize: chrs="+fmtInt(chr_count));
     r.insertLast(chr_count);
     for (uint16 i = 0; i < 512; ++i) {
       if (chrs[i].length() == 0) continue;
@@ -1414,6 +1415,7 @@ class GameState {
     //}
 
     // items: (MUST be sorted by offs)
+    //message("serialize: items="+fmtInt(items.length()));
     r.insertLast(uint8(items.length()));
     for (uint8 i = 0; i < items.length(); i++) {
       auto @item = items[i];
@@ -1427,6 +1429,7 @@ class GameState {
     r.insertLast(last_overworld_x);
     r.insertLast(last_overworld_y);
 
+    //message("serialize: tilemap="+fmtInt(tilemapCount));
     r.insertLast(tilemapCount);
     r.insertLast(tilemapAddress);
     r.insertLast(tilemapTile);
@@ -1772,48 +1775,48 @@ class GameState {
     bus::read_block_u16(0x7EFA00, 0, localTilemapCount, localTilemapTile);
 
     // merge in changes from remote tilemap:
-    for (int j = tilemapCount - 1; j >= 0; j--) {
+    for (uint i = 0; i < tilemapCount; i++) {
+      uint16 addr = tilemapAddress[i];
+      uint16 tile = tilemapTile[i];
+
       // try to find the change in local tilemap:
-      int i = localTilemapAddress.find(tilemapAddress[j]);
-      if (i >= 0) {
-        // already have it:
-        tilemapAddress.removeAt(j);
-        tilemapTile.removeAt(j);
-        tilemapCount--;
+      int j = localTilemapAddress.find(addr);
+      if (j == -1) {
+        j = localTilemapCount;
+        localTilemapCount++;
+        localTilemapAddress.resize(localTilemapCount);
+        localTilemapTile.resize(localTilemapCount);
       }
-    }
+      // update the address entry in the local tilemap:
+      localTilemapAddress[j] = addr;
+      localTilemapTile[j] = tile;
 
-    if (tilemapCount > 0) {
+      // apply change to 0x7E2000 in-memory map:
+      bus::write_u16(0x7E2000 + addr, tile);
+
+      // TODO: dont update VRAM if area is 1024x1024 instead of normal 512x512. this glitches out.
+
       // update VRAM with changes:
-      for (uint i = 0; i < tilemapCount; i++) {
-        array <uint16> t(4);
+      // convert tilemap address to VRAM address:
+      uint16 vaddr = ow_tilemap_to_vram_address(addr);
 
-        uint16 addr = tilemapAddress[i];
-        uint16 tile = tilemapTile[i];
+      // look up tile in tile gfx:
+      uint16 a = tile << 3;
+      array <uint16> t(4);
+      t[0] = bus::read_u16(0x0F8000 + a);
+      t[1] = bus::read_u16(0x0F8002 + a);
+      t[2] = bus::read_u16(0x0F8004 + a);
+      t[3] = bus::read_u16(0x0F8006 + a);
 
-        // convert tilemap address to VRAM address:
-        uint16 vaddr = ow_tilemap_to_vram_address(addr);
-
-        // look up tile in tile gfx:
-        uint16 a = tile << 3;
-        t[0] = bus::read_u16(0x0F8000 + a);
-        t[1] = bus::read_u16(0x0F8002 + a);
-        t[2] = bus::read_u16(0x0F8004 + a);
-        t[3] = bus::read_u16(0x0F8006 + a);
-
-        // update 16x16 tilemap in VRAM:
-        ppu::vram.write_block(vaddr, 0, 2, t);
-        ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
-
-        // apply change to 0x7E2000 in-memory map:
-        bus::write_u16(0x7E2000 + addr, tile);
-      }
-
-      // append our changes to end of local tilemap change array:
-      bus::write_u16(0x7E04AC, (localTilemapCount + tilemapCount) << 1);
-      bus::write_block_u16(0x7EF800 + (localTilemapCount << 1), 0, tilemapCount, tilemapAddress);
-      bus::write_block_u16(0x7EFA00 + (localTilemapCount << 1), 0, tilemapCount, tilemapTile);
+      // update 16x16 tilemap in VRAM:
+      ppu::vram.write_block(vaddr, 0, 2, t);
+      ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
     }
+
+    // append our changes to end of local tilemap change array:
+    bus::write_u16(0x7E04AC, (localTilemapCount << 1));
+    bus::write_block_u16(0x7EF800, 0, localTilemapCount, localTilemapAddress);
+    bus::write_block_u16(0x7EFA00, 0, localTilemapCount, localTilemapTile);
   }
 
   void render(int x, int y) {
