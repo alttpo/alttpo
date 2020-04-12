@@ -1246,7 +1246,7 @@ class GameState {
     sprites.resize(0);
     sprites.reserve(8);
     numsprites = 0;
-    // start from reserved region for Link at 0x64 and cycle back around to 0x63 (up to 0x7F and wrap to 0x00):
+    // start from reserved region for Link (either at 0x64 or ):
     for (int j = 0; j < 0x0C; j++) {
       auto i = (link_oam_start + j) & 0x7F;
 
@@ -1267,7 +1267,10 @@ class GameState {
     }
 
     // capture effects sprites:
-    for (int i = 0x0C; i <= 0x12; i++) {
+    for (int i = 0x00; i <= 0x7f; i++) {
+      // skip already synced Link sprites:
+      if ((i >= link_oam_start) && (i <= link_oam_start + 0x0C)) continue;
+
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite spr, sprp1, sprp2, sprn1, sprn2;
       // current sprite:
@@ -1303,12 +1306,36 @@ class GameState {
         // arrows
         chr == 0x2a || chr == 0x2b || chr == 0x2c || chr == 0x2d ||
         chr == 0x3a || chr == 0x3b || chr == 0x3c || chr == 0x3d ||
+        // hookshot
+        chr == 0x09 || chr == 0x19 || chr == 0x1a ||
         // boomerang
         chr == 0x26 ||
         // magic powder
         chr == 0x09 || chr == 0x0a ||
         // lantern fire
         chr == 0xe3 || chr == 0xf3 || chr == 0xa4 || chr == 0xa5 || chr == 0xb2 || chr == 0xb3 || chr == 0x9c ||
+        // fire rod
+        chr == 0x09 || chr == 0x9c || chr == 0x9d || chr == 0x8d || chr == 0x8e || chr == 0xa0 || chr == 0xa2 ||
+        chr == 0xa4 || chr == 0xa5 ||
+        // ice rod
+        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0xb6 || chr == 0xb7 || chr == 0x80 || chr == 0x83 ||
+        chr == 0xcf || chr == 0xdf ||
+        // hammer
+        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0x91 ||
+        // cane of somaria
+        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0xe9 ||
+        // cane of bryna
+        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0x92 || chr == 0xd6 || chr == 0x8c || chr == 0x93 ||
+        chr == 0xd7 || chr == 0xb7 || chr == 0x80 || chr == 0x83 ||
+        // magic cape
+        chr == 0x86 || chr == 0xa9 || chr == 0x9b ||
+        // quake
+        chr == 0x40 || chr == 0x42 || chr == 0x44 || chr == 0x46 || chr == 0x48 || chr == 0x4a || chr == 0x4c || chr == 0x4e ||
+        chr == 0x60 || chr == 0x62 || chr == 0x63 || chr == 0x64 || chr == 0x66 || chr == 0x68 || chr == 0x6a ||
+        // bombs:
+        chr == 0x6e ||
+        // 8 count:
+        chr == 0x79 ||
         // push block
         chr == 0x0c ||
         // large stone
@@ -1345,7 +1372,8 @@ class GameState {
 
   void capture_sprites_vram() {
     for (int i = 0; i < numsprites; i++) {
-      capture_sprite(sprites[i]);
+      auto @spr = @sprites[i];
+      capture_sprite(spr);
     }
   }
 
@@ -1362,14 +1390,20 @@ class GameState {
     } else {
       // 16x16 sprite:
       //message("capture x16 chr=0x" + fmtHex(sprite.chr, 2));
-      if (chrs[sprite.chr].length() == 0) {
+      if (chrs[sprite.chr + 0x00].length() == 0) {
         chrs[sprite.chr + 0x00].resize(16);
-        chrs[sprite.chr + 0x01].resize(16);
-        chrs[sprite.chr + 0x10].resize(16);
-        chrs[sprite.chr + 0x11].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x00), 0, 16, chrs[sprite.chr + 0x00]);
+      }
+      if (chrs[sprite.chr + 0x01].length() == 0) {
+        chrs[sprite.chr + 0x01].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, chrs[sprite.chr + 0x01]);
+      }
+      if (chrs[sprite.chr + 0x10].length() == 0) {
+        chrs[sprite.chr + 0x10].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, chrs[sprite.chr + 0x10]);
+      }
+      if (chrs[sprite.chr + 0x11].length() == 0) {
+        chrs[sprite.chr + 0x11].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
       }
     }
