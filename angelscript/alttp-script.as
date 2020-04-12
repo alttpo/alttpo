@@ -424,9 +424,19 @@ class WorldMap {
     }
 
     if (p.location == 0x000080) {
-      // in master sword grove:
-      px += 0x20;
-      py += -0x146;
+      if (px < 0x100) {
+        // in master sword grove:
+        px += 0x20;
+        py += -0x146;
+      } else if (px < 0x200) {
+        // under the bridge:
+        // bridge underside from x=0108 to x=01f0 (e8)
+        // bridge underside from y=0018 to y=00c0 (a8)
+        // bridge overworld from x=0af0 to y=0b30 (40)
+        // bridge overworld from y=0af0 to y=0b40 (50)
+        px = ((px - 0x108) * 0x40 / 0xe8) + 0xaf0;
+        py = ((py - 0x018) * 0x50 / 0xa0) + 0xaf0;
+      }
     } else if (p.location == 0x000081) {
       // in zora's waterfall:
       px = 0xf50;
