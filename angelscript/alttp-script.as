@@ -489,13 +489,21 @@ class WorldMap {
 WorldMap @worldMap;
 
 class OAMWindow {
+  gui::Color yellow;
+  gui::Color clrEnabled;
+  gui::Color clrDisabled;
+
   gui::Window @window;
   array<array<gui::Label@>> col(8);
 
   OAMWindow() {
+    yellow      = gui::Color(240, 240,   0);
+    clrEnabled  = gui::Color(240, 240, 240);
+    clrDisabled = gui::Color(110, 110, 110);
+
     @window = gui::Window(0, 240*8*3, true);
     window.title = "OAM";
-    window.size = gui::Size(60*8, 20*16);
+    window.size = gui::Size(70*9, 20*16);
 
     auto @hl = gui::HorizontalLayout();
     for (int i=0; i<8; i++) {
@@ -503,6 +511,7 @@ class OAMWindow {
       auto @vl = gui::VerticalLayout();
       for (int j=0; j<16; j++) {
         auto @lbl = gui::Label();
+        lbl.foregroundColor = yellow;
         lbl.text = fmtHex(i*16+j,2);
         vl.append(lbl, gui::Size(-1, 0));
       }
@@ -514,6 +523,7 @@ class OAMWindow {
       col[i].resize(16);
       for (int j=0; j<16; j++) {
         @col[i][j] = gui::Label();
+        col[i][j].foregroundColor = clrDisabled;
         col[i][j].text = "---";
         vl.append(col[i][j], gui::Size(-1, 0));
       }
@@ -538,7 +548,9 @@ class OAMWindow {
     Sprite s;
     for (uint i = 0; i < 8; i++) {
       for (uint j = 0; j < 16; j++) {
-        s.decodeOAMTable(i*16+j);
+        //s.decodeOAMTable(i*16+j);
+        s.fetchOAM(i*16+j);
+        col[i][j].foregroundColor = s.is_enabled ? clrEnabled : clrDisabled;
         col[i][j].text = fmtHex(s.chr, 3);
       }
     }
@@ -2063,10 +2075,6 @@ void pre_nmi() {
     }
   }
 
-  if (@worldMap != null) {
-    worldMap.loadMap();
-  }
-
   // restore previous VRAM tiles:
   localFrameState.restore();
 
@@ -2092,10 +2100,6 @@ void pre_nmi() {
         remote.play_sfx();
       }
     }
-  }
-
-  if (@oamWindow != null) {
-    oamWindow.update();
   }
 }
 
@@ -2155,6 +2159,14 @@ void pre_frame() {
 }
 
 void post_frame() {
+  if (@oamWindow != null) {
+    oamWindow.update();
+  }
+
+  if (@worldMap != null) {
+    worldMap.loadMap();
+  }
+
   if (debugData) {
     ppu::frame.text_shadow = true;
     ppu::frame.color = 0x7fff;
