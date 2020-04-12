@@ -23,6 +23,9 @@ void init() {
     @sprites = SpritesWindow();
   }
   @worldMap = WorldMap();
+  if (debugOAM) {
+    @oamWindow = OAMWindow();
+  }
 }
 
 class SettingsWindow {
@@ -484,6 +487,64 @@ class WorldMap {
   }
 };
 WorldMap @worldMap;
+
+class OAMWindow {
+  gui::Window @window;
+  array<array<gui::Label@>> col(8);
+
+  OAMWindow() {
+    @window = gui::Window(0, 240*8*3, true);
+    window.title = "OAM";
+    window.size = gui::Size(60*8, 20*16);
+
+    auto @hl = gui::HorizontalLayout();
+    for (int i=0; i<8; i++) {
+      // first label column:
+      auto @vl = gui::VerticalLayout();
+      for (int j=0; j<16; j++) {
+        auto @lbl = gui::Label();
+        lbl.text = fmtHex(i*16+j,2);
+        vl.append(lbl, gui::Size(-1, 0));
+      }
+      vl.resize();
+      hl.append(vl, gui::Size(20, -1));
+
+      // second value column:
+      @vl = gui::VerticalLayout();
+      col[i].resize(16);
+      for (int j=0; j<16; j++) {
+        @col[i][j] = gui::Label();
+        col[i][j].text = "---";
+        vl.append(col[i][j], gui::Size(-1, 0));
+      }
+      vl.resize();
+      hl.append(vl, gui::Size(40, -1));
+    }
+    window.append(hl);
+
+    hl.resize();
+    window.visible = true;
+  }
+
+  void show() {
+    window.visible = true;
+  }
+
+  void hide() {
+    window.visible = false;
+  }
+
+  void update() {
+    Sprite s;
+    for (uint i = 0; i < 8; i++) {
+      for (uint j = 0; j < 16; j++) {
+        s.decodeOAMTable(i*16+j);
+        col[i][j].text = fmtHex(s.chr, 3);
+      }
+    }
+  }
+};
+OAMWindow @oamWindow;
 
 class Sprite {
   uint8 index;
@@ -2032,6 +2093,10 @@ void pre_nmi() {
       }
     }
   }
+
+  if (@oamWindow != null) {
+    oamWindow.update();
+  }
 }
 
 void pre_frame() {
@@ -2120,6 +2185,7 @@ void post_frame() {
     */
   }
 
+  /*
   if (debugOAM) {
     ppu::frame.draw_op = ppu::draw_op::op_alpha;
     ppu::frame.color = ppu::rgb(28, 28, 28);
@@ -2149,6 +2215,7 @@ void post_frame() {
       ppu::frame.text((i / 28) * (4 * 8 + 8) + 16, (i % 28) * 8, fmtHex(tile.character, 2));
     }
   }
+  */
 
   if (@sprites != null) {
     for (int i = 0; i < 16; i++) {
