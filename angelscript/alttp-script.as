@@ -1302,16 +1302,20 @@ class GameState {
     if (is_it_a_bad_time()) {
       return;
     }
+
+    // overworld only for the moment:
+    if (is_in_dungeon()) {
+      return;
+    }
     if (local.module == 0x09) {
       // don't fetch tilemap during screen transition:
       if (local.sub_module >= 0x01 && local.sub_module < 0x07) {
         return;
       }
-    }
-
-    // overworld only for the moment:
-    if (is_in_dungeon()) {
-      return;
+      // during LW/DW transition:
+      if (local.sub_module >= 0x23) {
+        return;
+      }
     }
 
     // 0x7E04AC : word        = pointer to end of array (in bytes)
@@ -1744,9 +1748,16 @@ class GameState {
   }
 
   void update_tilemap() {
+    if (local.is_in_dungeon()) {
+      return;
+    }
     if (local.module == 0x09) {
-      // don't update tilemap during screen transition:
+      // don't fetch tilemap during screen transition:
       if (local.sub_module >= 0x01 && local.sub_module < 0x07) {
+        return;
+      }
+      // during LW/DW transition:
+      if (local.sub_module >= 0x23) {
         return;
       }
     }
