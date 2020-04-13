@@ -592,11 +592,11 @@ class Sprite {
   // b4 is the 5th byte of extended OAM table
   // b4 must be right-shifted to be the two least significant bits and all other bits cleared.
   void decodeOAMTableBytes(uint16 i, uint8 b0, uint8 b1, uint8 b2, uint8 b3, uint8 b4) {
-    index = i;
-    x    = b0;
-    y    = b1;
-    chr  = b2;
-    chr  = chr | (uint16(b3 >> 0 & 1) << 8);
+    index    = i;
+    x        = b0;
+    y        = b1;
+    chr      = b2;
+    chr      = chr | (uint16(b3 >> 0 & 1) << 8);
     palette  = b3 >> 1 & 7;
     priority = b3 >> 4 & 3;
     hflip    = (b3 >> 6 & 1) != 0 ? true : false;
@@ -1228,9 +1228,9 @@ class GameState {
 
   int numsprites;
   void fetch_sprites() {
+    numsprites = 0;
+    sprites.resize(0);
     if (is_it_a_bad_time()) {
-      numsprites = 0;
-      sprites.resize(0);
       return;
     }
 
@@ -1243,9 +1243,8 @@ class GameState {
     //message(fmtInt(link_oam_start));
 
     // read in relevant sprites from OAM and VRAM:
-    sprites.resize(0);
-    sprites.reserve(8);
-    numsprites = 0;
+    sprites.reserve(128);
+
     // start from reserved region for Link (either at 0x64 or ):
     for (int j = 0; j < 0x0C; j++) {
       auto i = (link_oam_start + j) & 0x7F;
@@ -1276,11 +1275,19 @@ class GameState {
       // current sprite:
       spr.decodeOAMTable(i);
       // prev 2 sprites:
-      sprp1.decodeOAMTable(i-1);
-      sprp2.decodeOAMTable(i-2);
+      if (i >= 1) {
+        sprp1.decodeOAMTable(i - 1);
+      }
+      if (i >= 2) {
+        sprp2.decodeOAMTable(i - 2);
+      }
       // next 2 sprites:
-      sprn1.decodeOAMTable(i+1);
-      sprn2.decodeOAMTable(i+2);
+      if (i <= 0x7E) {
+        sprn1.decodeOAMTable(i + 1);
+      }
+      if (i <= 0x7D) {
+        sprn2.decodeOAMTable(i + 2);
+      }
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
       if (!spr.is_enabled) continue;
@@ -1382,14 +1389,14 @@ class GameState {
     // load character(s) from VRAM:
     if (sprite.size == 0) {
       // 8x8 sprite:
-      //message("capture  x8 chr=0x" + fmtHex(sprite.chr, 2));
+      //message("capture  x8 CHR=" + fmtHex(sprite.chr, 3));
       if (chrs[sprite.chr].length() == 0) {
         chrs[sprite.chr].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, chrs[sprite.chr]);
       }
     } else {
       // 16x16 sprite:
-      //message("capture x16 chr=0x" + fmtHex(sprite.chr, 2));
+      //message("capture x16 CHR=" + fmtHex(sprite.chr, 3));
       if (chrs[sprite.chr + 0x00].length() == 0) {
         chrs[sprite.chr + 0x00].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x00), 0, 16, chrs[sprite.chr + 0x00]);
@@ -1595,12 +1602,14 @@ class GameState {
 
     // read in chr data:
     auto chr_count = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    //message("deserialize: chrs="+fmtInt(chr_count));
     for (uint i = 0; i < chr_count; i++) {
       // read chr number:
       auto h = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
       // read chr tile data:
       chrs[h].resize(16);
+      //message("  chr="+fmtHex(h,3)+" c="+fmtInt(c));
       for (int k = 0; k < 16; k++) {
         chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
       }
@@ -1987,7 +1996,11 @@ class GameState {
             oam.character = k;
             localFrameState.chr[k] = true;
             reloc[sprite.chr] = k;
-            localFrameState.overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
+            if (chrs[sprite.chr].length() == 0) {
+              message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
+            } else {
+              localFrameState.overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
+            }
             break;
           }
         } else {
@@ -2013,10 +2026,26 @@ class GameState {
             reloc[sprite.chr + 0x01] = k + 0x01;
             reloc[sprite.chr + 0x10] = k + 0x10;
             reloc[sprite.chr + 0x11] = k + 0x11;
-            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
-            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
-            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
-            localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
+            if (chrs[sprite.chr + 0x00].length() == 0) {
+              message("remote CHR="+fmtHex(sprite.chr + 0x00,3)+" data empty!");
+            } else {
+              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
+            }
+            if (chrs[sprite.chr + 0x01].length() == 0) {
+              message("remote CHR="+fmtHex(sprite.chr + 0x01,3)+" data empty!");
+            } else {
+              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
+            }
+            if (chrs[sprite.chr + 0x10].length() == 0) {
+              message("remote CHR="+fmtHex(sprite.chr + 0x10,3)+" data empty!");
+            } else {
+              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
+            }
+            if (chrs[sprite.chr + 0x11].length() == 0) {
+              message("remote CHR="+fmtHex(sprite.chr + 0x11,3)+" data empty!");
+            } else {
+              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
+            }
             break;
           }
         } else {
@@ -2042,6 +2071,9 @@ void receive() {
   int n;
   while ((n = sock.recv(0, 9500, r)) > 0) {
     int c = 0;
+
+    // NOTE: this will cause exceptions during deserialization if packets are truncated
+    //r.resize(n);
 
     // verify envelope header:
     uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
