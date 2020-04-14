@@ -57,14 +57,20 @@ ROMMapping@ detect() {
   array<uint8> sig(22);
   bus::read_block_u8(0x00FFC0, 0, 22, sig);
   auto title = sig.toString(0, 22);
-  message(title);
+  message("ROM title: \"" + title + "\"");
   if (title == "THE LEGEND OF ZELDA   ") {
+    message("Recognized US ROM version.");
     return USROMMapping();
   } else if (title == "ZELDANODENSETSU       ") {
+    message("Recognized JP ROM version.");
+    return JPROMMapping();
+  } else if (sig.toString(0, 3) == "VT ") {
+    // randomizer. use JP ROM by default.
+    message("Recognized randomized JP ROM version. Seed: " + sig.toString(3, 10));
     return JPROMMapping();
   } else {
-    message("Unrecognized ALTTP ROM version!");
-    return null;
+    message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
+    return JPROMMapping();
   }
 }
 
