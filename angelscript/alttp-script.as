@@ -501,6 +501,8 @@ class WorldMap {
   }
 
   void renderPlayers(const GameState &in local, const array<GameState> &in players) {
+    auto dw = local.is_in_dark_world();
+
     // grow dots array and create new Canvas instances:
     if (players.length() > dots.length()) {
       dots.resize(players.length());
@@ -522,7 +524,7 @@ class WorldMap {
     float x, y;
     for (uint i = 0; i < players.length(); i++) {
       auto @p = players[i];
-      if (p.ttl <= 0) {
+      if ((p.ttl <= 0) || (p.is_in_dark_world() != dw)) {
         // If player disappeared, hide their dot:
         dots[i].setPosition(-128, -128);
         continue;
@@ -553,7 +555,7 @@ class OAMWindow {
 
     @window = gui::Window(0, 240*8*3, true);
     window.title = "OAM";
-    window.size = gui::Size(70*9, 20*16);
+    window.size = gui::Size(70*8, 20*16);
 
     auto @hl = gui::HorizontalLayout();
     for (int i=0; i<8; i++) {
@@ -1386,7 +1388,7 @@ class GameState {
         chr == 0xd7 || chr == 0xb7 || chr == 0x80 || chr == 0x83 ||
         // magic cape
         chr == 0x86 || chr == 0xa9 || chr == 0x9b ||
-        // quake
+        // quake & ether:
         chr == 0x40 || chr == 0x42 || chr == 0x44 || chr == 0x46 || chr == 0x48 || chr == 0x4a || chr == 0x4c || chr == 0x4e ||
         chr == 0x60 || chr == 0x62 || chr == 0x63 || chr == 0x64 || chr == 0x66 || chr == 0x68 || chr == 0x6a ||
         // bombs:
