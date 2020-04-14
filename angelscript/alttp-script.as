@@ -28,6 +28,45 @@ void init() {
   }
 }
 
+// Lookup table of ROM addresses depending on version:
+abstract class ROMMapping {
+  uint32 get_tilemap_lightWorldMap() { return 0; }
+  uint32 get_tilemap_darkWorldMap()  { return 0; }
+  uint32 get_palette_lightWorldMap() { return 0; }
+  uint32 get_palette_darkWorldMap()  { return 0; }
+};
+
+class USROMMapping : ROMMapping {
+  uint32 get_tilemap_lightWorldMap() { return 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  { return 0x0AD727; }
+  uint32 get_palette_lightWorldMap() { return 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  { return 0x0ADC27; }
+};
+
+class JPROMMapping : ROMMapping {
+  uint32 get_tilemap_lightWorldMap() { return 0x0AC739; }
+  uint32 get_tilemap_darkWorldMap()  { return 0x0AD739; }
+  uint32 get_palette_lightWorldMap() { return 0x0ADB39; }
+  uint32 get_palette_darkWorldMap()  { return 0x0ADC39; }
+};
+
+ROMMapping@ detect() {
+  array<uint8> sig(22);
+  bus::read_block_u8(0x00FFC0, 0, 22, sig);
+  auto title = sig.toString(0, 22);
+  message(title);
+  if (title == "THE LEGEND OF ZELDA   ") {
+    return USROMMapping();
+  } else if (title == "ZELDANODENSETSU       ") {
+    return JPROMMapping();
+  } else {
+    message("Unrecognized ALTTP ROM version!");
+    return null;
+  }
+}
+
+ROMMapping @rom = null;
+
 class SettingsWindow {
   private gui::Window @window;
   private gui::LineEdit @txtServerAddress;
@@ -237,17 +276,17 @@ class WorldMap {
   void loadMap() {
     if (loaded) return;
 
-    // read world map palette:
-    array<uint16> palette;
-    palette.resize(0x100);
-    bus::read_block_u16(0x0ADB27, 0, 0x100, palette);
-
     // mode7 tile map and gfx data for world maps:
+    array<uint16> palette;
     array<uint8> tilemap;
     array<uint8> gfx;
 
+    palette.resize(0x100);
     tilemap.resize(0x4000);
     gfx.resize(0x4000);
+
+    // read light world map palette:
+    bus::read_block_u16(rom.palette_lightWorldMap, 0, 0x100, palette);
 
     // load light world's map:
     {
@@ -258,7 +297,7 @@ class WorldMap {
         for (int p06 = 0; p06 < 0x20; p06++) {
           int dest = p00;
           p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
-          bus::read_block_u8(0x0AC727 + p02, dest, 0x20, tilemap);
+          bus::read_block_u8(rom.tilemap_lightWorldMap + p02, dest, 0x20, tilemap);
           p02 += 0x20;
         }
       }
@@ -267,12 +306,13 @@ class WorldMap {
     // from bank00.asm CopyMode7Chr:
     bus::read_block_u8(0x18C000, 0, 0x4000, gfx);
 
+    // render map to canvas:
     lightWorld.fill(0x0000);
     drawMode7Map(lightWorld, tilemap, gfx, palette);
     lightWorld.update();
 
     // load dark world palette:
-    bus::read_block_u16(0x0ADC27, 0, 0x100, palette);
+    bus::read_block_u16(rom.palette_darkWorldMap, 0, 0x100, palette);
 
     // load dark world tilemap:
     {
@@ -281,11 +321,12 @@ class WorldMap {
       for (int p06 = 0; p06 < 0x20; p06++) {
         int dest = p00;
         p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
-        bus::read_block_u8(0x0AD727 + p02, dest, 0x20, tilemap);
+        bus::read_block_u8(rom.tilemap_darkWorldMap + p02, dest, 0x20, tilemap);
         p02 += 0x20;
       }
     }
 
+    // render map to canvas:
     darkWorld.fill(0x0000);
     drawMode7Map(darkWorld, tilemap, gfx, palette);
     darkWorld.update();
@@ -2121,6 +2162,11 @@ void receive() {
 }
 
 void pre_nmi() {
+  // Auto-detect ROM version:
+  if (@rom == null) {
+    @rom = detect();
+  }
+
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
