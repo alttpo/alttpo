@@ -853,7 +853,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x34C, 1, 1),  // flute
   SyncableItem(0x34D, 1, 1),  // bug net
   SyncableItem(0x34E, 1, 1),  // book
-  SyncableItem(0x34F, 1, 1),  // have bottles
+  //SyncableItem(0x34F, 1, 1),  // have bottles - FIXME: syncing this without bottle contents causes softlock for randomizer
   SyncableItem(0x350, 1, 1),  // cane of somaria
   SyncableItem(0x351, 1, 1),  // cane of byrna
   SyncableItem(0x352, 1, 1),  // magic cape
@@ -867,7 +867,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x35A, 1, 1, @LoadShieldGfx),  // shield
   SyncableItem(0x35B, 1, 1),  // armor
 
-  // bottle contents 0x35C-0x35F
+  // bottle contents 0x35C-0x35F - TODO: sync bottle contents iff local bottle value == 0x02 (empty)
 
   SyncableItem(0x364, 1, 2),  // dungeon compasses 1/2
   SyncableItem(0x365, 1, 2),  // dungeon compasses 2/2
