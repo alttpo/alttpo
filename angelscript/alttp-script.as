@@ -26,6 +26,9 @@ void init() {
   if (debugOAM) {
     @oamWindow = OAMWindow();
   }
+
+  // Auto-detect ROM version:
+  @rom = detect();
 }
 
 // Lookup table of ROM addresses depending on version:
@@ -2162,11 +2165,6 @@ void receive() {
 }
 
 void pre_nmi() {
-  // Auto-detect ROM version:
-  if (@rom == null) {
-    @rom = detect();
-  }
-
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
