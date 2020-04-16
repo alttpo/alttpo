@@ -963,6 +963,8 @@ class GameSprite {
   uint8  subtype   { get { return facts[0x13] & 0x1F; } };  // valid [0x00..0x1F]; based on X/Y coordinates
   uint8  oam_count { get { return facts[0x14] & 0x0F; } };  // valid [0x00..0x0F]; count of OAM slots used; 0 means invisible
   uint8  hp        { get { return facts[0x15]; } };
+
+  bool is_enabled  { get { return state != 0; } };
 };
 
 // TODO: debug window to show current full area and place GameSprites on it with X,Y coordinates
@@ -2436,6 +2438,26 @@ void post_frame() {
 
   if (@worldMap != null) {
     worldMap.update(local);
+  }
+
+  if (@local.enemies != null) {
+    for (int i = 0; i < 0x10; i++) {
+      auto @en = @local.enemies[i];
+      if (@en is null) continue;
+      // skip dead sprites:
+      if (!en.is_enabled) continue;
+
+      // subtract BG2 offset from sprite x,y coords to get local screen coords:
+      int16 rx = int16(en.x) - int16(local.xoffs);
+      int16 ry = int16(en.y) - int16(local.yoffs);
+
+      // draw box around the sprite:
+      ppu::frame.rect(rx, ry, 16, 16);
+
+      // draw sprite type value above box:
+      ry -= ppu::frame.font_height;
+      ppu::frame.text(rx, ry, fmtHex(en.type, 2));
+    }
   }
 }
 
