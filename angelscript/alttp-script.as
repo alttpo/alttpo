@@ -282,20 +282,24 @@ class WorldMap {
   }
 
   bool loaded = false;
+  array<uint16> paletteLight;
+  array<uint16> paletteDark;
+  array<uint8> tilemapLight;
+  array<uint8> tilemapDark;
+  array<uint8> gfx;
   void loadMap() {
     if (loaded) return;
 
     // mode7 tile map and gfx data for world maps:
-    array<uint16> palette;
-    array<uint8> tilemap;
-    array<uint8> gfx;
-
-    palette.resize(0x100);
-    tilemap.resize(0x4000);
+    paletteLight.resize(0x100);
+    tilemapLight.resize(0x4000);
     gfx.resize(0x4000);
 
+    // from bank00.asm CopyMode7Chr:
+    bus::read_block_u8(0x18C000, 0, 0x4000, gfx);
+
     // read light world map palette:
-    bus::read_block_u16(rom.palette_lightWorldMap, 0, 0x100, palette);
+    bus::read_block_u16(rom.palette_lightWorldMap, 0, 0x100, paletteLight);
 
     // load light world's map:
     {
@@ -306,22 +310,17 @@ class WorldMap {
         for (int p06 = 0; p06 < 0x20; p06++) {
           int dest = p00;
           p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
-          bus::read_block_u8(rom.tilemap_lightWorldMap + p02, dest, 0x20, tilemap);
+          bus::read_block_u8(rom.tilemap_lightWorldMap + p02, dest, 0x20, tilemapLight);
           p02 += 0x20;
         }
       }
     }
 
-    // from bank00.asm CopyMode7Chr:
-    bus::read_block_u8(0x18C000, 0, 0x4000, gfx);
-
-    // render map to canvas:
-    lightWorld.fill(0x0000);
-    drawMode7Map(lightWorld, tilemap, gfx, palette);
-    lightWorld.update();
+    paletteDark.resize(0x100);
+    tilemapDark = tilemapLight;
 
     // load dark world palette:
-    bus::read_block_u16(rom.palette_darkWorldMap, 0, 0x100, palette);
+    bus::read_block_u16(rom.palette_darkWorldMap, 0, 0x100, paletteDark);
 
     // load dark world tilemap:
     {
@@ -330,14 +329,19 @@ class WorldMap {
       for (int p06 = 0; p06 < 0x20; p06++) {
         int dest = p00;
         p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
-        bus::read_block_u8(rom.tilemap_darkWorldMap + p02, dest, 0x20, tilemap);
+        bus::read_block_u8(rom.tilemap_darkWorldMap + p02, dest, 0x20, tilemapDark);
         p02 += 0x20;
       }
     }
 
     // render map to canvas:
+    lightWorld.fill(0x0000);
+    drawMode7Map(lightWorld, tilemapLight, gfx, paletteLight);
+    lightWorld.update();
+
+    // render map to canvas:
     darkWorld.fill(0x0000);
-    drawMode7Map(darkWorld, tilemap, gfx, palette);
+    drawMode7Map(darkWorld, tilemapDark, gfx, paletteDark);
     darkWorld.update();
 
     loaded = true;
