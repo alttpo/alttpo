@@ -11,30 +11,34 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type GQLQuery struct {
 	Query     string                 `json:"query"`
 	Variables map[string]interface{} `json:"variables"`
 }
+type Build struct {
+	Edges []struct {
+		Node struct {
+			Id string `json:"id"`
+			Status string `json:"status"`
+			Branch string `json:"branch"`
+			LatestGroupTasks []struct {
+				Id     string `json:"id"`
+				Name   string `json:"name"`
+				Status string `json:"status"`
+			} `json:"latestGroupTasks"`
+		} `json:"node"`
+	} `json:"edges"`
+}
 type GQLResponse struct {
 	Data struct {
 		GithubRepository struct {
-			Builds struct {
-				Edges []struct {
-					Node struct {
-						Id string `json:"id"`
-						Status string `json:"status"`
-						Branch string `json:"branch"`
-						LatestGroupTasks []struct {
-							Id     string `json:"id"`
-							Name   string `json:"name"`
-							Status string `json:"status"`
-						} `json:"latestGroupTasks"`
-					} `json:"node"`
-				} `json:"edges"`
-			} `json:"builds"`
+			BranchBuild *Build `json:"branchBuild"`
+			MasterBuild *Build `json:"masterBuild"`
 		} `json:"githubRepository"`
 	} `json:"data"`
 }
@@ -54,24 +58,75 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
 	//     "name":  repository,
 	//   },
 	// }
-	gqlQuery := GQLQuery{
-		Query: `query GitHubRepositoryQuery($owner: String!, $name: String!, $branch: String!) {
+	var gqlQuery GQLQuery
+	if branch != "master" {
+		gqlQuery = GQLQuery{
+			Query: `query GitHubRepositoryQuery($owner: String!, $name: String!, $branch: String!) {
   githubRepository(owner: $owner, name: $name) {
-    builds(last: 1, branch: $branch) {
+    branchBuild: builds(last: 1, branch: $branch) {
       edges {
         node {
-          latestGroupTasks { id name status }
+          id
+          status
+          branch
+          latestGroupTasks {
+            id
+            name
+            status
+          }
+        }
+      }
+    }
+    masterBuild: builds(last: 1, branch: "master") {
+      edges {
+        node {
+          id
+          status
+          branch
+          latestGroupTasks {
+            id
+            name
+            status
+          }
         }
       }
     }
   }
 }`,
-		Variables: map[string]interface{}{
-			"owner":  owner,
-			"name":   repository,
-			"branch": branch,
-		},
+			Variables: map[string]interface{}{
+				"owner":  owner,
+				"name":   repository,
+				"branch": branch,
+			},
+		}
+	} else {
+		// master-only branch:
+		gqlQuery = GQLQuery{
+			Query: `query GitHubRepositoryQuery($owner: String!, $name: String!) {
+  githubRepository(owner: $owner, name: $name) {
+    masterBuild: builds(last: 1, branch: "master") {
+      edges {
+        node {
+          id
+          status
+          branch
+          latestGroupTasks {
+            id
+            name
+            status
+          }
+        }
+      }
+    }
+  }
+}`,
+			Variables: map[string]interface{}{
+				"owner":  owner,
+				"name":   repository,
+			},
+		}
 	}
+
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	err = enc.Encode(gqlQuery)
@@ -189,9 +244,18 @@ func main() {
 	var err error
 
 	// grab env vars:
+	waitStr := os.Getenv("PACKAGER_WAIT_FOR_BUILD")
+	// if strconv cannot parse, will default to false. ignore the error.
+	waitForBuild, _ := strconv.ParseBool(waitStr)
+
 	outputDir := os.Getenv("PACKAGER_OUTPUT_DIR")
+	fmt.Printf("PACKAGER_OUTPUT_DIR=%s\n", outputDir)
+
 	targetArch := os.Getenv("PACKAGER_TARGET_ARCH")
+	fmt.Printf("PACKAGER_TARGET_ARCH=%s\n", targetArch)
+
 	branch := os.Getenv("CIRRUS_BRANCH")
+	fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
 
 	if outputDir == "" {
 		// create a temporary directory to store artifacts:
@@ -201,39 +265,60 @@ func main() {
 		}
 	}
 
-	fmt.Printf("PACKAGER_OUTPUT_DIR=%s\n", outputDir)
-	fmt.Printf("PACKAGER_TARGET_ARCH=%s\n", targetArch)
-	fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
-
 	if branch == "" {
 		branch = "master"
 	}
+	fmt.Printf("branch=%v\n", branch)
 
 	archs := make(map[string]*Arch)
 
 	// BSNES emulator customized with AngelScript integration
-	{
-		log.Printf("query latest build for github.com/JamesDunne/bsnes-angelscript on branch '%s'\n", branch)
+	buildFound := false
+retryLoop:
+	for !buildFound {
+		log.Printf("query latest builds for github.com/JamesDunne/bsnes-angelscript\n")
 		bsnesArtifactIds, err := fetchBuildArtifacts("JamesDunne", "bsnes-angelscript", branch)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		bsnesBuildEdges := bsnesArtifactIds.Data.GithubRepository.Builds.Edges
-		if len(bsnesBuildEdges) == 0 {
-			log.Fatal("no builds found!")
-		}
-
-		bsnesBuildNode := bsnesBuildEdges[0].Node
-		for _, t := range bsnesBuildNode.LatestGroupTasks {
-			//log.Printf("bsnes %s: %s\n", t.Name, t.Id)
-			arch, ok := archs[t.Name]
-			if !ok {
-				arch = &Arch{}
-				archs[t.Name] = arch
+		// look at branch build first and fall back to master:
+		for _, build := range []*Build{bsnesArtifactIds.Data.GithubRepository.BranchBuild, bsnesArtifactIds.Data.GithubRepository.MasterBuild} {
+			if build == nil {
+				continue
 			}
-			arch.Name = t.Name
-			arch.BsnesArtifactId = t.Id
+
+			buildEdges := build.Edges
+			if len(buildEdges) == 0 {
+				log.Printf("no build found for branch '%s'", branch)
+				continue
+			}
+			buildNode := buildEdges[0].Node
+			if buildNode.Status != "COMPLETED" {
+				log.Printf("build %s for branch '%s' is in status '%s'", buildNode.Id, buildNode.Branch, buildNode.Status)
+				// want to retry later:
+				log.Printf("waiting 1 minute to retry until COMPLETED\n")
+				if waitForBuild {
+					time.Sleep(time.Minute)
+					break
+				} else {
+					break retryLoop
+				}
+			}
+
+			for _, t := range buildNode.LatestGroupTasks {
+				//log.Printf("bsnes %s: %s\n", t.Name, t.Id)
+				arch, ok := archs[t.Name]
+				if !ok {
+					arch = &Arch{}
+					archs[t.Name] = arch
+				}
+				arch.Name = t.Name
+				arch.BsnesArtifactId = t.Id
+			}
+
+			buildFound = true
+			break
 		}
 	}
 
