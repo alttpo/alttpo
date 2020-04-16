@@ -939,6 +939,34 @@ class SyncedItem {
   uint16  lastValue;
 };
 
+// Represents an ALTTP sprite object from 0x10-sized tables at $7E0D00-0FA0:
+class GameSprite {
+  array<uint8> facts(0x2A);
+  uint8 index;
+
+  void readRAM(const array<uint8> &in block, uint8 index) {
+    this.index = index;
+
+    // copy sprite facts from the striped contiguous block of RAM:
+    uint j = index;
+    facts.resize(0x2A);
+    for (uint i = 0; i < 0x2A; i++, j += 0x10) {
+      facts[i] = block[j];
+    }
+  }
+
+  uint16 y         { get { return uint16(facts[0x00]) | uint16(facts[0x02] << 8); } };
+  uint16 x         { get { return uint16(facts[0x01]) | uint16(facts[0x03] << 8); } };
+  uint8  ai        { get { return facts[0x08]; } };         // 0x00 = not spawned, else spawned - used as AI pointer
+  uint8  state     { get { return facts[0x0D]; } };         // valid [0x00..0x0B]; 0x00 = dead/inactive, 0x02 = xform to puff of smoke, 0x0A = carried by Link
+  uint8  type      { get { return facts[0x12]; } };         // valid [0x00..0xF2]; will want to filter for enemies only
+  uint8  subtype   { get { return facts[0x13] & 0x1F; } };  // valid [0x00..0x1F]; based on X/Y coordinates
+  uint8  oam_count { get { return facts[0x14] & 0x0F; } };  // valid [0x00..0x0F]; count of OAM slots used; 0 means invisible
+  uint8  hp        { get { return facts[0x15]; } };
+};
+
+// TODO: debug window to show current full area and place GameSprites on it with X,Y coordinates
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -1239,9 +1267,25 @@ class GameState {
     }
   }
 
+  array<GameSprite@> enemies(0x10);
   void fetch_enemies() {
     // $7E0D00 - $7E0FA0
-    // TODO
+    uint i = 0;
+
+    // check for disabled state from either:
+    // 0x7E0D80
+    // 0x7E0DD0
+
+    array<uint8> block(0x2A0);
+    bus::read_block_u8(0x7E0D00, 0, 0x2A0, block);
+    for (i = 0; i < 0x10; i++) {
+      auto @en = @enemies[i];
+      if (@en is null) {
+        @en = @enemies[i] = GameSprite();
+      }
+      // copy in facts about each enemy from the large block of WRAM:
+      enemies[i].readRAM(block, i);
+    }
   }
 
   array<uint16> rooms;
