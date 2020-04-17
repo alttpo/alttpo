@@ -2446,10 +2446,21 @@ void post_frame() {
       if (@en is null) continue;
       // skip dead sprites:
       if (!en.is_enabled) continue;
+      // not in normal, active mode:
+      //if (en.state != 0x09) continue;
 
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
       int16 rx = int16(en.x) - int16(local.xoffs);
       int16 ry = int16(en.y) - int16(local.yoffs);
+
+      auto j = i + 1;
+      auto color = ppu::rgb(
+        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
+        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
+        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
+      );
+
+      ppu::frame.color = color;
 
       // draw box around the sprite:
       ppu::frame.rect(rx, ry, 16, 16);
