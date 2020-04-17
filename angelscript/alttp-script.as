@@ -334,6 +334,18 @@ class WorldMap {
       }
     }
 
+    loaded = true;
+  }
+
+  bool drawn = false;
+  void redrawMap() {
+    drawn = false;
+    drawMap();
+  }
+
+  void drawMap() {
+    if (drawn) return;
+
     // render map to canvas:
     lightWorld.fill(0x0000);
     drawMode7Map(lightWorld, tilemapLight, gfx, paletteLight);
@@ -344,7 +356,7 @@ class WorldMap {
     drawMode7Map(darkWorld, tilemapDark, gfx, paletteDark);
     darkWorld.update();
 
-    loaded = true;
+    drawn = true;
   }
 
   void drawMode7Map(gui::Canvas @canvas, const array<uint8> &in tilemap, const array<uint8> &in gfx, const array<uint16> &in palette) {
@@ -2287,6 +2299,7 @@ void post_frame() {
 
   if (@worldMap != null) {
     worldMap.loadMap();
+    worldMap.drawMap();
   }
 
   if (debugData) {
@@ -2361,5 +2374,13 @@ void post_frame() {
 
   if (@worldMap != null) {
     worldMap.update(local);
+  }
+}
+
+// called when bsnes changes its color palette:
+void palette_updated() {
+  //message("palette_updated()");
+  if (@worldMap != null) {
+    worldMap.redrawMap();
   }
 }
