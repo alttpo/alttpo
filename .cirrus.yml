@@ -5,6 +5,7 @@ linux-x86_64-binaries_task:
     environment:
         PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
         PACKAGER_TARGET_ARCH: linux-x86_64-binaries
+        PACKAGER_WAIT_FOR_BUILD: 'true'
     compile_script:
         - go run packager/main.go
 
@@ -26,6 +27,7 @@ windows-x86_64-binaries_task:
     environment:
         PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
         PACKAGER_TARGET_ARCH: windows-x86_64-binaries
+        PACKAGER_WAIT_FOR_BUILD: 'true'
     compile_script:
         - go run packager/main.go
 
@@ -47,6 +49,7 @@ windows-x86_32-binaries_task:
     environment:
         PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
         PACKAGER_TARGET_ARCH: windows-x86_32-binaries
+        PACKAGER_WAIT_FOR_BUILD: 'true'
     compile_script:
         - go run packager/main.go
 
@@ -69,6 +72,7 @@ macOS-x86_64-binaries_task:
     environment:
         PACKAGER_OUTPUT_DIR: alttp-multiplayer-nightly
         PACKAGER_TARGET_ARCH: macOS-x86_64-binaries
+        PACKAGER_WAIT_FOR_BUILD: 'true'
     compile_script:
         - go run packager/main.go
 
