@@ -9,6 +9,9 @@ bool debugOAM = false;
 bool debugSprites = false;
 
 void init() {
+  // Auto-detect ROM version:
+  @rom = detect();
+
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
   settings.Group = "test";
@@ -19,16 +22,17 @@ void init() {
     settings.start();
     settings.hide();
   }
+
   if (debugSprites) {
     @sprites = SpritesWindow();
   }
+
   @worldMap = WorldMap();
   if (debugOAM) {
     @oamWindow = OAMWindow();
   }
 
-  // Auto-detect ROM version:
-  @rom = detect();
+  @gameSpriteWindow = GameSpriteWindow();
 }
 
 // Lookup table of ROM addresses depending on version:
@@ -643,6 +647,113 @@ class OAMWindow {
   }
 };
 OAMWindow @oamWindow;
+
+class GameSpriteWindow {
+  gui::Color clrYellow;
+  gui::Color clrDisabled;
+  gui::Color clrBlack;
+
+  gui::Window @window;
+  array<gui::Label@> col(16);
+
+  GameSpriteWindow() {
+    clrYellow   = gui::Color(240, 240,   0);
+    clrDisabled = gui::Color( 80,  80,  80);
+    clrBlack    = gui::Color(0,0,0);
+
+    @window = gui::Window(300, 240*8*3, true);
+    window.title = "Game Sprites";
+    window.backgroundColor = clrBlack;
+    window.font = gui::Font("{mono}", 8);
+    window.size = gui::Size(200+10+5, 20*16);
+
+    auto @hl = gui::HorizontalLayout();
+      // first label column:
+      auto @vl = gui::VerticalLayout();
+      for (int j=0; j<16; j++) {
+        auto @lbl = gui::Label();
+        lbl.foregroundColor = clrYellow;
+        lbl.text = fmtHex(j,1)+":";
+        vl.append(lbl, gui::Size(-1, 0));
+      }
+      vl.resize();
+      hl.append(vl, gui::Size(10, -1));
+
+      // second value column:
+      @vl = gui::VerticalLayout();
+      col.resize(16);
+      for (int j=0; j<16; j++) {
+        @col[j] = gui::Label();
+        col[j].foregroundColor = clrBlack;
+        col[j].backgroundColor = clrDisabled;
+        col[j].text = "";
+        vl.append(col[j], gui::Size(-1, 0));
+      }
+      vl.resize();
+      hl.append(vl, gui::Size(200, -1));
+    window.append(hl);
+
+    hl.resize();
+    window.visible = true;
+  }
+
+  void show() {
+    window.visible = true;
+  }
+
+  void hide() {
+    window.visible = false;
+  }
+
+  // must be run from post_frame():
+  void update() {
+    if (@local.enemies == null) return;
+
+    for (int i = 0; i < 0x10; i++) {
+      auto @en = @local.enemies[i];
+      if (@en is null) continue;
+
+      // generate a color:
+      auto j = i;
+      auto color = ppu::rgb(
+        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
+        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
+        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
+      );
+      auto rgbColor = gui::Color(
+        ((j & 4) >> 2) * 148 + ((j & 8) >> 3) * 107,  // red
+        ((j & 2) >> 1) * 148 + ((j & 8) >> 3) * 107,  // green
+        ((j & 1)) * 148 + ((j & 8) >> 3) * 107        // blue
+      );
+
+      // set 24-bit equivalent color:
+      col[i].foregroundColor = (en.is_enabled) ? rgbColor : clrBlack;
+      col[i].backgroundColor = (en.is_enabled) ? clrBlack : clrDisabled;
+      // format text:
+      col[i].text = "t=" + fmtHex(en.type, 2) + " (" + fmtHex(en.x,4) + "," + fmtHex(en.y,4) + ")";
+
+      // don't draw box around dead sprites:
+      if (en.is_enabled) {
+        // not in normal, active mode:
+        //if (en.state != 0x09) continue;
+
+        // subtract BG2 offset from sprite x,y coords to get local screen coords:
+        int16 rx = int16(en.x) - int16(local.xoffs);
+        int16 ry = int16(en.y) - int16(local.yoffs);
+
+        ppu::frame.color = color;
+
+        // draw box around the sprite:
+        ppu::frame.rect(rx, ry, 16, 16);
+
+        // draw sprite type value above box:
+        ry -= ppu::frame.font_height;
+        ppu::frame.text(rx, ry, fmtHex(en.type, 2));
+      }
+    }
+  }
+};
+GameSpriteWindow @gameSpriteWindow;
 
 class Sprite {
   uint8 index;
@@ -2440,35 +2551,8 @@ void post_frame() {
     worldMap.update(local);
   }
 
-  if (@local.enemies != null) {
-    for (int i = 0; i < 0x10; i++) {
-      auto @en = @local.enemies[i];
-      if (@en is null) continue;
-      // skip dead sprites:
-      if (!en.is_enabled) continue;
-      // not in normal, active mode:
-      //if (en.state != 0x09) continue;
-
-      // subtract BG2 offset from sprite x,y coords to get local screen coords:
-      int16 rx = int16(en.x) - int16(local.xoffs);
-      int16 ry = int16(en.y) - int16(local.yoffs);
-
-      auto j = i + 1;
-      auto color = ppu::rgb(
-        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
-      );
-
-      ppu::frame.color = color;
-
-      // draw box around the sprite:
-      ppu::frame.rect(rx, ry, 16, 16);
-
-      // draw sprite type value above box:
-      ry -= ppu::frame.font_height;
-      ppu::frame.text(rx, ry, fmtHex(en.type, 2));
-    }
+  if (@gameSpriteWindow != null) {
+    gameSpriteWindow.update();
   }
 }
 
