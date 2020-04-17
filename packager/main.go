@@ -297,9 +297,9 @@ retryLoop:
 			if buildNode.Status != "COMPLETED" {
 				log.Printf("build %s for branch '%s' is in status '%s'", buildNode.Id, buildNode.Branch, buildNode.Status)
 				// want to retry later:
-				log.Printf("waiting 1 minute to retry until COMPLETED\n")
+				log.Printf("waiting 15 seconds to retry until COMPLETED\n")
 				if waitForBuild {
-					time.Sleep(time.Minute)
+					time.Sleep(time.Second * 15)
 					break
 				} else {
 					break retryLoop
