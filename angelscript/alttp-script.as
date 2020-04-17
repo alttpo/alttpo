@@ -661,11 +661,13 @@ class GameSpriteWindow {
     clrDisabled = gui::Color( 80,  80,  80);
     clrBlack    = gui::Color(0,0,0);
 
+    int charCount = 34+84;
+
     @window = gui::Window(300, 240*8*3, true);
     window.title = "Game Sprites";
     window.backgroundColor = clrBlack;
     window.font = gui::Font("{mono}", 8);
-    window.size = gui::Size(200+10+5, 20*16);
+    window.size = gui::Size(8*charCount+10+5, 19*16);
 
     auto @hl = gui::HorizontalLayout();
       // first label column:
@@ -690,7 +692,7 @@ class GameSpriteWindow {
         vl.append(col[j], gui::Size(-1, 0));
       }
       vl.resize();
-      hl.append(vl, gui::Size(200, -1));
+      hl.append(vl, gui::Size(8*charCount, -1));
     window.append(hl);
 
     hl.resize();
@@ -730,7 +732,17 @@ class GameSpriteWindow {
       col[i].foregroundColor = (en.is_enabled) ? rgbColor : clrBlack;
       col[i].backgroundColor = (en.is_enabled) ? clrBlack : clrDisabled;
       // format text:
-      col[i].text = "t=" + fmtHex(en.type, 2) + " (" + fmtHex(en.x,4) + "," + fmtHex(en.y,4) + ")";
+      auto text = "(" + fmtHex(en.x,4) + "," + fmtHex(en.y,4) + ")" +
+        " st=" + fmtHex(en.state, 1) +
+        " ty=" + fmtHex(en.type, 2) + "." + fmtHex(en.subtype, 2) +
+        " ai=" + fmtHex(en.ai, 2) +
+        " hp=" + fmtHex(en.hp, 2) +
+        " oc=" + fmtHex(en.oam_count, 2) +
+        " ";
+      for (int j = 0; j < 0x2A; j++) {
+        text += fmtHex(en.facts[j],2);
+      }
+      col[i].text = text;
 
       // don't draw box around dead sprites:
       if (en.is_enabled) {
@@ -1074,6 +1086,7 @@ class GameSprite {
   uint8  subtype   { get { return facts[0x13] & 0x1F; } };  // valid [0x00..0x1F]; based on X/Y coordinates
   uint8  oam_count { get { return facts[0x14] & 0x0F; } };  // valid [0x00..0x0F]; count of OAM slots used; 0 means invisible
   uint8  hp        { get { return facts[0x15]; } };
+  uint8  hitbox    { get { return facts[0x26] & 0x1F; } };
 
   bool is_enabled  { get { return state != 0; } };
 };
