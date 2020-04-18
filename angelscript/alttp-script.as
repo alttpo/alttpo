@@ -663,7 +663,7 @@ class GameSpriteWindow {
 
     int charCount = 34+84;
 
-    @window = gui::Window(300, 240*8, true);
+    @window = gui::Window(300, 240*3, true);
     window.title = "Game Sprites";
     window.backgroundColor = clrBlack;
     window.font = gui::Font("{mono}", 8);
