@@ -716,16 +716,15 @@ class GameSpriteWindow {
       if (@en is null) continue;
 
       // generate a color:
-      auto j = i;
       auto color = ppu::rgb(
-        ((j & 4) >> 2) * 12 + ((j & 8) >> 3) * 12 + 7,
-        ((j & 2) >> 1) * 12 + ((j & 8) >> 3) * 12 + 7,
-        ((j & 1)     ) * 12 + ((j & 8) >> 3) * 12 + 7
+        ((i & 4) >> 2) * 12 + ((i & 8) >> 3) * 12 + 7,
+        ((i & 2) >> 1) * 12 + ((i & 8) >> 3) * 12 + 7,
+        ((i & 1)     ) * 12 + ((i & 8) >> 3) * 12 + 7
       );
       auto rgbColor = gui::Color(
-        ((j & 4) >> 2) * 98 + ((j & 8) >> 3) * 98 + 58,  // red
-        ((j & 2) >> 1) * 98 + ((j & 8) >> 3) * 98 + 58,  // green
-        ((j & 1)     ) * 98 + ((j & 8) >> 3) * 98 + 58   // blue
+        ((i & 4) >> 2) * 98 + ((i & 8) >> 3) * 98 + 58,  // red
+        ((i & 2) >> 1) * 98 + ((i & 8) >> 3) * 98 + 58,  // green
+        ((i & 1)     ) * 98 + ((i & 8) >> 3) * 98 + 58   // blue
       );
 
       // set 24-bit equivalent color:
@@ -1104,6 +1103,7 @@ class GameState {
   array<uint16> reloc(512);
 
   // values copied from RAM:
+  uint8  frame;
   uint32 location;
   uint32 last_location;
 
@@ -1265,6 +1265,9 @@ class GameState {
   uint16 last_overworld_y;
 
   void fetch() {
+    // read frame counter (increments from 00 to FF and wraps around):
+    frame = bus::read_u8(0x7E00AA);
+
     if (is_it_a_bad_time()) {
       if (!can_sample_location()) {
         x = 0xFFFF;
@@ -1728,25 +1731,73 @@ class GameState {
   }
 
   void send() {
-    // build envelope:
-    array<uint8> envelope = create_envelope();
+    // send one packet:
+    {
+      // build server envelope:
+      array<uint8> envelope = create_envelope();
 
-    // append local state to remote player:
-    serialize(envelope);
+      // script protocol 0x01:
+      envelope.insertLast(uint8(0x01));
 
-    // send envelope to server:
-    //message("sent " + fmtInt(envelope.length()) + " bytes");
-    sock.send(0, envelope.length(), envelope);
+      // protocol starts with frame number to correlate them together:
+      envelope.insertLast(frame);
+
+      // append local state to remote player:
+      serialize_location(envelope);
+      serialize_sfx(envelope);
+      serialize_sprites(envelope);
+      serialize_chrs(envelope);
+
+      // send packet to server:
+      //message("sent " + fmtInt(envelope.length()) + " bytes");
+      sock.send(0, envelope.length(), envelope);
+    }
+
+    // send another packet:
+    {
+      array<uint8> envelope = create_envelope();
+
+      // script protocol 0x01:
+      envelope.insertLast(uint8(0x01));
+
+      // protocol starts with frame number to correlate them together:
+      envelope.insertLast(frame);
+
+      // append local state to remote player:
+      serialize_items(envelope);
+      serialize_tilemaps(envelope);
+
+      // send packet to server:
+      //message("sent " + fmtInt(envelope.length()) + " bytes");
+      sock.send(0, envelope.length(), envelope);
+    }
   }
 
-  void serialize(array<uint8> &r) {
-    // start with sentinel value to make sure deserializer knows it's the start of a message:
+  void serialize_location(array<uint8> &r) {
+    r.insertLast(uint8(0x01));
+
+    r.insertLast(module);
+    r.insertLast(sub_module);
+    r.insertLast(sub_sub_module);
+
     r.insertLast(location);
+
     r.insertLast(x);
     r.insertLast(y);
 
+    r.insertLast(last_overworld_x);
+    r.insertLast(last_overworld_y);
+  }
+
+  void serialize_sfx(array<uint8> &r) {
+    r.insertLast(uint8(0x02));
+
     r.insertLast(sfx1);
     r.insertLast(sfx2);
+  }
+
+  void serialize_sprites(array<uint8> &r) {
+    r.insertLast(uint8(0x03));
 
     r.insertLast(uint8(sprites.length()));
 
@@ -1760,7 +1811,9 @@ class GameState {
       if (sprites[i].size != 0) continue;
       sprites[i].serialize(r);
     }
+  }
 
+  void serialize_chrs(array<uint8> &r) {
     // how many distinct characters:
     uint16 chr_count = 0;
     for (uint16 i = 0; i < 512; i++) {
@@ -1768,8 +1821,12 @@ class GameState {
       ++chr_count;
     }
 
-    // emit how many chrs:
     //message("serialize: chrs="+fmtInt(chr_count));
+    if (chr_count == 0) return;
+
+    r.insertLast(uint8(0x04));
+
+    // emit how many chrs:
     r.insertLast(chr_count);
     for (uint16 i = 0; i < 512; ++i) {
       if (chrs[i].length() == 0) continue;
@@ -1782,13 +1839,10 @@ class GameState {
       // clear the chr tile data for next frame:
       chrs[i].resize(0);
     }
+  }
 
-    // DISABLED: room sync
-    //r.insertLast(uint16(rooms.length()));
-    //if (rooms.length() > 0) {
-    //  // write room state:
-    //  r.insertLast(rooms);
-    //}
+  void serialize_items(array<uint8> &r) {
+    r.insertLast(uint8(0x05));
 
     // items: (MUST be sorted by offs)
     //message("serialize: items="+fmtInt(items.length()));
@@ -1801,9 +1855,10 @@ class GameState {
       r.insertLast(uint8(items[i].offs - 0x340));
       r.insertLast(items[i].value);
     }
+  }
 
-    r.insertLast(last_overworld_x);
-    r.insertLast(last_overworld_y);
+  void serialize_tilemaps(array<uint8> &r) {
+    r.insertLast(uint8(0x06));
 
     //message("serialize: tilemap="+fmtInt(tilemapCount));
     r.insertLast(tilemapCount);
@@ -1811,7 +1866,56 @@ class GameState {
     r.insertLast(tilemapTile);
   }
 
+  void serialize_rooms(array<uint8> &r) {
+    // DISABLED: room sync
+    //r.insertLast(uint8(0xFF));  // TBD
+    //r.insertLast(uint16(rooms.length()));
+    //if (rooms.length() > 0) {
+    //  // write room state:
+    //  r.insertLast(rooms);
+    //}
+  }
+
   bool deserialize(array<uint8> r, int c) {
+    auto protocol = r[c++];
+    //message("protocol = " + fmtHex(protocol, 2));
+    if (protocol != 0x01) {
+      message("bad protocol " + fmtHex(protocol, 2) + "!");
+      return false;
+    }
+    auto frame = r[c++];
+    //message("frame = " + fmtHex(frame, 2));
+    if (frame < this.frame) {
+      // stale data:
+      message("stale frame " + fmtHex(frame, 2) + " vs " + fmtHex(this.frame, 2));
+      return false;
+    }
+    this.frame = frame;
+
+    int maxc = int(r.length());
+    while (c < maxc) {
+      auto packetType = r[c++];
+      //message("packetType = " + fmtHex(packetType, 2));
+      switch (packetType) {
+        case 0x01: c = deserialize_location(r, c); break;
+        case 0x02: c = deserialize_sfx(r, c); break;
+        case 0x03: c = deserialize_sprites(r, c); break;
+        case 0x04: c = deserialize_chrs(r, c); break;
+        case 0x05: c = deserialize_items(r, c); break;
+        case 0x06: c = deserialize_tilemaps(r, c); break;
+        default:
+          message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
+          break;
+      }
+    }
+    return true;
+  }
+
+  int deserialize_location(array<uint8> r, int c) {
+    module = r[c++];
+    sub_module = r[c++];
+    sub_sub_module = r[c++];
+
     location = uint32(r[c++])
                | (uint32(r[c++]) << 8)
                | (uint32(r[c++]) << 16)
@@ -1820,6 +1924,14 @@ class GameState {
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
+    // last overworld coordinate when entered dungeon:
+    last_overworld_x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    last_overworld_y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    return c;
+  }
+
+  int deserialize_sfx(array<uint8> r, int c) {
     uint8 tx1, tx2;
     tx1 = r[c++];
     tx2 = r[c++];
@@ -1830,6 +1942,10 @@ class GameState {
       sfx2 = tx2;
     }
 
+    return c;
+  }
+
+  int deserialize_sprites(array<uint8> r, int c) {
     // read in OAM sprites:
     auto numsprites = r[c++];
     sprites.resize(numsprites);
@@ -1838,6 +1954,10 @@ class GameState {
       c = sprites[i].deserialize(r, c);
     }
 
+    return c;
+  }
+
+  int deserialize_chrs(array<uint8> r, int c) {
     // clear previous chr tile data:
     for (uint i = 0; i < 512; i++) {
       chrs[i].resize(0);
@@ -1858,6 +1978,10 @@ class GameState {
       }
     }
 
+    return c;
+  }
+
+  int deserialize_rooms(array<uint8> r, int c) {
     // read rooms state:
     //uint16 roomCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
     //if (roomCount > 0x128) {
@@ -1868,6 +1992,10 @@ class GameState {
     //  rooms[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     //}
 
+    return c;
+  }
+
+  int deserialize_items(array<uint8> r, int c) {
     // items: (MUST be sorted by offs)
     uint8 itemCount = r[c++];
     items.resize(itemCount);
@@ -1890,10 +2018,10 @@ class GameState {
       //}
     }
 
-    // last overworld coordinate when entered dungeon:
-    last_overworld_x = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    last_overworld_y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    return c;
+  }
 
+  int deserialize_tilemaps(array<uint8> r, int c) {
     // tilemap changes:
     tilemapCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
     tilemapAddress.resize(tilemapCount);
@@ -1905,7 +2033,7 @@ class GameState {
       tilemapTile[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     }
 
-    return true;
+    return c;
   }
 
   void update_items() {
@@ -2003,22 +2131,6 @@ class GameState {
     }
   }
 
-  uint8 adjust_sfx_pan(uint8 sfx) {
-    // Try to infer the sound's relative(ish) position from the remote player
-    // based on the encoded pan information from their screen:
-    int sx = x;
-    if ((sfx & 0x80) == 0x80) sx -= 40;
-    else if ((sfx & 0x40) == 0x40) sx += 40;
-
-    // clear original panning from remote player:
-    sfx = sfx & 0x3F;
-    // adjust pan based on sound's relative position to local player:
-    if (sx - int(local.x) <= -40) sfx |= 0x80;
-    else if (sx - int(local.x) >= 40) sfx |= 0x40;
-
-    return sfx;
-  }
-
   void update_rooms_sram() {
     for (uint i = 0; i < rooms.length(); i++) {
       // High Byte           Low Byte
@@ -2077,6 +2189,22 @@ class GameState {
     uint8 lhi = bus::read_u8(0x7E0401);
     lhi |= hi;
     bus::write_u8(0x7E0401, lhi);
+  }
+
+  uint8 adjust_sfx_pan(uint8 sfx) {
+    // Try to infer the sound's relative(ish) position from the remote player
+    // based on the encoded pan information from their screen:
+    int sx = x;
+    if ((sfx & 0x80) == 0x80) sx -= 40;
+    else if ((sfx & 0x40) == 0x40) sx += 40;
+
+    // clear original panning from remote player:
+    sfx = sfx & 0x3F;
+    // adjust pan based on sound's relative position to local player:
+    if (sx - int(local.x) <= -40) sfx |= 0x80;
+    else if (sx - int(local.x) >= 40) sfx |= 0x40;
+
+    return sfx;
   }
 
   void play_sfx() {
@@ -2310,13 +2438,14 @@ uint8 isRunning;
 bool intercepting = false;
 
 void receive() {
-  array<uint8> r(9500);
+  array<uint8> buf(1500);
   int n;
-  while ((n = sock.recv(0, 9500, r)) > 0) {
+  while ((n = sock.recv(0, 1500, buf)) > 0) {
     int c = 0;
 
-    // NOTE: this will cause exceptions during deserialization if packets are truncated
-    //r.resize(n);
+    // copy to new buffer and trim to size:
+    array<uint8> r = buf;
+    r.resize(n);
 
     // verify envelope header:
     uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
