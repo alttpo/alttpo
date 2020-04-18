@@ -1,19 +1,18 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/pierrre/archivefile/zip"
 )
 
 type GQLQuery struct {
@@ -163,7 +162,7 @@ type Arch struct {
 	BsnesArtifactId string
 }
 
-func downloadAndExtractZip(url string, dir string, rename func(path string) string) (err error) {
+func downloadAndExtractZip(url string, dir string) (err error) {
 	// get ZIP file:
 	log.Printf("GET %s\n", url)
 	rsp, err := http.Get(url)
@@ -178,7 +177,7 @@ func downloadAndExtractZip(url string, dir string, rename func(path string) stri
 	}
 
 	// extract ZIP contents from memory out to local files in `dir`:
-	err = extractZip(zipBytes, dir, rename)
+	err = extractZip(zipBytes, dir)
 	if err != nil {
 		return
 	}
@@ -186,57 +185,27 @@ func downloadAndExtractZip(url string, dir string, rename func(path string) stri
 	return
 }
 
-func extractZip(zipBytes []byte, dir string, rename func(path string) string) (err error) {
+func extractZip(zipBytes []byte, dir string) (err error) {
 	log.Printf("extracting to '%s'\n", dir)
 
-	zr, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	err = zip.Unarchive(bytes.NewReader(zipBytes), int64(len(zipBytes)), dir, func(archivePath string) {
+		log.Printf("extracting '%s'\n", archivePath)
+	})
+
+	return
+}
+
+func zipDirectory(zipName string, dir string) (err error) {
+	var w *os.File
+	w, err = os.Create(zipName)
 	if err != nil {
 		return
 	}
-
-	// extract files:
-	for _, f := range zr.File {
-		fpath := rename(f.Name)
-
-		log.Printf("extracting '%s'\n", fpath)
-
-		err = func() error {
-			fdir := filepath.Join(dir, filepath.Dir(fpath))
-			os.MkdirAll(fdir, 0700)
-
-			r, err := f.Open()
-			if err != nil {
-				return err
-			}
-			defer r.Close()
-
-			path := filepath.Join(dir, fpath)
-			of, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, f.Mode())
-			if err != nil {
-				return err
-			}
-
-			_, err = io.Copy(of, r)
-			if err != nil {
-				of.Close()
-				return err
-			}
-			of.Close()
-
-			err = os.Chtimes(path, f.Modified, f.Modified)
-			if err != nil {
-				log.Printf("WARN: chtimes: %v\n", err)
-			}
-
-			// TODO apply `f.Mode().Perm()`
-
-			return nil
-		}()
-		if err != nil {
-			return
-		}
-	}
-
+	defer w.Close()
+	err = zip.Archive(dir, w, func(archivePath string) {
+		log.Printf("archiving '%s'\n", archivePath)
+	})
+	log.Printf("archived to '%s'\n", zipName)
 	return
 }
 
@@ -248,22 +217,14 @@ func main() {
 	// if strconv cannot parse, will default to false. ignore the error.
 	waitForBuild, _ := strconv.ParseBool(waitStr)
 
-	outputDir := os.Getenv("PACKAGER_OUTPUT_DIR")
-	fmt.Printf("PACKAGER_OUTPUT_DIR=%s\n", outputDir)
-
 	targetArch := os.Getenv("PACKAGER_TARGET_ARCH")
 	fmt.Printf("PACKAGER_TARGET_ARCH=%s\n", targetArch)
 
 	branch := os.Getenv("CIRRUS_BRANCH")
 	fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
 
-	if outputDir == "" {
-		// create a temporary directory to store artifacts:
-		outputDir, err = ioutil.TempDir("", "alttp-build")
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	hash := os.Getenv("CIRRUS_CHANGE_IN_REPO")
+	fmt.Printf("CIRRUS_CHANGE_IN_REPO=%s\n", hash)
 
 	if branch == "" {
 		branch = "master"
@@ -294,8 +255,8 @@ retryLoop:
 				continue
 			}
 			buildNode := buildEdges[0].Node
+			log.Printf("build %s for branch '%s' is in status '%s'", buildNode.Id, buildNode.Branch, buildNode.Status)
 			if buildNode.Status != "COMPLETED" {
-				log.Printf("build %s for branch '%s' is in status '%s'", buildNode.Id, buildNode.Branch, buildNode.Status)
 				// want to retry later:
 				log.Printf("waiting 15 seconds to retry until COMPLETED\n")
 				if waitForBuild {
@@ -332,15 +293,51 @@ retryLoop:
 		os.Exit(1)
 	}
 
+	// packaging:
+	nightly := fmt.Sprintf("alttp-multiplayer-%s", hash)
+	os.RemoveAll(nightly)
+
 	// download artifact ZIP and extract:
 	bsnesZipUrl := fmt.Sprintf("https://api.cirrus-ci.com/v1/artifact/task/%s/bsnes-angelscript-nightly.zip", arch.BsnesArtifactId)
-	err = downloadAndExtractZip(bsnesZipUrl, outputDir, func(path string) string {
-		// remove bsnes-angelscript-nightly/ prefix from ZIP filenames:
-		if strings.HasPrefix(path, "bsnes-angelscript-nightly/") {
-			return path[len("bsnes-angelscript-nightly/"):]
-		}
-		return path
-	})
+	err = downloadAndExtractZip(bsnesZipUrl, ".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Rename extracted folder to new nightly folder:
+	err = os.Rename("bsnes-angelscript-nightly", nightly)
+	if err != nil {
+		log.Println(err)
+	}
+
+	//  - mkdir -p alttp-multiplayer-nightly/test-scripts
+	os.MkdirAll(nightly + "/test-scripts", os.ModeDir | os.FileMode(0755))
+
+	//  - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
+	files, err := filepath.Glob(nightly + "/*.as")
+	for _, p := range files {
+		newPath := nightly + "/test-scripts/" + p[len(nightly + "/"):]
+		os.Rename(p, newPath)
+	}
+
+	//  - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
+	files, err = filepath.Glob("angelscript/*.as")
+	for _, p := range files {
+		newPath := nightly + "/test-scripts/" + p[len("angelscript/"):]
+		os.Link(p, newPath)
+	}
+
+	//  - mv alttp-multiplayer-nightly/test-scripts/alttp-script.as alttp-multiplayer-nightly/alttp-script.as
+	os.Rename(nightly + "/test-scripts/alttp-script.as", nightly + "/alttp-script.as")
+
+	//  - cp -a README.md alttp-multiplayer-nightly
+	os.Link("README.md", nightly + "/README.md")
+
+	//  - cp -a join-a-game.png alttp-multiplayer-nightly
+	os.Link("join-a-game.png", nightly + "/join-a-game.png")
+
+	// archive nightly folder to a zip (leaving trailing slash off folder makes that the root):
+	err = zipDirectory(nightly + ".zip", nightly)
 	if err != nil {
 		log.Fatal(err)
 	}
