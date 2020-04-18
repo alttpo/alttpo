@@ -1712,22 +1712,42 @@ class GameState {
   }
 
   array<uint8> @create_envelope() {
-    // build envelope:
     array<uint8> @envelope = {};
-    // header:
-    envelope.insertLast(uint16(25887));
-    // protocol:
+
+    // server envelope:
+    {
+      // header:
+      envelope.insertLast(uint16(25887));
+      // protocol:
+      envelope.insertLast(uint8(0x01));
+      // group name:
+      envelope.insertLast(uint8(settings.Group.length()));
+      envelope.insertLast(settings.Group);
+      // player name:
+      envelope.insertLast(uint8(settings.Name.length()));
+      envelope.insertLast(settings.Name);
+      // clientType = 1 (player)
+      envelope.insertLast(uint8(1));
+    }
+
+    // script protocol 0x01:
     envelope.insertLast(uint8(0x01));
-    // group name:
-    envelope.insertLast(uint8(settings.Group.length()));
-    envelope.insertLast(settings.Group);
-    // player name:
-    envelope.insertLast(uint8(settings.Name.length()));
-    envelope.insertLast(settings.Name);
-    // clientType = 1 (player)
-    envelope.insertLast(uint8(1));
+
+    // protocol starts with frame number to correlate them together:
+    envelope.insertLast(frame);
 
     return envelope;
+  }
+
+  void send_packet(array<uint8> &in envelope) {
+    if (envelope.length() > 1452) {
+      message("packet too big to send! " + fmtInt(envelope.length()));
+      return;
+    }
+
+    // send packet to server:
+    //message("sent " + fmtInt(envelope.length()) + " bytes");
+    sock.send(0, envelope.length(), envelope);
   }
 
   void send() {
@@ -1736,40 +1756,33 @@ class GameState {
       // build server envelope:
       array<uint8> envelope = create_envelope();
 
-      // script protocol 0x01:
-      envelope.insertLast(uint8(0x01));
-
-      // protocol starts with frame number to correlate them together:
-      envelope.insertLast(frame);
-
       // append local state to remote player:
       serialize_location(envelope);
       serialize_sfx(envelope);
-      serialize_sprites(envelope);
-      serialize_chrs(envelope);
+      serialize_items(envelope);
 
-      // send packet to server:
-      //message("sent " + fmtInt(envelope.length()) + " bytes");
-      sock.send(0, envelope.length(), envelope);
+      send_packet(envelope);
     }
 
     // send another packet:
     {
       array<uint8> envelope = create_envelope();
 
-      // script protocol 0x01:
-      envelope.insertLast(uint8(0x01));
-
-      // protocol starts with frame number to correlate them together:
-      envelope.insertLast(frame);
-
       // append local state to remote player:
-      serialize_items(envelope);
+      serialize_sprites(envelope);
       serialize_tilemaps(envelope);
 
-      // send packet to server:
-      //message("sent " + fmtInt(envelope.length()) + " bytes");
-      sock.send(0, envelope.length(), envelope);
+      send_packet(envelope);
+    }
+
+    // send another packet:
+    {
+      array<uint8> envelope = create_envelope();
+
+      // append local state to remote player:
+      serialize_chrs(envelope);
+
+      send_packet(envelope);
     }
   }
 
@@ -1822,8 +1835,6 @@ class GameState {
     }
 
     //message("serialize: chrs="+fmtInt(chr_count));
-    if (chr_count == 0) return;
-
     r.insertLast(uint8(0x04));
 
     // emit how many chrs:
