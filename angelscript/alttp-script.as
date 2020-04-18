@@ -1321,6 +1321,7 @@ class GameState {
       intercepting = true;
     }
 */
+
     fetch_items();
 
     fetch_sprites();
@@ -1395,23 +1396,19 @@ class GameState {
   }
 
   array<GameSprite@> enemies(0x10);
+  array<uint8> enemiesBlock(0x2A0);
   void fetch_enemies() {
     // $7E0D00 - $7E0FA0
     uint i = 0;
 
-    // check for disabled state from either:
-    // 0x7E0D80
-    // 0x7E0DD0
-
-    array<uint8> block(0x2A0);
-    bus::read_block_u8(0x7E0D00, 0, 0x2A0, block);
+    bus::read_block_u8(0x7E0D00, 0, 0x2A0, enemiesBlock);
     for (i = 0; i < 0x10; i++) {
       auto @en = @enemies[i];
       if (@en is null) {
         @en = @enemies[i] = GameSprite();
       }
       // copy in facts about each enemy from the large block of WRAM:
-      enemies[i].readRAM(block, i);
+      enemies[i].readRAM(enemiesBlock, i);
     }
   }
 
@@ -1760,6 +1757,7 @@ class GameState {
       serialize_location(envelope);
       serialize_sfx(envelope);
       serialize_items(envelope);
+      serialize_enemies(envelope);
 
       send_packet(envelope);
     }
@@ -1887,6 +1885,13 @@ class GameState {
     //}
   }
 
+  void serialize_enemies(array<uint8> &r) {
+    r.insertLast(uint8(0x07));
+
+    // 0x2A0 bytes
+    r.insertLast(enemiesBlock);
+  }
+
   bool deserialize(array<uint8> r, int c) {
     auto protocol = r[c++];
     //message("protocol = " + fmtHex(protocol, 2));
@@ -1914,11 +1919,13 @@ class GameState {
         case 0x04: c = deserialize_chrs(r, c); break;
         case 0x05: c = deserialize_items(r, c); break;
         case 0x06: c = deserialize_tilemaps(r, c); break;
+        case 0x07: c = deserialize_enemies(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
       }
     }
+
     return true;
   }
 
@@ -2002,6 +2009,15 @@ class GameState {
     //for (uint i = 0; i < roomCount; i++) {
     //  rooms[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     //}
+
+    return c;
+  }
+
+  int deserialize_enemies(array<uint8> r, int c) {
+    enemiesBlock.resize(0x2A0);
+    for (int i = 0; i < 0x2A0; i++) {
+      enemiesBlock[i] = r[c++];
+    }
 
     return c;
   }
@@ -2572,6 +2588,8 @@ void pre_frame() {
   // receive network updates from remote players:
   receive();
 
+  auto updated_enemies = false;
+
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
     auto @remote = players[i];
@@ -2585,6 +2603,13 @@ void pre_frame() {
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
+      // update enemies state from lowest-index player in the room:
+      if (!updated_enemies && remote.enemiesBlock.length() == 0x2A0) {
+        bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.enemiesBlock);
+        remote.enemiesBlock.resize(0);
+        updated_enemies = true;
+      }
+
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
       int16 rx = int16(remote.x) - local.xoffs;
       int16 ry = int16(remote.y) - local.yoffs;
@@ -2598,6 +2623,8 @@ void pre_frame() {
       // update tilemap:
       remote.update_tilemap();
     }
+
+    remote.enemiesBlock.resize(0);
   }
 
   local.update_items();
