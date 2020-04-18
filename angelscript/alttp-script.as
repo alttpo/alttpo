@@ -663,7 +663,7 @@ class GameSpriteWindow {
 
     int charCount = 34+84;
 
-    @window = gui::Window(300, 240*8*3, true);
+    @window = gui::Window(300, 240*8, true);
     window.title = "Game Sprites";
     window.backgroundColor = clrBlack;
     window.font = gui::Font("{mono}", 8);
@@ -718,14 +718,14 @@ class GameSpriteWindow {
       // generate a color:
       auto j = i;
       auto color = ppu::rgb(
-        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
+        ((j & 4) >> 2) * 12 + ((j & 8) >> 3) * 12 + 7,
+        ((j & 2) >> 1) * 12 + ((j & 8) >> 3) * 12 + 7,
+        ((j & 1)     ) * 12 + ((j & 8) >> 3) * 12 + 7
       );
       auto rgbColor = gui::Color(
-        ((j & 4) >> 2) * 148 + ((j & 8) >> 3) * 107,  // red
-        ((j & 2) >> 1) * 148 + ((j & 8) >> 3) * 107,  // green
-        ((j & 1)) * 148 + ((j & 8) >> 3) * 107        // blue
+        ((j & 4) >> 2) * 98 + ((j & 8) >> 3) * 98 + 58,  // red
+        ((j & 2) >> 1) * 98 + ((j & 8) >> 3) * 98 + 58,  // green
+        ((j & 1)     ) * 98 + ((j & 8) >> 3) * 98 + 58   // blue
       );
 
       // set 24-bit equivalent color:
