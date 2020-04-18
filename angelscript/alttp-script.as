@@ -39,6 +39,13 @@ abstract class ROMMapping {
   uint32 get_palette_darkWorldMap()  { return 0; }
 };
 
+class JPROMMapping : ROMMapping {
+  uint32 get_tilemap_lightWorldMap() { return 0x0AC739; }
+  uint32 get_tilemap_darkWorldMap()  { return 0x0AD739; }
+  uint32 get_palette_lightWorldMap() { return 0x0ADB39; }
+  uint32 get_palette_darkWorldMap()  { return 0x0ADC39; }
+};
+
 class USROMMapping : ROMMapping {
   uint32 get_tilemap_lightWorldMap() { return 0x0AC727; }
   uint32 get_tilemap_darkWorldMap()  { return 0x0AD727; }
@@ -46,11 +53,11 @@ class USROMMapping : ROMMapping {
   uint32 get_palette_darkWorldMap()  { return 0x0ADC27; }
 };
 
-class JPROMMapping : ROMMapping {
-  uint32 get_tilemap_lightWorldMap() { return 0x0AC739; }
-  uint32 get_tilemap_darkWorldMap()  { return 0x0AD739; }
-  uint32 get_palette_lightWorldMap() { return 0x0ADB39; }
-  uint32 get_palette_darkWorldMap()  { return 0x0ADC39; }
+class EUROMMapping : ROMMapping {
+  uint32 get_tilemap_lightWorldMap() { return 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  { return 0x0AD727; }
+  uint32 get_palette_lightWorldMap() { return 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  { return 0x0ADC27; }
 };
 
 ROMMapping@ detect() {
@@ -59,8 +66,17 @@ ROMMapping@ detect() {
   auto title = sig.toString(0, 22);
   message("ROM title: \"" + title + "\"");
   if (title == "THE LEGEND OF ZELDA   ") {
-    message("Recognized US ROM version.");
-    return USROMMapping();
+    auto region = bus::read_u8(0x00FFD9);
+    if (region == 0x01) {
+      message("Recognized US ROM version.");
+      return USROMMapping();
+    } else if (region == 0x02) {
+      message("Recognized EU ROM version.");
+      return EUROMMapping();
+    } else {
+      message("Unrecognized ROM version but has US title; assuming US ROM.");
+      return USROMMapping();
+    }
   } else if (title == "ZELDANODENSETSU       ") {
     message("Recognized JP ROM version.");
     return JPROMMapping();
@@ -305,8 +321,10 @@ class WorldMap {
     {
       // direct translation of NMI_LightWorldMode7Tilemap from bank00.asm:
       int p02 = 0;
+      array<uint16> offsets = {0x0000, 0x0020, 0x1000, 0x1020};
       for (int p04 = 0; p04 < 8; p04 += 2) {
-        uint16 p00 = bus::read_u16(0x008E4C + p04);
+        //uint16 p00 = bus::read_u16(0x008E4C + p04);
+        uint16 p00 = offsets[p04 >> 1];
         for (int p06 = 0; p06 < 0x20; p06++) {
           int dest = p00;
           p00 += 0x80;  // = width of mode7 tilemap (128x128 tiles)
