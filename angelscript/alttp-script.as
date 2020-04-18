@@ -1111,7 +1111,7 @@ class GameState {
   int16 xoffs;
   int16 yoffs;
 
-  uint16 x, y, z;
+  uint16 x, y;
 
   uint8 module;
   uint8 sub_module;
@@ -1269,7 +1269,6 @@ class GameState {
       if (!can_sample_location()) {
         x = 0xFFFF;
         y = 0xFFFF;
-        z = 0xFFFF;
       }
       return;
     }
@@ -1306,7 +1305,6 @@ class GameState {
 
     y = bus::read_u16(0x7E0020);
     x = bus::read_u16(0x7E0022);
-    z = bus::read_u16(0x7E0024);
 
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
@@ -1710,9 +1708,9 @@ class GameState {
     bus::read_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
   }
 
-  void send() {
+  array<uint8> @create_envelope() {
     // build envelope:
-    array<uint8> envelope;
+    array<uint8> @envelope = {};
     // header:
     envelope.insertLast(uint16(25887));
     // protocol:
@@ -1726,15 +1724,15 @@ class GameState {
     // clientType = 1 (player)
     envelope.insertLast(uint8(1));
 
-    // append local state to remote player:
-    int beforeLen = envelope.length();
-    serialize(envelope);
+    return envelope;
+  }
 
-    // length check:
-    //if ((envelope.length() - beforeLen) != int(expected_packet_size)) {
-    //  message("send(): failed to produce a packet of the expected size!");
-    //  return;
-    //}
+  void send() {
+    // build envelope:
+    array<uint8> envelope = create_envelope();
+
+    // append local state to remote player:
+    serialize(envelope);
 
     // send envelope to server:
     //message("sent " + fmtInt(envelope.length()) + " bytes");
@@ -1743,11 +1741,9 @@ class GameState {
 
   void serialize(array<uint8> &r) {
     // start with sentinel value to make sure deserializer knows it's the start of a message:
-    r.insertLast(uint16(0xFEEF));
     r.insertLast(location);
     r.insertLast(x);
     r.insertLast(y);
-    r.insertLast(z);
 
     r.insertLast(sfx1);
     r.insertLast(sfx2);
@@ -1816,14 +1812,6 @@ class GameState {
   }
 
   bool deserialize(array<uint8> r, int c) {
-    // deserialize data packet:
-    auto sentinel = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    if (sentinel != 0xFEEF) {
-      // garbled or split packet
-      message("garbled packet");
-      return false;
-    }
-
     location = uint32(r[c++])
                | (uint32(r[c++]) << 8)
                | (uint32(r[c++]) << 16)
@@ -1831,7 +1819,6 @@ class GameState {
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    z = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     uint8 tx1, tx2;
     tx1 = r[c++];
