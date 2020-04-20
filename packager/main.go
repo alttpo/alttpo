@@ -22,9 +22,10 @@ type GQLQuery struct {
 type Build struct {
 	Edges []struct {
 		Node struct {
-			Id string `json:"id"`
-			Status string `json:"status"`
-			Branch string `json:"branch"`
+			Id               string `json:"id"`
+			Status           string `json:"status"`
+			Branch           string `json:"branch"`
+			Hash             string `json:"changeIdInRepo"`
 			LatestGroupTasks []struct {
 				Id     string `json:"id"`
 				Name   string `json:"name"`
@@ -68,6 +69,7 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
           id
           status
           branch
+          changeIdInRepo
           latestGroupTasks {
             id
             name
@@ -82,6 +84,7 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
           id
           status
           branch
+          changeIdInRepo
           latestGroupTasks {
             id
             name
@@ -109,6 +112,7 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
           id
           status
           branch
+          changeIdInRepo
           latestGroupTasks {
             id
             name
@@ -120,8 +124,8 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
   }
 }`,
 			Variables: map[string]interface{}{
-				"owner":  owner,
-				"name":   repository,
+				"owner": owner,
+				"name":  repository,
 			},
 		}
 	}
@@ -160,6 +164,7 @@ func fetchBuildArtifacts(owner, repository, branch string) (gqlResponse *GQLResp
 type Arch struct {
 	Name            string
 	BsnesArtifactId string
+	Hash            string
 }
 
 func downloadAndExtractZip(url string, dir string) (err error) {
@@ -255,7 +260,7 @@ retryLoop:
 				continue
 			}
 			buildNode := buildEdges[0].Node
-			log.Printf("build %s for branch '%s' is in status '%s'", buildNode.Id, buildNode.Branch, buildNode.Status)
+			log.Printf("build %s for branch '%s' %s is in status '%s'", buildNode.Id, buildNode.Branch, buildNode.Hash, buildNode.Status)
 			if buildNode.Status != "COMPLETED" {
 				// want to retry later:
 				log.Printf("waiting 15 seconds to retry until COMPLETED\n")
@@ -276,6 +281,7 @@ retryLoop:
 				}
 				arch.Name = t.Name
 				arch.BsnesArtifactId = t.Id
+				arch.Hash = buildNode.Hash
 			}
 
 			buildFound = true
@@ -294,7 +300,7 @@ retryLoop:
 	}
 
 	// packaging:
-	nightly := fmt.Sprintf("alttp-multiplayer-%s", hash)
+	nightly := fmt.Sprintf("alttp-multiplayer-%s-%s", hash[:7], arch.Hash[:7])
 	os.RemoveAll(nightly)
 
 	// download artifact ZIP and extract:
@@ -311,12 +317,12 @@ retryLoop:
 	}
 
 	//  - mkdir -p alttp-multiplayer-nightly/test-scripts
-	os.MkdirAll(nightly + "/test-scripts", os.ModeDir | os.FileMode(0755))
+	os.MkdirAll(nightly+"/test-scripts", os.ModeDir|os.FileMode(0755))
 
 	//  - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
 	files, err := filepath.Glob(nightly + "/*.as")
 	for _, p := range files {
-		newPath := nightly + "/test-scripts/" + p[len(nightly + "/"):]
+		newPath := nightly + "/test-scripts/" + p[len(nightly+"/"):]
 		os.Rename(p, newPath)
 	}
 
@@ -328,16 +334,16 @@ retryLoop:
 	}
 
 	//  - mv alttp-multiplayer-nightly/test-scripts/alttp-script.as alttp-multiplayer-nightly/alttp-script.as
-	os.Rename(nightly + "/test-scripts/alttp-script.as", nightly + "/alttp-script.as")
+	os.Rename(nightly+"/test-scripts/alttp-script.as", nightly+"/alttp-script.as")
 
 	//  - cp -a README.md alttp-multiplayer-nightly
-	os.Link("README.md", nightly + "/README.md")
+	os.Link("README.md", nightly+"/README.md")
 
 	//  - cp -a join-a-game.png alttp-multiplayer-nightly
-	os.Link("join-a-game.png", nightly + "/join-a-game.png")
+	os.Link("join-a-game.png", nightly+"/join-a-game.png")
 
 	// archive nightly folder to a zip (leaving trailing slash off folder makes that the root):
-	err = zipDirectory(nightly + ".zip", nightly)
+	err = zipDirectory(nightly+".zip", nightly)
 	if err != nil {
 		log.Fatal(err)
 	}
