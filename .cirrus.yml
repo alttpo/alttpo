@@ -7,8 +7,12 @@ windows-x86_64-binaries_task:
         PACKAGER_WAIT_FOR_BUILD: 'true'
     package_script:
         - pushd packager && go build && popd && ./packager/alttp-packager
+    build_script:
+        - pushd alttp-server && GOOS=windows GOARCH=amd64 go build && popd
+        - apt-get update && apt-get install -y zip
+        - zip alttp-server-${CIRRUS_CHANGE_IN_REPO:0:7}.zip alttp-server/alttp-server.exe
     binaries_artifacts:
-        path: "alttp-multiplayer-*.zip"
+        path: "alttp-*.zip"
 
 windows-x86_32-binaries_task:
     container:
@@ -19,8 +23,12 @@ windows-x86_32-binaries_task:
         PACKAGER_WAIT_FOR_BUILD: 'true'
     package_script:
         - pushd packager && go build && popd && ./packager/alttp-packager
+    build_script:
+        - pushd alttp-server && GOOS=windows GOARCH=386 go build && popd
+        - apt-get update && apt-get install -y zip
+        - zip alttp-server-${CIRRUS_CHANGE_IN_REPO:0:7}.zip alttp-server/alttp-server.exe
     binaries_artifacts:
-        path: "alttp-multiplayer-*.zip"
+        path: "alttp-*.zip"
 
 macOS-x86_64-binaries_task:
     container:
@@ -31,8 +39,12 @@ macOS-x86_64-binaries_task:
         PACKAGER_WAIT_FOR_BUILD: 'true'
     package_script:
         - pushd packager && go build && popd && ./packager/alttp-packager
+    build_script:
+        - pushd alttp-server && GOOS=darwin GOARCH=amd64 go build && popd
+        - apt-get update && apt-get install -y zip
+        - zip alttp-server-${CIRRUS_CHANGE_IN_REPO:0:7}.zip alttp-server/alttp-server
     binaries_artifacts:
-        path: "alttp-multiplayer-*.zip"
+        path: "alttp-*.zip"
 
 linux-x86_64-binaries_task:
     container:
@@ -43,5 +55,9 @@ linux-x86_64-binaries_task:
         PACKAGER_WAIT_FOR_BUILD: 'true'
     package_script:
         - pushd packager && go build && popd && ./packager/alttp-packager
+    build_script:
+        - pushd alttp-server && GOOS=linux GOARCH=amd64 go build && popd
+        - apt-get update && apt-get install -y zip
+        - zip alttp-server-${CIRRUS_CHANGE_IN_REPO:0:7}.zip alttp-server/alttp-server
     binaries_artifacts:
-        path: "alttp-multiplayer-*.zip"
+        path: "alttp-*.zip"
