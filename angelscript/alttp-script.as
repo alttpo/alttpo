@@ -28,6 +28,7 @@ void init() {
   }
 
   @worldMap = WorldMap();
+
   if (debugOAM) {
     @oamWindow = OAMWindow();
   }
