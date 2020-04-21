@@ -109,12 +109,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("getting ready to listen on %s %s; pass the -listen flag to change", network, udpAddr)
 	conn, err = net.ListenUDP(network, udpAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
 
+	log.Printf("listening on %s %s", network, udpAddr)
 	udpMessages := make(chan UDPMessage)
 	go getPackets(conn, udpMessages)
 
@@ -158,7 +160,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 
 	// 0x651F = 25887 = "ALTTP" on dialpad (T9)
 	if header != 25887 {
-		log.Print("bad header\n")
+		log.Printf("bad header %04x\n", header)
 		return
 	}
 
@@ -172,7 +174,7 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	case 1:
 		return processProtocol01(message, buf)
 	default:
-		log.Printf("Unknown protocol 0x%02x\n", protocol)
+		log.Printf("unknown protocol 0x%02x\n", protocol)
 	}
 
 	return
