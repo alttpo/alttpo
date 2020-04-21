@@ -33,9 +33,7 @@ type Client struct {
 	ClientKey ClientKey
 	Index     uint16
 
-	ClientType uint8
-	Name       string
-	LastSeen   time.Time
+	LastSeen time.Time
 }
 
 //type ClientGroup map[ClientKey]*Client
@@ -270,14 +268,12 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 		// add this client to set of clients:
 		*client = Client{
-			UDPAddr:    *addr,
-			IsAlive:    true,
-			Group:      group,
-			ClientKey:  clientKey,
-			Index:      uint16(free),
-			ClientType: clientType,
-			Name:       name,
-			LastSeen:   time.Now(),
+			UDPAddr:   *addr,
+			IsAlive:   true,
+			Group:     group,
+			ClientKey: clientKey,
+			Index:     uint16(free),
+			LastSeen:  time.Now(),
 		}
 
 		clientGroup.ActiveCount++
@@ -285,8 +281,6 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
-		client.ClientType = clientType
-		client.Name = name
 	}
 
 	// broadcast message received to all other clients:
@@ -330,20 +324,27 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	return
 }
 
+type P02Kind byte
+
+const (
+	RequestIndex = P02Kind(0x00)
+	Broadcast    = P02Kind(0x01)
+)
+
 func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
-	var stringBuf [20]byte
-	_, err := buf.Read(stringBuf[0:20])
+	groupBuf := make([]byte, 20)
+	_, err := buf.Read(groupBuf)
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	group := string(stringBuf[:])
+	group := string(groupBuf[:])
 	if len(group) != 20 {
 		log.Fatal("bug! group name must be exactly 20 bytes")
 		return
 	}
 
-	var kind uint8
+	var kind P02Kind
 	if err := binary.Read(buf, binary.LittleEndian, &kind); err != nil {
 		log.Print(err)
 		return
@@ -414,14 +415,12 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 		// add this client to set of clients:
 		*client = Client{
-			UDPAddr:    *addr,
-			IsAlive:    true,
-			Group:      group,
-			ClientKey:  clientKey,
-			Index:      uint16(free),
-			ClientType: clientType,
-			Name:       name,
-			LastSeen:   time.Now(),
+			UDPAddr:   *addr,
+			IsAlive:   true,
+			Group:     group,
+			ClientKey: clientKey,
+			Index:     uint16(free),
+			LastSeen:  time.Now(),
 		}
 
 		clientGroup.ActiveCount++
@@ -429,22 +428,11 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
-		client.ClientType = clientType
-		client.Name = name
 	}
 
-	// broadcast message received to all other clients:
-	for i = range clientGroup.Clients {
-		c := &clientGroup.Clients[i]
-		if !c.IsAlive {
-			continue
-		}
-
-		// don't echo back to client received from:
-		if c == client {
-			//log.Printf("(%v) skip echo\n", otherKey.IP)
-			continue
-		}
+	switch kind {
+	case RequestIndex:
+		// client requests its own client index, no need to broadcast to other clients:
 
 		// construct message:
 		buf = &bytes.Buffer{}
@@ -454,22 +442,60 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		buf.WriteByte(protocol)
 
 		// protocol packet:
-		buf.Write([]byte{group})
+		buf.Write(groupBuf)
+		responseKind := kind | 0x80
+		buf.WriteByte(byte(responseKind))
+
+		// emit client index:
 		index := uint16(ci)
 		binary.Write(buf, binary.LittleEndian, &index)
-		responseKind := kind & 0x7F
-		buf.WriteByte(responseKind)
 
-		// write the payload:
-		buf.Write(payload)
-
-		// send message to this client:
-		_, fatalErr = conn.WriteToUDP(buf.Bytes(), &c.UDPAddr)
+		// send message back to client:
+		_, fatalErr = conn.WriteToUDP(buf.Bytes(), &client.UDPAddr)
 		if fatalErr != nil {
 			return
 		}
 		buf = nil
-		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
+
+		break
+	case Broadcast:
+		// broadcast message received to all other clients:
+		for i = range clientGroup.Clients {
+			c := &clientGroup.Clients[i]
+			if !c.IsAlive {
+				continue
+			}
+			// don't echo back to client received from:
+			if c == client {
+				continue
+			}
+
+			// construct message:
+			buf = &bytes.Buffer{}
+			header := uint16(25887)
+			binary.Write(buf, binary.LittleEndian, &header)
+			protocol := byte(0x02)
+			buf.WriteByte(protocol)
+
+			// protocol packet:
+			buf.Write(groupBuf)
+			responseKind := kind | 0x80
+			buf.WriteByte(byte(responseKind))
+			index := uint16(ci)
+			binary.Write(buf, binary.LittleEndian, &index)
+
+			// write the payload:
+			buf.Write(payload)
+
+			// send message to this client:
+			_, fatalErr = conn.WriteToUDP(buf.Bytes(), &c.UDPAddr)
+			if fatalErr != nil {
+				return
+			}
+			buf = nil
+			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
+		}
+		break
 	}
 
 	return
