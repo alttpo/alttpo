@@ -2671,13 +2671,6 @@ void pre_frame() {
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
-      // update enemies state from lowest-index player in the room:
-      if (!updated_enemies && remote.enemiesBlock.length() == 0x2A0) {
-        bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.enemiesBlock);
-        remote.enemiesBlock.resize(0);
-        updated_enemies = true;
-      }
-
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
       int16 rx = int16(remote.x) - local.xoffs;
       int16 ry = int16(remote.y) - local.yoffs;
@@ -2691,8 +2684,23 @@ void pre_frame() {
       // update tilemap:
       remote.update_tilemap();
     }
+  }
 
-    remote.enemiesBlock.resize(0);
+  // update enemies state from lowest-indexed player in the room:
+  for (uint i = 0; i < players.length(); i++) {
+    auto @remote = players[i];
+    if (@remote == null) continue;
+
+    if (local.can_see(remote.location)) {
+      if (!updated_enemies && remote.enemiesBlock.length() == 0x2A0) {
+        updated_enemies = true;
+        // if it's our local player's state then don't touch anything:
+        if (@remote != @local) {
+          bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.enemiesBlock);
+          remote.enemiesBlock.resize(0);
+        }
+      }
+    }
   }
 
   local.update_items();
