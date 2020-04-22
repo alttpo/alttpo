@@ -1918,6 +1918,8 @@ class GameState {
   }
 
   bool deserialize(array<uint8> r, int c) {
+    if (c >= r.length()) return false;
+
     auto protocol = r[c++];
     //message("protocol = " + fmtHex(protocol, 2));
     if (protocol != 0x01) {
@@ -2506,30 +2508,59 @@ void receive() {
       continue;
     }
 
+    uint16 index = 0;
+
     // check protocol:
     uint8 protocol = r[c++];
-    // skip messages from non-players (e.g. spectators):
-    if (protocol != 1) {
+    if (protocol == 0x01) {
+      // skip group name:
+      uint8 groupLen = r[c++];
+      c += groupLen;
+
+      // skip player name:
+      uint8 nameLen = r[c++];
+      c += nameLen;
+
+      // read player index:
+      index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+      // check client type (spectator=0, player=1):
+      uint8 clientType = r[c++];
+      // skip messages from non-players (e.g. spectators):
+      if (clientType != 1) {
+        message("receive(): ignore non-player message");
+        continue;
+      }
+    } else if (protocol == 0x02) {
+      // skip 20 byte group name:
+      c += 20;
+
+      // message kind:
+      uint8 kind = r[c++];
+      if (kind == 0x80) {
+        // read client index:
+        index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+        // assign to local player:
+        if (local.index == -1) {
+          local.index = index;
+
+          // make room for local player if needed:
+          while (index >= players.length()) {
+            players.insertLast(GameState());
+          }
+
+          // assign the local player into the players[] array:
+          players[index] = local;
+          players[index].ttl = 255;
+        }
+        continue;
+      }
+
+      // kind == 0x81 should be response to another player's broadcast.
+      index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    } else {
       message("receive(): unknown protocol 0x" + fmtHex(protocol, 2));
-      continue;
-    }
-
-    // skip group name:
-    uint8 groupLen = r[c++];
-    c += groupLen;
-
-    // skip player name:
-    uint8 nameLen = r[c++];
-    c += nameLen;
-
-    // read player index:
-    uint16 index = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-    // check client type (spectator=0, player=1):
-    uint8 clientType = r[c++];
-    // skip messages from non-players (e.g. spectators):
-    if (clientType != 1) {
-      message("receive(): ignore non-player message");
       continue;
     }
 
@@ -2567,6 +2598,8 @@ void pre_nmi() {
 
   // restore previous VRAM tiles:
   localFrameState.restore();
+
+  local.ttl = 255;
 
   // fetch next frame's game state from WRAM:
   local.fetch_module();
