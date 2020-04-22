@@ -15,7 +15,7 @@ void init() {
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
   settings.Group = "test";
-  settings.Name = "link";
+  settings.Name = "";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
     //settings.Group = "debug";
@@ -104,21 +104,41 @@ class SettingsWindow {
   private gui::LineEdit @txtName;
   private gui::Button @ok;
 
-  string serverAddress;
+  private string serverAddress;
   string ServerAddress {
     get { return serverAddress; }
-    set { serverAddress = value; txtServerAddress.text = value; }
+    set {
+      serverAddress = value;
+      txtServerAddress.text = value;
+    }
   }
-  string group;
+
+  private string group;
   string Group {
     get { return group; }
-    set { group = value; txtGroup.text = value; }
+    set {
+      txtGroup.text = value;
+      assignGroup(value);
+    }
   }
-  string name;
+  private void assignGroup(string value) {
+    // pad out to exactly 20 bytes:
+    auto newValue = value.slice(0, 20);
+    for (int i = newValue.length(); i < 20; i++) {
+      newValue += " ";
+    }
+    group = newValue;
+  }
+
+  private string name;
   string Name {
     get { return name; }
-    set { name = value; txtName.text = value; }
+    set {
+      name = value;
+      txtName.text = value;
+    }
   }
+
   bool started;
 
   SettingsWindow() {
@@ -183,7 +203,7 @@ class SettingsWindow {
 
   void start() {
     serverAddress = txtServerAddress.text;
-    group = txtGroup.text;
+    assignGroup(txtGroup.text);
     name = txtName.text;
     started = true;
   }
@@ -1103,6 +1123,9 @@ class GameState {
   // lookup remote chr number to find local chr number mapped to:
   array<uint16> reloc(512);
 
+  // $3D9-$3E4: 6x uint16 characters for player name
+  array<uint16> name(6);
+
   // values copied from RAM:
   uint8  frame;
   uint32 location;
@@ -1306,6 +1329,11 @@ class GameState {
         }
       }
     }
+
+    // TODO: read player name from SRAM
+    //name = bus::read_block_u8(0x7EF3D9);
+    // TODO: copy player name to Settings window
+    // TODO: allow settings window to rename player and write back to SRAM
 
     y = bus::read_u16(0x7E0020);
     x = bus::read_u16(0x7E0022);
@@ -1709,23 +1737,19 @@ class GameState {
     bus::read_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
   }
 
-  array<uint8> @create_envelope() {
+  array<uint8> @create_envelope(uint8 kind) {
     array<uint8> @envelope = {};
 
     // server envelope:
     {
       // header:
       envelope.insertLast(uint16(25887));
-      // protocol:
-      envelope.insertLast(uint8(0x01));
-      // group name:
-      envelope.insertLast(uint8(settings.Group.length()));
+      // server protocol 2:
+      envelope.insertLast(uint8(0x02));
+      // group name: (20 bytes exactly)
       envelope.insertLast(settings.Group);
-      // player name:
-      envelope.insertLast(uint8(settings.Name.length()));
-      envelope.insertLast(settings.Name);
-      // clientType = 1 (player)
-      envelope.insertLast(uint8(1));
+      // message kind:
+      envelope.insertLast(kind);
     }
 
     // script protocol 0x01:
@@ -1752,7 +1776,7 @@ class GameState {
     // send one packet:
     {
       // build server envelope:
-      array<uint8> envelope = create_envelope();
+      array<uint8> envelope = create_envelope(0x01);
 
       // append local state to remote player:
       serialize_location(envelope);
@@ -1765,7 +1789,7 @@ class GameState {
 
     // send another packet:
     {
-      array<uint8> envelope = create_envelope();
+      array<uint8> envelope = create_envelope(0x01);
 
       // append local state to remote player:
       serialize_sprites(envelope);
@@ -1776,7 +1800,7 @@ class GameState {
 
     // send another packet:
     {
-      array<uint8> envelope = create_envelope();
+      array<uint8> envelope = create_envelope(0x01);
 
       // append local state to remote player:
       serialize_chrs(envelope);
