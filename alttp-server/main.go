@@ -364,7 +364,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			Clients: make([]Client, 0, 8),
 		}
 		clientGroups[groupKey] = clientGroup
-		log.Printf("p02 [group %s] new group\n", groupKey)
+		log.Printf("[group %s] new group\n", groupKey)
 	}
 
 	// create a key that represents the client from the received address:
@@ -424,7 +424,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		}
 
 		clientGroup.ActiveCount++
-		log.Printf("p02 [group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
+		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
