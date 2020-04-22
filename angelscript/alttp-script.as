@@ -762,7 +762,7 @@ class GameSpriteWindow {
       col[i].text = text;
 
       // don't draw box around dead sprites:
-      if (en.is_enabled) {
+      if (false && en.is_enabled) {
         // not in normal, active mode:
         //if (en.state != 0x09) continue;
 
