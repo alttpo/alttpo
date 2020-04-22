@@ -2428,7 +2428,7 @@ class GameState {
             localFrameState.chr[k] = true;
             reloc[sprite.chr] = k;
             if (chrs[sprite.chr].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
+              //message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
             }
@@ -2458,22 +2458,22 @@ class GameState {
             reloc[sprite.chr + 0x10] = k + 0x10;
             reloc[sprite.chr + 0x11] = k + 0x11;
             if (chrs[sprite.chr + 0x00].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x00,3)+" data empty!");
+              //message("remote CHR="+fmtHex(sprite.chr + 0x00,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
             }
             if (chrs[sprite.chr + 0x01].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x01,3)+" data empty!");
+              //message("remote CHR="+fmtHex(sprite.chr + 0x01,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
             }
             if (chrs[sprite.chr + 0x10].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x10,3)+" data empty!");
+              //message("remote CHR="+fmtHex(sprite.chr + 0x10,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
             }
             if (chrs[sprite.chr + 0x11].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x11,3)+" data empty!");
+              //message("remote CHR="+fmtHex(sprite.chr + 0x11,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
             }
@@ -2659,12 +2659,14 @@ void pre_frame() {
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
     auto @remote = players[i];
-    if (@remote == @local) continue;
     if (@remote == null) continue;
+
+    if (@remote == @local) continue;
     if (remote.ttl <= 0) {
       remote.ttl = 0;
       continue;
     }
+
     remote.ttl = remote.ttl - 1;
 
     remote.update_rooms_sram();
@@ -2697,7 +2699,7 @@ void pre_frame() {
         // if it's our local player's state then don't touch anything:
         if (@remote != @local) {
           bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.enemiesBlock);
-          remote.enemiesBlock.resize(0);
+          //remote.enemiesBlock.resize(0);
         }
       }
     }
