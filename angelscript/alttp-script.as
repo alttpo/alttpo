@@ -14,7 +14,7 @@ void init() {
 
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
-  settings.Group = "test";
+  settings.Group = "enemy-sync";
   settings.Name = "";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
@@ -559,7 +559,7 @@ class WorldMap {
     y = float((py / 16) + mapsprtop - top) * mapscale;
   }
 
-  void renderPlayers(const GameState &in local, const array<GameState> &in players) {
+  void renderPlayers(const GameState &in local, const array<GameState@> &in players) {
     auto dw = local.is_in_dark_world();
 
     // grow dots array and create new Canvas instances:
@@ -592,9 +592,6 @@ class WorldMap {
       mapCoord(p, x, y);
       dots[i].setPosition(x, y);
     }
-
-    mapCoord(local, x, y);
-    localDot.setPosition(x, y);
   }
 };
 WorldMap @worldMap;
@@ -1773,7 +1770,14 @@ class GameState {
   }
 
   void send() {
-    // send one packet:
+    // check if we need to detect our local index:
+    if (local.index == -1) {
+      // request our index; receive() will take care of the response:
+      array<uint8> request = create_envelope(0x00);
+      send_packet(request);
+    }
+
+    // send main packet:
     {
       // build server envelope:
       array<uint8> envelope = create_envelope(0x01);
@@ -2113,6 +2117,8 @@ class GameState {
     // find higher max values among remote players:
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
+      if (@remote == null) continue;
+      if (@remote == @local) continue;
       if (remote.ttl <= 0) {
         continue;
       }
@@ -2486,7 +2492,7 @@ class GameState {
 };
 
 GameState local;
-array<GameState> players(8);
+array<GameState@> players(0);
 uint8 isRunning;
 
 bool intercepting = false;
@@ -2544,15 +2550,15 @@ void receive() {
         // assign to local player:
         if (local.index == -1) {
           local.index = index;
+          message("assign local.index = " + fmtInt(index));
 
           // make room for local player if needed:
           while (index >= players.length()) {
-            players.insertLast(GameState());
+            players.insertLast(@GameState());
           }
 
           // assign the local player into the players[] array:
-          players[index] = local;
-          players[index].ttl = 255;
+          @players[index] = local;
         }
         continue;
       }
@@ -2565,7 +2571,7 @@ void receive() {
     }
 
     while (index >= players.length()) {
-      players.insertLast(GameState());
+      players.insertLast(@GameState());
     }
 
     // deserialize data packet:
@@ -2612,6 +2618,8 @@ void pre_nmi() {
     // play remote sfx:
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
+      if (@remote == null) continue;
+      if (@remote == @local) continue;
       if (remote.ttl <= 0) {
         remote.ttl = 0;
         continue;
@@ -2651,6 +2659,8 @@ void pre_frame() {
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
     auto @remote = players[i];
+    if (@remote == @local) continue;
+    if (@remote == null) continue;
     if (remote.ttl <= 0) {
       remote.ttl = 0;
       continue;
