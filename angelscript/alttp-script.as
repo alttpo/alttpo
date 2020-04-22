@@ -1795,9 +1795,18 @@ class GameState {
     {
       array<uint8> envelope = create_envelope(0x01);
 
-      // append local state to remote player:
-      serialize_sprites(envelope);
-      serialize_tilemaps(envelope);
+      // send chr0 to remote player:
+      serialize_chr0(envelope);
+
+      send_packet(envelope);
+    }
+
+    // send another packet:
+    {
+      array<uint8> envelope = create_envelope(0x01);
+
+      // send chr1 to remote player:
+      serialize_chr1(envelope);
 
       send_packet(envelope);
     }
@@ -1807,7 +1816,8 @@ class GameState {
       array<uint8> envelope = create_envelope(0x01);
 
       // append local state to remote player:
-      serialize_chrs(envelope);
+      serialize_sprites(envelope);
+      serialize_tilemaps(envelope);
 
       send_packet(envelope);
     }
@@ -1853,24 +1863,50 @@ class GameState {
     }
   }
 
-  void serialize_chrs(array<uint8> &r) {
+  void serialize_chr0(array<uint8> &r) {
     // how many distinct characters:
     uint16 chr_count = 0;
-    for (uint16 i = 0; i < 512; i++) {
+    for (uint16 i = 0; i < 0x100; i++) {
       if (chrs[i].length() == 0) continue;
       ++chr_count;
     }
 
-    //message("serialize: chrs="+fmtInt(chr_count));
+    //message("serialize: chr0="+fmtInt(chr_count));
     r.insertLast(uint8(0x04));
 
     // emit how many chrs:
-    r.insertLast(chr_count);
-    for (uint16 i = 0; i < 512; ++i) {
+    r.insertLast(uint8(chr_count));
+    for (uint16 i = 0; i < 0x100; ++i) {
       if (chrs[i].length() == 0) continue;
 
       // which chr is it:
-      r.insertLast(i);
+      r.insertLast(uint8(i));
+      // emit the tile data:
+      r.insertLast(chrs[i]);
+
+      // clear the chr tile data for next frame:
+      chrs[i].resize(0);
+    }
+  }
+
+  void serialize_chr1(array<uint8> &r) {
+    // how many distinct characters:
+    uint16 chr_count = 0;
+    for (uint16 i = 0x100; i < 0x200; i++) {
+      if (chrs[i].length() == 0) continue;
+      ++chr_count;
+    }
+
+    //message("serialize: chr1="+fmtInt(chr_count));
+    r.insertLast(uint8(0x05));
+
+    // emit how many chrs:
+    r.insertLast(uint8(chr_count));
+    for (uint16 i = 0x100; i < 0x200; ++i) {
+      if (chrs[i].length() == 0) continue;
+
+      // which chr is it:
+      r.insertLast(uint8(i - 0x100));
       // emit the tile data:
       r.insertLast(chrs[i]);
 
@@ -1880,7 +1916,7 @@ class GameState {
   }
 
   void serialize_items(array<uint8> &r) {
-    r.insertLast(uint8(0x05));
+    r.insertLast(uint8(0x06));
 
     // items: (MUST be sorted by offs)
     //message("serialize: items="+fmtInt(items.length()));
@@ -1896,12 +1932,19 @@ class GameState {
   }
 
   void serialize_tilemaps(array<uint8> &r) {
-    r.insertLast(uint8(0x06));
+    r.insertLast(uint8(0x07));
 
     //message("serialize: tilemap="+fmtInt(tilemapCount));
     r.insertLast(tilemapCount);
     r.insertLast(tilemapAddress);
     r.insertLast(tilemapTile);
+  }
+
+  void serialize_enemies(array<uint8> &r) {
+    r.insertLast(uint8(0x08));
+
+    // 0x2A0 bytes
+    r.insertLast(enemiesBlock);
   }
 
   void serialize_rooms(array<uint8> &r) {
@@ -1914,22 +1957,16 @@ class GameState {
     //}
   }
 
-  void serialize_enemies(array<uint8> &r) {
-    r.insertLast(uint8(0x07));
-
-    // 0x2A0 bytes
-    r.insertLast(enemiesBlock);
-  }
-
   bool deserialize(array<uint8> r, int c) {
     if (c >= r.length()) return false;
 
     auto protocol = r[c++];
-    //message("protocol = " + fmtHex(protocol, 2));
+    //message("game protocol = " + fmtHex(protocol, 2));
     if (protocol != 0x01) {
-      message("bad protocol " + fmtHex(protocol, 2) + "!");
+      message("bad game protocol " + fmtHex(protocol, 2) + "!");
       return false;
     }
+
     auto frame = r[c++];
     //message("frame = " + fmtHex(frame, 2));
     if (frame < this.frame) {
@@ -1947,10 +1984,11 @@ class GameState {
         case 0x01: c = deserialize_location(r, c); break;
         case 0x02: c = deserialize_sfx(r, c); break;
         case 0x03: c = deserialize_sprites(r, c); break;
-        case 0x04: c = deserialize_chrs(r, c); break;
-        case 0x05: c = deserialize_items(r, c); break;
-        case 0x06: c = deserialize_tilemaps(r, c); break;
-        case 0x07: c = deserialize_enemies(r, c); break;
+        case 0x04: c = deserialize_chr0(r, c); break;
+        case 0x05: c = deserialize_chr1(r, c); break;
+        case 0x06: c = deserialize_items(r, c); break;
+        case 0x07: c = deserialize_tilemaps(r, c); break;
+        case 0x08: c = deserialize_enemies(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -2006,22 +2044,32 @@ class GameState {
     return c;
   }
 
-  int deserialize_chrs(array<uint8> r, int c) {
-    // clear previous chr tile data:
-    for (uint i = 0; i < 512; i++) {
-      chrs[i].resize(0);
-    }
-
-    // read in chr data:
-    auto chr_count = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    //message("deserialize: chrs="+fmtInt(chr_count));
+  int deserialize_chr0(array<uint8> r, int c) {
+    // read in chr0 data:
+    auto chr_count = r[c++];
     for (uint i = 0; i < chr_count; i++) {
-      // read chr number:
-      auto h = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      // read chr0 number:
+      auto h = uint16(r[c++]);
 
       // read chr tile data:
       chrs[h].resize(16);
-      //message("  chr="+fmtHex(h,3)+" c="+fmtInt(c));
+      for (int k = 0; k < 16; k++) {
+        chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      }
+    }
+
+    return c;
+  }
+
+  int deserialize_chr1(array<uint8> r, int c) {
+    // read in chr1 data:
+    auto chr_count = r[c++];
+    for (uint i = 0; i < chr_count; i++) {
+      // read chr1 number:
+      auto h = uint16(r[c++]) + 0x100;
+
+      // read chr tile data:
+      chrs[h].resize(16);
       for (int k = 0; k < 16; k++) {
         chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
       }
