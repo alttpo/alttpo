@@ -2787,52 +2787,7 @@ void post_frame() {
 
     ppu::frame.text(120, 0, fmtHex(local.x, 4));
     ppu::frame.text(160, 0, fmtHex(local.y, 4));
-
-    /*
-    for (uint i = 0; i < 0x10; i++) {
-      // generate CGA 16-color palette, lol.
-      auto j = i + 1;
-      ppu::frame.color = ppu::rgb(
-        ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
-        ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
-      );
-      ppu::frame.text(i * 16, 224 - 8, fmtHex(bus::read_u8(0x7E0400 + i), 2));
-    }
-    */
   }
-
-  /*
-  if (debugOAM) {
-    ppu::frame.draw_op = ppu::draw_op::op_alpha;
-    ppu::frame.color = ppu::rgb(28, 28, 28);
-    ppu::frame.alpha = 24;
-    ppu::frame.text_shadow = true;
-
-    for (int i = 0; i < 128; i++) {
-      // access current OAM sprite index:
-      auto tile = ppu::oam[i];
-
-      auto chr = tile.character;
-      auto x = int16(tile.x);
-      auto y = int16(tile.y);
-      if (x >= 256) x -= 512;
-
-      //ppu::frame.rect(x, y, width, height);
-
-      ppu::frame.color = ppu::rgb(28, 28, 0);
-      ppu::frame.text((i / 28) * (4 * 8 + 8), (i % 28) * 8, fmtHex(i, 2));
-
-      if (tile.is_enabled) {
-        ppu::frame.color = ppu::rgb(28, 28, 28);
-      } else {
-        ppu::frame.color = ppu::rgb(8, 8, 12);
-      }
-
-      ppu::frame.text((i / 28) * (4 * 8 + 8) + 16, (i % 28) * 8, fmtHex(tile.character, 2));
-    }
-  }
-  */
 
   if (@sprites != null) {
     for (int i = 0; i < 16; i++) {
