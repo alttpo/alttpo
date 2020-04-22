@@ -2667,6 +2667,7 @@ void pre_nmi() {
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
       if (@remote == null) continue;
+
       if (@remote == @local) continue;
       if (remote.ttl <= 0) {
         remote.ttl = 0;
@@ -2740,6 +2741,7 @@ void pre_frame() {
   for (uint i = 0; i < players.length(); i++) {
     auto @remote = players[i];
     if (@remote == null) continue;
+    if (remote.ttl <= 0) continue;
 
     if (local.can_see(remote.location)) {
       if (!updated_enemies && remote.enemiesBlock.length() == 0x2A0) {
