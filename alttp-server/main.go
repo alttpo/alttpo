@@ -331,6 +331,22 @@ const (
 	Broadcast    = P02Kind(0x01)
 )
 
+func make02Packet(groupBuf []byte, kind P02Kind) (buf *bytes.Buffer) {
+	// construct message:
+	buf = &bytes.Buffer{}
+	header := uint16(25887)
+	binary.Write(buf, binary.LittleEndian, &header)
+	protocol := byte(0x02)
+	buf.WriteByte(protocol)
+
+	// protocol packet:
+	buf.Write(groupBuf)
+	responseKind := kind | 0x80
+	buf.WriteByte(byte(responseKind))
+
+	return
+}
+
 func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	groupBuf := make([]byte, 20)
 	_, err := buf.Read(groupBuf)
@@ -346,6 +362,13 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 	var kind P02Kind
 	if err := binary.Read(buf, binary.LittleEndian, &kind); err != nil {
+		log.Print(err)
+		return
+	}
+
+	// what the client thinks its index is:
+	var index uint16
+	if err := binary.Read(buf, binary.LittleEndian, &index); err != nil {
 		log.Print(err)
 		return
 	}
@@ -435,16 +458,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		// client requests its own client index, no need to broadcast to other clients:
 
 		// construct message:
-		buf = &bytes.Buffer{}
-		header := uint16(25887)
-		binary.Write(buf, binary.LittleEndian, &header)
-		protocol := byte(0x02)
-		buf.WriteByte(protocol)
-
-		// protocol packet:
-		buf.Write(groupBuf)
-		responseKind := kind | 0x80
-		buf.WriteByte(byte(responseKind))
+		buf = make02Packet(groupBuf, kind)
 
 		// emit client index:
 		index := uint16(ci)
@@ -465,27 +479,22 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			if !c.IsAlive {
 				continue
 			}
-			// don't echo back to client received from:
+
+			responseKind := kind
 			if c == client {
-				continue
+				// inform the client about its index as a response:
+				responseKind = RequestIndex
 			}
 
 			// construct message:
-			buf = &bytes.Buffer{}
-			header := uint16(25887)
-			binary.Write(buf, binary.LittleEndian, &header)
-			protocol := byte(0x02)
-			buf.WriteByte(protocol)
-
-			// protocol packet:
-			buf.Write(groupBuf)
-			responseKind := kind | 0x80
-			buf.WriteByte(byte(responseKind))
+			buf = make02Packet(groupBuf, responseKind)
 			index := uint16(ci)
 			binary.Write(buf, binary.LittleEndian, &index)
 
-			// write the payload:
-			buf.Write(payload)
+			if c != client {
+				// write the payload to other clients:
+				buf.Write(payload)
+			}
 
 			// send message to this client:
 			_, fatalErr = conn.WriteToUDP(buf.Bytes(), &c.UDPAddr)

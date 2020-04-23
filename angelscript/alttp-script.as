@@ -1771,6 +1771,8 @@ class GameState {
       envelope.insertLast(settings.Group);
       // message kind:
       envelope.insertLast(kind);
+      // what we think our index is:
+      envelope.insertLast(uint16(index));
     }
 
     // script protocol 0x01:
@@ -2620,8 +2622,14 @@ void receive() {
         index = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
         // assign to local player:
-        if (local.index == -1) {
+        if (local.index != index) {
+          if (local.index >= 0 && local.index < players.length()) {
+            // reset old player slot:
+            @players[local.index] = @GameState();
+          }
+          // reassign local index:
           local.index = index;
+
           message("assign local.index = " + fmtInt(index));
 
           // make room for local player if needed:
