@@ -727,10 +727,10 @@ class GameSpriteWindow {
 
   // must be run from post_frame():
   void update() {
-    if (@local.enemies == null) return;
+    if (@local.objects == null) return;
 
     for (int i = 0; i < 0x10; i++) {
-      auto @en = @local.enemies[i];
+      auto @en = @local.objects[i];
       if (@en is null) continue;
 
       // generate a color:
@@ -1144,7 +1144,7 @@ class GameState {
   // $3D9-$3E4: 6x uint16 characters for player name
   array<uint16> name(6);
 
-  // local: player index last synced enemies from:
+  // local: player index last synced objects from:
   uint16 objects_index_source;
 
   // values copied from RAM:
@@ -1376,7 +1376,7 @@ class GameState {
 
     fetch_sprites();
 
-    fetch_enemies();
+    fetch_objects();
 
     fetch_rooms();
 
@@ -1445,20 +1445,20 @@ class GameState {
     }
   }
 
-  array<GameSprite@> enemies(0x10);
-  array<uint8> enemiesBlock(0x2A0);
-  void fetch_enemies() {
+  array<GameSprite@> objects(0x10);
+  array<uint8> objectsBlock(0x2A0);
+  void fetch_objects() {
     // $7E0D00 - $7E0FA0
     uint i = 0;
 
-    bus::read_block_u8(0x7E0D00, 0, 0x2A0, enemiesBlock);
+    bus::read_block_u8(0x7E0D00, 0, 0x2A0, objectsBlock);
     for (i = 0; i < 0x10; i++) {
-      auto @en = @enemies[i];
+      auto @en = @objects[i];
       if (@en is null) {
-        @en = @enemies[i] = GameSprite();
+        @en = @objects[i] = GameSprite();
       }
       // copy in facts about each enemy from the large block of WRAM:
-      enemies[i].readFromBlock(enemiesBlock, i);
+      objects[i].readFromBlock(objectsBlock, i);
     }
   }
 
@@ -1810,7 +1810,7 @@ class GameState {
       serialize_location(envelope);
       serialize_sfx(envelope);
       serialize_items(envelope);
-      serialize_enemies(envelope);
+      serialize_objects(envelope);
 
       send_packet(envelope);
     }
@@ -1964,11 +1964,11 @@ class GameState {
     r.insertLast(tilemapTile);
   }
 
-  void serialize_enemies(array<uint8> &r) {
+  void serialize_objects(array<uint8> &r) {
     r.insertLast(uint8(0x08));
 
     // 0x2A0 bytes
-    r.insertLast(enemiesBlock);
+    r.insertLast(objectsBlock);
   }
 
   void serialize_rooms(array<uint8> &r) {
@@ -2012,7 +2012,7 @@ class GameState {
         case 0x05: c = deserialize_chr1(r, c); break;
         case 0x06: c = deserialize_items(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
-        case 0x08: c = deserialize_enemies(r, c); break;
+        case 0x08: c = deserialize_objects(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -2116,10 +2116,10 @@ class GameState {
     return c;
   }
 
-  int deserialize_enemies(array<uint8> r, int c) {
-    enemiesBlock.resize(0x2A0);
+  int deserialize_objects(array<uint8> r, int c) {
+    objectsBlock.resize(0x2A0);
     for (int i = 0; i < 0x2A0; i++) {
-      enemiesBlock[i] = r[c++];
+      objectsBlock[i] = r[c++];
     }
 
     return c;
@@ -2760,35 +2760,35 @@ void pre_frame() {
   }
 
   {
-    auto updated_enemies = false;
+    auto updated_objects = false;
 
-    // update enemies state from lowest-indexed player in the room:
+    // update objects state from lowest-indexed player in the room:
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
       if (@remote == null) continue;
       if (remote.ttl <= 0) continue;
       if (!local.can_see(remote.location)) continue;
 
-      if (!updated_enemies && remote.enemiesBlock.length() == 0x2A0) {
-        updated_enemies = true;
+      if (!updated_objects && remote.objectsBlock.length() == 0x2A0) {
+        updated_objects = true;
         local.objects_index_source = i;
       }
     }
 
-    if (updated_enemies) {
+    if (updated_objects) {
       if (local.objects_index_source == local.index) {
         // we are the player that controls the objects in the room. run through each player in the same room
         // and synchronize any attempted changes to objects.
 
       } else {
         // we are not in control of objects in the room so just copy the state from the player who is:
-        //bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.enemiesBlock);
+        //bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.objectsBlock);
 
         auto @remote = players[local.objects_index_source];
         for (uint j = 0; j < 0x10; j++) {
           GameSprite r;
           GameSprite l;
-          r.readFromBlock(remote.enemiesBlock, j);
+          r.readFromBlock(remote.objectsBlock, j);
           l.readRAM(j);
 
           // don't overwrite locally picked up objects:
