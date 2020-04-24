@@ -1079,7 +1079,7 @@ class SyncedItem {
   uint16  lastValue;
 };
 
-// Represents an ALTTP sprite object from 0x10-sized tables at $7E0D00-0FA0:
+// Represents an ALTTP object from 0x10-sized tables at $7E0D00-0FA0:
 class GameSprite {
   array<uint8> facts(0x2A);
   uint8 index;
@@ -1087,7 +1087,7 @@ class GameSprite {
   void readFromBlock(const array<uint8> &in block, uint8 index) {
     this.index = index;
 
-    // copy sprite facts from the striped contiguous block of RAM:
+    // copy object facts from the striped contiguous block of RAM:
     uint j = index;
     facts.resize(0x2A);
     for (uint i = 0; i < 0x2A; i++, j += 0x10) {
@@ -1098,7 +1098,7 @@ class GameSprite {
   void readRAM(uint8 index) {
     this.index = index;
 
-    // copy sprite facts from the striped contiguous block of RAM:
+    // copy object facts from the striped contiguous block of RAM:
     uint j = index;
     facts.resize(0x2A);
     for (uint i = 0; i < 0x2A; i++, j += 0x10) {
@@ -1127,6 +1127,50 @@ class GameSprite {
   uint8  hitbox    { get { return facts[0x26] & 0x1F; } };
 
   bool is_enabled  { get { return state != 0; } };
+};
+
+// Represents an ALTTP ancilla from 0x0A-sized tables at $7E0BF0-0C9A:
+class GameAncilla {
+  array<uint8> facts(0x11);
+  uint8 index;
+
+  void readFromBlock(const array<uint8> &in block, uint8 index) {
+    this.index = index;
+
+    // copy ancilla facts from the striped contiguous block of RAM:
+    uint j = index;
+    facts.resize(0x11);
+    for (uint i = 0; i < 0x11; i++, j += 0x0A) {
+      facts[i] = block[j];
+    }
+  }
+
+  void readRAM(uint8 index) {
+    this.index = index;
+
+    // copy ancilla facts from the striped contiguous block of RAM:
+    uint j = index;
+    facts.resize(0x11);
+    for (uint i = 0; i < 0x11; i++, j += 0x0A) {
+      facts[i] = bus::read_u8(0x7E0BF0 + j);
+    }
+  }
+
+  void writeRAM() {
+    uint j = index;
+    for (uint i = 0; i < 0x11; i++, j += 0x0A) {
+      bus::write_u8(0x7E0BF0 + j, facts[i]);
+    }
+  }
+
+  uint8  misc      { get { return facts[0x00]; } };
+  uint16 y         { get { return uint16(facts[0x01]) | uint16(facts[0x03] << 8); } };
+  uint16 x         { get { return uint16(facts[0x02]) | uint16(facts[0x04] << 8); } };
+  uint8  type      { get { return facts[0x09]; } };
+  uint8  oam_index { get { return facts[0x0F]; } };
+  uint8  oam_count { get { return facts[0x10]; } };
+
+  bool is_enabled  { get { return type != 0; } };
 };
 
 // TODO: debug window to show current full area and place GameSprites on it with X,Y coordinates
@@ -1378,9 +1422,11 @@ class GameState {
 
     fetch_objects();
 
-    fetch_rooms();
+    fetch_ancillae();
 
     fetch_tilemap_changes();
+
+    fetch_rooms();
   }
 
   void fetch_sfx() {
@@ -1569,6 +1615,7 @@ class GameState {
       @sprites[numsprites-1] = sprite;
     }
 
+    /*
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
       // skip already synced Link sprites:
@@ -1679,6 +1726,7 @@ class GameState {
       sprites.resize(++numsprites);
       @sprites[numsprites-1] = spr;
     }
+    */
   }
 
   void capture_sprites_vram() {
@@ -1758,6 +1806,11 @@ class GameState {
     bus::read_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
   }
 
+  array<uint8> ancillaeBlock(0xAA);
+  void fetch_ancillae() {
+    bus::read_block_u8(0x7E0BF0, 0, 0xAA, ancillaeBlock);
+  }
+
   array<uint8> @create_envelope(uint8 kind) {
     array<uint8> @envelope = {};
 
@@ -1811,8 +1864,9 @@ class GameState {
       // append local state to remote player:
       serialize_location(envelope);
       serialize_sfx(envelope);
-      serialize_items(envelope);
-      serialize_objects(envelope);
+      serialize_sprites(envelope);
+      serialize_chr0(envelope);
+      serialize_ancillae(envelope);
 
       send_packet(envelope);
     }
@@ -1822,11 +1876,13 @@ class GameState {
       array<uint8> envelope = create_envelope(0x01);
 
       // send chr0 to remote player:
-      serialize_chr0(envelope);
+      serialize_items(envelope);
+      serialize_objects(envelope);
 
       send_packet(envelope);
     }
 
+/*
     // send another packet:
     {
       array<uint8> envelope = create_envelope(0x01);
@@ -1836,13 +1892,13 @@ class GameState {
 
       send_packet(envelope);
     }
+*/
 
     // send another packet:
     {
       array<uint8> envelope = create_envelope(0x01);
 
       // append local state to remote player:
-      serialize_sprites(envelope);
       serialize_tilemaps(envelope);
 
       send_packet(envelope);
@@ -1973,6 +2029,13 @@ class GameState {
     r.insertLast(objectsBlock);
   }
 
+  void serialize_ancillae(array<uint8> &r) {
+    r.insertLast(uint8(0x09));
+
+    // 0xAA bytes
+    r.insertLast(ancillaeBlock);
+  }
+
   void serialize_rooms(array<uint8> &r) {
     // DISABLED: room sync
     //r.insertLast(uint8(0xFF));  // TBD
@@ -2015,6 +2078,7 @@ class GameState {
         case 0x06: c = deserialize_items(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
         case 0x08: c = deserialize_objects(r, c); break;
+        case 0x09: c = deserialize_ancillae(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -2122,6 +2186,15 @@ class GameState {
     objectsBlock.resize(0x2A0);
     for (int i = 0; i < 0x2A0; i++) {
       objectsBlock[i] = r[c++];
+    }
+
+    return c;
+  }
+
+  int deserialize_ancillae(array<uint8> r, int c) {
+    ancillaeBlock.resize(0xAA);
+    for (int i = 0; i < 0xAA; i++) {
+      ancillaeBlock[i] = r[c++];
     }
 
     return c;
@@ -2768,6 +2841,25 @@ void pre_frame() {
   }
 
   {
+    auto updated_ancillae = false;
+
+    for (uint i = 0; i < players.length(); i++) {
+      auto @remote = players[i];
+      if (@remote == null) continue;
+      if (remote.ttl <= 0) continue;
+      if (!local.can_see(remote.location)) continue;
+
+      if (!updated_ancillae && remote.ancillaeBlock.length() == 0xAA) {
+        updated_ancillae = true;
+
+        if (@remote != @local) {
+          bus::write_block_u8(0x7E0BF0, 0, 0xAA, remote.ancillaeBlock);
+        }
+      }
+    }
+  }
+
+  if (false) {
     auto updated_objects = false;
 
     // update objects state from lowest-indexed player in the room:
