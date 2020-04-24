@@ -1806,9 +1806,11 @@ class GameState {
     bus::read_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
   }
 
-  array<uint8> ancillaeBlock(0xAA);
+  array<uint8> ancillaeBlock(0xAA + 0x32 + 0x19);
   void fetch_ancillae() {
-    bus::read_block_u8(0x7E0BF0, 0, 0xAA, ancillaeBlock);
+    bus::read_block_u8(0x7E0BF0,    0, 0xAA, ancillaeBlock);
+    bus::read_block_u8(0x7E0280, 0xAA, 0x32, ancillaeBlock);
+    bus::read_block_u8(0x7E0380, 0xDC, 0x19, ancillaeBlock);
   }
 
   array<uint8> @create_envelope(uint8 kind) {
@@ -2032,7 +2034,7 @@ class GameState {
   void serialize_ancillae(array<uint8> &r) {
     r.insertLast(uint8(0x09));
 
-    // 0xAA bytes
+    // 0xAA+0x32 bytes
     r.insertLast(ancillaeBlock);
   }
 
@@ -2192,8 +2194,8 @@ class GameState {
   }
 
   int deserialize_ancillae(array<uint8> r, int c) {
-    ancillaeBlock.resize(0xAA);
-    for (int i = 0; i < 0xAA; i++) {
+    ancillaeBlock.resize(0xAA+0x32+0x19);
+    for (int i = 0; i < 0xAA+0x32+0x19; i++) {
       ancillaeBlock[i] = r[c++];
     }
 
@@ -2849,11 +2851,13 @@ void pre_frame() {
       if (remote.ttl <= 0) continue;
       if (!local.can_see(remote.location)) continue;
 
-      if (!updated_ancillae && remote.ancillaeBlock.length() == 0xAA) {
+      if (!updated_ancillae && remote.ancillaeBlock.length() > 0) {
         updated_ancillae = true;
 
         if (@remote != @local) {
-          bus::write_block_u8(0x7E0BF0, 0, 0xAA, remote.ancillaeBlock);
+          bus::write_block_u8(0x7E0BF0,    0, 0xAA, remote.ancillaeBlock);
+          bus::write_block_u8(0x7E0280, 0xAA, 0x32, remote.ancillaeBlock);
+          bus::write_block_u8(0x7E0380, 0xDC, 0x19, remote.ancillaeBlock);
         }
       }
     }
