@@ -33,31 +33,31 @@ void init() {
 
 // Lookup table of ROM addresses depending on version:
 abstract class ROMMapping {
-  uint32 get_tilemap_lightWorldMap() { return 0; }
-  uint32 get_tilemap_darkWorldMap()  { return 0; }
-  uint32 get_palette_lightWorldMap() { return 0; }
-  uint32 get_palette_darkWorldMap()  { return 0; }
+  uint32 get_tilemap_lightWorldMap() property { return 0; }
+  uint32 get_tilemap_darkWorldMap()  property { return 0; }
+  uint32 get_palette_lightWorldMap() property { return 0; }
+  uint32 get_palette_darkWorldMap()  property { return 0; }
 };
 
 class JPROMMapping : ROMMapping {
-  uint32 get_tilemap_lightWorldMap() { return 0x0AC739; }
-  uint32 get_tilemap_darkWorldMap()  { return 0x0AD739; }
-  uint32 get_palette_lightWorldMap() { return 0x0ADB39; }
-  uint32 get_palette_darkWorldMap()  { return 0x0ADC39; }
+  uint32 get_tilemap_lightWorldMap() property { return 0x0AC739; }
+  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD739; }
+  uint32 get_palette_lightWorldMap() property { return 0x0ADB39; }
+  uint32 get_palette_darkWorldMap()  property { return 0x0ADC39; }
 };
 
 class USROMMapping : ROMMapping {
-  uint32 get_tilemap_lightWorldMap() { return 0x0AC727; }
-  uint32 get_tilemap_darkWorldMap()  { return 0x0AD727; }
-  uint32 get_palette_lightWorldMap() { return 0x0ADB27; }
-  uint32 get_palette_darkWorldMap()  { return 0x0ADC27; }
+  uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
+  uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 };
 
 class EUROMMapping : ROMMapping {
-  uint32 get_tilemap_lightWorldMap() { return 0x0AC727; }
-  uint32 get_tilemap_darkWorldMap()  { return 0x0AD727; }
-  uint32 get_palette_lightWorldMap() { return 0x0ADB27; }
-  uint32 get_palette_darkWorldMap()  { return 0x0ADC27; }
+  uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
+  uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 };
 
 ROMMapping@ detect() {
