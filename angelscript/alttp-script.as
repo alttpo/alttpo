@@ -1130,45 +1130,65 @@ class GameSprite {
 };
 
 // Represents an ALTTP ancilla from 0x0A-sized tables at $7E0BF0-0C9A:
+const int ancillaeFactsCount = 0x18;
 class GameAncilla {
-  array<uint8> facts(0x11);
+  // $0BF0 = 0x00..0x10
+  // $0280 = 0x11..0x16
+  // $039F = 0x17
+  array<uint8> facts(ancillaeFactsCount);
   uint8 index;
 
-  void readFromBlock(const array<uint8> &in block, uint8 index) {
-    this.index = index;
+  int deserialize(const array<uint8> &in r, int c) {
+    index = r[c++];
 
-    // copy ancilla facts from the striped contiguous block of RAM:
-    uint j = index;
-    facts.resize(0x11);
-    for (uint i = 0; i < 0x11; i++, j += 0x0A) {
-      facts[i] = block[j];
+    // copy ancilla facts from:
+    facts.resize(ancillaeFactsCount);
+    for (uint i = 0; i < ancillaeFactsCount; i++) {
+      facts[i] = r[c++];
     }
+
+    return c;
+  }
+
+  void serialize(array<uint8> &in r) {
+    r.insertLast(uint8(index));
+    r.insertLast(facts);
   }
 
   void readRAM(uint8 index) {
     this.index = index;
 
     // copy ancilla facts from the striped contiguous block of RAM:
-    uint j = index;
-    facts.resize(0x11);
-    for (uint i = 0; i < 0x11; i++, j += 0x0A) {
-      facts[i] = bus::read_u8(0x7E0BF0 + j);
+    facts.resize(ancillaeFactsCount);
+    for (uint i = 0, j = index; i < 0x11; i++, j += 0x0A) {
+      facts[0x00+i] = bus::read_u8(0x7E0BF0 + j);
+    }
+    for (uint i = 0, j = index; i < 0x05; i++, j += 0x0A) {
+      facts[0x11+i] = bus::read_u8(0x7E0280 + j);
+    }
+    for (uint i = 0, j = index; i < 0x01; i++, j += 0x0A) {
+      facts[0x17+i] = bus::read_u8(0x7E039F + j);
     }
   }
 
   void writeRAM() {
     uint j = index;
     for (uint i = 0; i < 0x11; i++, j += 0x0A) {
-      bus::write_u8(0x7E0BF0 + j, facts[i]);
+      bus::write_u8(0x7E0BF0 + j, facts[0x00+i]);
+    }
+    for (uint i = 0; i < 0x05; i++, j += 0x0A) {
+      bus::write_u8(0x7E0280 + j, facts[0x11+i]);
+    }
+    for (uint i = 0; i < 0x01; i++, j += 0x0A) {
+      bus::write_u8(0x7E039F + j, facts[0x17+i]);
     }
   }
 
-  uint8  misc      { get { return facts[0x00]; } };
-  uint16 y         { get { return uint16(facts[0x01]) | uint16(facts[0x03] << 8); } };
-  uint16 x         { get { return uint16(facts[0x02]) | uint16(facts[0x04] << 8); } };
+  //uint16 y         { get { return uint16(facts[0x01]) | uint16(facts[0x03] << 8); } };
+  //uint16 x         { get { return uint16(facts[0x02]) | uint16(facts[0x04] << 8); } };
   uint8  type      { get { return facts[0x09]; } };
-  uint8  oam_index { get { return facts[0x0F]; } };
-  uint8  oam_count { get { return facts[0x10]; } };
+  //uint8  oam_index { get { return facts[0x0F]; } };
+  //uint8  oam_count { get { return facts[0x10]; } };
 
   bool is_enabled  { get { return type != 0; } };
 };
@@ -1806,11 +1826,40 @@ class GameState {
     bus::read_block_u16(0x7EFA00, 0, tilemapCount, tilemapTile);
   }
 
-  array<uint8> ancillaeBlock(0xAA + 0x32 + 0x19);
+  array<int> ancillaeOwner;
+  array<GameAncilla@> ancillae;
   void fetch_ancillae() {
-    bus::read_block_u8(0x7E0BF0,    0, 0xAA, ancillaeBlock);
-    bus::read_block_u8(0x7E0280, 0xAA, 0x32, ancillaeBlock);
-    bus::read_block_u8(0x7E0380, 0xDC, 0x19, ancillaeBlock);
+    // initialize owner array with -1 for no owner:
+    if (ancillaeOwner.length() == 0) {
+      message("resize ancillaeOwner");
+      ancillaeOwner.resize(0x0A);
+      for (uint i = 0; i < 0x0A; i++) {
+        ancillaeOwner[i] = -1;
+      }
+    }
+
+    // initialize array of ancillae:
+    if (ancillae.length() == 0) {
+      message("resize ancillae");
+      ancillae.resize(0x0A);
+      for (uint i = 0; i < 0x0A; i++) {
+        @ancillae[i] = @GameAncilla();
+      }
+    }
+
+    // update ancillae array from WRAM:
+    for (uint i = 0; i < 0x0A; i++) {
+      ancillae[i].readRAM(i);
+
+      // if no owner and type is not nothing then we own it now:
+      if (ancillaeOwner[i] == -1 && ancillae[i].type != 0) {
+        ancillaeOwner[i] = index;
+      }
+      // if it is owned but type went to 0 then nobody owns it now:
+      if (ancillaeOwner[i] != -1 && ancillae[i].type == 0) {
+        ancillaeOwner[i] = -1;
+      }
+    }
   }
 
   array<uint8> @create_envelope(uint8 kind) {
@@ -2031,11 +2080,129 @@ class GameState {
     r.insertLast(objectsBlock);
   }
 
+  bool ancilla_syncable(uint8 t) {
+    // TODO: ancilla
+
+    // 0x01 - Somarian Blast; Results from splitting a Somarian Block
+    // 0x02 - Fire Rod Shot
+    if (t == 0x02) return true;
+    // 0x03 - Unused; Instantiating one of these creates an object that does nothing.
+    // 0x04 - Beam Hit; Master sword beam or Somarian Blast dispersing after hitting something
+    // 0x05 - Boomerang
+    // 0x06 - Wall Hit; Spark-like effect that occurs when you hit a wall with a boomerang or hookshot
+    // 0x07 - Bomb; Normal bombs laid by the player
+    if (t == 0x07) return true;
+    // 0x08 - Door Debris; Rock fall effect from bombing a cracked cave or dungeon wall
+    if (t == 0x08) return true;
+    // 0x09 - Arrow; Fired from the player's bow
+    if (t == 0x09) return true;
+    // 0x0A - Halted Arrow; Player's arrow that is stuck in something (wall or sprite)
+    if (t == 0x0A) return true;
+    // 0x0B - Ice Rod Shot
+    if (t == 0x0B) return true;
+    // 0x0C - Sword Beam
+    // 0x0D - Sword Full Charge Spark; The sparkle that briefly appears at the tip of the player's sword when their spin attack fully charges up.
+    // 0x0E - Unused; Duplicate of the Blast Wall
+    // 0x0F - Unused; Duplicate of the Blast Wall
+    
+    // 0x10 - Unused; Duplicate of the Blast Wall
+    // 0x11 - Ice Shot Spread; Ice shot dispersing after hitting something.
+    if (t == 0x11) return true;
+    // 0x12 - Unused; Duplicate of the Blast Wall
+    // 0x13 - Ice Shot Sparkle; The only actually visible parts of the ice shot.
+    if (t == 0x13) return true;
+    // 0x14 - Unused; Don't use as it will crash the game.
+    // 0x15 - Jump Splash; Splash from the player jumping into or out of deep water
+    if (t == 0x15) return true;
+    // 0x16 - The Hammer's Stars / Stars from hitting hard ground with the shovel
+    if (t == 0x16) return true;
+    // 0x17 - Dirt from digging a hole with the shovel
+    if (t == 0x17) return true;
+    // 0x18 - The Ether Effect
+    // 0x19 - The Bombos Effect
+    // 0x1A - Precursor to torch flame / Magic powder
+    // 0x1B - Sparks from tapping a wall with your sword
+    if (t == 0x1B) return true;
+    // 0x1C - The Quake Effect
+    // 0x1D - Jarring effect from hitting a wall while dashing
+    // 0x1E - Pegasus boots dust flying
+    if (t == 0x1E) return true;
+    // 0x1F - Hookshot
+    
+    // 0x20 - Link's Bed Spread
+    // 0x21 - Link's Zzzz's from sleeping
+    // 0x22 - Received Item Sprite
+    // 0x23 - Bunny / Cape transformation poof
+    // 0x24 - Gravestone sprite when in motion
+    if (t == 0x24) return true;
+    // 0x25 - 
+    // 0x26 - Sparkles when swinging lvl 2 or higher sword
+    if (t == 0x26) return true;
+    // 0x27 - the bird (when called by flute)
+    if (t == 0x27) return true;
+    // 0x28 - item sprite that you throw into magic faerie ponds.
+    if (t == 0x28) return true;
+    // 0x29 - Pendants and crystals
+    if (t == 0x29) return true;
+    // 0x2A - Start of spin attack sparkle
+    if (t == 0x2A) return true;
+    // 0x2B - During Spin attack sparkles
+    if (t == 0x2B) return true;
+    // 0x2C - Cane of Somaria blocks
+    if (t == 0x2C) return true;
+    // 0x2D - 
+    // 0x2E - ????
+    // 0x2F - Torch's flame
+
+    // 0x30 - Initial spark for the Cane of Byrna activating
+    // 0x31 - Cane of Byrna spinning sparkle
+    // 0x32 - Flame blob, possibly from wall explosion
+    // 0x33 - Series of explosions from blowing up a wall (after pulling a switch)
+    // 0x34 - Burning effect used to open up the entrance to skull woods.
+    // 0x35 - Master Sword ceremony.... not sure if it's the whole thing or a part of it
+    // 0x36 - Flute that pops out of the ground in the haunted grove.
+    // 0x37 - Appears to trigger the weathervane explosion.
+    // 0x38 - Appears to give Link the bird enabled flute.
+    // 0x39 - Cane of Somaria blast which creates platforms (sprite 0xED)
+    // 0x3A - super bomb explosion (also does things normal bombs can)
+    // 0x3B - Unused hit effect. Looks similar to Somaria block being nulled out.
+    // 0x3C - Sparkles from holding the sword out charging for a spin attack.
+    // 0x3D - splash effect when things fall into the water
+    // 0x3E - 3D crystal effect (or transition into 3D crystal?)
+    // 0x3F - Disintegrating bush poof (due to magic powder)
+
+    // 0x40 - Dwarf transformation cloud
+    // 0x41 - Water splash in the waterfall of wishing entrance (and swamp palace)
+    if (t == 0x41) return true;
+    // 0x42 - Rupees that you throw in to the Pond of Wishing
+    if (t == 0x42) return true;
+    // 0x43 - Ganon's Tower seal being broken. (not opened up though!)                
+
+    return false;
+  }
+
   void serialize_ancillae(array<uint8> &r) {
+    if (ancillaeOwner.length() == 0) return;
+    if (ancillae.length() == 0) return;
+
     r.insertLast(uint8(0x09));
 
-    // 0xAA+0x32 bytes
-    r.insertLast(ancillaeBlock);
+    uint8 count = 0;
+    for (uint i = 0; i < 0x0A; i++) {
+      if (ancillaeOwner[i] != index) continue;
+      if (!ancilla_syncable(ancillae[i].type)) continue;
+
+      count++;
+    }
+
+    // count of active+owned ancillae:
+    r.insertLast(count);
+    for (uint i = 0; i < 0x0A; i++) {
+      if (ancillaeOwner[i] != index) continue;
+      if (!ancilla_syncable(ancillae[i].type)) continue;
+
+      ancillae[i].serialize(r);
+    }
   }
 
   void serialize_rooms(array<uint8> &r) {
@@ -2194,9 +2361,13 @@ class GameState {
   }
 
   int deserialize_ancillae(array<uint8> r, int c) {
-    ancillaeBlock.resize(0xAA+0x32+0x19);
-    for (int i = 0; i < 0xAA+0x32+0x19; i++) {
-      ancillaeBlock[i] = r[c++];
+    uint8 count = r[c++];
+    ancillae.resize(count);
+    for (int i = 0; i < count; i++) {
+      if (@ancillae[i] is null) {
+        @ancillae[i] = @GameAncilla();
+      }
+      c = ancillae[i].deserialize(r, c);
     }
 
     return c;
@@ -2697,8 +2868,8 @@ void receive() {
         index = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
         // assign to local player:
-        if (local.index != index) {
-          if (local.index >= 0 && local.index < players.length()) {
+        if (local.index != int(index)) {
+          if (local.index >= 0 && local.index < int(players.length())) {
             // reset old player slot:
             @players[local.index] = @GameState();
           }
@@ -2843,22 +3014,25 @@ void pre_frame() {
   }
 
   {
-    auto updated_ancillae = false;
-
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
       if (@remote == null) continue;
       if (remote.ttl <= 0) continue;
       if (!local.can_see(remote.location)) continue;
 
-      if (!updated_ancillae && remote.ancillaeBlock.length() > 0) {
-        updated_ancillae = true;
-
-        if (@remote != @local) {
-          bus::write_block_u8(0x7E0BF0,    0, 0xAA, remote.ancillaeBlock);
-          bus::write_block_u8(0x7E0280, 0xAA, 0x32, remote.ancillaeBlock);
-          bus::write_block_u8(0x7E0380, 0xDC, 0x19, remote.ancillaeBlock);
+      if (remote.ancillae.length() > 0) {
+        if (@remote == @local) {
+          continue;
         }
+
+        for (uint j = 0; j < remote.ancillae.length(); j++) {
+
+          for (uint k = 0; k < 0x0A; k++) {
+            //if (local.ancillaeOwner[k] == remote.index)
+          }
+        }
+        //bus::write_block_u8(0x7E0BF0,    0, 0xAA, remote.ancillaeBlock);
+        //bus::write_block_u8(0x7E0280, 0xAA, 0x32, remote.ancillaeBlock);
       }
     }
   }
