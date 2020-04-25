@@ -2214,7 +2214,7 @@ void pre_nmi() {
   if (@sock == null) {
     try {
       // open a UDP socket to receive data from:
-      @address = net::resolve_udp(settings.ServerAddress, 4590);
+      @address = net::resolve_udp(settings.ServerAddress, "4590");
       // open a UDP socket to receive data from:
       @sock = net::Socket(address);
       // connect to remote address so recv() and send() work:
