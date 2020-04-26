@@ -1132,21 +1132,42 @@ class GameSprite {
   bool is_enabled  { get { return state != 0; } };
 };
 
-// Represents an ALTTP ancilla from 0x0A-sized tables at $7E0BF0-0C9A:
-const int ancillaeFactsCount = 0x17;
+// Represents an ALTTP ancilla object with fields scattered about WRAWM:
+const int ancillaeFactsCount1 = 0x20;
+const int ancillaeFactsCount2 = 0x16;
 class GameAncilla {
+  // for all 10 ancillae:
   // $0BF0 = 0x00..0x10
   // $0280 = 0x11..0x15
-  // $039F = 0x16
-  array<uint8> facts(ancillaeFactsCount);
+
+  // for lowest 5 ancillae indexes only:
+  // $0380 = 0x16
+  // $0385 = 0x17
+  // $038A = 0x18
+  // $038F = 0x19
+  // $0394 = 0x1A
+  // skip $0399 which is special for boomearngs
+  // $039F = 0x1B
+  // skip $03A4 which is for receiving items
+  // $03A9 = 0x1C
+  // $03B1 = 0x1D
+  // -- $03C4 special for rock debris, maybe bombs
+  // $03C5 = 0x1E
+  // $03CA = 0x1F
+
+  array<uint8> facts;
   uint8 index;
 
   int deserialize(const array<uint8> &in r, int c) {
     this.index = r[c++];
 
     // copy ancilla facts from:
-    facts.resize(ancillaeFactsCount);
-    for (uint i = 0; i < ancillaeFactsCount; i++) {
+    if (index < 5) {
+      facts.resize(ancillaeFactsCount1);
+    } else {
+      facts.resize(ancillaeFactsCount2);
+    }
+    for (uint i = 0; i < facts.length(); i++) {
       facts[i] = r[c++];
     }
 
@@ -1156,37 +1177,57 @@ class GameAncilla {
   void serialize(array<uint8> &r) {
     r.insertLast(uint8(index));
     r.insertLast(facts);
-    //if (facts.length() != ancillaeFactsCount) {
-    //  message("ERROR: ancilla facts length " + fmtInt(facts.length()) + " != " + fmtInt(ancillaeFactsCount));
-    //}
   }
 
   void readRAM(uint8 index) {
     this.index = index;
 
-    // copy ancilla facts from the striped contiguous block of RAM:
-    facts.resize(ancillaeFactsCount);
+    if (index < 5) {
+      facts.resize(ancillaeFactsCount1);
+    } else {
+      facts.resize(ancillaeFactsCount2);
+    }
+
     for (uint i = 0, j = index; i < 0x11; i++, j += 0x0A) {
       facts[0x00+i] = bus::read_u8(0x7E0BF0 + j);
     }
     for (uint i = 0, j = index; i < 0x05; i++, j += 0x0A) {
       facts[0x11+i] = bus::read_u8(0x7E0280 + j);
     }
-    for (uint i = 0, j = index; i < 0x01; i++, j += 0x0A) {
-      facts[0x16+i] = bus::read_u8(0x7E039F + j);
+
+    // first 5 ancillae are special and have more supporting data:
+    if (index < 5) {
+      facts[0x16] = bus::read_u8(0x7E0380 + index);
+      facts[0x17] = bus::read_u8(0x7E0385 + index);
+      facts[0x18] = bus::read_u8(0x7E038A + index);
+      facts[0x19] = bus::read_u8(0x7E038F + index);
+      facts[0x1A] = bus::read_u8(0x7E0394 + index);
+      facts[0x1B] = bus::read_u8(0x7E039F + index);
+      facts[0x1C] = bus::read_u8(0x7E03A9 + index);
+      facts[0x1D] = bus::read_u8(0x7E03B1 + index);
+      facts[0x1E] = bus::read_u8(0x7E03C5 + index);
+      facts[0x1F] = bus::read_u8(0x7E03CA + index);
     }
   }
 
   void writeRAM() {
-    uint j = index;
-    for (uint i = 0; i < 0x11; i++, j += 0x0A) {
+    for (uint i = 0, j = index; i < 0x11; i++, j += 0x0A) {
       bus::write_u8(0x7E0BF0 + j, facts[0x00+i]);
     }
-    for (uint i = 0; i < 0x05; i++, j += 0x0A) {
+    for (uint i = 0, j = index; i < 0x05; i++, j += 0x0A) {
       bus::write_u8(0x7E0280 + j, facts[0x11+i]);
     }
-    for (uint i = 0; i < 0x01; i++, j += 0x0A) {
-      bus::write_u8(0x7E039F + j, facts[0x16+i]);
+    if (index < 5) {
+      bus::write_u8(0x7E0380 + index, facts[0x16]);
+      bus::write_u8(0x7E0385 + index, facts[0x17]);
+      bus::write_u8(0x7E038A + index, facts[0x18]);
+      bus::write_u8(0x7E038F + index, facts[0x19]);
+      bus::write_u8(0x7E0394 + index, facts[0x1A]);
+      bus::write_u8(0x7E039F + index, facts[0x1B]);
+      bus::write_u8(0x7E03A9 + index, facts[0x1C]);
+      bus::write_u8(0x7E03B1 + index, facts[0x1D]);
+      bus::write_u8(0x7E03C5 + index, facts[0x1E]);
+      bus::write_u8(0x7E03CA + index, facts[0x1F]);
     }
   }
 
