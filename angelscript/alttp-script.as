@@ -1853,15 +1853,19 @@ class GameState {
 
     // update ancillae array from WRAM:
     for (uint i = 0; i < 0x0A; i++) {
-      uint8 old_type = ancillae[i].type;
       ancillae[i].readRAM(i);
 
       // Update ownership:
-      if (ancillaeOwner[i] == -1) {
-        // If type changed from 0 to non-zero, we own it:
-        if (old_type == 0 && ancillae[i].type != 0) {
+      if (ancillaeOwner[i] == index) {
+        if (ancillae[i].type == 0) {
+          ancillaeOwner[i] = -2;
+        }
+      } else if (ancillaeOwner[i] == -1) {
+        if (ancillae[i].type != 0) {
           ancillaeOwner[i] = local.index;
         }
+      } else if (ancillaeOwner[i] == -2) {
+        ancillaeOwner[i] = -1;
       }
     }
   }
@@ -2089,6 +2093,7 @@ class GameState {
 
     if (t == 0x00) return true;
     // 0x01 - Somarian Blast; Results from splitting a Somarian Block
+    if (t == 0x01) return true;
     // 0x02 - Fire Rod Shot
     if (t == 0x02) return true;
     // 0x03 - Unused; Instantiating one of these creates an object that does nothing.
@@ -2150,9 +2155,7 @@ class GameState {
     // 0x29 - Pendants and crystals
     if (t == 0x29) return true;
     // 0x2A - Start of spin attack sparkle
-    if (t == 0x2A) return true;
     // 0x2B - During Spin attack sparkles
-    if (t == 0x2B) return true;
     // 0x2C - Cane of Somaria blocks
     if (t == 0x2C) return true;
     // 0x2D - 
@@ -2170,9 +2173,11 @@ class GameState {
     // 0x38 - Appears to give Link the bird enabled flute.
     // 0x39 - Cane of Somaria blast which creates platforms (sprite 0xED)
     // 0x3A - super bomb explosion (also does things normal bombs can)
+    if (t == 0x3A) return true;
     // 0x3B - Unused hit effect. Looks similar to Somaria block being nulled out.
     // 0x3C - Sparkles from holding the sword out charging for a spin attack.
     // 0x3D - splash effect when things fall into the water
+    if (t == 0x3D) return true;
     // 0x3E - 3D crystal effect (or transition into 3D crystal?)
     // 0x3F - Disintegrating bush poof (due to magic powder)
 
@@ -2194,7 +2199,7 @@ class GameState {
 
     uint8 count = 0;
     for (uint i = 0; i < 0x0A; i++) {
-      if (ancillaeOwner[i] != index) continue;
+      if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
       if (!ancilla_syncable(ancillae[i].type)) continue;
 
       count++;
@@ -2203,7 +2208,7 @@ class GameState {
     // count of active+owned ancillae:
     r.insertLast(count);
     for (uint i = 0; i < 0x0A; i++) {
-      if (ancillaeOwner[i] != index) continue;
+      if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
       if (!ancilla_syncable(ancillae[i].type)) continue;
 
       ancillae[i].serialize(r);
@@ -3028,15 +3033,24 @@ void pre_frame() {
 
       //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
       if (remote is local) {
-        break;
+        continue;
       }
 
       if (remote.ancillae.length() > 0) {
         for (uint j = 0; j < remote.ancillae.length(); j++) {
           auto @an = remote.ancillae[j];
+          auto k = an.index;
 
-          an.writeRAM();
-          local.ancillaeOwner[j] = remote.index;
+          if (local.ancillaeOwner[k] == remote.index) {
+            an.writeRAM();
+            if (an.type == 0) {
+              // clear owner if type went to 0:
+              local.ancillaeOwner[k] = -1;
+            }
+          } else if (local.ancillaeOwner[k] == -1 && an.type != 0) {
+            an.writeRAM();
+            local.ancillaeOwner[k] = remote.index;
+          }
 
           //for (uint k = 0; k < 0x0A; k++) {
             //if (local.ancillaeOwner[k] == remote.index)
@@ -3044,7 +3058,7 @@ void pre_frame() {
         }
       }
 
-      break;
+      continue;
     }
   }
 
