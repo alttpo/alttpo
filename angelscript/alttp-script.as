@@ -1179,18 +1179,14 @@ class GameAncilla {
 
   void writeRAM() {
     uint j = index;
-    uint bytes = 0;
     for (uint i = 0; i < 0x11; i++, j += 0x0A) {
       bus::write_u8(0x7E0BF0 + j, facts[0x00+i]);
-      bytes++;
     }
     for (uint i = 0; i < 0x05; i++, j += 0x0A) {
       bus::write_u8(0x7E0280 + j, facts[0x11+i]);
-      bytes++;
     }
     for (uint i = 0; i < 0x01; i++, j += 0x0A) {
       bus::write_u8(0x7E039F + j, facts[0x16+i]);
-      bytes++;
     }
   }
 
@@ -1857,7 +1853,16 @@ class GameState {
 
     // update ancillae array from WRAM:
     for (uint i = 0; i < 0x0A; i++) {
+      uint8 old_type = ancillae[i].type;
       ancillae[i].readRAM(i);
+
+      // Update ownership:
+      if (ancillaeOwner[i] == -1) {
+        // If type changed from 0 to non-zero, we own it:
+        if (old_type == 0 && ancillae[i].type != 0) {
+          ancillaeOwner[i] = local.index;
+        }
+      }
     }
   }
 
@@ -2082,6 +2087,7 @@ class GameState {
   bool ancilla_syncable(uint8 t) {
     // TODO: ancilla
 
+    if (t == 0x00) return true;
     // 0x01 - Somarian Blast; Results from splitting a Somarian Block
     // 0x02 - Fire Rod Shot
     if (t == 0x02) return true;
@@ -3020,18 +3026,25 @@ void pre_frame() {
       if (remote.ttl <= 0) continue;
       if (!local.can_see(remote.location)) continue;
 
-      if (remote.ancillae.length() > 0) {
-        if (@remote == @local) {
-          continue;
-        }
+      //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
+      if (remote is local) {
+        break;
+      }
 
+      if (remote.ancillae.length() > 0) {
         for (uint j = 0; j < remote.ancillae.length(); j++) {
-          remote.ancillae[j].writeRAM();
+          auto @an = remote.ancillae[j];
+
+          an.writeRAM();
+          local.ancillaeOwner[j] = remote.index;
+
           //for (uint k = 0; k < 0x0A; k++) {
             //if (local.ancillaeOwner[k] == remote.index)
           //}
         }
       }
+
+      break;
     }
   }
 
