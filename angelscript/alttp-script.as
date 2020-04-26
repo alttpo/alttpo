@@ -3,10 +3,11 @@ net::Socket@ sock;
 net::Address@ address;
 SettingsWindow @settings;
 
-bool debug = false;
+bool debug = true;
 bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
+bool debugGameObjects = false;
 
 void init() {
   // Auto-detect ROM version:
@@ -33,7 +34,9 @@ void init() {
     @oamWindow = OAMWindow();
   }
 
-  @gameSpriteWindow = GameSpriteWindow();
+  if (debugGameObjects) {
+    @gameSpriteWindow = GameSpriteWindow();
+  }
 }
 
 // Lookup table of ROM addresses depending on version:
@@ -1130,16 +1133,16 @@ class GameSprite {
 };
 
 // Represents an ALTTP ancilla from 0x0A-sized tables at $7E0BF0-0C9A:
-const int ancillaeFactsCount = 0x18;
+const int ancillaeFactsCount = 0x17;
 class GameAncilla {
   // $0BF0 = 0x00..0x10
-  // $0280 = 0x11..0x16
-  // $039F = 0x17
+  // $0280 = 0x11..0x15
+  // $039F = 0x16
   array<uint8> facts(ancillaeFactsCount);
   uint8 index;
 
   int deserialize(const array<uint8> &in r, int c) {
-    index = r[c++];
+    this.index = r[c++];
 
     // copy ancilla facts from:
     facts.resize(ancillaeFactsCount);
@@ -1150,9 +1153,12 @@ class GameAncilla {
     return c;
   }
 
-  void serialize(array<uint8> &in r) {
+  void serialize(array<uint8> &r) {
     r.insertLast(uint8(index));
     r.insertLast(facts);
+    //if (facts.length() != ancillaeFactsCount) {
+    //  message("ERROR: ancilla facts length " + fmtInt(facts.length()) + " != " + fmtInt(ancillaeFactsCount));
+    //}
   }
 
   void readRAM(uint8 index) {
@@ -1167,20 +1173,24 @@ class GameAncilla {
       facts[0x11+i] = bus::read_u8(0x7E0280 + j);
     }
     for (uint i = 0, j = index; i < 0x01; i++, j += 0x0A) {
-      facts[0x17+i] = bus::read_u8(0x7E039F + j);
+      facts[0x16+i] = bus::read_u8(0x7E039F + j);
     }
   }
 
   void writeRAM() {
     uint j = index;
+    uint bytes = 0;
     for (uint i = 0; i < 0x11; i++, j += 0x0A) {
       bus::write_u8(0x7E0BF0 + j, facts[0x00+i]);
+      bytes++;
     }
     for (uint i = 0; i < 0x05; i++, j += 0x0A) {
       bus::write_u8(0x7E0280 + j, facts[0x11+i]);
+      bytes++;
     }
     for (uint i = 0; i < 0x01; i++, j += 0x0A) {
-      bus::write_u8(0x7E039F + j, facts[0x17+i]);
+      bus::write_u8(0x7E039F + j, facts[0x16+i]);
+      bytes++;
     }
   }
 
@@ -1831,7 +1841,6 @@ class GameState {
   void fetch_ancillae() {
     // initialize owner array with -1 for no owner:
     if (ancillaeOwner.length() == 0) {
-      message("resize ancillaeOwner");
       ancillaeOwner.resize(0x0A);
       for (uint i = 0; i < 0x0A; i++) {
         ancillaeOwner[i] = -1;
@@ -1840,7 +1849,6 @@ class GameState {
 
     // initialize array of ancillae:
     if (ancillae.length() == 0) {
-      message("resize ancillae");
       ancillae.resize(0x0A);
       for (uint i = 0; i < 0x0A; i++) {
         @ancillae[i] = @GameAncilla();
@@ -1850,15 +1858,6 @@ class GameState {
     // update ancillae array from WRAM:
     for (uint i = 0; i < 0x0A; i++) {
       ancillae[i].readRAM(i);
-
-      // if no owner and type is not nothing then we own it now:
-      if (ancillaeOwner[i] == -1 && ancillae[i].type != 0) {
-        ancillaeOwner[i] = index;
-      }
-      // if it is owned but type went to 0 then nobody owns it now:
-      if (ancillaeOwner[i] != -1 && ancillae[i].type == 0) {
-        ancillaeOwner[i] = -1;
-      }
     }
   }
 
@@ -1917,7 +1916,6 @@ class GameState {
       serialize_sfx(envelope);
       serialize_sprites(envelope);
       serialize_chr0(envelope);
-      serialize_ancillae(envelope);
 
       send_packet(envelope);
     }
@@ -1929,6 +1927,7 @@ class GameState {
       // send chr0 to remote player:
       serialize_items(envelope);
       serialize_objects(envelope);
+      serialize_ancillae(envelope);
 
       send_packet(envelope);
     }
@@ -2364,9 +2363,10 @@ class GameState {
     uint8 count = r[c++];
     ancillae.resize(count);
     for (int i = 0; i < count; i++) {
-      if (@ancillae[i] is null) {
+      if (ancillae[i] is null) {
         @ancillae[i] = @GameAncilla();
       }
+
       c = ancillae[i].deserialize(r, c);
     }
 
@@ -3026,13 +3026,11 @@ void pre_frame() {
         }
 
         for (uint j = 0; j < remote.ancillae.length(); j++) {
-
-          for (uint k = 0; k < 0x0A; k++) {
+          remote.ancillae[j].writeRAM();
+          //for (uint k = 0; k < 0x0A; k++) {
             //if (local.ancillaeOwner[k] == remote.index)
-          }
+          //}
         }
-        //bus::write_block_u8(0x7E0BF0,    0, 0xAA, remote.ancillaeBlock);
-        //bus::write_block_u8(0x7E0280, 0xAA, 0x32, remote.ancillaeBlock);
       }
     }
   }
