@@ -2039,15 +2039,18 @@ class GameState {
 
       // Update ownership:
       if (ancillaeOwner[i] == index) {
+        ancillae[i].requestOwnership = false;
         if (ancillae[i].type == 0) {
           ancillaeOwner[i] = -2;
         }
       } else if (ancillaeOwner[i] == -1) {
         if (ancillae[i].type != 0) {
           ancillaeOwner[i] = local.index;
+          ancillae[i].requestOwnership = false;
         }
       } else if (ancillaeOwner[i] == -2) {
         ancillaeOwner[i] = -1;
+        ancillae[i].requestOwnership = false;
       }
     }
   }
@@ -3129,8 +3132,21 @@ void pre_frame() {
           auto @an = remote.ancillae[j];
           auto k = an.index;
 
+          if (k < 0x05) {
+            // Doesn't work; needs more debugging.
+            if (false) {
+              // if local player picks up remotely owned ancillae:
+              if (local.ancillae[k].held == 3 && an.held != 3) {
+                an.requestOwnership = false;
+                local.ancillae[k].requestOwnership = true;
+                local.ancillaeOwner[k] = local.index;
+              }
+            }
+          }
+
           // ownership transfer:
           if (an.requestOwnership) {
+            local.ancillae[k].requestOwnership = false;
             local.ancillaeOwner[k] = remote.index;
           }
 
@@ -3139,15 +3155,13 @@ void pre_frame() {
             if (an.type == 0) {
               // clear owner if type went to 0:
               local.ancillaeOwner[k] = -1;
+              local.ancillae[k].requestOwnership = false;
             }
           } else if (local.ancillaeOwner[k] == -1 && an.type != 0) {
             an.writeRAM();
             local.ancillaeOwner[k] = remote.index;
+            local.ancillae[k].requestOwnership = false;
           }
-
-          //for (uint k = 0; k < 0x0A; k++) {
-            //if (local.ancillaeOwner[k] == remote.index)
-          //}
         }
       }
 
