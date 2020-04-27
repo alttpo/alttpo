@@ -1091,7 +1091,7 @@ class GameSprite {
     this.index = index;
 
     // copy object facts from the striped contiguous block of RAM:
-    uint j = index;
+    uint j = this.index;
     facts.resize(0x2A);
     for (uint i = 0; i < 0x2A; i++, j += 0x10) {
       facts[i] = block[j];
@@ -1102,7 +1102,7 @@ class GameSprite {
     this.index = index;
 
     // copy object facts from the striped contiguous block of RAM:
-    uint j = index;
+    uint j = this.index;
     facts.resize(0x2A);
     for (uint i = 0; i < 0x2A; i++, j += 0x10) {
       facts[i] = bus::read_u8(0x7E0D00 + j);
@@ -1110,7 +1110,7 @@ class GameSprite {
   }
 
   void writeRAM() {
-    uint j = index;
+    uint j = this.index;
     for (uint i = 0; i < 0x2A; i++, j += 0x10) {
       bus::write_u8(0x7E0D00 + j, facts[i]);
     }
@@ -1157,9 +1157,17 @@ class GameAncilla {
 
   array<uint8> facts;
   uint8 index;
+  bool requestOwnership = false;
 
   int deserialize(const array<uint8> &in r, int c) {
-    this.index = r[c++];
+    uint8 value = r[c++];
+    if ((value & 0x80) == 0x80) {
+      this.requestOwnership = true;
+      this.index = value & 0x7F;
+    } else {
+      this.requestOwnership = false;
+      this.index = value;
+    }
 
     // copy ancilla facts from:
     if (index < 5) {
@@ -1175,7 +1183,12 @@ class GameAncilla {
   }
 
   void serialize(array<uint8> &r) {
-    r.insertLast(uint8(index));
+    uint8 value = this.index;
+    if (requestOwnership) {
+      value |= 0x80;
+    }
+
+    r.insertLast(value);
     r.insertLast(facts);
   }
 
@@ -1236,6 +1249,7 @@ class GameAncilla {
   uint8  type      { get { return facts[0x09]; } };
   //uint8  oam_index { get { return facts[0x0F]; } };
   //uint8  oam_count { get { return facts[0x10]; } };
+  uint8  held      { get { return facts[0x16]; } };
 
   bool is_enabled  { get { return type != 0; } };
 
@@ -1307,14 +1321,17 @@ class GameAncilla {
     // 0x20 - Link's Bed Spread
     // 0x21 - Link's Zzzz's from sleeping
     // 0x22 - Received Item Sprite
+    if (t == 0x22) return true;
     // 0x23 - Bunny / Cape transformation poof
+    if (t == 0x23) return true;
     // 0x24 - Gravestone sprite when in motion
     if (t == 0x24) return true;
     // 0x25 - 
     // 0x26 - Sparkles when swinging lvl 2 or higher sword
     //if (t == 0x26) return true;
     // 0x27 - the bird (when called by flute)
-    if (t == 0x27) return true;
+    // This softlocks a player caught up by another player's bird
+    //if (t == 0x27) return true;
     // 0x28 - item sprite that you throw into magic faerie ponds.
     if (t == 0x28) return true;
     // 0x29 - Pendants and crystals
@@ -1331,14 +1348,17 @@ class GameAncilla {
     // 0x30 - Initial spark for the Cane of Byrna activating
     // 0x31 - Cane of Byrna spinning sparkle
     // 0x32 - Flame blob, possibly from wall explosion
+    if (t == 0x32) return true;
     // 0x33 - Series of explosions from blowing up a wall (after pulling a switch)
     if (t == 0x33) return true;
     // 0x34 - Burning effect used to open up the entrance to skull woods.
     // 0x35 - Master Sword ceremony.... not sure if it's the whole thing or a part of it
     // 0x36 - Flute that pops out of the ground in the haunted grove.
+    if (t == 0x36) return true;
     // 0x37 - Appears to trigger the weathervane explosion.
     // 0x38 - Appears to give Link the bird enabled flute.
     // 0x39 - Cane of Somaria blast which creates platforms (sprite 0xED)
+    if (t == 0x39) return true;
     // 0x3A - super bomb explosion (also does things normal bombs can)
     if (t == 0x3A) return true;
     // 0x3B - Unused hit effect. Looks similar to Somaria block being nulled out.
@@ -1350,6 +1370,7 @@ class GameAncilla {
     if (t == 0x3F) return true;
 
     // 0x40 - Dwarf transformation cloud
+    if (t == 0x40) return true;
     // 0x41 - Water splash in the waterfall of wishing entrance (and swamp palace)
     if (t == 0x41) return true;
     // 0x42 - Rupees that you throw in to the Pond of Wishing
@@ -2257,7 +2278,9 @@ class GameState {
 
     uint8 count = 0;
     for (uint i = 0; i < 0x0A; i++) {
-      if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
+      if (!ancillae[i].requestOwnership) {
+        if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
+      }
       if (!ancillae[i].is_syncable()) continue;
 
       count++;
@@ -2266,7 +2289,9 @@ class GameState {
     // count of active+owned ancillae:
     r.insertLast(count);
     for (uint i = 0; i < 0x0A; i++) {
-      if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
+      if (!ancillae[i].requestOwnership) {
+        if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
+      }
       if (!ancillae[i].is_syncable()) continue;
 
       ancillae[i].serialize(r);
@@ -2295,10 +2320,10 @@ class GameState {
 
     auto frame = r[c++];
     //message("frame = " + fmtHex(frame, 2));
-    if (frame < this.frame) {
+    if (frame < this.frame && this.frame < 0xff) {
       // stale data:
       // TODO fix check when wrapping around 0xFF to 0x00
-      message("stale frame " + fmtHex(frame, 2) + " vs " + fmtHex(this.frame, 2));
+      //message("stale frame " + fmtHex(frame, 2) + " vs " + fmtHex(this.frame, 2));
       this.frame = frame;
       return false;
     }
@@ -2699,6 +2724,9 @@ class GameState {
   }
 
   void update_tilemap() {
+    // DISABLED!!!
+    return;
+
     if (local.is_in_dungeon()) {
       return;
     }
@@ -3100,6 +3128,11 @@ void pre_frame() {
         for (uint j = 0; j < remote.ancillae.length(); j++) {
           auto @an = remote.ancillae[j];
           auto k = an.index;
+
+          // ownership transfer:
+          if (an.requestOwnership) {
+            local.ancillaeOwner[k] = remote.index;
+          }
 
           if (local.ancillaeOwner[k] == remote.index) {
             an.writeRAM();
