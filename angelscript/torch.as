@@ -17,7 +17,11 @@ class PatchBuffer {
     }
   }
 
+  bool powered = false;
   void power() {
+    if (powered) return;
+    powered = true;
+
     restore();
 
     // map 8000-8fff in bank bf to our code array:
@@ -70,10 +74,12 @@ class PatchBuffer {
 };
 PatchBuffer pb;
 
-uint16 count = 0x80;
+uint16 count = 0x40;
 uint8  torch = 0;
 
 void post_frame() {
+  pb.power();
+
   // set up default `JSL MainRouting`:
   pb.restore();
 
@@ -85,7 +91,7 @@ void post_frame() {
 
   // Only execute every 128 frames:
   if (--count != 0) return;
-  count = 0x80;
+  count = 0x180;
 
   // in a dark room?
   auto darkRoom = bus::read_u16(0x7E0458);
@@ -105,16 +111,12 @@ void post_frame() {
   if ((tm & 0x8000) == 0x8000) return;
 
   // Set $0333 in WRAM to the tile number of a torch (C0-CF) to light:
-  // LDA #$C0 + t
-  pb.lda_immed(0xC0 + t);
-  // STA $0333
-  pb.sta_bank(0x0333);
-  // JSL Dungeon_LightTorch ($F3EC in rom file):
+  pb.lda_immed(0xC0 + t); // LDA #$C0 + t
+  pb.sta_bank(0x0333);    // STA $0333
+
   // MUST ONLY BE CALLED ONCE WHEN TORCH IS OFF!
-  //cpu::call(0x01F3EC);
-  pb.jsl(0x01F3EC);
-  // JSL MainRouting
-  pb.jsl(pb.mainRouting);
-  // RTL
-  pb.rtl();
+  pb.jsl(0x01F3EC);       // JSL Dungeon_LightTorch
+
+  pb.jsl(pb.mainRouting); // JSL MainRouting
+  pb.rtl();               // RTL
 }
