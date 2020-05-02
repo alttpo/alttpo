@@ -2055,6 +2055,16 @@ class GameState {
     }
   }
 
+  uint8 torchCount;
+  array<uint8> torchTimers(0x10);
+  void fetch_torches() {
+    if (!is_in_dungeon()) return;
+
+    torchCount = bus::read_u8(0x7E045A);
+    torchTimers.resize(0x10);
+    bus::read_block_u8(0x7E04F0, 0, 0x10, torchTimers);
+  }
+
   array<uint8> @create_envelope(uint8 kind) {
     array<uint8> @envelope = {};
 
@@ -2301,14 +2311,13 @@ class GameState {
     }
   }
 
-  void serialize_rooms(array<uint8> &r) {
-    // DISABLED: room sync
-    //r.insertLast(uint8(0xFF));  // TBD
-    //r.insertLast(uint16(rooms.length()));
-    //if (rooms.length() > 0) {
-    //  // write room state:
-    //  r.insertLast(rooms);
-    //}
+  void serialize_torches(array<uint8> &r) {
+    // dungeon torches:
+    r.insertLast(uint8(0x0A));
+
+    // number of lit torches:
+    r.insertLast(torchCount);
+    r.insertLast(torchTimers);
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -2346,6 +2355,7 @@ class GameState {
         case 0x07: c = deserialize_tilemaps(r, c); break;
         case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
+        case 0x0A: c = deserialize_torches(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -2435,20 +2445,6 @@ class GameState {
     return c;
   }
 
-  int deserialize_rooms(array<uint8> r, int c) {
-    // read rooms state:
-    //uint16 roomCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    //if (roomCount > 0x128) {
-    //  roomCount = 0x128;
-    //}
-    //rooms.resize(roomCount);
-    //for (uint i = 0; i < roomCount; i++) {
-    //  rooms[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    //}
-
-    return c;
-  }
-
   int deserialize_objects(array<uint8> r, int c) {
     objectsBlock.resize(0x2A0);
     for (int i = 0; i < 0x2A0; i++) {
@@ -2508,6 +2504,17 @@ class GameState {
     tilemapTile.resize(tilemapCount);
     for (uint i = 0; i < tilemapCount; i++) {
       tilemapTile[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
+
+    return c;
+  }
+
+  int deserialize_torches(array<uint8> r, int c) {
+    // tilemap changes:
+    torchCount = r[c++];
+    torchTimers.resize(0x10);
+    for (uint i = 0; i < tilemapCount; i++) {
+      torchTimers[i] = r[c++];
     }
 
     return c;
@@ -3112,6 +3119,34 @@ void pre_frame() {
 
       // update tilemap:
       remote.update_tilemap();
+    }
+  }
+
+  {
+    // synchronize torches:
+    if (local.is_in_dungeon()) {
+      for (uint i = 0; i < players.length(); i++) {
+        auto @remote = players[i];
+        if (@remote == null) continue;
+        if (remote.ttl <= 0) continue;
+        if (!local.can_see(remote.location)) continue;
+
+        for (uint t = 0; t < 0x10; t++) {
+          if (remote.torchTimers[t] > local.torchTimers[t]) {
+            local.torchTimers[t] = remote.torchTimers[t];
+            bus::write_u8(0x7E04F0 + t, local.torchTimers[t]);
+          }
+        }
+      }
+
+      // recalculate torch lit count:
+      uint8 count = 0;
+      for (uint t = 0; t < 0x10; t++) {
+        if (local.torchTimers[t] > 0) {
+          count++;
+        }
+      }
+      //bus::write_u8(0x7E045A, count);
     }
   }
 
