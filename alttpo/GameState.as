@@ -17,6 +17,7 @@ class GameState {
 
   // values copied from RAM:
   uint8  frame;
+  uint32 actual_location;
   uint32 location;
   uint32 last_location;
 
@@ -34,11 +35,11 @@ class GameState {
   uint8 sfx2;
 
   bool is_in_dark_world() const {
-    return (location & 0x020000) == 0x020000;
+    return (actual_location & 0x020000) == 0x020000;
   }
 
   bool is_in_dungeon() const {
-    return (location & 0x010000) == 0x010000;
+    return (actual_location & 0x010000) == 0x010000;
   }
 
   bool is_it_a_bad_time() const {
@@ -59,7 +60,7 @@ class GameState {
 
   bool can_see(uint32 other_location) const {
     if (is_it_a_bad_time()) return false;
-    return (location == other_location);
+    return (actual_location == other_location);
   }
 
   bool can_sample_location() const {
@@ -181,6 +182,18 @@ class GameState {
     // read frame counter (increments from 00 to FF and wraps around):
     frame = bus::read_u8(0x7E001A);
 
+    // fetch various room indices and flags about where exactly Link currently is:
+    in_dark_world = bus::read_u8(0x7E0FFF);
+    in_dungeon = bus::read_u8(0x7E001B);
+    overworld_room = bus::read_u16(0x7E008A);
+    dungeon_room = bus::read_u16(0x7E00A0);
+
+    // compute aggregated location for Link into a single 24-bit number:
+    actual_location =
+      uint32(in_dark_world & 1) << 17 |
+      uint32(in_dungeon & 1) << 16 |
+      uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
+
     if (is_it_a_bad_time()) {
       if (!can_sample_location()) {
         x = 0xFFFF;
@@ -195,18 +208,7 @@ class GameState {
     // Don't update location until screen transition is complete:
     if (can_sample_location()) {
       last_location = location;
-
-      // fetch various room indices and flags about where exactly Link currently is:
-      in_dark_world = bus::read_u8(0x7E0FFF);
-      in_dungeon = bus::read_u8(0x7E001B);
-      overworld_room = bus::read_u16(0x7E008A);
-      dungeon_room = bus::read_u16(0x7E00A0);
-
-      // compute aggregated location for Link into a single 24-bit number:
-      location =
-        uint32(in_dark_world & 1) << 17 |
-        uint32(in_dungeon & 1) << 16 |
-        uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
+      location = actual_location;
 
       // clear out list of room changes if location changed:
       if (last_location != location) {
@@ -679,6 +681,15 @@ class GameState {
 
     torchTimers.resize(0x10);
     bus::read_block_u8(0x7E04F0, 0, 0x10, torchTimers);
+  }
+
+  bool is_torch_lit(uint8 t) {
+    if (!is_in_dungeon()) return false;
+    if (t >= 0x10) return false;
+
+    auto idx = (t << 1) + bus::read_u16(0x7E0478);
+    auto tm = bus::read_u16(0x7E0540 + idx);
+    return (tm & 0x8000) == 0x8000;
   }
 
   array<uint8> @create_envelope(uint8 kind) {

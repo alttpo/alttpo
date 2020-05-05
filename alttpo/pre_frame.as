@@ -56,68 +56,8 @@ void pre_frame() {
 
   {
     // synchronize torches:
-    if (local.is_in_dungeon()) {
-      array<bool> activated(0x10);
-      array<uint8> maxtimer(0x10);
+    update_torches();
 
-      for (uint t = 0; t < 0x10; t++) {
-        maxtimer[t] = local.torchTimers[t];
-        activated[t] = false;
-        //message("torch[" + fmtHex(t,1) + "].timer = " + fmtHex(maxtimer[t],2));
-      }
-
-      // find max torch timer among players:
-      for (uint i = 0; i < players.length(); i++) {
-        auto @remote = players[i];
-        if (remote is null) continue;
-        if (remote is local) continue;
-        if (remote.ttl <= 0) continue;
-        if (!local.can_see(remote.location)) continue;
-
-        for (uint t = 0; t < 0x10; t++) {
-          if (remote.torchTimers[t] > remote.last_torchTimers[t]) {
-            activated[t] = true;
-            if (remote.torchTimers[t] > maxtimer[t]) {
-              maxtimer[t] = remote.torchTimers[t];
-            }
-          }
-        }
-      }
-
-      // build a torch update routine to update local game state:
-      for (uint t = 0; t < 0x10; t++) {
-        // did a remote player activate a torch or has already activated one when we entered the room?
-        if (!activated[t]) continue;
-
-        // Cannot light torch if already lit; this would hard-lock the game:
-        auto idx = (t << 1) + bus::read_u16(0x7E0478);
-        auto tm = bus::read_u16(0x7E0540 + idx);
-
-        // is torch already lit?
-        if ((tm & 0x8000) == 0x8000) {
-          //message("torch[" + fmtHex(t,1) + "] already lit");
-          continue;
-        }
-
-        message("torch[" + fmtHex(t,1) + "] lit");
-
-        // Set $0333 in WRAM to the tile number of a torch (C0-CF) to light:
-        pb.lda_immed(0xC0 + t);     // LDA #{$C0 + t}
-        pb.sta_bank(0x0333);        // STA $0333
-
-        // JSL Dungeon_LightTorch
-        pb.jsl(rom.fn_dungeon_light_torch);
-
-        // override the torch timer's value:
-        pb.lda_immed(maxtimer[t]);  // LDA #{maxtimer[t]}
-        pb.sta_bank(0x04F0 + t);    // STA {$04F0 + t}
-      }
-
-      pb.jsl(rom.fn_main_routing);  // JSL MainRouting
-      pb.rtl();                     // RTL
-
-      //bus::write_u8(0x7E045A, count);
-    }
   }
 
   {
