@@ -1,3 +1,5 @@
+SpritesWindow @sprites;
+array<uint16> palette7(16);
 
 const int scale = 3;
 
@@ -42,5 +44,3 @@ class SpritesWindow {
     canvas.draw_sprite_4bpp(128, 0, 0, 128, 128, page1, palette);
   }
 };
-SpritesWindow @sprites;
-array<uint16> palette7(16);

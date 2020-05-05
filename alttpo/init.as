@@ -1,7 +1,5 @@
-// ALTTP script to draw current Link sprites on top of rendered frame:
 net::Socket@ sock;
 net::Address@ address;
-SettingsWindow @settings;
 
 bool debug = false;
 bool debugData = false;

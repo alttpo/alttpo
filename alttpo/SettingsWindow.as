@@ -1,3 +1,4 @@
+SettingsWindow @settings;
 
 class SettingsWindow {
   private gui::Window @window;
