@@ -26,7 +26,8 @@ void update_torches() {
       // if torch already lit don't bother checking:
       if (is_lit[t]) continue;
 
-      if (remote.torchTimers[t] != 0) {
+      // dumb trick to make sure torches don't flicker on/off/on/off when they get close to extinguishing:
+      if (remote.torchTimers[t] >= 10) {
         to_light[t] = true;
         if (remote.torchTimers[t] > maxtimer[t]) {
           maxtimer[t] = remote.torchTimers[t];
@@ -40,7 +41,7 @@ void update_torches() {
     // did a remote player light a torch or has already lit one when we entered the room?
     if (!to_light[t]) continue;
 
-    message("torch[" + fmtHex(t,1) + "] lit");
+    //message("torch[" + fmtHex(t,1) + "] lit");
 
     // Set $0333 in WRAM to the tile number of a torch (C0-CF) to light:
     pb.lda_immed(0xC0 + t);     // LDA #{$C0 + t}

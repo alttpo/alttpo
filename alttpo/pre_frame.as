@@ -54,11 +54,8 @@ void pre_frame() {
     }
   }
 
-  {
-    // synchronize torches:
-    update_torches();
-
-  }
+  // synchronize torches:
+  update_torches();
 
   {
     for (uint i = 0; i < players.length(); i++) {
