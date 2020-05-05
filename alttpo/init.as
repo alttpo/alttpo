@@ -8,8 +8,7 @@ bool debugSprites = false;
 bool debugGameObjects = false;
 
 void init() {
-  // Auto-detect ROM version:
-  @rom = detect();
+  //message("init()");
 
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
@@ -34,6 +33,24 @@ void init() {
 
   if (debugGameObjects) {
     @gameSpriteWindow = GameSpriteWindow();
+  }
+}
+
+// called when cartridge powered on or reset or after init when cartridge already loaded and script loaded afterwards:
+void post_power(bool reset) {
+  //message("post_power()");
+
+  // Auto-detect ROM version:
+  @rom = detect();
+
+  // patch the ROM code to inject our control routine:
+  if (!reset) {
+    pb.power(true);
+  }
+
+  if (@worldMapWindow != null) {
+    worldMapWindow.loadMap();
+    worldMapWindow.drawMap();
   }
 }
 

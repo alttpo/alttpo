@@ -5,8 +5,6 @@ void post_frame() {
   }
 
   if (@worldMapWindow != null) {
-    worldMapWindow.loadMap();
-    worldMapWindow.drawMap();
     worldMapWindow.update(local);
   }
 
