@@ -251,6 +251,8 @@ class GameState {
     fetch_tilemap_changes();
 
     fetch_rooms();
+
+    fetch_torches();
   }
 
   void fetch_sfx() {
@@ -671,12 +673,10 @@ class GameState {
     }
   }
 
-  uint8 torchCount;
   array<uint8> torchTimers(0x10);
   void fetch_torches() {
     if (!is_in_dungeon()) return;
 
-    torchCount = bus::read_u8(0x7E045A);
     torchTimers.resize(0x10);
     bus::read_block_u8(0x7E04F0, 0, 0x10, torchTimers);
   }
@@ -744,10 +744,10 @@ class GameState {
     {
       array<uint8> envelope = create_envelope(0x01);
 
-      // send chr0 to remote player:
       serialize_items(envelope);
       serialize_objects(envelope);
       serialize_ancillae(envelope);
+      serialize_torches(envelope);
 
       send_packet(envelope);
     }
@@ -931,8 +931,6 @@ class GameState {
     // dungeon torches:
     r.insertLast(uint8(0x0A));
 
-    // number of lit torches:
-    r.insertLast(torchCount);
     r.insertLast(torchTimers);
   }
 
@@ -1125,11 +1123,14 @@ class GameState {
     return c;
   }
 
+  array<uint8> last_torchTimers(0x10);
   int deserialize_torches(array<uint8> r, int c) {
-    // tilemap changes:
-    torchCount = r[c++];
+    // copy data from last torch timers received:
+    last_torchTimers = torchTimers;
+
+    // deserialize new data:
     torchTimers.resize(0x10);
-    for (uint i = 0; i < tilemapCount; i++) {
+    for (uint i = 0; i < 0x10; i++) {
       torchTimers[i] = r[c++];
     }
 
