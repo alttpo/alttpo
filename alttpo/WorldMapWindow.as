@@ -1,6 +1,6 @@
-WorldMap @worldMap;
+WorldMapWindow @worldMapWindow;
 
-class WorldMap {
+class WorldMapWindow {
   private gui::Window @window;
   private gui::VerticalLayout @vl;
   gui::Canvas @lightWorld;
@@ -21,7 +21,7 @@ class WorldMap {
   int height = mheight*8;
   int mapscale = 2;
 
-  WorldMap() {
+  WorldMapWindow() {
     // relative position to bsnes window:
     @window = gui::Window(256*3*8/7, 0, true);
     window.title = "World Map";

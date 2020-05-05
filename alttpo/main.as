@@ -28,7 +28,7 @@ void init() {
     @sprites = SpritesWindow();
   }
 
-  @worldMap = WorldMap();
+  @worldMapWindow = WorldMapWindow();
 
   if (debugOAM) {
     @oamWindow = OAMWindow();

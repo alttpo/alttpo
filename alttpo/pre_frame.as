@@ -177,7 +177,7 @@ void pre_frame() {
 
   local.update_items();
 
-  if (@worldMap != null) {
-    worldMap.renderPlayers(local, players);
+  if (@worldMapWindow != null) {
+    worldMapWindow.renderPlayers(local, players);
   }
 }

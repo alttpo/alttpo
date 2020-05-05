@@ -4,9 +4,10 @@ void post_frame() {
     oamWindow.update();
   }
 
-  if (@worldMap != null) {
-    worldMap.loadMap();
-    worldMap.drawMap();
+  if (@worldMapWindow != null) {
+    worldMapWindow.loadMap();
+    worldMapWindow.drawMap();
+    worldMapWindow.update(local);
   }
 
   if (debugData) {
@@ -32,10 +33,6 @@ void post_frame() {
     }
     sprites.render(palette7);
     sprites.update();
-  }
-
-  if (@worldMap != null) {
-    worldMap.update(local);
   }
 
   if (@gameSpriteWindow != null) {
