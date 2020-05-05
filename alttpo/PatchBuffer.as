@@ -1,12 +1,43 @@
 PatchBuffer pb;
 
-// TODO: CodeWriter class that writes to bus::write_u8 or to array<uint8> via dynamic `write` function
+class CodeWriter {
+  Writer @w = NullWriter();
 
-class PatchBuffer {
+  void setWriter(Writer @w) {
+    @this.w = w;
+  }
+
+  void seek(uint p) {
+    w.seek(p);
+  }
+
+  void jsl(uint32 addr) {
+    w.u8(0x22); // JSL
+    w.u24(addr);
+  }
+
+  void rtl() {
+    w.u8(0x6B); // RTL
+  }
+
+  void lda_immed(uint8 imm) {
+    w.u8(0xA9);
+    w.u8(imm);
+  }
+
+  void sta_bank(uint16 bank) {
+    w.u8(0x8D); // STA $xxxx
+    w.u16(bank);
+  }
+}
+
+class PatchBuffer : CodeWriter {
   array<uint8> code(0x100);
-  uint p = 0;
+  ArrayWriter @aw = ArrayWriter(code);
 
   PatchBuffer() {
+    setWriter(aw);
+
     // NOP out the code:
     for (uint i = 0; i < 0x100; i++) {
       code[i] = 0xEA; // NOP
@@ -26,10 +57,9 @@ class PatchBuffer {
 
     // patch ROM to JSL to our code:
     // JSL 0xBF8000
-    bus::write_u8(0x008056, 0x22);  // JSL
-    bus::write_u8(0x008057, 0x00);  //     L
-    bus::write_u8(0x008058, 0x80);  //     H
-    bus::write_u8(0x008059, 0xBF);  //     B
+    setWriter(BusWriter(rom.fn_patch));
+    jsl(0xBF8000);
+    setWriter(aw);
   }
 
   void restore() {
@@ -39,32 +69,5 @@ class PatchBuffer {
     // RTL
     rtl();
     seek(0);
-  }
-
-  void seek(uint k) {
-    p = k;
-  }
-
-  void jsl(uint32 addr) {
-    code[p++] = 0x22; // JSL
-    code[p++] = (addr & 0x0000ff);        //     L
-    code[p++] = (addr & 0x00ff00) >> 8;   //     H
-    code[p++] = (addr & 0xff0000) >> 16;  //     B
-  }
-
-  void rtl() {
-    code[p++] = 0x6B; // RTL
-  }
-
-  void lda_immed(uint8 imm) {
-    code[p++] = 0xA9;
-    code[p++] = imm;
-  }
-
-  void sta_bank(uint16 bank) {
-    // STA $xxxx
-    code[p++] = 0x8D;
-    code[p++] = (bank & 0x00ff);
-    code[p++] = (bank & 0xff00) >> 8;
   }
 };
