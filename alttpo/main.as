@@ -43,6 +43,3 @@ void init() {
 
 GameState local;
 array<GameState@> players(0);
-uint8 isRunning;
-
-bool intercepting = false;
