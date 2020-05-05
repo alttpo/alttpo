@@ -46,11 +46,3 @@ array<GameState@> players(0);
 uint8 isRunning;
 
 bool intercepting = false;
-
-// called when bsnes changes its color palette:
-void palette_updated() {
-  //message("palette_updated()");
-  if (@worldMap != null) {
-    worldMap.redrawMap();
-  }
-}
