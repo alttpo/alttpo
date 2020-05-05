@@ -7,9 +7,10 @@ abstract class ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0; }
   uint32 get_palette_darkWorldMap()  property { return 0; }
 
-  uint32 get_fn_patch() property               { return 0; }
-  uint32 get_fn_main_routing() property        { return 0; }
-  uint32 get_fn_dungeon_light_torch() property { return 0; }
+  uint32 get_fn_patch() property                       { return 0; }
+  uint32 get_fn_main_routing() property                { return 0; }
+  uint32 get_fn_dungeon_light_torch() property         { return 0; }
+  uint32 get_fn_dungeon_light_torch_success() property { return 0; }
 };
 
 class USROMMapping : ROMMapping {
@@ -18,9 +19,10 @@ class USROMMapping : ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 
-  uint32 get_fn_patch() property               { return 0x008056; }
-  uint32 get_fn_main_routing() property        { return 0x0080B5; }
-  uint32 get_fn_dungeon_light_torch() property { return 0x01F3EC; }
+  uint32 get_fn_patch() property                       { return 0x008056; }
+  uint32 get_fn_main_routing() property                { return 0x0080B5; }
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; }
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48D; }
 };
 
 class EUROMMapping : ROMMapping {
@@ -29,9 +31,10 @@ class EUROMMapping : ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 
-  uint32 get_fn_patch() property               { return 0x008056; } // TODO
-  uint32 get_fn_main_routing() property        { return 0x0080B5; } // TODO
-  uint32 get_fn_dungeon_light_torch() property { return 0xFFFFFF; } // TODO
+  uint32 get_fn_patch() property                       { return 0x008056; } // TODO
+  uint32 get_fn_main_routing() property                { return 0x0080B5; } // TODO
+  uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
+  uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
 };
 
 class JPROMMapping : ROMMapping {
@@ -40,9 +43,10 @@ class JPROMMapping : ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0x0ADB39; }
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC39; }
 
-  uint32 get_fn_patch() property               { return 0x008056; } // TODO
-  uint32 get_fn_main_routing() property        { return 0x0080B5; } // TODO
-  uint32 get_fn_dungeon_light_torch() property { return 0xFFFFFF; } // TODO
+  uint32 get_fn_patch() property                       { return 0x008056; } // TODO
+  uint32 get_fn_main_routing() property                { return 0x0080B5; } // TODO
+  uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
+  uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
 };
 
 ROMMapping@ detect() {

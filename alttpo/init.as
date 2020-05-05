@@ -46,6 +46,8 @@ void post_power(bool reset) {
   // patch the ROM code to inject our control routine:
   if (!reset) {
     pb.power(true);
+
+    init_torches();
   }
 
   if (@worldMapWindow != null) {

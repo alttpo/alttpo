@@ -1,4 +1,25 @@
+array<int> torchOwner(0x10);
+
+void init_torches() {
+  cpu::register_pc_interceptor(rom.fn_dungeon_light_torch_success, @on_torch_light_success);
+}
+
+// called when local player lights a torch successfully:
+bool ignore_light = false;
+void on_torch_light_success(uint32 pc) {
+  if (ignore_light) return;
+
+  auto t = bus::read_u8(0x7E0333);
+  if (t < 0xC0) return;
+
+  t -= 0xC0;
+  message("torch[" + fmtHex(t,1) + "].owner = " + fmtInt(local.index));
+  torchOwner[t] = local.index;
+}
+
 void update_torches() {
+  ignore_light = false;
+
   // MUST be in a dungeon and not in room transition:
   if (!local.is_in_dungeon()) return;
   if (local.sub_module != 0) return;
@@ -27,7 +48,7 @@ void update_torches() {
       if (is_lit[t]) continue;
 
       // dumb trick to make sure torches don't flicker on/off/on/off when they get close to extinguishing:
-      if (remote.torchTimers[t] >= 10) {
+      if (remote.torchTimers[t] > 1) {
         to_light[t] = true;
         if (remote.torchTimers[t] > maxtimer[t]) {
           maxtimer[t] = remote.torchTimers[t];
@@ -49,6 +70,9 @@ void update_torches() {
 
     // JSL Dungeon_LightTorch
     pb.jsl(rom.fn_dungeon_light_torch);
+
+    // ignore the calls to light torch for owner tracking:
+    ignore_light = true;
 
     // override the torch's timer:
     pb.lda_immed(maxtimer[t]);  // LDA #{maxtimer[t]}
