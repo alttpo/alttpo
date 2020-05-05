@@ -3,7 +3,7 @@ void pre_frame() {
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
-  if (null == @sock) return;
+  if (sock is null) return;
 
   //message("pre-frame");
 
@@ -22,9 +22,9 @@ void pre_frame() {
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
     auto @remote = players[i];
-    if (@remote == null) continue;
+    if (remote is null) continue;
 
-    if (@remote == @local) continue;
+    if (remote is local) continue;
     if (remote.ttl <= 0) {
       remote.ttl = 0;
       continue;
@@ -56,7 +56,7 @@ void pre_frame() {
     if (local.is_in_dungeon()) {
       for (uint i = 0; i < players.length(); i++) {
         auto @remote = players[i];
-        if (@remote == null) continue;
+        if (remote is null) continue;
         if (remote.ttl <= 0) continue;
         if (!local.can_see(remote.location)) continue;
 
@@ -82,7 +82,7 @@ void pre_frame() {
   {
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
-      if (@remote == null) continue;
+      if (remote is null) continue;
       if (remote.ttl <= 0) continue;
       if (!local.can_see(remote.location)) continue;
 
