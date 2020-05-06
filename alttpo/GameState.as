@@ -1238,15 +1238,7 @@ class GameState {
 
         // apply operation to values:
         uint16 value = remote.items[j].value;
-        if (syncable.type == 1) {
-          // max value:
-          if (value > values[k]) {
-            values[k] = value;
-          }
-        } else if (syncable.type == 2) {
-          // bitfield OR:
-          values[k] = values[k] | value;
-        }
+        values[k] = syncable.modify(value, values[k]);
       }
     }
 
@@ -1254,35 +1246,14 @@ class GameState {
     for (uint k = 0; k < syncableItems.length(); k++) {
       auto @syncable = syncableItems[k];
 
-      bool modified = false;
       uint16 oldValue = this.items[k].value;
       uint16 newValue = oldValue;
-      if (syncable.type == 1) {
-        // max value:
-        newValue = values[k];
-        if (newValue > oldValue) {
-          this.items[k].value = newValue;
-          modified = true;
-        }
-      } else if (syncable.type == 2) {
-        // bitfield:
-        newValue = oldValue | values[k];
-        if (newValue != oldValue) {
-          this.items[k].value = newValue;
-          modified = true;
-        }
-      }
+
+      this.items[k].value = syncable.modify(oldValue, values[k]);
 
       // write back to SRAM:
-      if (modified) {
-        if (syncable.size == 1) {
-          bus::write_u8(0x7EF000 + syncable.offs, uint8(this.items[k].value));
-        } else if (syncable.size == 2) {
-          bus::write_u16(0x7EF000 + syncable.offs, this.items[k].value);
-        }
-
-        // call post-modification function if applicable:
-        syncable.modified(oldValue, newValue);
+      if (this.items[k].value != oldValue) {
+        syncable.write(this.items[k].value);
       }
     }
   }

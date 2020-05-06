@@ -1,43 +1,61 @@
 
-funcdef void ItemModifiedCallback(uint16 offs, uint16 oldValue, uint16 newValue);
+funcdef uint16 ItemMutate(uint16 oldValue, uint16 newValue);
 
 // list of SRAM values to sync as items:
 class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
   uint8   size;   // 1 - byte, 2 - word
-  uint8   type;   // 1 - highest wins, 2 - bitfield, 3+ TBD...
-
-  ItemModifiedCallback@ modifiedCallback = null;
+  uint8   type;   // 0 - custom mutate, 1 - highest wins, 2 - bitfield, 3+ TBD...
+  ItemMutate @mutate = null;
 
   SyncableItem(uint16 offs, uint8 size, uint8 type) {
     this.offs = offs;
     this.size = size;
     this.type = type;
-    @this.modifiedCallback = null;
   }
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, ItemModifiedCallback@ callback) {
+  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate) {
     this.offs = offs;
     this.size = size;
-    this.type = type;
-    @this.modifiedCallback = @callback;
+    this.type = 0;
+    @this.mutate = @mutate;
   }
 
-  void modified(uint16 oldValue, uint16 newValue) {
-    if (modifiedCallback is null) return;
-    modifiedCallback(offs, oldValue, newValue);
+  uint16 modify(uint16 oldValue, uint16 newValue) {
+    if (type == 0) {
+      if (@this.mutate is null) {
+        return oldValue;
+      }
+      return this.mutate(oldValue, newValue);
+    } else if (type == 1) {
+      // max value:
+      if (newValue > oldValue) {
+        return newValue;
+      }
+      return oldValue;
+    } else if (type == 2) {
+      // bitfield OR:
+      newValue = oldValue | newValue;
+      return newValue;
+    }
+    return oldValue;
+  }
+
+  void write(uint16 newValue) {
+    if (size == 1) {
+      bus::write_u8(0x7EF000 + offs, uint8(newValue));
+    } else if (size == 2) {
+      bus::write_u16(0x7EF000 + offs, newValue);
+    }
   }
 };
 
-void LoadShieldGfx(uint16 offs, uint16 oldValue, uint16 newValue) {
-  // JSL DecompShieldGfx
-  //cpu::call(0x005308);
-}
-
-void MoonPearlBunnyLink(uint16 offs, uint16 oldValue, uint16 newValue) {
-  // Switch Link's graphics between bunny and regular:
-  // FAIL: This doesn't work immediately and instead causes bunny to retain even into light world until dashing.
-  //bus::write_u8(0x7E0056, 0);
+uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
+  // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up.
+  if (oldValue & 0x10 == 0) {
+    newValue &= ~uint8(0x10);
+  }
+  return newValue | oldValue;
 }
 
 // items MUST be sorted by offs:
@@ -65,10 +83,10 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x354, 1, 1),  // gloves
   SyncableItem(0x355, 1, 1),  // boots
   SyncableItem(0x356, 1, 1),  // flippers
-  SyncableItem(0x357, 1, 1, @MoonPearlBunnyLink),  // moon pearl
+  SyncableItem(0x357, 1, 1),  // moon pearl
   // 0x358 unused
   SyncableItem(0x359, 1, 1),  // sword
-  SyncableItem(0x35A, 1, 1, @LoadShieldGfx),  // shield
+  SyncableItem(0x35A, 1, 1),  // shield
   SyncableItem(0x35B, 1, 1),  // armor
 
   // bottle contents 0x35C-0x35F - TODO: sync bottle contents iff local bottle value == 0x02 (empty)
@@ -93,7 +111,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x37B, 1, 1),  // magic usage
 
   SyncableItem(0x3C5, 1, 1),  // general progress indicator
-  SyncableItem(0x3C6, 1, 2),  // progress event flags 1/2
+  SyncableItem(0x3C6, 1, @mutateProgress1),  // progress event flags 1/2
   SyncableItem(0x3C7, 1, 1),  // map icons shown
   SyncableItem(0x3C8, 1, 1),  // start at location… options
   SyncableItem(0x3C9, 1, 2)   // progress event flags 2/2

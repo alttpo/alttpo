@@ -17,7 +17,7 @@ class GameAncilla {
   // $039F = 0x1B
   // skip $03A4 which is for receiving items
   // $03A9 = 0x1C
-  // $03B1 = 0x1D
+  // $03B1 = 0x1D   // lifting state?
   // -- $03C4 special for rock debris, maybe bombs
   // $03C5 = 0x1E
   // $03CA = 0x1F
