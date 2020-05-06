@@ -47,7 +47,8 @@ void post_power(bool reset) {
   if (!reset) {
     pb.power(true);
 
-    cpu::register_pc_interceptor(rom.fn_patch, @on_main_loop);
+    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_loop);
 
     init_torches();
   }
