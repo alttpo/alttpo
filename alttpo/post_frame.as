@@ -6,6 +6,7 @@ void post_frame() {
 
   if (@worldMapWindow != null) {
     worldMapWindow.update(local);
+    worldMapWindow.renderPlayers(local, players);
   }
 
   if (debugData) {

@@ -297,7 +297,7 @@ class WorldMapWindow {
     y = float((py / 16) + mapsprtop - top) * mapscale;
   }
 
-  void renderPlayers(const GameState &in local, const array<GameState@> &in players) {
+  void renderPlayers(const GameState @local, const array<GameState@> @players) {
     auto dw = local.is_in_dark_world();
 
     // grow dots array and create new Canvas instances:
@@ -320,7 +320,7 @@ class WorldMapWindow {
     // Map world-pixel coordinates to world-map coordinates:
     float x, y;
     for (uint i = 0; i < players.length(); i++) {
-      auto @p = players[i];
+      auto @p = @players[i];
       if ((p.ttl <= 0) || (p.is_in_dark_world() != dw)) {
         // If player disappeared, hide their dot:
         dots[i].setPosition(-128, -128);

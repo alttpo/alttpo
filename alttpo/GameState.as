@@ -1031,6 +1031,7 @@ class GameState {
                | (uint32(r[c++]) << 8)
                | (uint32(r[c++]) << 16)
                | (uint32(r[c++]) << 24);
+    actual_location = location;
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);

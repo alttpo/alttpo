@@ -153,8 +153,4 @@ void on_main_loop(uint32 pc) {
   }
 
   local.update_items();
-
-  if (@worldMapWindow != null) {
-    worldMapWindow.renderPlayers(local, players);
-  }
 }
