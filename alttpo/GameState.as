@@ -34,6 +34,13 @@ class GameState {
   uint8 sfx1;
   uint8 sfx2;
 
+  GameState() {
+    torchOwner.resize(0x10);
+    for (uint t = 0; t < 0x10; t++) {
+      torchOwner[t] = -2;
+    }
+  }
+
   bool is_in_dark_world() const {
     return (actual_location & 0x020000) == 0x020000;
   }
@@ -675,6 +682,7 @@ class GameState {
     }
   }
 
+  array<int> torchOwner(0x10);
   array<uint8> torchTimers(0x10);
   void fetch_torches() {
     if (!is_in_dungeon()) return;
@@ -942,7 +950,19 @@ class GameState {
     // dungeon torches:
     r.insertLast(uint8(0x0A));
 
-    r.insertLast(torchTimers);
+    uint8 count = 0;
+    for (uint8 t = 0; t < 0x10; t++) {
+      if (torchOwner[t] != index) continue;
+      count++;
+    }
+
+    //message("torches="+fmtInt(count));
+    r.insertLast(count);
+    for (uint8 t = 0; t < 0x10; t++) {
+      if (torchOwner[t] != index) continue;
+      r.insertLast(t);
+      r.insertLast(torchTimers[t]);
+    }
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -1139,10 +1159,19 @@ class GameState {
     // copy data from last torch timers received:
     last_torchTimers = torchTimers;
 
-    // deserialize new data:
-    torchTimers.resize(0x10);
+    // reset ownership tracking:
+    torchOwner.resize(0x10);
     for (uint i = 0; i < 0x10; i++) {
-      torchTimers[i] = r[c++];
+      torchOwner[i] = -2;
+    }
+
+    // deserialize new data:
+    uint8 count = r[c++];
+    torchTimers.resize(0x10);
+    for (uint i = 0; i < count; i++) {
+      uint8 t = r[c++];
+      torchTimers[t] = r[c++];
+      torchOwner[t] = index;
     }
 
     return c;

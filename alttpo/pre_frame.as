@@ -1,5 +1,5 @@
 
-void pre_frame() {
+void on_main_loop(uint32 pc) {
   // restore our dynamic code buffer to JSL MainRouting:
   pb.restore();
 

@@ -20,7 +20,7 @@ class ArrayWriter : Writer {
   uint p;
 
   ArrayWriter(array<uint8> @a, uint p = 0) {
-    @this.a = a;
+    @this.a = @a;
     this.p = p;
   }
 
