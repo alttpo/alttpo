@@ -2,7 +2,6 @@
 void init_torches() {
   cpu::register_pc_interceptor(rom.fn_dungeon_light_torch_success, @on_torch_light_success);
   cpu::register_pc_interceptor(rom.fn_dungeon_extinguish_torch, @on_torch_extinguish);
-
 }
 
 // called when local player lights a torch successfully:
@@ -61,7 +60,17 @@ void update_torches() {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
-      if (!local.can_see(remote.location)) continue;
+      if (!local.can_see(remote.location)) {
+        if (local.torchOwner[t] == remote.index) {
+          // transfer ownership of the torch if left the room:
+          if (local.torchTimers[t] > 0) {
+            local.torchOwner[t] = local.index;
+          } else {
+            local.torchOwner[t] = -2;
+          }
+        }
+        continue;
+      }
 
       // skip torches not owned:
       if (remote.torchOwner[t] != remote.index) continue;
@@ -101,11 +110,9 @@ void update_torches() {
       is_lit[t] = true;
     }
 
-    if (is_lit[t]) {
-      // Override the torch's timer from remote player:
-      pb.lda_immed(local.torchTimers[t]); // LDA #{local.torchTimers[t]}
-      pb.sta_bank(0x04F0 + t);            // STA {$04F0 + t}
-    }
+    // Override the torch's timer from remote player:
+    pb.lda_immed(local.torchTimers[t]); // LDA #{local.torchTimers[t]}
+    pb.sta_bank(0x04F0 + t);            // STA {$04F0 + t}
   }
 
   pb.jsl(rom.fn_main_routing);  // JSL MainRouting

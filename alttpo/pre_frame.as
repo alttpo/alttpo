@@ -1,14 +1,13 @@
 
+// this function intercepts execution immediately before JSL MainRouting in the reset vector:
 void on_main_loop(uint32 pc) {
-  // restore our dynamic code buffer to JSL MainRouting:
+  // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
 
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
   if (sock is null) return;
-
-  //message("pre-frame");
 
   // backup VRAM for OAM tiles which are in-use by game:
   localFrameState.backup();

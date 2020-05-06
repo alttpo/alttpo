@@ -1,4 +1,9 @@
 
+const uint8 script_protocol = 0x02;
+
+// for message rate limiting to prevent noise
+uint8 rate_limit = 0x00;
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -224,6 +229,11 @@ class GameState {
         if ((last_location & (1 << 16)) < (location & (1 << 16))) {
           last_overworld_x = x;
           last_overworld_y = y;
+        }
+
+        // disown any of our torches:
+        for (uint t = 0; t < 0x10; t++) {
+          torchOwner[t] = -2;
         }
       }
     }
@@ -717,8 +727,8 @@ class GameState {
       envelope.insertLast(uint16(index));
     }
 
-    // script protocol 0x01:
-    envelope.insertLast(uint8(0x01));
+    // script protocol:
+    envelope.insertLast(uint8(script_protocol));
 
     // protocol starts with frame number to correlate them together:
     envelope.insertLast(frame);
@@ -970,8 +980,10 @@ class GameState {
 
     auto protocol = r[c++];
     //message("game protocol = " + fmtHex(protocol, 2));
-    if (protocol != 0x01) {
-      message("bad game protocol " + fmtHex(protocol, 2) + "!");
+    if (protocol != script_protocol) {
+      if ((rate_limit++ & 0x7f) == 0) {
+        message("bad game protocol " + fmtHex(protocol, 2) + "!");
+      }
       return false;
     }
 
