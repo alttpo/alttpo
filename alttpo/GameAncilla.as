@@ -188,7 +188,8 @@ class GameAncilla {
     // 0x20 - Link's Bed Spread
     // 0x21 - Link's Zzzz's from sleeping
     // 0x22 - Received Item Sprite
-    if (t == 0x22) return true;
+    // shows wrong item on remote player's screen and pops up dialog
+    //if (t == 0x22) return true;
     // 0x23 - Bunny / Cape transformation poof
     if (t == 0x23) return true;
     // 0x24 - Gravestone sprite when in motion
