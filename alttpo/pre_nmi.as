@@ -1,5 +1,9 @@
 
 void pre_nmi() {
+  if (false) {
+    disable_bg_music();
+  }
+
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
 
@@ -50,4 +54,46 @@ void pre_nmi() {
       }
     }
   }
+}
+
+void disable_bg_music() {
+  // funny things happen when disabling music from the intro:
+  auto module = bus::read_u8(0x7E0010);
+  if (module < 0x06) return;
+
+  // check what cmd is requested:
+  auto cmd = bus::read_u8(0x7E012C);
+  // allow nothing music:
+  if (cmd == 0x20) return;
+  // allow mirror warp:
+  if (cmd == 0x08) return;
+  // special commands to control volume:
+  if (cmd >= 0xF1) return;
+
+  // check what tune is currently playing:
+  auto tune = bus::read_u8(0x7E0130);
+
+  // allow no command:
+  if (cmd == 0) {
+    // fade out any currently playing music:
+    if (tune != 0 && tune != 0x08 && tune < 0xF1) {
+      bus::write_u8(0x7E012C, 0xF1);
+      bus::write_u8(0x7E0130, 0xF1);
+    }
+    return;
+  }
+
+  // changing from mirror to some other tune:
+  if (tune == 0x08) {
+    // fade out so we can play mirror music again:
+    bus::write_u8(0x7E012C, 0xF1);
+    bus::write_u8(0x7E0130, 0xF1);
+    return;
+  }
+
+  // clear track queue:
+  //bus::write_u8(0x7E0132, 0);
+
+  // no command:
+  bus::write_u8(0x7E012C, 0);
 }
