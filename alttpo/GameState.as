@@ -1450,6 +1450,16 @@ class GameState {
       reloc[i] = 0;
     }
 
+    // disable previously owned OAM sprites:
+    for (uint j = 0; j < 128; j++) {
+      if (!localFrameState.is_owned_by(j, index)) continue;
+
+      // disable:
+      auto oam = ppu::oam[j];
+      oam.y = 0xF0;
+      @ppu::oam[j] = oam;
+    }
+
     // shadow sprites copy over directly:
     reloc[0x6c] = 0x6c;
     reloc[0x6d] = 0x6d;
@@ -1496,6 +1506,7 @@ class GameState {
             oam.character = k;
             localFrameState.chr[k] = true;
             reloc[sprite.chr] = k;
+
             if (chrs[sprite.chr].length() == 0) {
               message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
             } else {
@@ -1555,6 +1566,7 @@ class GameState {
       }
 
       // update sprite in OAM memory:
+      localFrameState.claim_owner(j, index);
       @ppu::oam[j] = oam;
     }
   }

@@ -17,6 +17,26 @@ class LocalFrameState {
   // backup of VRAM tiles overwritten:
   array<Tile@> chr_backup;
 
+  array<int> chr_owner(128);
+
+  void reset_owners() {
+    for (uint j = 0; j < 128; j++) {
+      chr_owner[j] = -2;
+    }
+  }
+
+  void claim_owner(uint j, int owner) {
+    chr_owner[j] = owner;
+  }
+
+  bool is_owned_by(uint j, int owner) {
+    return chr_owner[j] == owner;
+  }
+
+  bool is_unowned(uint j) {
+    return chr_owner[j] < 0;
+  }
+
   void backup() {
     // assume first 0x100 characters are in-use (Link body, sword, shield, weapons, rupees, etc):
     for (uint j = 0; j < 0x100; j++) {

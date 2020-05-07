@@ -5,6 +5,9 @@ void on_main_loop(uint32 pc) {
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
 
+  // reset ownership of OAM sprites:
+  localFrameState.reset_owners();
+
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
   if (sock is null) return;
