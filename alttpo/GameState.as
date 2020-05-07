@@ -71,7 +71,6 @@ class GameState {
   }
 
   bool can_see(uint32 other_location) const {
-    if (is_it_a_bad_time()) return false;
     return (actual_location == other_location);
   }
 
@@ -1490,7 +1489,7 @@ class GameState {
       if (sprite.size == 0) {
         // 8x8 sprite:
         if (reloc[sprite.chr] == 0) { // assumes use of chr=0 is invalid, which it is since it is for local Link.
-          for (uint k = 0x20; k < 512; k++) {
+          for (uint k = 0x100; k < 0x200; k++) {
             // skip chr if in-use:
             if (localFrameState.chr[k]) continue;
 
@@ -1498,7 +1497,7 @@ class GameState {
             localFrameState.chr[k] = true;
             reloc[sprite.chr] = k;
             if (chrs[sprite.chr].length() == 0) {
-              //message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
+              message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
             }
@@ -1511,7 +1510,7 @@ class GameState {
       } else {
         // 16x16 sprite:
         if (reloc[sprite.chr] == 0) { // assumes use of chr=0 is invalid, which it is since it is for local Link.
-          for (uint k = 0x20; k < 0x1EF; k++) {
+          for (uint k = 0x100; k < 0x1EF; k++) {
             // skip chr if in-use:
             if (localFrameState.chr[k + 0x00]) continue;
             if (localFrameState.chr[k + 0x01]) continue;
@@ -1528,22 +1527,22 @@ class GameState {
             reloc[sprite.chr + 0x10] = k + 0x10;
             reloc[sprite.chr + 0x11] = k + 0x11;
             if (chrs[sprite.chr + 0x00].length() == 0) {
-              //message("remote CHR="+fmtHex(sprite.chr + 0x00,3)+" data empty!");
+              message("remote CHR="+fmtHex(sprite.chr + 0x00,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
             }
             if (chrs[sprite.chr + 0x01].length() == 0) {
-              //message("remote CHR="+fmtHex(sprite.chr + 0x01,3)+" data empty!");
+              message("remote CHR="+fmtHex(sprite.chr + 0x01,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
             }
             if (chrs[sprite.chr + 0x10].length() == 0) {
-              //message("remote CHR="+fmtHex(sprite.chr + 0x10,3)+" data empty!");
+              message("remote CHR="+fmtHex(sprite.chr + 0x10,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
             }
             if (chrs[sprite.chr + 0x11].length() == 0) {
-              //message("remote CHR="+fmtHex(sprite.chr + 0x11,3)+" data empty!");
+              message("remote CHR="+fmtHex(sprite.chr + 0x11,3)+" data empty!");
             } else {
               localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
             }

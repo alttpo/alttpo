@@ -18,7 +18,6 @@ class LocalFrameState {
   array<Tile@> chr_backup;
 
   void backup() {
-    //message("frame.backup");
     // assume first 0x100 characters are in-use (Link body, sword, shield, weapons, rupees, etc):
     for (uint j = 0; j < 0x100; j++) {
       chr[j] = true;
@@ -65,10 +64,12 @@ class LocalFrameState {
 
     // store backup:
     chr_backup.insertLast(Tile(addr, backup));
+
+    //message("vram write addr=0x"+fmtHex(addr,4));
   }
 
   void restore() {
-    //message("frame.restore");
+    //message("vram restore");
 
     // restore VRAM contents:
     auto len = chr_backup.length();

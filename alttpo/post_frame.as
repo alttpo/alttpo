@@ -16,7 +16,7 @@ void post_frame() {
     ppu::frame.text(20, 0, fmtHex(local.sub_module, 2));
     ppu::frame.text(40, 0, fmtHex(local.sub_sub_module, 2));
 
-    ppu::frame.text(60, 0, fmtHex(local.location, 6));
+    ppu::frame.text(60, 0, fmtHex(local.actual_location, 6));
     //ppu::frame.text(60, 0, fmtHex(local.in_dark_world, 1));
     //ppu::frame.text(68, 0, fmtHex(local.in_dungeon, 1));
     //ppu::frame.text(76, 0, fmtHex(local.overworld_room, 2));
