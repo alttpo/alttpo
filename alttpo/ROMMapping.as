@@ -7,9 +7,19 @@ abstract class ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0; }
   uint32 get_palette_darkWorldMap()  property { return 0; }
 
-  uint32 get_fn_pre_main_loop() property               { return 0; }
-  uint32 get_fn_patch() property                       { return 0; }
-  uint32 get_fn_main_routing() property                { return 0; }
+  uint32 get_fn_pre_main_loop() property               { return 0; }  // points to JSR ClearOamBuffer
+  uint32 get_fn_patch() property                       { return 0; }  // points to JSL Module_MainRouting
+
+  uint32 addr_main_routing = 0;
+  void read_main_routing() {
+    // read JSL instruction's 24-bit address at the patch point from RESET vector:
+    auto offs = uint32(bus::read_u16(fn_patch + 1));
+    auto bank = uint32(bus::read_u8(fn_patch + 3));
+    addr_main_routing = (bank << 16) | offs;
+    message("main_routing = 0x" + fmtHex(addr_main_routing, 6));
+  }
+  uint32 get_fn_main_routing() property                { return addr_main_routing; }
+
   uint32 get_fn_dungeon_light_torch() property         { return 0; }
   uint32 get_fn_dungeon_light_torch_success() property { return 0; }
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0; }
@@ -23,7 +33,8 @@ class USROMMapping : ROMMapping {
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; }
   uint32 get_fn_patch() property                       { return 0x008056; }
-  uint32 get_fn_main_routing() property                { return 0x0080B5; }
+  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+
   uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; }
   uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48D; }
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A6; }
@@ -37,7 +48,8 @@ class EUROMMapping : ROMMapping {
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
-  uint32 get_fn_main_routing() property                { return 0x0080B5; } // TODO
+  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+
   uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
   uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO
@@ -51,7 +63,8 @@ class JPROMMapping : ROMMapping {
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
-  uint32 get_fn_main_routing() property                { return 0x0080B5; } // TODO
+  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+
   uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
   uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO

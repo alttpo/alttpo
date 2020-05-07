@@ -45,6 +45,10 @@ void post_power(bool reset) {
 
   // patch the ROM code to inject our control routine:
   if (!reset) {
+    // read the JSL target address from the RESET vector code:
+    rom.read_main_routing();
+
+    // create the patch buffer that holds our temporary code:
     pb.power(true);
 
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
