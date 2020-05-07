@@ -12,10 +12,14 @@ abstract class ROMMapping {
 
   uint32 addr_main_routing = 0;
   void read_main_routing() {
+    // don't overwrite our last read value to avoid reading a patched-over value:
+    if (addr_main_routing != 0) return;
+
     // read JSL instruction's 24-bit address at the patch point from RESET vector:
     auto offs = uint32(bus::read_u16(fn_patch + 1));
     auto bank = uint32(bus::read_u8(fn_patch + 3));
     addr_main_routing = (bank << 16) | offs;
+
     message("main_routing = 0x" + fmtHex(addr_main_routing, 6));
   }
   uint32 get_fn_main_routing() property                { return addr_main_routing; }

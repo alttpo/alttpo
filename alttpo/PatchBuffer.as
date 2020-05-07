@@ -69,6 +69,14 @@ class PatchBuffer : CodeWriter {
     @bw = null;
   }
 
+  void unload() {
+    // restore JSL MainRouting to its original value:
+    auto @bw = @BusWriter(rom.fn_patch);
+    setWriter(@bw);
+    jsl(rom.fn_main_routing);
+    setWriter(@aw);
+  }
+
   void restore() {
     seek(0);
     // JSL MainRouting

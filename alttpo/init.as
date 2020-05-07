@@ -36,21 +36,24 @@ void init() {
   }
 }
 
-// called when cartridge powered on or reset or after init when cartridge already loaded and script loaded afterwards:
-void post_power(bool reset) {
-  //message("post_power()");
+void cartridge_loaded() {
+  //message("cartridge_loaded()");
 
   // Auto-detect ROM version:
   @rom = detect();
 
+  // read the JSL target address from the RESET vector code:
+  rom.read_main_routing();
+
   // patch the ROM code to inject our control routine:
+  pb.power(true);
+}
+
+// called when cartridge powered on or reset or after init when cartridge already loaded and script loaded afterwards:
+void post_power(bool reset) {
+  //message("post_power()");
+
   if (!reset) {
-    // read the JSL target address from the RESET vector code:
-    rom.read_main_routing();
-
-    // create the patch buffer that holds our temporary code:
-    pb.power(true);
-
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_loop);
 
@@ -60,6 +63,14 @@ void post_power(bool reset) {
   if (@worldMapWindow != null) {
     worldMapWindow.loadMap();
     worldMapWindow.drawMap();
+  }
+}
+
+// called when script itself is unloaded:
+void unload() {
+  if (@rom != null) {
+    // restore patched JSL:
+    pb.unload();
   }
 }
 
