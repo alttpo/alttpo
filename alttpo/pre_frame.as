@@ -1,9 +1,15 @@
 
+uint8 counter = 0;
+
 // this function intercepts execution immediately before JSL MainRouting in the reset vector:
 // this function is not called for every frame but is for most frames.
 void on_main_loop(uint32 pc) {
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
+
+  if ((counter++ & 0x7f) == 0x7f) {
+    //pb.jsl
+  }
 
   // reset ownership of OAM sprites:
   localFrameState.reset_owners();

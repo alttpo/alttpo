@@ -57,6 +57,12 @@ void post_power(bool reset) {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_loop);
 
+    // called when switch walked over
+    //cpu::register_pc_interceptor(0x01C5CF, @debug_pc);
+
+    // handle tag1, tag2 in dungeon:
+    cpu::register_pc_interceptor(0x01C2FD, @debug_pc);
+
     init_torches();
   }
 
@@ -72,6 +78,20 @@ void unload() {
     // restore patched JSL:
     pb.unload();
   }
+}
+
+void debug_pc(uint32 addr) {
+  message(
+    "pc=" + fmtHex(addr,6) +
+    " a=" + fmtHex(cpu::r.a,4) +
+    " x=" + fmtHex(cpu::r.x,4) +
+    " y=" + fmtHex(cpu::r.y,4) +
+    " s=" + fmtHex(cpu::r.s,4) +
+    " $AE=" + fmtHex(bus::read_u16(0x7E00AE),2) +
+    " $AF=" + fmtHex(bus::read_u16(0x7E00AF),2) +
+    " $04C7=" + fmtHex(bus::read_u16(0x7E04C7),4) +
+    " $04B6=" + fmtHex(bus::read_u16(0x7E04B6),4)
+  );
 }
 
 // TODO: debug window to show current full area and place GameSprites on it with X,Y coordinates
