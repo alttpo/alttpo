@@ -1,7 +1,7 @@
 
 class LocalGameState : GameState {
   LocalGameState() {
-    message("tilemap intercept register");
+    //message("tilemap intercept register");
     bus::add_write_interceptor("7e:2000-3fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
   }
 
@@ -531,13 +531,26 @@ class LocalGameState : GameState {
   }
 
   void fetch_tilemap_changes() {
-    // TODO: anything to do here?
+    bool clear = false;
+    if (module == 0x09 && sub_module == 0x05) {
+      // scrolling overworld areas:
+      clear = true;
+    } else if (location != last_location) {
+      // generic location changed event:
+      clear = true;
+    }
+
+    if (!clear) return;
+
+    // clear tilemap to -1 when changing rooms
+    for (uint i = 0; i < 0x1000; i++) {
+      tilemap[i] = -1;
+    }
+    message("tilemap.clear()");
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
   void tilemap_written(uint32 addr, uint8 value) {
-    message("tilemap[" + fmtHex(addr, 6) + "]=" + fmtHex(value, 2));
-
     if (is_it_a_bad_time()) {
       return;
     }
@@ -547,16 +560,10 @@ class LocalGameState : GameState {
       return;
     }
 
-    // TODO: clear tilemap to -1 when changing rooms!
-
     // don't fetch tilemap during screen transition:
-    if (sub_module >= 0x01 && sub_module < 0x07) {
-      return;
-    }
-    // during LW/DW transition:
-    if (sub_module >= 0x23) {
-      return;
-    }
+    if (sub_module >= 0x01 && sub_module < 0x07) return;
+    // or during LW/DW transition:
+    if (sub_module >= 0x23) return;
 
     // figure out offset from $7e2000:
     addr -= 0x7e2000;
@@ -568,6 +575,7 @@ class LocalGameState : GameState {
     if ((addr & 1) == 1) {
       // high byte:
       tilemap[i] = int32( (uint16(tilemap[i]) & 0x00ff) | (int32(value) << 8) );
+      message("tilemap[" + fmtHex(i, 4) + "]=" + fmtHex(tilemap[i], 4));
     } else {
       // low byte:
       tilemap[i] = int32( (uint16(tilemap[i]) & 0xff00) | (int32(value)) );
