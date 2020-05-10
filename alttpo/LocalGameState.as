@@ -172,15 +172,6 @@ class LocalGameState : GameState {
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
     yoffs = int16(bus::read_u16(0x7E00E8)) - int16(bus::read_u16(0x7E011C));
 
-/*
-    if (!intercepting) {
-      bus::add_write_interceptor("7e:2000-bfff", 0, bus::WriteInterceptCallback(this.mem_written));
-      bus::add_write_interceptor("00-3f,80-bf:2100-213f", 0, bus::WriteInterceptCallback(this.ppu_written));
-      cpu::register_dma_interceptor(cpu::DMAInterceptCallback(this.dma_intercept));
-      intercepting = true;
-    }
-*/
-
     fetch_items();
 
     fetch_sprites();
@@ -195,61 +186,6 @@ class LocalGameState : GameState {
 
     fetch_torches();
   }
-
-/*
-  void mem_written(uint32 addr, uint8 value) {
-    message("wram[0x" + fmtHex(addr, 6) + "] = 0x" + fmtHex(value, 2));
-  }
-
-  uint8 vmaddrl, vmaddrh;
-
-  void ppu_written(uint32 addr, uint8 value) {
-    //message(" ppu[0x__" + fmtHex(addr, 4) + "] = 0x" + fmtHex(value, 2));
-    if (addr == 0x2116) vmaddrl = value;
-    else if (addr == 0x2117) vmaddrh = value;
-  }
-
-  void dma_intercept(cpu::DMAIntercept @dma) {
-    uint16 vmaddr = 0;
-    // writing to 0x2118 (VMDATAL)
-    if (dma.direction == 0 && dma.targetAddress == 0x18) {
-      // ignore writes to BG and sprite tiles:
-      if (vmaddrh >= 0x30) return;
-      // compute vmaddr:
-      vmaddr = uint16(vmaddrl) | (uint16(vmaddrh) << 8);
-    }
-    // ignore OAM sync:
-    if (dma.direction == 0 && dma.targetAddress == 0x04) {
-      return;
-    }
-
-    uint32 addr = uint32(dma.sourceBank) << 16 | uint32(dma.sourceAddress);
-
-    string d = "...";
-    if (dma.direction == 0 && dma.transferSize <= 0x20) {
-      // from A bus to B bus:
-      array<uint16> data;
-      uint words = dma.transferSize >> 1;
-      data.resize(words);
-      bus::read_block_u16(addr, 0, words, data);
-
-      d = "";
-      for (uint i = 0; i < words; i++) {
-        d += "0x" + fmtHex(data[i], 4);
-        if (i < words - 1) d += ",";
-      }
-    }
-
-    message(
-      "dma[" + fmtInt(dma.channel) +
-      (dma.direction == 0 ? "] to 0x21" : "] from 0x21") + fmtHex(dma.targetAddress, 2) +
-      (dma.targetAddress == 0x18 ? " (vram 0x" + fmtHex(vmaddr, 4) + ")" : "") +
-      (dma.direction == 0 ? " from 0x" : " to 0x") + fmtHex(addr, 6) +
-      " size 0x" + fmtHex(dma.transferSize, 4) +
-      " = {" + d + "}"
-    );
-  }
-*/
 
   void fetch_sfx() {
     if (is_it_a_bad_time()) {
@@ -748,8 +684,7 @@ class LocalGameState : GameState {
   void serialize_tilemaps(array<uint8> &r) {
     r.insertLast(uint8(0x07));
 
-    //message("serialize: tilemap="+fmtInt(tilemapCount));
-    // TODO
+
   }
 
   void serialize_objects(array<uint8> &r) {
