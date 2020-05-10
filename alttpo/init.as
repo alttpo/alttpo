@@ -2,7 +2,7 @@ net::Socket@ sock;
 net::Address@ address;
 
 bool debug = false;
-bool debugData = false;
+bool debugData = true;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
@@ -57,6 +57,11 @@ void post_power(bool reset) {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_loop);
 
+    //cpu::register_pc_interceptor(0x008D13, @debug_pc);  // in NMI - scrolling OW tilemap update on every 16x16 change
+    //cpu::register_pc_interceptor(0x02F273, @debug_pc);  // in main loop - scrolling OW tilemap update on every 16x16 change
+
+    //bus::add_write_interceptor("7e:2000-3fff", 0, @);
+
     init_torches();
   }
 
@@ -74,7 +79,11 @@ void unload() {
   }
 }
 
+void debug_pc(uint32 addr) {
+  message(fmtHex(addr, 6));
+}
+
 // TODO: debug window to show current full area and place GameSprites on it with X,Y coordinates
 
-GameState local;
+LocalGameState local;
 array<GameState@> players(0);

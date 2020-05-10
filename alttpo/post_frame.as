@@ -22,8 +22,19 @@ void post_frame() {
     //ppu::frame.text(76, 0, fmtHex(local.overworld_room, 2));
     //ppu::frame.text(92, 0, fmtHex(local.dungeon_room, 2));
 
-    ppu::frame.text(120, 0, fmtHex(local.x, 4));
-    ppu::frame.text(160, 0, fmtHex(local.y, 4));
+    ppu::frame.text(112, 0, fmtHex(local.x, 4));
+    ppu::frame.text(152, 0, fmtHex(local.y, 4));
+
+    //ppu::frame.text(188, 0, fmtHex(bus::read_u16(0x7E0708), 4));
+    //ppu::frame.text(188, 8, fmtHex(bus::read_u16(0x7E070C), 4));
+
+    //ppu::frame.text(224, 0, fmtHex(bus::read_u16(0x7E070A), 4));
+    //ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E070E), 4));
+
+    //ppu::frame.text(224, 0, fmtHex(bus::read_u16(0x7E0710), 4));
+
+    ppu::frame.text(224, 0, fmtHex(bus::read_u16(0x7E0084), 4));
+    ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E0086), 4));
   }
 
   if (@sprites != null) {

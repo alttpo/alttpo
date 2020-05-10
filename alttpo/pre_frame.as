@@ -8,6 +8,8 @@ void on_main_loop(uint32 pc) {
   // reset ownership of OAM sprites:
   localFrameState.reset_owners();
 
+
+
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
   if (sock is null) return;
@@ -144,8 +146,6 @@ void pre_frame() {
 
     remote.ttl = remote.ttl - 1;
 
-    remote.update_rooms_sram();
-
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
@@ -155,12 +155,9 @@ void pre_frame() {
       // draw remote player relative to current BG offsets:
       //message("render");
       remote.render(rx, ry);
-
-      // update current room state in WRAM:
-      remote.update_room_current();
-
-      // update tilemap:
-      remote.update_tilemap();
     }
   }
+
+  // update tilemap:
+  local.update_tilemap();
 }
