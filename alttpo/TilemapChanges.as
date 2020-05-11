@@ -58,9 +58,9 @@ class TilemapChanges {
 
       // make sure tilemap offset is within VRAM screen range:
       auto wram_topleft_offs = int(n) - int(wram_topleft);
-      if (wram_topleft_offs < 0) continue;
-      if ((wram_topleft_offs & 0x7F) >= 0x20) continue;
-      if (wram_topleft_offs >= 0x700) continue;
+      if (wram_topleft_offs < -0x04) continue;
+      if ((wram_topleft_offs & 0x7F) >= 0x24) continue;
+      if (wram_topleft_offs >= 0x1000) continue;
 
       // convert tilemap address to VRAM address:
       uint16 vaddr = ow_tilemap_to_vram_address(n);
