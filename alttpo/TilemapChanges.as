@@ -82,19 +82,17 @@ class TilemapChanges {
   void apply(TilemapRun @run) {
     // apply the run to the tilemap, overwriting any existing values:
     uint32 addr = run.offs;
-    uint32 stride = run.vertical ? 0x20 : 1;
+    uint32 stride = run.vertical ? 0x40 : 1;
 
     if (run.same) {
       // use same tile value for entire run:
-      for (uint n = 0; n < run.count; n++) {
+      for (uint n = 0; n < run.count; n++, addr += stride) {
         state[addr] = run.tile;
-        addr += stride;
       }
     } else {
       // use individual tile values at each step:
-      for (uint n = 0; n < run.count; n++) {
+      for (uint n = 0; n < run.count; n++, addr += stride) {
         state[addr] = run.tiles[n];
-        addr += stride;
       }
     }
   }
@@ -109,17 +107,26 @@ class TilemapChanges {
     uint height = size;
     uint stride = 0x40;
 
+    if ((rate_limit & 0x7f) == 0) {
+      message("tilemap:");
+    }
     for (uint y = 0; y < height; y++) {
+      string str = "";
       auto row = (y * stride);
       for (uint x = 0; x < width; x++) {
         // start a run at first tile that's not -1:
         auto tile = tmp[row + x];
+        if (tile == -1) {
+          str = str+"    ,";
+        } else {
+          str = str+fmtHex(tile,4)+",";
+        }
         if (tile == -1) continue;
 
         // measure horizontal span:
-        uint hcount = 0;
+        uint hcount = 1;
         bool hsame = true;
-        for (uint n = x; n < width; n++) {
+        for (uint n = x+1; n < width; n++) {
           auto i = row + n;
           if (tmp[i] == -1) break;
           if (tmp[i] != tile) hsame = false;
@@ -127,9 +134,9 @@ class TilemapChanges {
         }
 
         // measure vertical span:
-        uint vcount = 0;
+        uint vcount = 1;
         bool vsame = true;
-        for (uint n = y; n < height; n++) {
+        for (uint n = y+1; n < height; n++) {
           auto i = (n * stride) + x;
           if (tmp[i] == -1) break;
           if (tmp[i] != tile) vsame = false;
@@ -181,7 +188,11 @@ class TilemapChanges {
 
         runs.insertLast(run);
       }
+      if ((rate_limit & 0x7f) == 0) {
+        message(str);
+      }
     }
+    rate_limit++;
 
     // serialize runs to message:
     r.write_u8(runs.length());
