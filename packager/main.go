@@ -225,8 +225,12 @@ func main() {
 	targetArch := os.Getenv("PACKAGER_TARGET_ARCH")
 	fmt.Printf("PACKAGER_TARGET_ARCH=%s\n", targetArch)
 
-	branch := os.Getenv("CIRRUS_BRANCH")
-	fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
+	branch := os.Getenv("BSNES_BRANCH")
+	fmt.Printf("BSNES_BRANCH=%s\n", branch)
+	if branch == "" {
+		branch = os.Getenv("CIRRUS_BRANCH")
+		fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
+	}
 
 	hash := os.Getenv("CIRRUS_CHANGE_IN_REPO")
 	fmt.Printf("CIRRUS_CHANGE_IN_REPO=%s\n", hash)
