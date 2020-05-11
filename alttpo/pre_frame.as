@@ -8,8 +8,6 @@ void on_main_loop(uint32 pc) {
   // reset ownership of OAM sprites:
   localFrameState.reset_owners();
 
-
-
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
   if (sock is null) return;

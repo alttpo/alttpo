@@ -23,12 +23,52 @@ class TilemapChanges {
     }
   }
 
-  void copy_to_wram() {
+  // convert overworld tilemap address to VRAM address:
+  uint16 ow_tilemap_to_vram_address(uint16 addr) {
+    uint16 vaddr = 0;
+
+    if ((addr & 0x003F) >= 0x0020) {
+      vaddr = 0x0400;
+    }
+
+    if ((addr & 0x0FFF) >= 0x0800) {
+      vaddr += 0x0800;
+    }
+
+    vaddr += (addr & 0x001F);
+    vaddr += (addr & 0x0780) >> 1;
+
+    return vaddr;
+  }
+
+  void copy_to_wram(bool include_vram) {
     if (size == 0) return;
 
     for (uint i = 0, n = 0; i < 0x1000; i++, n += 2) {
       if (state[i] < 0) continue;
-      bus::write_u16(0x7E2000 + n, uint16(state[i]));
+
+      // write to WRAM:
+      auto tile = uint16(state[i]);
+      bus::write_u16(0x7E2000 + n, tile);
+
+      if (!include_vram) continue;
+
+      // write to VRAM:
+
+      // convert tilemap address to VRAM address:
+      uint16 vaddr = ow_tilemap_to_vram_address(n);
+
+      // look up tile in tile gfx:
+      uint16 a = tile << 3;
+      array<uint16> t(4);
+      t[0] = bus::read_u16(0x0F8000 + a);
+      t[1] = bus::read_u16(0x0F8002 + a);
+      t[2] = bus::read_u16(0x0F8004 + a);
+      t[3] = bus::read_u16(0x0F8006 + a);
+
+      // update 16x16 tilemap in VRAM:
+      ppu::vram.write_block(vaddr, 0, 2, t);
+      ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
     }
   }
 

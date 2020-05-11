@@ -971,24 +971,6 @@ class LocalGameState : GameState {
     bus::write_u8(0x7E0401, lhi);
   }
 
-  // convert overworld tilemap address to VRAM address:
-  uint16 ow_tilemap_to_vram_address(uint16 addr) {
-    uint16 vaddr = 0;
-
-    if ((addr & 0x003F) >= 0x0020) {
-      vaddr = 0x0400;
-    }
-
-    if ((addr & 0x0FFF) >= 0x0800) {
-      vaddr += 0x0800;
-    }
-
-    vaddr += (addr & 0x001F);
-    vaddr += (addr & 0x0780) >> 1;
-
-    return vaddr;
-  }
-
   void tilemap_testcase() {
     if (actual_location == 0x02005b) {
       message("testcase!");
@@ -1032,6 +1014,14 @@ class LocalGameState : GameState {
       tilemap[0x0484]=0x0dc7;
       tilemap[0x04c4]=0x0dc7;
       tilemap[0x0745]=0x0dc7;
+    } else if (actual_location == 0x02005d) {
+      message("testcase!");
+      tilemap[0x0217]=0x0dc7;
+      tilemap[0x0198]=0x0dcd;
+      tilemap[0x0199]=0x0dce;
+      tilemap[0x01d8]=0x0dcf;
+      tilemap[0x01d9]=0x0dd0;
+      tilemap[0x0197]=0x0dcb;
     } else {
       message("no testcase");
     }
@@ -1055,28 +1045,10 @@ class LocalGameState : GameState {
       //
     }
 
-    tilemap.copy_to_wram();
+    // don't write to vram during area transition:
+    bool write_to_vram = true;
+    if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
 
-    //// apply change to 0x7E2000 in-memory map:
-    //bus::write_u16(0x7E2000 + addr, tile);
-    //
-    //// TODO: dont update VRAM if area is 1024x1024 instead of normal 512x512. this glitches out.
-    //if (bus::read_u16(0x7E0712) > 0) continue;
-    //
-    //// update VRAM with changes:
-    //// convert tilemap address to VRAM address:
-    //uint16 vaddr = ow_tilemap_to_vram_address(addr);
-    //
-    //// look up tile in tile gfx:
-    //uint16 a = tile << 3;
-    //array <uint16> t(4);
-    //t[0] = bus::read_u16(0x0F8000 + a);
-    //t[1] = bus::read_u16(0x0F8002 + a);
-    //t[2] = bus::read_u16(0x0F8004 + a);
-    //t[3] = bus::read_u16(0x0F8006 + a);
-    //
-    //// update 16x16 tilemap in VRAM:
-    //ppu::vram.write_block(vaddr, 0, 2, t);
-    //ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
+    tilemap.copy_to_wram(write_to_vram);
   }
 };
