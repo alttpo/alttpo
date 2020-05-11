@@ -1066,6 +1066,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (!local.can_see(remote.location)) continue;
 
       // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
