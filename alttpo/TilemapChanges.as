@@ -44,7 +44,9 @@ class TilemapChanges {
   void copy_to_wram(bool include_vram) {
     if (size == 0) return;
 
-    auto wram_topleft = bus::read_u16(0x7E0084);
+    auto wram_topleft = int32(bus::read_u16(0x7E0084) >> 1);
+    auto wram_top  = int32(wram_topleft >> 6);
+    auto wram_left = int32(wram_topleft & 0x3f);
 
     for (uint i = 0, n = 0; i < 0x1000; i++, n += 2) {
       if (state[i] < 0) continue;
@@ -57,10 +59,12 @@ class TilemapChanges {
       if (!include_vram) continue;
 
       // make sure tilemap offset is within VRAM screen range:
-      auto wram_topleft_offs = int(n) - int(wram_topleft);
-      if (wram_topleft_offs < -0x04) continue;
-      if ((wram_topleft_offs & 0x7F) >= 0x24) continue;
-      if (wram_topleft_offs >= 0x1000) continue;
+      auto top  = int32(i >> 6);
+      auto left = int32(i & 0x3f);
+      if (top  < wram_top - 2) continue;
+      if (top  > wram_top + 0xE+2) continue;
+      if (left < wram_left - 2) continue;
+      if (left > wram_left + 0x10+2) continue;
 
       // convert tilemap address to VRAM address:
       uint16 vaddr = ow_tilemap_to_vram_address(n);
