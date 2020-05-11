@@ -484,8 +484,7 @@ class LocalGameState : GameState {
     // clear tilemap to -1 when changing rooms:
     tilemap.reset(area_size);
 
-    if ((location == 0x02005b) && (location != last_location)) {
-      message("testcase!");
+    if (actual_location != last_location) {
       tilemap_testcase();
     }
   }
@@ -991,56 +990,61 @@ class LocalGameState : GameState {
   }
 
   void tilemap_testcase() {
-    tilemap[0x0aae]=0x0dc5;
-    tilemap[0x0aad]=0x0dc5;
-    tilemap[0x0aac]=0x0dc5;
-    tilemap[0x0aab]=0x0dc5;
-    tilemap[0x0a6f]=0x0dc5;
-    tilemap[0x0a6e]=0x0dc5;
-    tilemap[0x0a6d]=0x0dc5;
-    tilemap[0x0a6c]=0x0dc5;
-    tilemap[0x0a6b]=0x0dc5;
-    tilemap[0x0a6a]=0x0dc5;
-    tilemap[0x0a30]=0x0dc5;
-    tilemap[0x0a2f]=0x0dc5;
-    tilemap[0x0a2e]=0x0dc5;
-    tilemap[0x0a2d]=0x0dc5;
-    tilemap[0x0a2c]=0x0dc5;
-    tilemap[0x0a2b]=0x0dc5;
-    tilemap[0x0a2a]=0x0dc5;
-    tilemap[0x0aed]=0x0dc5;
-    tilemap[0x0aec]=0x0dc5;
-    tilemap[0x0b31]=0x0dcd;
-    tilemap[0x0b32]=0x0dce;
-    tilemap[0x0b71]=0x0dcf;
-    tilemap[0x0b72]=0x0dd0;
-    tilemap[0x09f3]=0x0dc5;
-    tilemap[0x09f2]=0x0dc5;
-    tilemap[0x09f1]=0x0dc5;
-    tilemap[0x09f0]=0x0dc5;
-    tilemap[0x09ef]=0x0dc5;
-    tilemap[0x09ee]=0x0dc5;
-    tilemap[0x09ed]=0x0dc5;
-    tilemap[0x09ec]=0x0dc5;
-    tilemap[0x09eb]=0x0dc5;
+    if (actual_location == 0x02005b) {
+      message("testcase!");
+      tilemap[0x0aae]=0x0dc5;
+      tilemap[0x0aad]=0x0dc5;
+      tilemap[0x0aac]=0x0dc5;
+      tilemap[0x0aab]=0x0dc5;
+      tilemap[0x0a6f]=0x0dc5;
+      tilemap[0x0a6e]=0x0dc5;
+      tilemap[0x0a6d]=0x0dc5;
+      tilemap[0x0a6c]=0x0dc5;
+      tilemap[0x0a6b]=0x0dc5;
+      tilemap[0x0a6a]=0x0dc5;
+      tilemap[0x0a30]=0x0dc5;
+      tilemap[0x0a2f]=0x0dc5;
+      tilemap[0x0a2e]=0x0dc5;
+      tilemap[0x0a2d]=0x0dc5;
+      tilemap[0x0a2c]=0x0dc5;
+      tilemap[0x0a2b]=0x0dc5;
+      tilemap[0x0a2a]=0x0dc5;
+      tilemap[0x0aed]=0x0dc5;
+      tilemap[0x0aec]=0x0dc5;
+      tilemap[0x0b31]=0x0dcd;
+      tilemap[0x0b32]=0x0dce;
+      tilemap[0x0b71]=0x0dcf;
+      tilemap[0x0b72]=0x0dd0;
+      tilemap[0x09f3]=0x0dc5;
+      tilemap[0x09f2]=0x0dc5;
+      tilemap[0x09f1]=0x0dc5;
+      tilemap[0x09f0]=0x0dc5;
+      tilemap[0x09ef]=0x0dc5;
+      tilemap[0x09ee]=0x0dc5;
+      tilemap[0x09ed]=0x0dc5;
+      tilemap[0x09ec]=0x0dc5;
+      tilemap[0x09eb]=0x0dc5;
+    } else if (actual_location == 0x020065) {
+      message("testcase!");
+      tilemap[0x0242]=0x0dc6;
+      tilemap[0x03c4]=0x0dc7;
+      tilemap[0x0444]=0x0dc7;
+      tilemap[0x0484]=0x0dc7;
+      tilemap[0x04c4]=0x0dc7;
+      tilemap[0x0745]=0x0dc7;
+    } else {
+      message("no testcase");
+    }
   }
 
   void update_tilemap() {
     // TODO: sync dungeon tilemap changes
-    if (is_in_dungeon()) {
-      return;
-    }
+    if (module != 0x09) return;
 
-    if (module == 0x09) {
-      // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) {
-        return;
-      }
-      // during LW/DW transition:
-      if (sub_module >= 0x23) {
-        return;
-      }
-    }
+    //// don't write during LW/DW transition:
+    //if (sub_module >= 0x23) {
+    //  return;
+    //}
 
     // integrate tilemap changes from other players:
     for (uint i = 0; i < players.length(); i++) {
