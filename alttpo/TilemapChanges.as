@@ -107,20 +107,30 @@ class TilemapChanges {
     uint height = size;
     uint stride = 0x40;
 
-    if ((rate_limit & 0x7f) == 0) {
-      message("tilemap:");
-    }
+    //if ((rate_limit & 0x7f) == 0) {
+    //  message("tilemap:");
+    //  for (uint y = 0; y < height; y++) {
+    //    string str = "";
+    //    auto row = (y * stride);
+    //    for (uint x = 0; x < width; x++) {
+    //      // start a run at first tile that's not -1:
+    //      auto tile = tmp[row + x];
+    //      if (tile == -1) {
+    //        str = str+"    ,";
+    //      } else {
+    //        str = str+fmtHex(tile,4)+",";
+    //      }
+    //      if (tile == -1) continue;
+    //    }
+    //    message(str);
+    //  }
+    //}
+
     for (uint y = 0; y < height; y++) {
-      string str = "";
       auto row = (y * stride);
       for (uint x = 0; x < width; x++) {
         // start a run at first tile that's not -1:
         auto tile = tmp[row + x];
-        if (tile == -1) {
-          str = str+"    ,";
-        } else {
-          str = str+fmtHex(tile,4)+",";
-        }
         if (tile == -1) continue;
 
         // measure horizontal span:
@@ -188,17 +198,18 @@ class TilemapChanges {
 
         runs.insertLast(run);
       }
-      if ((rate_limit & 0x7f) == 0) {
-        message(str);
-      }
     }
-    rate_limit++;
 
     // serialize runs to message:
     r.write_u8(runs.length());
     for (uint i = 0; i < runs.length(); i++) {
       auto @run = runs[i];
+      //if ((rate_limit & 0x7f) == 0) {
+      //  message( (run.vertical ? "vert" : "horz") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,4));
+      //}
       run.serialize(r);
     }
+
+    rate_limit++;
   }
 }

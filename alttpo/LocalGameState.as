@@ -1076,9 +1076,8 @@ class LocalGameState : GameState {
     }
 
     // don't write to vram during area transition:
-    //bool write_to_vram = true;
-    //if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
-    //
-    //tilemap.copy_to_wram(write_to_vram);
+    bool write_to_vram = true;
+    if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
+    tilemap.copy_to_wram(write_to_vram);
   }
 };
