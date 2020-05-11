@@ -25,7 +25,23 @@ class TilemapChanges {
   }
 
   void apply(TilemapRun @run) {
-    // TODO
+    // apply the run to the tilemap, overwriting any existing values:
+    uint32 addr = run.offs;
+    uint32 stride = run.vertical ? size : 1;
+
+    if (run.same) {
+      // use same tile value for entire run:
+      for (uint n = 0; n < run.count; n++) {
+        state[addr] = run.tile;
+        addr += stride;
+      }
+    } else {
+      // use individual tile values at each step:
+      for (uint n = 0; n < run.count; n++) {
+        state[addr] = run.tiles[n];
+        addr += stride;
+      }
+    }
   }
 
   void serialize(array<uint8> @r) {

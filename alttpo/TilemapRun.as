@@ -9,13 +9,6 @@ class TilemapRun {
   uint16 tile;
   array<uint16> tiles;
 
-  void apply(array<int32> @tilemap) {
-    // apply the run to the tilemap, overwriting any existing values:
-    for (uint n = 0; n < count; n++) {
-
-    }
-  }
-
   int deserialize(array<uint8> @r, int c) {
     offs = uint16(r[c++]) | uint16(r[c++]) << 8;
 
