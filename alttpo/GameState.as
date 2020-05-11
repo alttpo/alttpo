@@ -57,6 +57,7 @@ class GameState {
   int numsprites;
 
   TilemapChanges tilemap;
+  array<TilemapRun> tilemapRuns;
 
   array<int> ancillaeOwner;
   array<GameAncilla@> ancillae;
@@ -281,18 +282,13 @@ class GameState {
   }
 
   int deserialize_tilemaps(array<uint8> r, int c) {
-    // reset tilemap state:
-    tilemap.reset(area_size);
-
     // read number of runs:
-    uint16 runCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint8 runCount = r[c++];
+    tilemapRuns.resize(runCount);
     for (uint i = 0; i < runCount; i++) {
       // deserialize the run's parameters:
-      TilemapRun run;
+      auto @run = tilemapRuns[i];
       c = run.deserialize(r, c);
-
-      // apply the run to the tilemap state:
-      tilemap.apply(run);
     }
 
     return c;

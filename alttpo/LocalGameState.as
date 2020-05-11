@@ -485,7 +485,7 @@ class LocalGameState : GameState {
     tilemap.reset(area_size);
 
     if (actual_location != last_location) {
-      tilemap_testcase();
+      //tilemap_testcase();
     }
   }
 
@@ -1066,7 +1066,12 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
 
-      //
+      // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
+      for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
+        auto @run = remote.tilemapRuns[j];
+        // apply the run to the local tilemap state:
+        tilemap.apply(run);
+      }
     }
 
     // don't write to vram during area transition:

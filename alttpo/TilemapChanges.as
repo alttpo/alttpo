@@ -82,7 +82,7 @@ class TilemapChanges {
   void apply(TilemapRun @run) {
     // apply the run to the tilemap, overwriting any existing values:
     uint32 addr = run.offs;
-    uint32 stride = run.vertical ? size : 1;
+    uint32 stride = run.vertical ? 0x20 : 1;
 
     if (run.same) {
       // use same tile value for entire run:
