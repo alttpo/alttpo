@@ -10,17 +10,23 @@ class TilemapChanges {
     state[idx] = value;
   }
 
-  void setSize(uint8 s) {
-    if (s > 0) {
-      size = 0x40;
-    } else {
-      size = 0x20;
+  void reset(uint8 size) {
+    // only 0x20 or 0x40 are acceptable values:
+    if (size <= 0x20) size = 0x20;
+    else size = 0x40;
+
+    message("tilemap.reset(0x" + fmtHex(size, 2) + ")");
+    this.size = size;
+
+    for (uint i = 0; i < size * size; i++) {
+      state[i] = -1;
     }
   }
 
-  void reset() {
-    for (uint i = 0; i < 0x1000; i++) {
-      state[i] = -1;
+  void copy_to_wram() {
+    for (uint i = 0, n = 0; i < size * size; i++, n += 2) {
+      if (state[i] < 0) continue;
+      bus::write_u16(0x7E2000 + n, uint16(state[i]));
     }
   }
 
@@ -45,6 +51,8 @@ class TilemapChanges {
   }
 
   void serialize(array<uint8> @r) {
+    // copy the state to a tmp array so we can mutate it:
+    array<int32> tmp = state;
     array<TilemapRun> runs;
 
     // $20 x $20 or $40 x $40
@@ -55,7 +63,7 @@ class TilemapChanges {
       auto row = (y * width);
       for (uint x = 0; x < width; x++) {
         // start a run at first tile that's not -1:
-        auto tile = state[row + x];
+        auto tile = tmp[row + x];
         if (tile == -1) continue;
 
         // measure horizontal span:
@@ -63,8 +71,8 @@ class TilemapChanges {
         bool hsame = true;
         for (uint n = x; n < width; n++) {
           auto i = row + n;
-          if (state[i] == -1) break;
-          if (state[i] != tile) hsame = false;
+          if (tmp[i] == -1) break;
+          if (tmp[i] != tile) hsame = false;
           hcount++;
         }
 
@@ -73,8 +81,8 @@ class TilemapChanges {
         bool vsame = true;
         for (uint n = y; n < height; n++) {
           auto i = (n*width) + x;
-          if (state[i] == -1) break;
-          if (state[i] != tile) vsame = false;
+          if (tmp[i] == -1) break;
+          if (tmp[i] != tile) vsame = false;
           vcount++;
         }
 
@@ -94,11 +102,11 @@ class TilemapChanges {
           for (uint n = y; n < y + vcount; n++) {
             auto i = (n*width) + x;
             if (!run.same) {
-              run.tiles.insertLast(state[i]);
+              run.tiles.insertLast(tmp[i]);
             }
 
             // mark as processed:
-            state[i] = -1;
+            tmp[i] = -1;
           }
         } else {
           // horizontal run:
@@ -113,11 +121,11 @@ class TilemapChanges {
           for (uint n = x; n < x + hcount; n++) {
             auto i = row + n;
             if (!run.same) {
-              run.tiles.insertLast(state[i]);
+              run.tiles.insertLast(tmp[i]);
             }
 
             // mark as processed:
-            state[i] = -1;
+            tmp[i] = -1;
           }
         }
 

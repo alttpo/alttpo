@@ -80,7 +80,7 @@ class GameState {
   }
 
   uint8 get_area_size() property {
-    return bus::read_u8(0x7E0712);
+    return bus::read_u8(0x7E0712) > 0 ? 0x40 : 0x20;
   }
 
   bool is_it_a_bad_time() const {
@@ -282,7 +282,7 @@ class GameState {
 
   int deserialize_tilemaps(array<uint8> r, int c) {
     // reset tilemap state:
-    tilemap.reset();
+    tilemap.reset(area_size);
 
     // read number of runs:
     uint16 runCount = uint16(r[c++]) | (uint16(r[c++]) << 8);

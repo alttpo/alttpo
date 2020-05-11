@@ -468,22 +468,26 @@ class LocalGameState : GameState {
 
   void fetch_tilemap_changes() {
     bool clear = false;
+    /*
     if (module == 0x09 && sub_module == 0x05) {
       // scrolling overworld areas:
       clear = true;
-    } else if (location != last_location) {
+    } else
+    */
+    if (location != last_location) {
       // generic location changed event:
       clear = true;
     }
 
     if (!clear) return;
 
-    // clear tilemap to -1 when changing rooms
-    tilemap.reset();
-    message("tilemap.reset()");
+    // clear tilemap to -1 when changing rooms:
+    tilemap.reset(area_size);
 
-    // TODO: find area width,height from WRAM. $0717 == 0x20 -> 0x40 x 0x40?
-    tilemap.setSize(area_size);
+    if ((location == 0x02005b) && (location != last_location)) {
+      message("testcase!");
+      tilemap_testcase();
+    }
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
@@ -512,7 +516,7 @@ class LocalGameState : GameState {
     if ((addr & 1) == 1) {
       // high byte:
       tilemap[i] = int32( (uint16(tilemap[i]) & 0x00ff) | (int32(value) << 8) );
-      message("tilemap[" + fmtHex(i, 4) + "]=" + fmtHex(tilemap[i], 4));
+      message("tilemap[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 4));
     } else {
       // low byte:
       tilemap[i] = int32( (uint16(tilemap[i]) & 0xff00) | (int32(value)) );
@@ -986,6 +990,41 @@ class LocalGameState : GameState {
     return vaddr;
   }
 
+  void tilemap_testcase() {
+    tilemap[0x0aae]=0x0dc5;
+    tilemap[0x0aad]=0x0dc5;
+    tilemap[0x0aac]=0x0dc5;
+    tilemap[0x0aab]=0x0dc5;
+    tilemap[0x0a6f]=0x0dc5;
+    tilemap[0x0a6e]=0x0dc5;
+    tilemap[0x0a6d]=0x0dc5;
+    tilemap[0x0a6c]=0x0dc5;
+    tilemap[0x0a6b]=0x0dc5;
+    tilemap[0x0a6a]=0x0dc5;
+    tilemap[0x0a30]=0x0dc5;
+    tilemap[0x0a2f]=0x0dc5;
+    tilemap[0x0a2e]=0x0dc5;
+    tilemap[0x0a2d]=0x0dc5;
+    tilemap[0x0a2c]=0x0dc5;
+    tilemap[0x0a2b]=0x0dc5;
+    tilemap[0x0a2a]=0x0dc5;
+    tilemap[0x0aed]=0x0dc5;
+    tilemap[0x0aec]=0x0dc5;
+    tilemap[0x0b31]=0x0dcd;
+    tilemap[0x0b32]=0x0dce;
+    tilemap[0x0b71]=0x0dcf;
+    tilemap[0x0b72]=0x0dd0;
+    tilemap[0x09f3]=0x0dc5;
+    tilemap[0x09f2]=0x0dc5;
+    tilemap[0x09f1]=0x0dc5;
+    tilemap[0x09f0]=0x0dc5;
+    tilemap[0x09ef]=0x0dc5;
+    tilemap[0x09ee]=0x0dc5;
+    tilemap[0x09ed]=0x0dc5;
+    tilemap[0x09ec]=0x0dc5;
+    tilemap[0x09eb]=0x0dc5;
+  }
+
   void update_tilemap() {
     // TODO: sync dungeon tilemap changes
     if (is_in_dungeon()) {
@@ -1011,6 +1050,8 @@ class LocalGameState : GameState {
 
       //
     }
+
+    tilemap.copy_to_wram();
 
     //// apply change to 0x7E2000 in-memory map:
     //bus::write_u16(0x7E2000 + addr, tile);
