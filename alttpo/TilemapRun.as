@@ -11,7 +11,7 @@ class TilemapRun {
 
   void apply(array<int32> @tilemap) {
     // apply the run to the tilemap, overwriting any existing values:
-
+    // TODO
   }
 
   int deserialize(array<uint8> @r, int c) {
@@ -60,13 +60,13 @@ class TilemapRun {
       t |= 0x4000;
     }
 
-    r.insertLast(t);
-    r.insertLast(count);
+    r.write_u16(t);
+    r.write_u8(count);
     if (same) {
-      r.insertLast(tile);
+      r.write_u16(tile);
     } else {
       for (uint i = 0; i < count; i++) {
-        r.insertLast(tiles[i]);
+        r.write_u16(tiles[i]);
       }
     }
   }

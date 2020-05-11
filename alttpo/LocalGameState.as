@@ -574,32 +574,32 @@ class LocalGameState : GameState {
   }
 
   void serialize_location(array<uint8> &r) {
-    r.insertLast(uint8(0x01));
+    r.write_u8(uint8(0x01));
 
-    r.insertLast(module);
-    r.insertLast(sub_module);
-    r.insertLast(sub_sub_module);
+    r.write_u8(module);
+    r.write_u8(sub_module);
+    r.write_u8(sub_sub_module);
 
-    r.insertLast(location);
+    r.write_u32(location);
 
-    r.insertLast(x);
-    r.insertLast(y);
+    r.write_u16(x);
+    r.write_u16(y);
 
-    r.insertLast(last_overworld_x);
-    r.insertLast(last_overworld_y);
+    r.write_u16(last_overworld_x);
+    r.write_u16(last_overworld_y);
   }
 
   void serialize_sfx(array<uint8> &r) {
-    r.insertLast(uint8(0x02));
+    r.write_u8(uint8(0x02));
 
-    r.insertLast(sfx1);
-    r.insertLast(sfx2);
+    r.write_u8(sfx1);
+    r.write_u8(sfx2);
   }
 
   void serialize_sprites(array<uint8> &r) {
-    r.insertLast(uint8(0x03));
+    r.write_u8(uint8(0x03));
 
-    r.insertLast(uint8(sprites.length()));
+    r.write_u8(uint8(sprites.length()));
 
     //message("serialize: numsprites = " + fmtInt(sprites.length()));
     // sort 16x16 sprites first so that 8x8 can fit within them if needed (fixes shadows under thrown items):
@@ -622,17 +622,17 @@ class LocalGameState : GameState {
     }
 
     //message("serialize: chr0="+fmtInt(chr_count));
-    r.insertLast(uint8(0x04));
+    r.write_u8(uint8(0x04));
 
     // emit how many chrs:
-    r.insertLast(uint8(chr_count));
+    r.write_u8(uint8(chr_count));
     for (uint16 i = 0; i < 0x100; ++i) {
       if (chrs[i].length() == 0) continue;
 
       // which chr is it:
-      r.insertLast(uint8(i));
+      r.write_u8(uint8(i));
       // emit the tile data:
-      r.insertLast(chrs[i]);
+      r.write_arr(chrs[i]);
 
       // clear the chr tile data for next frame:
       chrs[i].resize(0);
@@ -648,17 +648,17 @@ class LocalGameState : GameState {
     }
 
     //message("serialize: chr1="+fmtInt(chr_count));
-    r.insertLast(uint8(0x05));
+    r.write_u8(uint8(0x05));
 
     // emit how many chrs:
-    r.insertLast(uint8(chr_count));
+    r.write_u8(uint8(chr_count));
     for (uint16 i = 0x100; i < 0x200; ++i) {
       if (chrs[i].length() == 0) continue;
 
       // which chr is it:
-      r.insertLast(uint8(i - 0x100));
+      r.write_u8(uint8(i - 0x100));
       // emit the tile data:
-      r.insertLast(chrs[i]);
+      r.write_arr(chrs[i]);
 
       // clear the chr tile data for next frame:
       chrs[i].resize(0);
@@ -666,39 +666,120 @@ class LocalGameState : GameState {
   }
 
   void serialize_items(array<uint8> &r) {
-    r.insertLast(uint8(0x06));
+    r.write_u8(uint8(0x06));
 
     // items: (MUST be sorted by offs)
     //message("serialize: items="+fmtInt(items.length()));
-    r.insertLast(uint8(items.length()));
+    r.write_u8(uint8(items.length()));
     for (uint8 i = 0; i < items.length(); i++) {
       auto @item = items[i];
       // NOTE if @item == null a null exception will occur which is better to know about than to ignore.
 
       // possible offsets are between 0x340 to 0x406 max, so subtract 0x340 to get a single byte between 0x00 and 0xC6
-      r.insertLast(uint8(items[i].offs - 0x340));
-      r.insertLast(items[i].value);
+      r.write_u8(uint8(items[i].offs - 0x340));
+      r.write_u16(items[i].value);
     }
   }
 
   void serialize_tilemaps(array<uint8> &r) {
-    r.insertLast(uint8(0x07));
+    r.write_u8(uint8(0x07));
 
+    array<TilemapRun> runs;
+
+    // $20 x $20 or $40 x $40
+    uint width = 0x40;
+    uint height = 0x40;
+
+    for (uint y = 0; y < height; y++) {
+      auto row = (y * width);
+      for (uint x = 0; x < width; x++) {
+        // start a run at first tile that's not -1:
+        auto tile = tilemap[row + x];
+        if (tile == -1) continue;
+
+        // measure horizontal span:
+        int hcount = 0;
+        bool hsame = true;
+        for (uint n = x; n < width; n++) {
+          auto i = row + n;
+          if (tilemap[i] == -1) break;
+          if (tilemap[i] != tile) hsame = false;
+          hcount++;
+        }
+
+        // measure vertical span:
+        int vcount = 0;
+        bool vsame = true;
+        for (uint n = y; n < height; n++) {
+          auto i = (n*width) + x;
+          if (tilemap[i] == -1) break;
+          if (tilemap[i] != tile) vsame = false;
+          vcount++;
+        }
+
+        // create the run:
+        TilemapRun run;
+        run.offs = row + x;
+        if (vcount > hcount) {
+          // vertical run:
+          run.vertical = true;
+          run.count = vcount;
+          run.same = vsame;
+          if (run.same) {
+            run.tile = tile;
+          }
+
+          // add each tile to the run:
+          for (uint n = y; n < y + vcount; n++) {
+            auto i = (n*width) + x;
+            if (!run.same) {
+              run.tiles.insertLast(tilemap[i]);
+            }
+
+            // mark as processed:
+            tilemap[i] = -1;
+          }
+        } else {
+          // horizontal run:
+          run.vertical = false;
+          run.count = hcount;
+          run.same = hsame;
+          if (run.same) {
+            run.tile = tile;
+          }
+
+          // add each tile to the run:
+          for (uint n = x; n < x + hcount; n++) {
+            auto i = row + n;
+            if (!run.same) {
+              run.tiles.insertLast(tilemap[i]);
+            }
+
+            // mark as processed:
+            tilemap[i] = -1;
+          }
+        }
+
+        runs.insertLast(run);
+      }
+    }
+
+    // TODO: serialize runs
 
   }
 
   void serialize_objects(array<uint8> &r) {
-    r.insertLast(uint8(0x08));
+    r.write_u8(uint8(0x08));
 
     // 0x2A0 bytes
-    r.insertLast(objectsBlock);
+    r.write_arr(objectsBlock);
   }
 
   void serialize_ancillae(array<uint8> &r) {
     if (ancillaeOwner.length() == 0) return;
     if (ancillae.length() == 0) return;
 
-    r.insertLast(uint8(0x09));
+    r.write_u8(uint8(0x09));
 
     uint8 count = 0;
     for (uint i = 0; i < 0x0A; i++) {
@@ -711,7 +792,7 @@ class LocalGameState : GameState {
     }
 
     // count of active+owned ancillae:
-    r.insertLast(count);
+    r.write_u8(count);
     for (uint i = 0; i < 0x0A; i++) {
       if (!ancillae[i].requestOwnership) {
         if (ancillaeOwner[i] != index && ancillaeOwner[i] != -1) continue;
@@ -724,7 +805,7 @@ class LocalGameState : GameState {
 
   void serialize_torches(array<uint8> &r) {
     // dungeon torches:
-    r.insertLast(uint8(0x0A));
+    r.write_u8(uint8(0x0A));
 
     uint8 count = 0;
     for (uint8 t = 0; t < 0x10; t++) {
@@ -733,11 +814,11 @@ class LocalGameState : GameState {
     }
 
     //message("torches="+fmtInt(count));
-    r.insertLast(count);
+    r.write_u8(count);
     for (uint8 t = 0; t < 0x10; t++) {
       if (torchOwner[t] != index) continue;
-      r.insertLast(t);
-      r.insertLast(torchTimers[t]);
+      r.write_u8(t);
+      r.write_u8(torchTimers[t]);
     }
   }
 
@@ -747,22 +828,22 @@ class LocalGameState : GameState {
     // server envelope:
     {
       // header:
-      envelope.insertLast(uint16(25887));
+      envelope.write_u16(uint16(25887));
       // server protocol 2:
-      envelope.insertLast(uint8(0x02));
+      envelope.write_u8(uint8(0x02));
       // group name: (20 bytes exactly)
-      envelope.insertLast(settings.Group);
+      envelope.write_str(settings.Group);
       // message kind:
-      envelope.insertLast(kind);
+      envelope.write_u8(kind);
       // what we think our index is:
-      envelope.insertLast(uint16(index));
+      envelope.write_u16(uint16(index));
     }
 
     // script protocol:
-    envelope.insertLast(uint8(script_protocol));
+    envelope.write_u8(uint8(script_protocol));
 
     // protocol starts with frame number to correlate them together:
-    envelope.insertLast(frame);
+    envelope.write_u8(frame);
 
     return envelope;
   }

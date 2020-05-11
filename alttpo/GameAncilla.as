@@ -55,8 +55,8 @@ class GameAncilla {
       value |= 0x80;
     }
 
-    r.insertLast(value);
-    r.insertLast(facts);
+    r.write_u8(value);
+    r.write_arr(facts);
   }
 
   void readRAM(uint8 index) {

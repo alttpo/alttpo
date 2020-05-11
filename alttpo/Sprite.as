@@ -74,15 +74,15 @@ class Sprite {
   }
 
   void serialize(array<uint8> &r) {
-    r.insertLast(index);
-    r.insertLast(chr);
-    r.insertLast(uint16(x));
-    r.insertLast(uint16(y));
-    r.insertLast(size);
-    r.insertLast(palette);
-    r.insertLast(priority);
-    r.insertLast(hflip ? uint8(1) : uint8(0));
-    r.insertLast(vflip ? uint8(1) : uint8(0));
+    r.write_u8(index);
+    r.write_u16(chr);
+    r.write_u16(uint16(x));
+    r.write_u16(uint16(y));
+    r.write_u8(size);
+    r.write_u8(palette);
+    r.write_u8(priority);
+    r.write_u8(hflip ? uint8(1) : uint8(0));
+    r.write_u8(vflip ? uint8(1) : uint8(0));
   }
 
   int deserialize(array<uint8> &r, int c) {
