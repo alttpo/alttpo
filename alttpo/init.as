@@ -1,7 +1,7 @@
 net::Socket@ sock;
 net::Address@ address;
 
-bool debug = true;
+bool debug = false;
 bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
