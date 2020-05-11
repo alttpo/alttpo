@@ -3,10 +3,10 @@ class TilemapChanges {
   array<int32> state(0x1000); // 0x1000 * 16-bit items (using int32 to allow -1 to mean "no change")
   int size = 0;
 
-  int get_opIndex(int idx) property {
+  int32 get_opIndex(int idx) property {
     return state[idx];
   }
-  void set_opIndex(int idx, int value) property {
+  void set_opIndex(int idx, int32 value) property {
     state[idx] = value;
   }
 
@@ -44,6 +44,8 @@ class TilemapChanges {
   void copy_to_wram(bool include_vram) {
     if (size == 0) return;
 
+    auto wram_topleft = bus::read_u16(0x7E0084);
+
     for (uint i = 0, n = 0; i < 0x1000; i++, n += 2) {
       if (state[i] < 0) continue;
 
@@ -51,9 +53,14 @@ class TilemapChanges {
       auto tile = uint16(state[i]);
       bus::write_u16(0x7E2000 + n, tile);
 
+      // write to VRAM:
       if (!include_vram) continue;
 
-      // write to VRAM:
+      // make sure tilemap offset is within VRAM screen range:
+      auto wram_topleft_offs = int(n) - int(wram_topleft);
+      if (wram_topleft_offs < 0) continue;
+      if ((wram_topleft_offs & 0x7F) >= 0x20) continue;
+      if (wram_topleft_offs >= 0x700) continue;
 
       // convert tilemap address to VRAM address:
       uint16 vaddr = ow_tilemap_to_vram_address(n);
