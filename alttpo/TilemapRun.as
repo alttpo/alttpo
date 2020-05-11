@@ -11,7 +11,9 @@ class TilemapRun {
 
   void apply(array<int32> @tilemap) {
     // apply the run to the tilemap, overwriting any existing values:
-    // TODO
+    for (uint n = 0; n < count; n++) {
+
+    }
   }
 
   int deserialize(array<uint8> @r, int c) {

@@ -56,7 +56,7 @@ class GameState {
 
   int numsprites;
 
-  array<int32> tilemap(0x1000); // 0x1000 * 16-bit items (using int32 to allow -1 to mean "no change")
+  TilemapChanges tilemap;
 
   array<int> ancillaeOwner;
   array<GameAncilla@> ancillae;
@@ -77,6 +77,10 @@ class GameState {
 
   bool is_in_dungeon() const {
     return (actual_location & 0x010000) == 0x010000;
+  }
+
+  uint8 get_area_size() property {
+    return bus::read_u8(0x7E0712);
   }
 
   bool is_it_a_bad_time() const {
@@ -278,9 +282,7 @@ class GameState {
 
   int deserialize_tilemaps(array<uint8> r, int c) {
     // reset tilemap state:
-    for (uint i = 0; i < 0x2000; i++) {
-      tilemap[i] = -1;
-    }
+    tilemap.reset();
 
     // read number of runs:
     uint16 runCount = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -290,7 +292,7 @@ class GameState {
       c = run.deserialize(r, c);
 
       // apply the run to the tilemap state:
-      run.apply(tilemap);
+      tilemap.apply(run);
     }
 
     return c;

@@ -60,8 +60,6 @@ void post_power(bool reset) {
     //cpu::register_pc_interceptor(0x008D13, @debug_pc);  // in NMI - scrolling OW tilemap update on every 16x16 change
     //cpu::register_pc_interceptor(0x02F273, @debug_pc);  // in main loop - scrolling OW tilemap update on every 16x16 change
 
-    //bus::add_write_interceptor("7e:2000-3fff", 0, @);
-
     init_torches();
   }
 
