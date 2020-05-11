@@ -15,7 +15,7 @@ class TilemapChanges {
     if (size <= 0x20) size = 0x20;
     else size = 0x40;
 
-    message("tilemap.reset(0x" + fmtHex(size, 2) + ")");
+    //message("tilemap.reset(0x" + fmtHex(size, 2) + ")");
     this.size = size;
 
     for (uint i = 0; i < 0x1000; i++) {

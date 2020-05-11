@@ -1,8 +1,8 @@
 net::Socket@ sock;
 net::Address@ address;
 
-bool debug = false;
-bool debugData = true;
+bool debug = true;
+bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
@@ -12,7 +12,7 @@ void init() {
 
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
-  settings.Group = "enemy-sync";
+  settings.Group = "tile-sync";
   settings.Name = "";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";

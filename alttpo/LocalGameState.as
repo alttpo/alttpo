@@ -146,7 +146,7 @@ class LocalGameState : GameState {
 
       // clear out list of room changes if location changed:
       if (last_location != location) {
-        message("room from 0x" + fmtHex(last_location, 6) + " to 0x" + fmtHex(location, 6));
+        //message("room from 0x" + fmtHex(last_location, 6) + " to 0x" + fmtHex(location, 6));
         // when moving from overworld to dungeon, track last overworld location:
         if ((last_location & (1 << 16)) < (location & (1 << 16))) {
           last_overworld_x = x;
@@ -515,7 +515,7 @@ class LocalGameState : GameState {
     if ((addr & 1) == 1) {
       // high byte:
       tilemap[i] = int32( (uint16(tilemap[i]) & 0x00ff) | (int32(value) << 8) );
-      message("tilemap[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 4));
+      //message("tilemap[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 4));
     } else {
       // low byte:
       tilemap[i] = int32( (uint16(tilemap[i]) & 0xff00) | (int32(value)) );
