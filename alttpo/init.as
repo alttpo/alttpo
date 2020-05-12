@@ -51,6 +51,9 @@ void cartridge_loaded() {
 
   // patch the ROM code to inject our control routine:
   pb.power(true);
+
+  // register ROM intercepts for local player:
+  local.register();
 }
 
 // called when cartridge powered on or reset or after init when cartridge already loaded and script loaded afterwards:

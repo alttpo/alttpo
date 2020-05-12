@@ -5,6 +5,16 @@ class LocalGameState : GameState {
     bus::add_write_interceptor("7e:2000-3fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
   }
 
+  bool registered = false;
+  void register() {
+    if (registered) return;
+    if (rom is null) return;
+
+    cpu::register_pc_interceptor(rom.fn_sprite_init, cpu::PCInterceptCallback(this.on_object_init));
+
+    registered = true;
+  }
+
   bool can_sample_location() const {
     switch (module) {
       // dungeon:
@@ -1136,17 +1146,45 @@ class LocalGameState : GameState {
     }
   }
 
+  // local player owns whatever it spawns:
+  void on_object_init(uint32 pc) {
+    auto j = cpu::r.x;
+    objectOwner[j] = index;
+    message("owner["+fmtHex(j,1)+"]="+fmtInt(objectOwner[j]));
+  }
+
   array<int> objectOwner(0x10);
+  array<int> objectHeat(0x10);
   void update_objects() {
+    // clear ownership of local dead objects:
+    for (uint j = 0; j < 0x10; j++) {
+      GameSprite l;
+      l.readRAM(j);
+
+      if (!l.is_enabled) {
+        if (objectHeat[j] > 0) {
+          objectHeat[j]--;
+        }
+
+        if (objectOwner[j] == index) {
+          objectOwner[j] = -2;
+          objectHeat[j] = 32;
+        }
+      }
+    }
+
+    // sync in remote objects:
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
       if (remote is null) continue;
+      if (remote is local) continue;
       if (remote.ttl <= 0) continue;
       if (!can_see(remote.location)) {
         // free ownership of any objects left behind:
         for (uint j = 0; j < 0x10; j++) {
           if (objectOwner[j] == remote.index) {
             objectOwner[j] = -2;
+            objectHeat[j] = 32;
           }
         }
         continue;
@@ -1160,12 +1198,16 @@ class LocalGameState : GameState {
           // release ownership if owned:
           if (objectOwner[j] == remote.index) {
             objectOwner[j] = -2;
+            objectHeat[j] = 32;
           }
           continue;
         }
 
         // only copy in picked-up objects:
-        if (r.type != 0xEC) continue;
+        if (r.type != 0xEC && r.type != 0xAC) continue;
+
+        GameSprite l;
+        l.readRAM(j);
 
         if (objectOwner[j] >= 0) {
           // not the owning player?
@@ -1173,16 +1215,18 @@ class LocalGameState : GameState {
             continue;
           }
         } else {
+          // wait for the heat to die down:
+          if (objectHeat[j] > 0) continue;
+
           // now this remote player owns it since no one has before:
           objectOwner[j] = remote.index;
+          message("owner["+fmtHex(j,1)+"]="+fmtInt(objectOwner[j]));
         }
 
         // translate it from picked-up to a normal object, else local Link holds it above his head:
         if (r.state == 0x0A) r.state = 0x09;
 
-        if (!(remote is local)) {
-          r.writeRAM();
-        }
+        r.writeRAM();
       }
     }
   }
