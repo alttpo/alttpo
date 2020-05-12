@@ -6,6 +6,7 @@ bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
+bool enableMap = false;
 
 void init() {
   //message("init()");
@@ -25,7 +26,9 @@ void init() {
     @sprites = SpritesWindow();
   }
 
-  @worldMapWindow = WorldMapWindow();
+  if (enableMap) {
+    @worldMapWindow = WorldMapWindow();
+  }
 
   if (debugOAM) {
     @oamWindow = OAMWindow();
