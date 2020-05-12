@@ -1136,42 +1136,51 @@ class LocalGameState : GameState {
     }
   }
 
+  array<int> objectOwner(0x10);
   void update_objects() {
-    auto updated_objects = false;
-
-    // update objects state from lowest-indexed player in the room:
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
-      if (!can_see(remote.location)) continue;
-
-      if (!updated_objects && remote.objectsBlock.length() == 0x2A0) {
-        updated_objects = true;
-        objects_index_source = i;
-      }
-    }
-
-    if (updated_objects) {
-      if (objects_index_source == index) {
-        // we are the player that controls the objects in the room. run through each player in the same room
-        // and synchronize any attempted changes to objects.
-
-      } else {
-        // we are not in control of objects in the room so just copy the state from the player who is:
-        //bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.objectsBlock);
-
-        auto @remote = players[objects_index_source];
+      if (!can_see(remote.location)) {
+        // free ownership of any objects left behind:
         for (uint j = 0; j < 0x10; j++) {
-          GameSprite r;
-          r.readFromBlock(remote.objectsBlock, j);
+          if (objectOwner[j] == remote.index) {
+            objectOwner[j] = -2;
+          }
+        }
+        continue;
+      }
 
-          // only copy in remotely picked up objects:
-          if (r.type != 0xEC) continue;
+      for (uint j = 0; j < 0x10; j++) {
+        GameSprite r;
+        r.readFromBlock(remote.objectsBlock, j);
 
-          // translate it from picked-up to a normal object, else local Link holds it above his head:
-          if (r.state == 0x0A) r.state = 0x09;
+        if (!r.is_enabled) {
+          // release ownership if owned:
+          if (objectOwner[j] == remote.index) {
+            objectOwner[j] = -2;
+          }
+          continue;
+        }
 
+        // only copy in picked-up objects:
+        if (r.type != 0xEC) continue;
+
+        if (objectOwner[j] >= 0) {
+          // not the owning player?
+          if (objectOwner[j] != remote.index) {
+            continue;
+          }
+        } else {
+          // now this remote player owns it since no one has before:
+          objectOwner[j] = remote.index;
+        }
+
+        // translate it from picked-up to a normal object, else local Link holds it above his head:
+        if (r.state == 0x0A) r.state = 0x09;
+
+        if (!(remote is local)) {
           r.writeRAM();
         }
       }
