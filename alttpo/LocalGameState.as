@@ -1136,4 +1136,46 @@ class LocalGameState : GameState {
     }
   }
 
+  void update_objects() {
+    auto updated_objects = false;
+
+    // update objects state from lowest-indexed player in the room:
+    for (uint i = 0; i < players.length(); i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote.ttl <= 0) continue;
+      if (!can_see(remote.location)) continue;
+
+      if (!updated_objects && remote.objectsBlock.length() == 0x2A0) {
+        updated_objects = true;
+        objects_index_source = i;
+      }
+    }
+
+    if (updated_objects) {
+      if (objects_index_source == index) {
+        // we are the player that controls the objects in the room. run through each player in the same room
+        // and synchronize any attempted changes to objects.
+
+      } else {
+        // we are not in control of objects in the room so just copy the state from the player who is:
+        //bus::write_block_u8(0x7E0D00, 0, 0x2A0, remote.objectsBlock);
+
+        auto @remote = players[objects_index_source];
+        for (uint j = 0; j < 0x10; j++) {
+          GameSprite r;
+          GameSprite l;
+          r.readFromBlock(remote.objectsBlock, j);
+          l.readRAM(j);
+
+          // don't overwrite locally picked up objects:
+          //if (l.state == 0x0A) continue;
+          // don't copy in remotely picked up objects:
+          //if (r.state == 0x0A) r.state = 0;
+          r.writeRAM();
+        }
+      }
+    }
+  }
+
 };
