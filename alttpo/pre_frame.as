@@ -15,59 +15,7 @@ void on_main_loop(uint32 pc) {
   // synchronize torches:
   update_torches();
 
-  {
-    for (uint i = 0; i < players.length(); i++) {
-      auto @remote = players[i];
-      if (remote is null) continue;
-      if (remote.ttl <= 0) continue;
-      if (!local.can_see(remote.location)) continue;
-
-      //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
-      if (remote is local) {
-        continue;
-      }
-
-      if (remote.ancillae.length() > 0) {
-        for (uint j = 0; j < remote.ancillae.length(); j++) {
-          auto @an = remote.ancillae[j];
-          auto k = an.index;
-
-          if (k < 0x05) {
-            // Doesn't work; needs more debugging.
-            if (false) {
-              // if local player picks up remotely owned ancillae:
-              if (local.ancillae[k].held == 3 && an.held != 3) {
-                an.requestOwnership = false;
-                local.ancillae[k].requestOwnership = true;
-                local.ancillaeOwner[k] = local.index;
-              }
-            }
-          }
-
-          // ownership transfer:
-          if (an.requestOwnership) {
-            local.ancillae[k].requestOwnership = false;
-            local.ancillaeOwner[k] = remote.index;
-          }
-
-          if (local.ancillaeOwner[k] == remote.index) {
-            an.writeRAM();
-            if (an.type == 0) {
-              // clear owner if type went to 0:
-              local.ancillaeOwner[k] = -1;
-              local.ancillae[k].requestOwnership = false;
-            }
-          } else if (local.ancillaeOwner[k] == -1 && an.type != 0) {
-            an.writeRAM();
-            local.ancillaeOwner[k] = remote.index;
-            local.ancillae[k].requestOwnership = false;
-          }
-        }
-      }
-
-      continue;
-    }
-  }
+  local.update_ancillae();
 
   if (false) {
     auto updated_objects = false;

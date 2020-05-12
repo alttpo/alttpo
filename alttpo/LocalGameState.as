@@ -551,7 +551,7 @@ class LocalGameState : GameState {
         }
       } else if (ancillaeOwner[i] == -1) {
         if (ancillae[i].type != 0) {
-          ancillaeOwner[i] = local.index;
+          ancillaeOwner[i] = index;
           ancillae[i].requestOwnership = false;
         }
       } else if (ancillaeOwner[i] == -2) {
@@ -784,7 +784,7 @@ class LocalGameState : GameState {
 
   void send() {
     // check if we need to detect our local index:
-    if (local.index == -1) {
+    if (index == -1) {
       // request our index; receive() will take care of the response:
       array<uint8> request = create_envelope(0x00);
       send_packet(request);
@@ -863,8 +863,8 @@ class LocalGameState : GameState {
     // find higher max values among remote players:
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
-      if (@remote == null) continue;
-      if (@remote == @local) continue;
+      if (remote is null) continue;
+      if (remote is this) continue;
       if (remote.ttl <= 0) {
         continue;
       }
@@ -1066,7 +1066,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
-      if (!local.can_see(remote.location)) continue;
+      if (!can_see(remote.location)) continue;
 
       // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
@@ -1081,4 +1081,59 @@ class LocalGameState : GameState {
     if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
     tilemap.copy_to_wram(write_to_vram);
   }
+
+  void update_ancillae() {
+    for (uint i = 0; i < players.length(); i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote.ttl <= 0) continue;
+      if (!can_see(remote.location)) continue;
+
+      //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
+      if (remote is this) {
+        continue;
+      }
+
+      if (remote.ancillae.length() > 0) {
+        for (uint j = 0; j < remote.ancillae.length(); j++) {
+          auto @an = remote.ancillae[j];
+          auto k = an.index;
+
+          if (k < 0x05) {
+            // Doesn't work; needs more debugging.
+            if (false) {
+              // if local player picks up remotely owned ancillae:
+              if (ancillae[k].held == 3 && an.held != 3) {
+                an.requestOwnership = false;
+                ancillae[k].requestOwnership = true;
+                ancillaeOwner[k] = index;
+              }
+            }
+          }
+
+          // ownership transfer:
+          if (an.requestOwnership) {
+            ancillae[k].requestOwnership = false;
+            ancillaeOwner[k] = remote.index;
+          }
+
+          if (ancillaeOwner[k] == remote.index) {
+            an.writeRAM();
+            if (an.type == 0) {
+              // clear owner if type went to 0:
+              ancillaeOwner[k] = -1;
+              ancillae[k].requestOwnership = false;
+            }
+          } else if (ancillaeOwner[k] == -1 && an.type != 0) {
+            an.writeRAM();
+            ancillaeOwner[k] = remote.index;
+            ancillae[k].requestOwnership = false;
+          }
+        }
+      }
+
+      continue;
+    }
+  }
+
 };
