@@ -7,6 +7,7 @@ bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
 bool enableMap = false;
+bool enableBgMusic = true;
 
 void init() {
   //message("init()");

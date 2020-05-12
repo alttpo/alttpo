@@ -1,6 +1,6 @@
 
 void pre_nmi() {
-  if (false) {
+  if (!enableBgMusic) {
     disable_bg_music();
   }
 
