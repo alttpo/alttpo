@@ -1164,14 +1164,14 @@ class LocalGameState : GameState {
         auto @remote = players[objects_index_source];
         for (uint j = 0; j < 0x10; j++) {
           GameSprite r;
-          GameSprite l;
           r.readFromBlock(remote.objectsBlock, j);
-          l.readRAM(j);
 
-          // don't overwrite locally picked up objects:
-          //if (l.state == 0x0A) continue;
-          // don't copy in remotely picked up objects:
-          //if (r.state == 0x0A) r.state = 0;
+          // only copy in remotely picked up objects:
+          if (r.type != 0xEC) continue;
+
+          // translate it from picked-up to a normal object, else local Link holds it above his head:
+          if (r.state == 0x0A) r.state = 0x09;
+
           r.writeRAM();
         }
       }
