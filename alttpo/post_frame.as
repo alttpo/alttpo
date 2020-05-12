@@ -32,7 +32,7 @@ void post_frame() {
     //ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E070E), 4));
 
     // top-left WRAM $7e2000 offset
-    ppu::frame.text(224, 0, fmtHex(bus::read_u16(0x7E0084) >> 1, 4));
+    //ppu::frame.text(224, 0, fmtHex(bus::read_u16(0x7E0084) >> 1, 4));
   }
 
   if (@sprites != null) {
