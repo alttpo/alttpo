@@ -1164,10 +1164,17 @@ class LocalGameState : GameState {
       if (!l.is_enabled) {
         if (objectHeat[j] > 0) {
           objectHeat[j]--;
+          if (objectHeat[j] == 0) {
+            objectOwner[j] = -2;
+          }
         }
 
         if (objectOwner[j] == index) {
           objectOwner[j] = -2;
+          objectHeat[j] = 32;
+        } else if (objectOwner[j] >= 0) {
+          // locally destroyed the object:
+          objectOwner[j] = index;
           objectHeat[j] = 32;
         }
       }
@@ -1197,14 +1204,17 @@ class LocalGameState : GameState {
         if (!r.is_enabled) {
           // release ownership if owned:
           if (objectOwner[j] == remote.index) {
-            objectOwner[j] = -2;
-            objectHeat[j] = 32;
+            if (objectHeat[j] == 0) {
+              //objectOwner[j] = -2;
+              objectHeat[j] = 32;
+            }
+            r.writeRAM();
           }
           continue;
         }
 
         // only copy in picked-up objects:
-        if (r.type != 0xEC && r.type != 0xAC) continue;
+        if (r.type != 0xEC) continue;
 
         GameSprite l;
         l.readRAM(j);

@@ -14,12 +14,6 @@ void on_main_loop(uint32 pc) {
 
   // synchronize torches:
   update_torches();
-
-  local.update_ancillae();
-
-  local.update_objects();
-
-  local.update_items();
 }
 
 // pre_frame always happens
@@ -39,6 +33,14 @@ void pre_frame() {
 
   // receive network updates from remote players:
   receive();
+
+  local.update_tilemap();
+
+  local.update_ancillae();
+
+  local.update_objects();
+
+  local.update_items();
 
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {
@@ -63,7 +65,4 @@ void pre_frame() {
       remote.render(rx, ry);
     }
   }
-
-  // update tilemap:
-  local.update_tilemap();
 }
