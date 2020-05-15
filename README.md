@@ -13,7 +13,7 @@ Join us on discord! https://discord.gg/AVQ2yKd
 1. **IMPORTANT**: If you cloned the github repository then stop, go back to step 1, and download the pre-built image for your system instead.
 1. Launch `bsnes.exe` (Windows) or `bsnes.app` (macOS), depending on your system.
 1. In bsnes, System > Load Game... and find your ALTTP ROM.
-1. In bsnes, Tools > Load Script... and select `alttp-script.as` from the current directory.
+1. In bsnes, Script > Load Script File... and select `alttp-script.as` from the current directory.
 1. Find the "Join a Game" window that should have popped up after loading the script. It may have popped under the main BSNES window. ![Join a Game](join-a-game.png)
 1. Find a friend to play with; make sure they follow all these steps up to this point.
 1. Leave the "Address" field alone unless you intend on running your own ALTTP multiplayer server instance. [See below](#running-your-own-server) if you wish to do so.
