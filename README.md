@@ -9,7 +9,7 @@ Join us on discord! https://discord.gg/AVQ2yKd
 
 **PREREQUISITES**: You need your own copy of the ALTTP game ROM image. DO NOT ASK ME FOR ONE; I will ignore you so hard. It is illegal to redistribute ROM images.
 
-1. Download the pre-built package for your system: https://cirrus-ci.com/github/JamesDunne/alttp-multiplayer
+1. Download the pre-built package for your system: https://cirrus-ci.com/github/JamesDunne/alttp-multiplayer/master
 1. **IMPORTANT**: If you cloned the github repository then stop, go back to step 1, and download the pre-built image for your system instead.
 1. Launch `bsnes.exe` (Windows) or `bsnes.app` (macOS), depending on your system.
 1. In bsnes, System > Load Game... and find your ALTTP ROM.
