@@ -9,7 +9,17 @@ Join us on discord! https://discord.gg/AVQ2yKd
 
 **PREREQUISITES**: You need your own copy of the ALTTP game ROM image. DO NOT ASK ME FOR ONE; I will ignore you so hard. It is illegal to redistribute ROM images.
 
-1. Download the pre-built package for your system: https://cirrus-ci.com/github/JamesDunne/alttp-multiplayer/master
+Download latest stable client here:
+
+[![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/JamesDunne.alttp-multiplayer?branchName=master)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=2&branchName=master)
+
+Click the "6 published" link under the "Related" section to go to the Artifacts window.
+
+![Download](image/azure-download.png)
+
+Click the highlighted download arrow on the far right for the client you want to download depending on your system.
+
+1. Download the latest pre-built stable client for your system [here](https://dev.azure.com/ALttPO/alttpo/_build?definitionId=2&_a=summary&view=runs&statusFilter=succeeded&repositoryFilter=2&branchFilter=7).
 1. **IMPORTANT**: If you cloned the github repository then stop, go back to step 1, and download the pre-built image for your system instead.
 1. Launch `bsnes.exe` (Windows) or `bsnes.app` (macOS), depending on your system.
 1. In bsnes, System > Load Game... and find your ALTTP ROM.
