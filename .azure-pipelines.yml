@@ -80,11 +80,11 @@ steps:
     mv ${alttpo_nightly}/*.as ${alttpo_nightly}/test-scripts/
 
     # these steps exclusive to non-master:
-    #mkdir ${alttpo_nightly}/alttpo
-    #cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
+    mkdir ${alttpo_nightly}/alttpo
+    cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
 
     # this step for master only:
-    cp -a angelscript/alttp-script.as ${alttpo_nightly}/
+    #cp -a angelscript/alttp-script.as ${alttpo_nightly}/
 
     cp -a README.md ${alttpo_nightly}/
     cp -a join-a-game.png ${alttpo_nightly}/
