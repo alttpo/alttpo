@@ -5,6 +5,7 @@ windows-x86_64-binaries_task:
     environment:
         PACKAGER_TARGET_ARCH: windows-x86_64-binaries
         PACKAGER_WAIT_FOR_BUILD: 'true'
+        BSNES_BRANCH: bus-v2
     package_script:
         - pushd packager && go build && popd && ./packager/alttp-packager
     build_script:

@@ -225,8 +225,12 @@ func main() {
 	targetArch := os.Getenv("PACKAGER_TARGET_ARCH")
 	fmt.Printf("PACKAGER_TARGET_ARCH=%s\n", targetArch)
 
-	branch := os.Getenv("CIRRUS_BRANCH")
-	fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
+	branch := os.Getenv("BSNES_BRANCH")
+	fmt.Printf("BSNES_BRANCH=%s\n", branch)
+	if branch == "" {
+		branch = os.Getenv("CIRRUS_BRANCH")
+		fmt.Printf("CIRRUS_BRANCH=%s\n", branch)
+	}
 
 	hash := os.Getenv("CIRRUS_CHANGE_IN_REPO")
 	fmt.Printf("CIRRUS_CHANGE_IN_REPO=%s\n", hash)
@@ -319,6 +323,9 @@ retryLoop:
 	//  - mkdir -p alttp-multiplayer-nightly/test-scripts
 	os.MkdirAll(nightly+"/test-scripts", os.ModeDir|os.FileMode(0755))
 
+	//  - mkdir -p alttp-multiplayer-nightly/alttpo
+	os.MkdirAll(nightly+"/alttpo", os.ModeDir|os.FileMode(0755))
+
 	//  - mv alttp-multiplayer-nightly/*.as alttp-multiplayer-nightly/test-scripts
 	files, err := filepath.Glob(nightly + "/*.as")
 	for _, p := range files {
@@ -326,15 +333,12 @@ retryLoop:
 		os.Rename(p, newPath)
 	}
 
-	//  - cp -a angelscript/*.as alttp-multiplayer-nightly/test-scripts
-	files, err = filepath.Glob("angelscript/*.as")
+	//  - cp -a alttpo/*.as alttp-multiplayer-nightly/alttpo/
+	files, err = filepath.Glob("alttpo/*.as")
 	for _, p := range files {
-		newPath := nightly + "/test-scripts/" + p[len("angelscript/"):]
+		newPath := nightly + "/" + p
 		os.Link(p, newPath)
 	}
-
-	//  - mv alttp-multiplayer-nightly/test-scripts/alttp-script.as alttp-multiplayer-nightly/alttp-script.as
-	os.Rename(nightly+"/test-scripts/alttp-script.as", nightly+"/alttp-script.as")
 
 	//  - cp -a README.md alttp-multiplayer-nightly
 	os.Link("README.md", nightly+"/README.md")
