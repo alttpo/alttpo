@@ -15,7 +15,7 @@ Download latest stable client here:
 
 Click the "6 published" link under the "Related" section to go to the Artifacts window.
 
-![Download](image/azure-download.png)
+![Download](static/azure-download.png)
 
 Click the highlighted download arrow on the far right for the client you want to download depending on your system.
 
