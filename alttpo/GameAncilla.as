@@ -22,7 +22,7 @@ class GameAncilla {
   // $03C5 = 0x1E
   // $03CA = 0x1F
 
-  array<uint8> facts;
+  array<uint8> facts(ancillaeFactsCount1);
   uint8 index;
   bool requestOwnership = false;
 

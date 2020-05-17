@@ -3,6 +3,16 @@ class LocalGameState : GameState {
   LocalGameState() {
     //message("tilemap intercept register");
     bus::add_write_interceptor("7e:2000-3fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
+
+    ancillaeOwner.resize(0x0A);
+    for (uint i = 0; i < 0x0A; i++) {
+      ancillaeOwner[i] = -1;
+    }
+
+    ancillae.resize(0x0A);
+    for (uint i = 0; i < 0x0A; i++) {
+      @ancillae[i] = @GameAncilla();
+    }
   }
 
   bool registered = false;
@@ -535,22 +545,6 @@ class LocalGameState : GameState {
   }
 
   void fetch_ancillae() {
-    // initialize owner array with -1 for no owner:
-    if (ancillaeOwner.length() == 0) {
-      ancillaeOwner.resize(0x0A);
-      for (uint i = 0; i < 0x0A; i++) {
-        ancillaeOwner[i] = -1;
-      }
-    }
-
-    // initialize array of ancillae:
-    if (ancillae.length() == 0) {
-      ancillae.resize(0x0A);
-      for (uint i = 0; i < 0x0A; i++) {
-        @ancillae[i] = @GameAncilla();
-      }
-    }
-
     // update ancillae array from WRAM:
     for (uint i = 0; i < 0x0A; i++) {
       ancillae[i].readRAM(i);
