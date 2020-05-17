@@ -10,6 +10,8 @@ bool debugGameObjects = false;
 bool enableMap = true;
 bool enableBgMusic = true;
 
+bool enableObjectSync = false;
+
 void init() {
   //message("init()");
 

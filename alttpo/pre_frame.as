@@ -40,7 +40,9 @@ void pre_frame() {
 
   local.update_items();
 
-  //local.update_objects();
+  if (enableObjectSync) {
+    local.update_objects();
+  }
 
   // render remote players:
   for (uint i = 0; i < players.length(); i++) {

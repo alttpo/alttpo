@@ -10,7 +10,9 @@ class LocalGameState : GameState {
     if (registered) return;
     if (rom is null) return;
 
-    cpu::register_pc_interceptor(rom.fn_sprite_init, cpu::PCInterceptCallback(this.on_object_init));
+    if (enableObjectSync) {
+      cpu::register_pc_interceptor(rom.fn_sprite_init, cpu::PCInterceptCallback(this.on_object_init));
+    }
 
     registered = true;
   }
