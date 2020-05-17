@@ -132,3 +132,39 @@ steps:
     artifact: '$(alttpo_server_nightly)'
     publishLocation: 'pipeline'
   displayName: 'Publish alttp-server'
+
+# Post a link to latest build artifacts on success to #stable channel in Discord:
+- task: InvokeRESTAPI@1
+  inputs:
+    connectionType: 'connectedServiceName'
+    serviceConnection: 'stable-webhook'
+    method: 'POST'
+    body: |
+      {
+          "content": "https://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts"
+      }
+    headers: |
+      {
+        "Content-Type": "application/json"
+      }
+    waitForCompletion: 'false'
+  condition: eq(variables['Build.SourceBranchName'], 'master')
+  displayName: "Discord: post link to #stable channel"
+
+# Post a link to latest build artifacts on success to #stable channel in Discord:
+- task: InvokeRESTAPI@1
+  inputs:
+    connectionType: 'connectedServiceName'
+    serviceConnection: 'unstable-webhook'
+    method: 'POST'
+    body: |
+      {
+          "content": "https://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts"
+      }
+    headers: |
+      {
+        "Content-Type": "application/json"
+      }
+    waitForCompletion: 'false'
+  condition: ne(variables['Build.SourceBranchName'], 'master')
+  displayName: "Discord: post link to #unstable channel"
