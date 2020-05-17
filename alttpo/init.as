@@ -6,7 +6,7 @@ bool debugData = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
-bool enableMap = false;
+bool enableMap = true;
 bool enableBgMusic = true;
 
 void init() {
