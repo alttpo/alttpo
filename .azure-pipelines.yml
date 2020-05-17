@@ -135,6 +135,9 @@ jobs:
       displayName: 'Publish alttp-server'
 
   - job: "Success"
+    dependsOn: "Build"
+    condition: succeeded()
+
     pool: server
     steps:
       # Post a link to latest build artifacts on success to #stable channel in Discord:
