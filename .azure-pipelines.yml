@@ -49,9 +49,10 @@ jobs:
         buildType: 'specific'
         project: 'ed1875fa-87ea-4872-9756-9a91c67a8c6e'
         definition: '1'
-        buildVersionToDownload: 'latest'
+        buildVersionToDownload: 'latestFromBranch'
+        branchName: 'master'
         targetPath: '$(modulePath)'
-      displayName: 'Download bsnes-angelscript'
+      displayName: 'Download bsnes-angelscript master'
 
     - script: |
         echo 'Package'
