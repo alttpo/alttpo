@@ -86,7 +86,7 @@ jobs:
         cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
 
         cp -a README.md ${alttpo_nightly}/
-        cp -a join-a-game.png ${alttpo_nightly}/
+        cp -a static ${alttpo_nightly}/
 
         # output variable for the nightly build path:
         echo "##vso[task.setvariable variable=alttpo_nightly]${alttpo_nightly}"

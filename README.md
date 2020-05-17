@@ -24,7 +24,7 @@ Click the highlighted download arrow on the far right for the client you want to
 1. Launch `bsnes.exe` (Windows) or `bsnes.app` (macOS), depending on your system.
 1. In bsnes, System > Load Game... and find your ALTTP ROM.
 1. In bsnes, Script > Load Script Folder... and select `alttpo` folder from the current directory.
-1. Find the "Join a Game" window that should have popped up after loading the script. It may have popped under the main BSNES window. ![Join a Game](join-a-game.png)
+1. Find the "Join a Game" window that should have popped up after loading the script. It may have popped under the main BSNES window. ![Join a Game](static/join-a-game.png)
 1. Find a friend to play with; make sure they follow all these steps up to this point.
 1. Leave the "Address" field alone unless you intend on running your own ALTTP multiplayer server instance. [See below](#running-your-own-server) if you wish to do so.
 1. Agree with your friend on a unique group name and enter it into the "Group" field. This group name can be anything but make sure it's unique enough for others not to guess otherwise they might be able to join your game.
