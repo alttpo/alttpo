@@ -51,6 +51,11 @@ class SyncableItem {
 };
 
 uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
+  // if local player has not grabbed gear from uncle, then keep uncle alive in the secret passage otherwise Zelda's
+  // telepathic prompts will get rather annoying.
+  if (oldValue & 0x01 == 0) {
+    newValue &= ~uint8(0x01);
+  }
   // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up.
   if (oldValue & 0x10 == 0) {
     newValue &= ~uint8(0x10);
