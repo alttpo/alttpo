@@ -1,134 +1,178 @@
-
 trigger:
   branches:
     include:
       - '*'
 
-pool:
-  vmImage: 'ubuntu-18.04'
+jobs:
+  - job: "Build"
+    pool:
+      vmImage: 'ubuntu-18.04'
 
-variables:
-  GOBIN:  '$(GOPATH)/bin' # Go binaries path
-  GOROOT: '/usr/local/go1.11' # Go installation path
-  GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
-  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
+    variables:
+      GOBIN:  '$(GOPATH)/bin' # Go binaries path
+      GOROOT: '/usr/local/go1.11' # Go installation path
+      GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
+      modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
 
-strategy:
-  matrix:
+    strategy:
+      matrix:
 
-    win64:
-      archName: 'win64'
-      GOOS: 'windows'
-      GOARCH: 'amd64'
+        win64:
+          archName: 'win64'
+          GOOS: 'windows'
+          GOARCH: 'amd64'
 
-    macOS:
-      archName: 'macOS'
-      GOOS: 'darwin'
-      GOARCH: 'amd64'
+        macOS:
+          archName: 'macOS'
+          GOOS: 'darwin'
+          GOARCH: 'amd64'
 
-    linux:
-      archName: 'linux'
-      GOOS: 'linux'
-      GOARCH: 'amd64'
+        linux:
+          archName: 'linux'
+          GOOS: 'linux'
+          GOARCH: 'amd64'
 
-steps:
-- script: |
-    mkdir -p '$(GOBIN)'
-    mkdir -p '$(GOPATH)/pkg'
-    mkdir -p '$(modulePath)'
-    shopt -s extglob
-    shopt -s dotglob
-    mv !(gopath) '$(modulePath)'
-    echo '##vso[task.prependpath]$(GOBIN)'
-    echo '##vso[task.prependpath]$(GOROOT)/bin'
-  displayName: 'Set up the Go workspace'
+    steps:
+    - script: |
+        mkdir -p '$(GOBIN)'
+        mkdir -p '$(GOPATH)/pkg'
+        mkdir -p '$(modulePath)'
+        shopt -s extglob
+        shopt -s dotglob
+        mv !(gopath) '$(modulePath)'
+        echo '##vso[task.prependpath]$(GOBIN)'
+        echo '##vso[task.prependpath]$(GOROOT)/bin'
+      displayName: 'Set up the Go workspace'
 
-- task: DownloadPipelineArtifact@2
-  inputs:
-    buildType: 'specific'
-    project: 'ed1875fa-87ea-4872-9756-9a91c67a8c6e'
-    definition: '1'
-    buildVersionToDownload: 'latestFromBranch'
-    branchName: 'refs/heads/bus-v2'
-    targetPath: '$(modulePath)'
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        project: 'ed1875fa-87ea-4872-9756-9a91c67a8c6e'
+        definition: '1'
+        buildVersionToDownload: 'latestFromBranch'
+        branchName: 'refs/heads/bus-v2'
+        targetPath: '$(modulePath)'
+      displayName: 'Download bsnes-angelscript'
 
-- script: |
-    echo 'Package'
-    set -e
+    - script: |
+        echo 'Package'
+        set -e
 
-    # expand the wildcard to find the folder name:
-    bsnes_nightly=( $(compgen -W "bsnes-angelscript-$(archName)-*") )
-    echo "Determined bsnes_nightly=${bsnes_nightly[0]}"
+        # expand the wildcard to find the folder name:
+        bsnes_nightly=( $(compgen -W "bsnes-angelscript-$(archName)-*") )
+        echo "Determined bsnes_nightly=${bsnes_nightly[0]}"
 
-    # extract the commit id from the folder name:
-    bsnes_commit=${bsnes_nightly[0]:(-40)}
-    echo "Determined bsnes_commit=${bsnes_commit}"
+        # extract the commit id from the folder name:
+        bsnes_commit=${bsnes_nightly[0]:(-40)}
+        echo "Determined bsnes_commit=${bsnes_commit}"
 
-    # determine our own commit:
-    alttpo_commit=$(Build.SourceVersion)
-    echo "Determined alttpo_commit=${alttpo_commit}"
+        # determine our own commit:
+        alttpo_commit=$(Build.SourceVersion)
+        echo "Determined alttpo_commit=${alttpo_commit}"
 
-    # find our nightly folder name:
-    alttpo_nightly=alttpo-client-$(archName)-${alttpo_commit:0:7}-${bsnes_commit:0:7}
-    echo "Determined alttpo_nightly=${alttpo_nightly}"
+        # find our nightly folder name:
+        alttpo_nightly=alttpo-client-$(archName)-${alttpo_commit:0:7}-${bsnes_commit:0:7}
+        echo "Determined alttpo_nightly=${alttpo_nightly}"
 
-    # rename the bsnes folder:
-    mv ${bsnes_nightly} ${alttpo_nightly}
+        # rename the bsnes folder:
+        mv ${bsnes_nightly} ${alttpo_nightly}
 
-    # restructure
-    mkdir ${alttpo_nightly}/test-scripts
-    mv ${alttpo_nightly}/*.as ${alttpo_nightly}/test-scripts/
+        # restructure
+        mkdir ${alttpo_nightly}/test-scripts
+        mv ${alttpo_nightly}/*.as ${alttpo_nightly}/test-scripts/
 
-    # these steps exclusive to non-master:
-    mkdir ${alttpo_nightly}/alttpo
-    cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
+        # these steps exclusive to non-master:
+        mkdir ${alttpo_nightly}/alttpo
+        cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
 
-    # this step for master only:
-    #cp -a angelscript/alttp-script.as ${alttpo_nightly}/
+        # this step for master only:
+        #cp -a angelscript/alttp-script.as ${alttpo_nightly}/
 
-    cp -a README.md ${alttpo_nightly}/
-    cp -a join-a-game.png ${alttpo_nightly}/
+        cp -a README.md ${alttpo_nightly}/
+        cp -a join-a-game.png ${alttpo_nightly}/
 
-    # output variable for the nightly build path:
-    echo "##vso[task.setvariable variable=alttpo_nightly]${alttpo_nightly}"
-  workingDirectory: '$(modulePath)'
-  displayName: 'Package alttpo-nightly'
+        # output variable for the nightly build path:
+        echo "##vso[task.setvariable variable=alttpo_nightly]${alttpo_nightly}"
+      workingDirectory: '$(modulePath)'
+      displayName: 'Package alttpo-nightly'
 
-- task: PublishPipelineArtifact@1
-  inputs:
-    targetPath: '$(modulePath)/$(alttpo_nightly)'
-    artifact: '$(alttpo_nightly)'
-    publishLocation: 'pipeline'
-  displayName: 'Publish alttpo-nightly'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(modulePath)/$(alttpo_nightly)'
+        artifact: '$(alttpo_nightly)'
+        publishLocation: 'pipeline'
+      displayName: 'Publish alttpo-nightly'
 
-- script: |
-    go version
-    go get -v -t -d ./...
-    GOOS='$(GOOS)' GOARCH='$(GOARCH)' go build -v .
-  workingDirectory: '$(modulePath)/alttp-server'
-  displayName: 'Build alttp-server'
+    - script: |
+        go version
+        go get -v -t -d ./...
+        GOOS='$(GOOS)' GOARCH='$(GOARCH)' go build -v .
+      workingDirectory: '$(modulePath)/alttp-server'
+      displayName: 'Build alttp-server'
 
-- script: |
-    # determine our own commit:
-    alttpo_commit=$(Build.SourceVersion)
-    echo "Determined alttpo_commit=${alttpo_commit}"
+    - script: |
+        # determine our own commit:
+        alttpo_commit=$(Build.SourceVersion)
+        echo "Determined alttpo_commit=${alttpo_commit}"
 
-    # find our nightly folder name:
-    alttpo_server_nightly=alttpo-server-$(archName)-${alttpo_commit:0:7}
-    echo "Determined alttpo_server_nightly=${alttpo_server_nightly}"
+        # find our nightly folder name:
+        alttpo_server_nightly=alttpo-server-$(archName)-${alttpo_commit:0:7}
+        echo "Determined alttpo_server_nightly=${alttpo_server_nightly}"
 
-    # package up server binary:
-    mkdir ${alttpo_server_nightly}
-    mv alttp-server/alttp-server* ${alttpo_server_nightly}/
+        # package up server binary:
+        mkdir ${alttpo_server_nightly}
+        mv alttp-server/alttp-server* ${alttpo_server_nightly}/
 
-    # output variable for the nightly build path:
-    echo "##vso[task.setvariable variable=alttpo_server_nightly]${alttpo_server_nightly}"
-  workingDirectory: '$(modulePath)/'
-  displayName: 'Package alttp-server'
+        # output variable for the nightly build path:
+        echo "##vso[task.setvariable variable=alttpo_server_nightly]${alttpo_server_nightly}"
+      workingDirectory: '$(modulePath)/'
+      displayName: 'Package alttp-server'
 
-- task: PublishPipelineArtifact@1
-  inputs:
-    targetPath: '$(modulePath)/$(alttpo_server_nightly)'
-    artifact: '$(alttpo_server_nightly)'
-    publishLocation: 'pipeline'
-  displayName: 'Publish alttp-server'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(modulePath)/$(alttpo_server_nightly)'
+        artifact: '$(alttpo_server_nightly)'
+        publishLocation: 'pipeline'
+      displayName: 'Publish alttp-server'
+
+  - job: "Success"
+    dependsOn: "Build"
+    condition: succeeded()
+
+    pool: server
+    steps:
+      # Post a link to latest build artifacts on success to #stable channel in Discord:
+      - task: InvokeRESTAPI@1
+        inputs:
+          connectionType: 'connectedServiceName'
+          serviceConnection: 'stable-webhook'
+          method: 'POST'
+          body: |
+            {
+                "content": "https://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts"
+            }
+          headers: |
+            {
+              "Content-Type": "application/json"
+            }
+          waitForCompletion: 'false'
+        condition: eq(variables['Build.SourceBranchName'], 'master')
+        displayName: "Discord: post link to #stable channel"
+
+      # Post a link to latest build artifacts on success to #stable channel in Discord:
+      - task: InvokeRESTAPI@1
+        inputs:
+          connectionType: 'connectedServiceName'
+          serviceConnection: 'unstable-webhook'
+          method: 'POST'
+          body: |
+            {
+                "content": "https://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts"
+            }
+          headers: |
+            {
+              "Content-Type": "application/json"
+            }
+          waitForCompletion: 'false'
+        condition: ne(variables['Build.SourceBranchName'], 'master')
+        displayName: "Discord: post link to #unstable channel"
