@@ -338,7 +338,7 @@ class LocalGameState : GameState {
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
       // skip already synced Link sprites:
-      if ((i >= link_oam_start) && (i <= link_oam_start + 0x0C)) continue;
+      if ((i >= link_oam_start) && (i < link_oam_start + 0x0C)) continue;
 
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite spr, sprp1, sprp2, sprn1, sprn2;
