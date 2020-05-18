@@ -304,6 +304,8 @@ class LocalGameState : GameState {
       return;
     }
 
+    sprites.reserve(64);
+
     // get link's on-screen coordinates in OAM space:
     int16 rx = int16(x) - xoffs;
     int16 ry = int16(y) - yoffs;
@@ -727,6 +729,7 @@ class LocalGameState : GameState {
 
   array<uint8> @create_envelope(uint8 kind) {
     array<uint8> @envelope = {};
+    envelope.reserve(1452);
 
     // server envelope:
     {
