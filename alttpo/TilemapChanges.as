@@ -105,6 +105,7 @@ class TilemapChanges {
     // copy the state to a tmp array so we can mutate it:
     array<int32> tmp = state;
     array<TilemapRun> runs;
+    runs.reserve(20);
 
     // $20 x $20 or $40 x $40
     uint width = size;
@@ -167,6 +168,8 @@ class TilemapChanges {
           run.same = vsame;
           if (run.same) {
             run.tile = tile;
+          } else {
+            run.tiles.reserve(vcount);
           }
 
           // add each tile to the run:
@@ -186,6 +189,8 @@ class TilemapChanges {
           run.same = hsame;
           if (run.same) {
             run.tile = tile;
+          } else {
+            run.tiles.reserve(hcount);
           }
 
           // add each tile to the run:
