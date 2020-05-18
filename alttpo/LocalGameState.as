@@ -335,7 +335,6 @@ class LocalGameState : GameState {
       @sprites[numsprites-1] = sprite;
     }
 
-    /*
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
       // skip already synced Link sprites:
@@ -368,77 +367,41 @@ class LocalGameState : GameState {
 
       bool fx = (
         // sparkles around sword spin attack AND magic boomerang:
-        chr == 0x80 || chr == 0x81 || chr == 0x82 || chr == 0x83 || chr == 0xb7 ||
+           chr == 0x80 || chr == 0x83 || chr == 0xb7
+        // when boomerang hits solid tile:
+        || chr == 0x81 || chr == 0x82
         // exclusively for spin attack:
-        chr == 0x8c || chr == 0x93 || chr == 0xd6 || chr == 0xd7 ||  // chr == 0x92 is also used here
-        // sword tink on hard tile when poking:
-        chr == 0x90 || chr == 0x92 || chr == 0xb9 ||
-        // dash dust
-        chr == 0xa9 || chr == 0xcf || chr == 0xdf ||
+        || chr == 0x8c || chr == 0x92 || chr == 0x93 || chr == 0xd6 || chr == 0xd7
         // bush leaves
-        chr == 0x59 ||
-        // item rising from opened chest
-        chr == 0x24
+        || chr == 0x59
+        // cut grass
+        || chr == 0xe2 || chr == 0xf2
+        // pot shards or stone shards (large and small)
+        || chr == 0x58 || chr == 0x48
       );
       bool weapons = (
-        // arrows
-        chr == 0x2a || chr == 0x2b || chr == 0x2c || chr == 0x2d ||
-        chr == 0x3a || chr == 0x3b || chr == 0x3c || chr == 0x3d ||
-        // hookshot
-        chr == 0x09 || chr == 0x19 || chr == 0x1a ||
-        // boomerang
-        chr == 0x26 ||
         // magic powder
-        chr == 0x09 || chr == 0x0a ||
-        // lantern fire
-        chr == 0xe3 || chr == 0xf3 || chr == 0xa4 || chr == 0xa5 || chr == 0xb2 || chr == 0xb3 || chr == 0x9c ||
-        // fire rod
-        chr == 0x09 || chr == 0x9c || chr == 0x9d || chr == 0x8d || chr == 0x8e || chr == 0xa0 || chr == 0xa2 ||
-        chr == 0xa4 || chr == 0xa5 ||
-        // ice rod
-        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0xb6 || chr == 0xb7 || chr == 0x80 || chr == 0x83 ||
-        chr == 0xcf || chr == 0xdf ||
-        // hammer
-        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0x91 ||
-        // cane of somaria
-        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0xe9 ||
-        // cane of bryna
-        chr == 0x09 || chr == 0x19 || chr == 0x1a || chr == 0x92 || chr == 0xd6 || chr == 0x8c || chr == 0x93 ||
-        chr == 0xd7 || chr == 0xb7 || chr == 0x80 || chr == 0x83 ||
+           chr == 0x09 || chr == 0x0a
         // magic cape
-        chr == 0x86 || chr == 0xa9 || chr == 0x9b ||
+        || chr == 0x86 || chr == 0xa9 || chr == 0x9b
         // quake & ether:
-        chr == 0x40 || chr == 0x42 || chr == 0x44 || chr == 0x46 || chr == 0x48 || chr == 0x4a || chr == 0x4c || chr == 0x4e ||
-        chr == 0x60 || chr == 0x62 || chr == 0x63 || chr == 0x64 || chr == 0x66 || chr == 0x68 || chr == 0x6a ||
-        // bombs:
-        chr == 0x6e ||
-        // 8 count:
-        chr == 0x79 ||
+        || chr == 0x40 || chr == 0x42 || chr == 0x44 || chr == 0x46 || chr == 0x48 || chr == 0x4a || chr == 0x4c || chr == 0x4e
+        || chr == 0x60 || chr == 0x62 || chr == 0x63 || chr == 0x64 || chr == 0x66 || chr == 0x68 || chr == 0x6a
         // push block
-        chr == 0x0c ||
+        || chr == 0x0c
         // large stone
-        chr == 0x4a ||
+        || chr == 0x4a
         // holding pot / bush or small stone or sign
-        chr == 0x46 || chr == 0x44 || chr == 0x42 ||
+        || chr == 0x46 || chr == 0x44 || chr == 0x42
         // shadow underneath pot / bush or small stone
-        (i >= 1 && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42) && chr == 0x6c) ||
-        // pot shards or stone shards (large and small)
-        chr == 0x58 || chr == 0x48
-      );
-      bool bombs = (
-        // explosion:
-        chr == 0x84 || chr == 0x86 || chr == 0x88 || chr == 0x8a || chr == 0x8c || chr == 0x9b ||
-        // bomb and its shadow:
-        (i <= 125 && chr == 0x6e && sprn1.chr == 0x6c && sprn2.chr == 0x6c) ||
-        (i >= 1 && sprp1.chr == 0x6e && chr == 0x6c && sprn1.chr == 0x6c) ||
-        (i >= 2 && sprp2.chr == 0x6e && sprp1.chr == 0x6c && chr == 0x6c)
+        || (i >= 1 && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42) && chr == 0x6c)
       );
       bool follower = (
         chr == 0x20 || chr == 0x22
       );
 
       // skip OAM sprites that are not related to Link:
-      if (!(fx || weapons || bombs || follower)) continue;
+      if (!(fx || weapons || follower)) continue;
 
       spr.adjustXY(rx, ry);
 
@@ -446,7 +409,6 @@ class LocalGameState : GameState {
       sprites.resize(++numsprites);
       @sprites[numsprites-1] = spr;
     }
-    */
   }
 
   void capture_sprites_vram() {
