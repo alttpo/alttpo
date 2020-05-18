@@ -9,8 +9,6 @@ jobs:
       vmImage: 'ubuntu-18.04'
 
     variables:
-      GOBIN:  '$(GOPATH)/bin' # Go binaries path
-      GOROOT: '/usr/local/go1.11' # Go installation path
       GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
       modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
 
@@ -33,6 +31,11 @@ jobs:
           GOARCH: 'amd64'
 
     steps:
+    - task: GoTool@0
+      inputs:
+        version: '1.13'
+      displayName: 'Install Go'
+
     - script: |
         mkdir -p '$(GOBIN)'
         mkdir -p '$(GOPATH)/pkg'
