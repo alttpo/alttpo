@@ -50,6 +50,15 @@ class SyncableItem {
   }
 };
 
+uint16 mutateWorldState(uint16 oldValue, uint16 newValue) {
+  // if local player is in the intro sequence, keep them there:
+  if (oldValue < 2) return oldValue;
+
+  // sync the bigger value:
+  if (newValue > oldValue) return newValue;
+  return oldValue;
+}
+
 uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
   // if local player has not grabbed gear from uncle, then keep uncle alive in the secret passage otherwise Zelda's
   // telepathic prompts will get rather annoying.
@@ -115,7 +124,7 @@ array<SyncableItem@> @syncableItems = {
 
   SyncableItem(0x37B, 1, 1),  // magic usage
 
-  SyncableItem(0x3C5, 1, 1),  // general progress indicator
+  SyncableItem(0x3C5, 1, @mutateWorldState),  // general progress indicator
   SyncableItem(0x3C6, 1, @mutateProgress1),  // progress event flags 1/2
   SyncableItem(0x3C7, 1, 1),  // map icons shown
   SyncableItem(0x3C8, 1, 1),  // start at location… options
