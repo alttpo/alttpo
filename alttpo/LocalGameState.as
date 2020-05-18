@@ -380,8 +380,10 @@ class LocalGameState : GameState {
         || chr == 0x58 || chr == 0x48
       );
       bool weapons = (
+        // boomerang
+           chr == 0x26
         // magic powder
-           chr == 0x09 || chr == 0x0a
+        || chr == 0x09 || chr == 0x0a
         // magic cape
         || chr == 0x86 || chr == 0xa9 || chr == 0x9b
         // quake & ether:

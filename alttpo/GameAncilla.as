@@ -134,7 +134,7 @@ class GameAncilla {
     // 0x03 - Unused; Instantiating one of these creates an object that does nothing.
     // 0x04 - Beam Hit; Master sword beam or Somarian Blast dispersing after hitting something
     // 0x05 - Boomerang
-    if (t == 0x05) return true;
+    //if (t == 0x05) return true;
     // 0x06 - Wall Hit; Spark-like effect that occurs when you hit a wall with a boomerang or hookshot
     if (t == 0x06) return true;
     // 0x07 - Bomb; Normal bombs laid by the player
