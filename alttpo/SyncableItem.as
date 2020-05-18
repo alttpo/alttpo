@@ -41,6 +41,14 @@ class SyncableItem {
     return oldValue;
   }
 
+  uint16 read() {
+    if (size == 1) {
+      return bus::read_u8(0x7EF000 + offs);
+    } else /* if (size == 2) */ {
+      return bus::read_u16(0x7EF000 + offs);
+    }
+  }
+
   void write(uint16 newValue) {
     if (size == 1) {
       bus::write_u8(0x7EF000 + offs, uint8(newValue));
@@ -60,6 +68,12 @@ uint16 mutateWorldState(uint16 oldValue, uint16 newValue) {
 }
 
 uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
+  // don't sync progress bits unless we're past the escape sequence; too many opportunities for soft-locks:
+  auto worldState = bus::read_u8(0x7EF000 + 0x3C5);
+  if (worldState < 2) {
+    return oldValue;
+  }
+
   // if local player has not grabbed gear from uncle, then keep uncle alive in the secret passage otherwise Zelda's
   // telepathic prompts will get rather annoying.
   if (oldValue & 0x01 == 0) {
