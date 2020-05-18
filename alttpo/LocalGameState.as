@@ -396,10 +396,18 @@ class LocalGameState : GameState {
         // holding pot / bush or small stone or sign
         || chr == 0x46 || chr == 0x44 || chr == 0x42
         // shadow underneath pot / bush or small stone
-        || (i >= 1 && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42) && chr == 0x6c)
+        || (chr == 0x6c && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42))
       );
       bool follower = (
-        chr == 0x20 || chr == 0x22
+           chr == 0x20 || chr == 0x22
+        // water under follower:
+        || (chr == 0xd8 && (sprn1.chr == 0xd8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+        || (chr == 0xd9 && (sprn1.chr == 0xd9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+        || (chr == 0xda && (sprn1.chr == 0xda || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+        // grass under follower:
+        || (chr == 0xc8 && (sprn1.chr == 0xc8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+        || (chr == 0xc9 && (sprn1.chr == 0xc9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+        || (chr == 0xca && (sprn1.chr == 0xca || sprn1.chr == 0x22 || sprn1.chr == 0x20))
       );
 
       // skip OAM sprites that are not related to Link:
