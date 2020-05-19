@@ -266,11 +266,33 @@ class WorldMapWindow {
 
     // in a dungeon:
     if ((p.location & 0x010000) == 0x010000) {
-      px = p.last_overworld_x;
-      py = p.last_overworld_y;
-      //x = -128;
-      //y = -128;
-      //return;
+      if (rom is null) {
+        px = p.last_overworld_x;
+        py = p.last_overworld_y;
+        return;
+      }
+
+      // get room number:
+      auto room = p.location & 0xffff;
+      // TODO: get last entrance if in actual dungeon (key, compass, etc.) from $010E
+
+      // room 0x0104 is Link's house
+      if (room != 0x0104 && room >= 0x100 && room < 0x180) {
+        // simple exit:
+        px = p.last_overworld_x;
+        py = p.last_overworld_y;
+      } else {
+        // has exit data:
+        for (uint i = 0; i < 0x9C; i += 2) {
+          auto exit_room = bus::read_u16(rom.entrance_table_room + i);
+          if (room == exit_room) {
+            // use link X,Y coords for exit:
+            px = bus::read_u16(rom.entrance_table_link_x + i);
+            py = bus::read_u16(rom.entrance_table_link_y + i);
+            break;
+          }
+        }
+      }
     }
 
     if (p.location == 0x000080) {

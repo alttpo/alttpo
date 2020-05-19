@@ -150,6 +150,10 @@ class LocalGameState : GameState {
       uint32(in_dungeon & 1) << 16 |
       uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
 
+    // last overworld x,y coords are cached in WRAM; only used for "simple" exits from caves:
+    last_overworld_x = bus::read_u16(0x7EC14A);
+    last_overworld_y = bus::read_u16(0x7EC148);
+
     if (is_it_a_bad_time()) {
       if (!can_sample_location()) {
         x = 0xFFFF;
@@ -169,11 +173,6 @@ class LocalGameState : GameState {
       // clear out list of room changes if location changed:
       if (last_location != location) {
         //message("room from 0x" + fmtHex(last_location, 6) + " to 0x" + fmtHex(location, 6));
-        // when moving from overworld to dungeon, track last overworld location:
-        if ((last_location & (1 << 16)) < (location & (1 << 16))) {
-          last_overworld_x = x;
-          last_overworld_y = y;
-        }
 
         // disown any of our torches:
         for (uint t = 0; t < 0x10; t++) {
