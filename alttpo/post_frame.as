@@ -39,7 +39,14 @@ void post_frame() {
     //ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E070E), 4));
 
     // top-left WRAM $7e2000 offset
-    //ppu::frame.text(224, 0, fmtHex(bus::read_u16(0x7E0084) >> 1, 4));
+    //ppu::frame.text(224, 16, fmtHex(bus::read_u16(0x7E0084), 4));
+
+    // Link's map16 tilemap coords:
+    ppu::frame.text(224, 0, fmtHex(
+      ((((bus::read_u16(0x7E0022) + 0x08) >> 3) - bus::read_u16(0x7E070C)) & bus::read_u16(0x7E070E)) +
+      (((bus::read_u16(0x7E0020) + 0x0C - bus::read_u16(0x7E0708)) & bus::read_u16(0x7E070A)) << 3),
+      4
+    ));
   }
 
   if (@sprites != null) {
