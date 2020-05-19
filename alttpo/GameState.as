@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x03;
+const uint8 script_protocol = 0x04;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -36,16 +36,19 @@ class GameState {
   uint8 sub_module;
   uint8 sub_sub_module;
 
-  uint8 sfx1;
-  uint8 sfx2;
-
   uint8 in_dark_world;
   uint8 in_dungeon;
   uint16 overworld_room;
   uint16 dungeon_room;
 
+  uint16 dungeon;
+  uint16 dungeon_entrance;
+
   uint16 last_overworld_x;
   uint16 last_overworld_y;
+
+  uint8 sfx1;
+  uint8 sfx2;
 
   array<SyncedItem@> items;
 
@@ -164,6 +167,9 @@ class GameState {
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    dungeon = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    dungeon_entrance = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     // last overworld coordinate when entered dungeon:
     last_overworld_x = uint16(r[c++]) | (uint16(r[c++]) << 8);

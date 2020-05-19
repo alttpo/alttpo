@@ -41,6 +41,9 @@ void post_frame() {
     // top-left WRAM $7e2000 offset
     //ppu::frame.text(224, 16, fmtHex(bus::read_u16(0x7E0084), 4));
 
+    // last entrance number in dungeon:
+    ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E010E), 4));
+
     // Link's map16 tilemap coords:
     ppu::frame.text(224, 0, fmtHex(
       ((((bus::read_u16(0x7E0022) + 0x08) >> 3) - bus::read_u16(0x7E070C)) & bus::read_u16(0x7E070E)) +

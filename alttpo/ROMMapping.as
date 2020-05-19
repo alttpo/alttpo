@@ -7,10 +7,11 @@ abstract class ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0; }
   uint32 get_palette_darkWorldMap()  property { return 0; }
 
-  // entrance tables:
+  // entrance & exit tables:
   uint32 get_entrance_table_room()    property { return 0; }
-  uint32 get_entrance_table_link_y()  property { return 0; }
-  uint32 get_entrance_table_link_x()  property { return 0; }
+  uint32 get_exit_table_room()        property { return 0; }
+  uint32 get_exit_table_link_y()      property { return 0; }
+  uint32 get_exit_table_link_x()      property { return 0; }
 
   uint32 get_fn_pre_main_loop() property               { return 0; }  // points to JSR ClearOamBuffer
   uint32 get_fn_patch() property                       { return 0; }  // points to JSL Module_MainRouting
@@ -41,10 +42,11 @@ class USROMMapping : ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 
-  // entrance tables:
-  uint32 get_entrance_table_room()    property { return 0x02DD8A; }
-  uint32 get_entrance_table_link_y()  property { return 0x02E051; }
-  uint32 get_entrance_table_link_x()  property { return 0x02E0EF; }
+  // entrance & exit tables:
+  uint32 get_entrance_table_room()    property { return 0x02C813; }
+  uint32 get_exit_table_room()        property { return 0x02DD8A; }
+  uint32 get_exit_table_link_y()      property { return 0x02E051; }
+  uint32 get_exit_table_link_x()      property { return 0x02E0EF; }
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; }
   uint32 get_fn_patch() property                       { return 0x008056; }
@@ -62,10 +64,11 @@ class EUROMMapping : ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 
-  // entrance tables:
-  uint32 get_entrance_table_room()    property { return 0x02DD8A; } // TODO
-  uint32 get_entrance_table_link_y()  property { return 0x02E051; } // TODO
-  uint32 get_entrance_table_link_x()  property { return 0x02E0EF; } // TODO
+  // entrance & exit tables:
+  uint32 get_entrance_table_room()    property { return 0x02C813; } // TODO
+  uint32 get_exit_table_room()        property { return 0x02DD8A; } // TODO
+  uint32 get_exit_table_link_y()      property { return 0x02E051; } // TODO
+  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // TODO
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
@@ -83,10 +86,11 @@ class JPROMMapping : ROMMapping {
   uint32 get_palette_lightWorldMap() property { return 0x0ADB39; }
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC39; }
 
-  // entrance tables:
-  uint32 get_entrance_table_room()    property { return 0x02DD8A; } // TODO
-  uint32 get_entrance_table_link_y()  property { return 0x02E051; } // TODO
-  uint32 get_entrance_table_link_x()  property { return 0x02E0EF; } // TODO
+  // entrance & exit tables:
+  uint32 get_entrance_table_room()    property { return 0x02C813; } // TODO
+  uint32 get_exit_table_room()        property { return 0x02DD8A; } // TODO
+  uint32 get_exit_table_link_y()      property { return 0x02E051; } // TODO
+  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // TODO
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO

@@ -144,6 +144,9 @@ class LocalGameState : GameState {
     overworld_room = bus::read_u16(0x7E008A);
     dungeon_room = bus::read_u16(0x7E00A0);
 
+    dungeon = bus::read_u16(0x7E040C);
+    dungeon_entrance = bus::read_u16(0x7E010E);
+
     // compute aggregated location for Link into a single 24-bit number:
     actual_location =
       uint32(in_dark_world & 1) << 17 |
@@ -186,8 +189,8 @@ class LocalGameState : GameState {
     // TODO: copy player name to Settings window
     // TODO: allow settings window to rename player and write back to SRAM
 
-    y = bus::read_u16(0x7E0020);
     x = bus::read_u16(0x7E0022);
+    y = bus::read_u16(0x7E0020);
 
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
