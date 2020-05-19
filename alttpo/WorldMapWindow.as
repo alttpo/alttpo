@@ -294,6 +294,10 @@ class WorldMapWindow {
             break;
           }
         }
+
+        // if no exit, use last coords:
+        px = p.last_overworld_x;
+        py = p.last_overworld_y;
       }
     }
 
