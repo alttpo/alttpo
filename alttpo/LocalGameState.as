@@ -261,11 +261,7 @@ class LocalGameState : GameState {
       item.lastValue = item.value;
 
       // read latest value:
-      if (syncable.size == 1) {
-        item.value = bus::read_u8(0x7EF000 + syncable.offs);
-      } else if (syncable.size == 2) {
-        item.value = bus::read_u16(0x7EF000 + syncable.offs);
-      }
+      item.value = syncable.read();
       //if (item.value != item.lastValue) {
       //  message("local[" + fmtHex(item.offs, 3) + "]=" + fmtHex(item.value, 4));
       //}
@@ -849,13 +845,7 @@ class LocalGameState : GameState {
     for (uint k = 0; k < syncableItems.length(); k++) {
       auto @syncable = syncableItems[k];
 
-      if (syncable.type == 1) {
-        // max value:
-        values[k] = this.items[k].value;
-      } else if (syncable.type == 2) {
-        // bitfield:
-        values[k] = this.items[k].value;
-      }
+      values[k] = this.items[k].value;
     }
 
     // find higher max values among remote players:
