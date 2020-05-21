@@ -573,6 +573,9 @@ class LocalGameState : GameState {
     r.write_u16(x);
     r.write_u16(y);
 
+    r.write_u16(dungeon);
+    r.write_u16(dungeon_entrance);
+
     r.write_u16(last_overworld_x);
     r.write_u16(last_overworld_y);
   }
