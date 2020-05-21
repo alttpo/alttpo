@@ -9,11 +9,15 @@ Join us on discord! https://discord.gg/AVQ2yKd
 
 **PREREQUISITES**: You need your own copy of the ALTTP game ROM image. DO NOT ASK ME FOR ONE; I will ignore you so hard. It is illegal to redistribute ROM images.
 
-Download latest stable client here:
+Download latest _stable_ client here (preferred for new/casual players):
 
 [![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/JamesDunne.alttp-multiplayer?branchName=master)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=2&branchName=master)
 
-Click the "6 published" link under the "Related" section to go to the Artifacts window.
+OR download the latest _unstable_ client here (for testing experimental features and work-in-progress):
+
+[![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/JamesDunne.alttp-multiplayer?branchName=unstable)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=2&branchName=unstable)
+
+Click the "6 published" link under the "Related" section to go to the Artifacts page:
 
 ![Download](static/azure-download.png)
 
