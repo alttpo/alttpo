@@ -1,46 +1,46 @@
 OAMWindow @oamWindow;
 
 class OAMWindow {
-  gui::Color yellow;
-  gui::Color clrEnabled;
-  gui::Color clrDisabled;
+  GUI::Color yellow;
+  GUI::Color clrEnabled;
+  GUI::Color clrDisabled;
 
-  gui::Window @window;
-  array<array<gui::Label@>> col(8);
+  GUI::Window @window;
+  array<array<GUI::Label@>> col(8);
 
   OAMWindow() {
-    yellow      = gui::Color(240, 240,   0);
-    clrEnabled  = gui::Color(240, 240, 240);
-    clrDisabled = gui::Color(110, 110, 110);
+    yellow      = GUI::Color(240, 240,   0);
+    clrEnabled  = GUI::Color(240, 240, 240);
+    clrDisabled = GUI::Color(110, 110, 110);
 
-    @window = gui::Window(0, 240*8*3, true);
+    @window = GUI::Window(0, 240*8*3, true);
     window.title = "OAM";
-    window.size = gui::Size(70*8, 20*16);
+    window.size = GUI::Size(70*8, 20*16);
 
-    auto @hl = gui::HorizontalLayout();
+    auto @hl = GUI::HorizontalLayout();
     for (int i=0; i<8; i++) {
       // first label column:
-      auto @vl = gui::VerticalLayout();
+      auto @vl = GUI::VerticalLayout();
       for (int j=0; j<16; j++) {
-        auto @lbl = gui::Label();
+        auto @lbl = GUI::Label();
         lbl.foregroundColor = yellow;
         lbl.text = fmtHex(i*16+j,2);
-        vl.append(lbl, gui::Size(-1, 0));
+        vl.append(lbl, GUI::Size(-1, 0));
       }
       vl.resize();
-      hl.append(vl, gui::Size(20, -1));
+      hl.append(vl, GUI::Size(20, -1));
 
       // second value column:
-      @vl = gui::VerticalLayout();
+      @vl = GUI::VerticalLayout();
       col[i].resize(16);
       for (int j=0; j<16; j++) {
-        @col[i][j] = gui::Label();
+        @col[i][j] = GUI::Label();
         col[i][j].foregroundColor = clrDisabled;
         col[i][j].text = "---";
-        vl.append(col[i][j], gui::Size(-1, 0));
+        vl.append(col[i][j], GUI::Size(-1, 0));
       }
       vl.resize();
-      hl.append(vl, gui::Size(40, -1));
+      hl.append(vl, GUI::Size(40, -1));
     }
     window.append(hl);
 

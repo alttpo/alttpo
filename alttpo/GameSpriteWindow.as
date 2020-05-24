@@ -1,50 +1,50 @@
 GameSpriteWindow @gameSpriteWindow;
 
 class GameSpriteWindow {
-  gui::Color clrYellow;
-  gui::Color clrDisabled;
-  gui::Color clrBlack;
+  GUI::Color clrYellow;
+  GUI::Color clrDisabled;
+  GUI::Color clrBlack;
 
-  gui::Window @window;
-  array<gui::Label@> col(16);
+  GUI::Window @window;
+  array<GUI::Label@> col(16);
 
   GameSpriteWindow() {
-    clrYellow   = gui::Color(240, 240,   0);
-    clrDisabled = gui::Color( 80,  80,  80);
-    clrBlack    = gui::Color(0,0,0);
+    clrYellow   = GUI::Color(240, 240,   0);
+    clrDisabled = GUI::Color( 80,  80,  80);
+    clrBlack    = GUI::Color(0,0,0);
 
     int charCount = 34+84;
 
-    @window = gui::Window(0, 240*3, true);
+    @window = GUI::Window(0, 240*3, true);
     window.title = "Game Sprites";
     window.backgroundColor = clrBlack;
-    window.font = gui::Font("{mono}", 8);
-    window.size = gui::Size(8*charCount+10+5, 19*16);
+    window.font = GUI::Font("{mono}", 8);
+    window.size = GUI::Size(8*charCount+10+5, 19*16);
 
-    auto @hl = gui::HorizontalLayout();
+    auto @hl = GUI::HorizontalLayout();
       // first label column:
-      auto @vl = gui::VerticalLayout();
+      auto @vl = GUI::VerticalLayout();
       for (int j=0; j<16; j++) {
-        auto @lbl = gui::Label();
+        auto @lbl = GUI::Label();
         lbl.foregroundColor = clrYellow;
         lbl.text = fmtHex(j,1)+":";
-        vl.append(lbl, gui::Size(-1, 0));
+        vl.append(lbl, GUI::Size(-1, 0));
       }
       vl.resize();
-      hl.append(vl, gui::Size(10, -1));
+      hl.append(vl, GUI::Size(10, -1));
 
       // second value column:
-      @vl = gui::VerticalLayout();
+      @vl = GUI::VerticalLayout();
       col.resize(16);
       for (int j=0; j<16; j++) {
-        @col[j] = gui::Label();
+        @col[j] = GUI::Label();
         col[j].foregroundColor = clrBlack;
         col[j].backgroundColor = clrDisabled;
         col[j].text = "";
-        vl.append(col[j], gui::Size(-1, 0));
+        vl.append(col[j], GUI::Size(-1, 0));
       }
       vl.resize();
-      hl.append(vl, gui::Size(8*charCount, -1));
+      hl.append(vl, GUI::Size(8*charCount, -1));
     window.append(hl);
 
     hl.resize();
@@ -73,7 +73,7 @@ class GameSpriteWindow {
         ((i & 2) >> 1) * 12 + ((i & 8) >> 3) * 12 + 7,
         ((i & 1)     ) * 12 + ((i & 8) >> 3) * 12 + 7
       );
-      auto rgbColor = gui::Color(
+      auto rgbColor = GUI::Color(
         ((i & 4) >> 2) * 98 + ((i & 8) >> 3) * 98 + 58,  // red
         ((i & 2) >> 1) * 98 + ((i & 8) >> 3) * 98 + 58,  // green
         ((i & 1)     ) * 98 + ((i & 8) >> 3) * 98 + 58   // blue

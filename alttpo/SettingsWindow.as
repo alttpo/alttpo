@@ -1,11 +1,11 @@
 SettingsWindow @settings;
 
 class SettingsWindow {
-  private gui::Window @window;
-  private gui::LineEdit @txtServerAddress;
-  private gui::LineEdit @txtGroup;
-  private gui::LineEdit @txtName;
-  private gui::Button @ok;
+  private GUI::Window @window;
+  private GUI::LineEdit @txtServerAddress;
+  private GUI::LineEdit @txtGroup;
+  private GUI::LineEdit @txtName;
+  private GUI::Button @ok;
 
   private string serverAddress;
   string ServerAddress {
@@ -46,53 +46,53 @@ class SettingsWindow {
   bool started;
 
   SettingsWindow() {
-    @window = gui::Window(164, 22, true);
+    @window = GUI::Window(164, 22, true);
     window.title = "Join a Game";
-    window.size = gui::Size(256, 24*5);
+    window.size = GUI::Size(256, 24*5);
 
-    auto vl = gui::VerticalLayout();
+    auto vl = GUI::VerticalLayout();
     {
-      auto @hz = gui::HorizontalLayout();
+      auto @hz = GUI::HorizontalLayout();
       {
-        auto @lbl = gui::Label();
+        auto @lbl = GUI::Label();
         lbl.text = "Address:";
-        hz.append(lbl, gui::Size(100, 0));
+        hz.append(lbl, GUI::Size(100, 0));
 
-        @txtServerAddress = gui::LineEdit();
-        hz.append(txtServerAddress, gui::Size(140, 20));
+        @txtServerAddress = GUI::LineEdit();
+        hz.append(txtServerAddress, GUI::Size(140, 20));
       }
-      vl.append(hz, gui::Size(0, 0));
+      vl.append(hz, GUI::Size(0, 0));
 
-      @hz = gui::HorizontalLayout();
+      @hz = GUI::HorizontalLayout();
       {
-        auto @lbl = gui::Label();
+        auto @lbl = GUI::Label();
         lbl.text = "Group:";
-        hz.append(lbl, gui::Size(100, 0));
+        hz.append(lbl, GUI::Size(100, 0));
 
-        @txtGroup = gui::LineEdit();
-        hz.append(txtGroup, gui::Size(140, 20));
+        @txtGroup = GUI::LineEdit();
+        hz.append(txtGroup, GUI::Size(140, 20));
       }
-      vl.append(hz, gui::Size(0, 0));
+      vl.append(hz, GUI::Size(0, 0));
 
-      @hz = gui::HorizontalLayout();
+      @hz = GUI::HorizontalLayout();
       {
-        auto @lbl = gui::Label();
+        auto @lbl = GUI::Label();
         lbl.text = "Player Name:";
-        hz.append(lbl, gui::Size(100, 0));
+        hz.append(lbl, GUI::Size(100, 0));
 
-        @txtName = gui::LineEdit();
-        hz.append(txtName, gui::Size(140, 20));
+        @txtName = GUI::LineEdit();
+        hz.append(txtName, GUI::Size(140, 20));
       }
-      vl.append(hz, gui::Size(0, 0));
+      vl.append(hz, GUI::Size(0, 0));
 
-      @hz = gui::HorizontalLayout();
+      @hz = GUI::HorizontalLayout();
       {
-        @ok = gui::Button();
+        @ok = GUI::Button();
         ok.text = "Connect";
-        @ok.on_activate = @gui::ButtonCallback(this.startClicked);
-        hz.append(ok, gui::Size(-1, -1));
+        @ok.on_activate = @GUI::Callback(this.startClicked);
+        hz.append(ok, GUI::Size(-1, -1));
       }
-      vl.append(hz, gui::Size(-1, -1));
+      vl.append(hz, GUI::Size(-1, -1));
     }
     window.append(vl);
 
@@ -100,7 +100,7 @@ class SettingsWindow {
     window.visible = true;
   }
 
-  private void startClicked(gui::Button @self) {
+  private void startClicked() {
     start();
     hide();
   }

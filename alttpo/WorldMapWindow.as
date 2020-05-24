@@ -1,13 +1,13 @@
 WorldMapWindow @worldMapWindow;
 
 class WorldMapWindow {
-  private gui::Window @window;
-  private gui::VerticalLayout @vl;
-  gui::Canvas @lightWorld;
-  gui::Canvas @darkWorld;
+  private GUI::Window @window;
+  private GUI::VerticalLayout @vl;
+  GUI::SNESCanvas @lightWorld;
+  GUI::SNESCanvas @darkWorld;
 
-  gui::Canvas @localDot;
-  array<gui::Canvas@> dots;
+  GUI::SNESCanvas @localDot;
+  array<GUI::SNESCanvas@> dots;
 
   // expressed in map 8x8 tile sizes:
   int mtop = 14;
@@ -23,24 +23,24 @@ class WorldMapWindow {
 
   WorldMapWindow() {
     // relative position to bsnes window:
-    @window = gui::Window(256*3*8/7, 0, true);
+    @window = GUI::Window(256*3*8/7, 0, true);
     window.title = "World Map";
-    window.size = gui::Size(width*mapscale, height*mapscale);
+    window.size = GUI::Size(width*mapscale, height*mapscale);
 
-    @vl = gui::VerticalLayout();
+    @vl = GUI::VerticalLayout();
     window.append(vl);
 
-    @lightWorld = gui::Canvas();
-    vl.append(lightWorld, gui::Size(width*mapscale, height*mapscale));
-    lightWorld.size = gui::Size(width*mapscale, height*mapscale);
+    @lightWorld = GUI::SNESCanvas();
+    vl.append(lightWorld, GUI::Size(width*mapscale, height*mapscale));
+    lightWorld.size = GUI::Size(width*mapscale, height*mapscale);
     lightWorld.setAlignment(0.0, 0.0);
     lightWorld.setCollapsible(true);
     lightWorld.setPosition(0, 0);
     lightWorld.visible = true;
 
-    @darkWorld = gui::Canvas();
-    vl.append(darkWorld, gui::Size(width*mapscale, height*mapscale));
-    darkWorld.size = gui::Size(width*mapscale, height*mapscale);
+    @darkWorld = GUI::SNESCanvas();
+    vl.append(darkWorld, GUI::Size(width*mapscale, height*mapscale));
+    darkWorld.size = GUI::Size(width*mapscale, height*mapscale);
     darkWorld.setAlignment(0.0, 0.0);
     darkWorld.setCollapsible(true);
     darkWorld.setPosition(0, 0);
@@ -140,7 +140,7 @@ class WorldMapWindow {
     drawn = true;
   }
 
-  void drawMode7Map(gui::Canvas @canvas, const array<uint8> &in tilemap, const array<uint8> &in gfx, const array<uint16> &in palette) {
+  void drawMode7Map(GUI::SNESCanvas @canvas, const array<uint8> &in tilemap, const array<uint8> &in gfx, const array<uint16> &in palette) {
     // draw map as mode 7 tiles:
     for (int my = mtop; my < mtop + mheight; my++) {
       for (int mx = mleft; mx < mleft + mwidth; mx++) {
@@ -171,12 +171,12 @@ class WorldMapWindow {
     }
   }
 
-  void horizontalLine(gui::Canvas @c, uint16 color, int x0, int y0, int x1) {
+  void horizontalLine(GUI::SNESCanvas @c, uint16 color, int x0, int y0, int x1) {
     for (int x = x0; x <= x1; ++x)
       c.pixel(x, y0, color);
   }
 
-  void plot4points(gui::Canvas @c, uint16 color, bool fill, int cx, int cy, int x, int y) {
+  void plot4points(GUI::SNESCanvas @c, uint16 color, bool fill, int cx, int cy, int x, int y) {
     if (fill) {
       horizontalLine(c, color, cx - x, cy + y, cx + x);
       if (y != 0)
@@ -189,7 +189,7 @@ class WorldMapWindow {
     }
   }
 
-  void circle(gui::Canvas @c, uint16 color, bool fill, int x0, int y0, int radius) {
+  void circle(GUI::SNESCanvas @c, uint16 color, bool fill, int x0, int y0, int radius) {
     int error = -radius;
     int x = radius;
     int y = 0;
@@ -216,14 +216,14 @@ class WorldMapWindow {
     }
   }
 
-  gui::Canvas @makeDot(uint16 color) {
+  GUI::SNESCanvas @makeDot(uint16 color) {
     int diam = 12;
     int max = diam-1;
     int s = diam/2;
 
-    auto @c = gui::Canvas();
-    vl.append(c, gui::Size(diam, diam));
-    c.size = gui::Size(diam, diam);
+    auto @c = GUI::SNESCanvas();
+    vl.append(c, GUI::Size(diam, diam));
+    c.size = GUI::Size(diam, diam);
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
 

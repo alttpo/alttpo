@@ -4,25 +4,25 @@ array<uint16> palette7(16);
 const int scale = 3;
 
 class SpritesWindow {
-  private gui::Window @window;
-  private gui::VerticalLayout @vl;
-  gui::Canvas @canvas;
+  private GUI::Window @window;
+  private GUI::VerticalLayout @vl;
+  GUI::SNESCanvas @canvas;
 
   array<uint16> page0(0x1000);
   array<uint16> page1(0x1000);
 
   SpritesWindow() {
     // relative position to bsnes window:
-    @window = gui::Window(0, 240*3, true);
+    @window = GUI::Window(0, 240*3, true);
     window.title = "Sprite VRAM";
-    window.size = gui::Size(256*scale, 128*scale);
+    window.size = GUI::Size(256*scale, 128*scale);
 
-    @vl = gui::VerticalLayout();
+    @vl = GUI::VerticalLayout();
     window.append(vl);
 
-    @canvas = gui::Canvas();
-    canvas.size = gui::Size(256, 128);
-    vl.append(canvas, gui::Size(-1, -1));
+    @canvas = GUI::SNESCanvas();
+    canvas.size = GUI::Size(256, 128);
+    vl.append(canvas, GUI::Size(-1, -1));
 
     vl.resize();
     canvas.update();
