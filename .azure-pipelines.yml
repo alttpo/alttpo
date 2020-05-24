@@ -58,9 +58,9 @@ jobs:
         project: 'ed1875fa-87ea-4872-9756-9a91c67a8c6e'
         definition: '1'
         buildVersionToDownload: 'latestFromBranch'
-        branchName: 'refs/heads/master'
+        branchName: '$(Build.SourceBranch)'
         targetPath: '$(modulePath)'
-      displayName: 'Download bsnes-angelscript master'
+      displayName: 'Download bsnes-angelscript $(Build.SourceBranchName)'
 
     - script: |
         echo 'Package'
