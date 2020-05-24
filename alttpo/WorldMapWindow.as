@@ -26,6 +26,8 @@ class WorldMapWindow {
     @window = GUI::Window(256*3*8/7, 0, true);
     window.title = "World Map";
     window.size = GUI::Size(width*mapscale, height*mapscale);
+    window.resizable = false;
+    window.dismissable = false;
 
     @vl = GUI::VerticalLayout();
     window.append(vl);
