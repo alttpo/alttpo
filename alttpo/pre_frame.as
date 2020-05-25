@@ -42,6 +42,8 @@ void pre_frame() {
 
   local.update_overworld();
 
+  local.update_rooms();
+
   if (enableObjectSync) {
     local.update_objects();
   }

@@ -647,7 +647,7 @@ class LocalGameState : GameState {
     r.write_u16(start);
     uint16 count = uint16(endExclusive - start);
     r.write_u16(count);
-    for (uint8 i = 0; i < count; i++) {
+    for (uint i = 0; i < count; i++) {
       r.write_u8(sram[start + i]);
     }
   }
@@ -829,8 +829,9 @@ class LocalGameState : GameState {
       array<uint8> envelope = create_envelope(0x01);
 
       // append local state to remote player:
-      serialize_tilemaps(envelope);
+      serialize_sram(envelope, 0x0, 0x250);   // dungeon rooms
       serialize_sram(envelope, 0x280, 0x300); // overworld events; heart containers, overlays
+      serialize_tilemaps(envelope);
 
       send_packet(envelope);
 
@@ -900,69 +901,41 @@ class LocalGameState : GameState {
     }
   }
 
-  void update_rooms_sram() {
-    // DISABLED
-    return;
-
-  /*
-    for (uint i = 0; i < rooms.length(); i++) {
-      // High Byte           Low Byte
-      // d d d d b k ck cr   c c c c q q q q
+  void update_rooms() {
+    uint16 room_count = 0x128;  // 0x250 / 2
+    for (uint a = 0; a < room_count; a++) {
+      // $000 - $24F : Data for Rooms (two bytes per room)
+      //
+      // High Byte               Low Byte
+      // d d d d b k ck cr       c c c c q q q q
+      //
       // c - chest, big key chest, or big key lock. Any combination of them totalling to 6 is valid.
       // q - quadrants visited:
       // k - key or item (such as a 300 rupee gift)
-      // 638
       // d - door opened (either unlocked, bombed or other means)
       // r - special rupee tiles, whether they've been obtained or not.
       // b - boss battle won
+      //
+      // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
 
-      //uint8 lo = rooms[i] & 0xff;
-      uint8 hi = rooms[i] >> 8;
+      // create temporary syncable item for each room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
+      SyncableItem area(a << 1, 2, 2);
 
-      // mask off everything but doors opened state:
-      hi = hi & 0xF0;
+      // read current state from SRAM:
+      area.start(this);
 
-      // OR door state with local WRAM:
-      uint8 lhi = bus::read_u8(0x7EF000 + (i << 1) + 1);
-      lhi |= hi;
-      bus::write_u8(0x7EF000 + (i << 1) + 1, lhi);
+      for (uint i = 0; i < players.length(); i++) {
+        auto @remote = players[i];
+        if (remote is null) continue;
+        if (remote is this) continue;
+        if (remote.ttl <= 0) continue;
+
+        area.apply(remote);
+      }
+
+      // write new state to SRAM:
+      area.finish(this);
     }
-  */
-  }
-
-  void update_room_current() {
-    if (rooms.length() == 0) return;
-
-    // only update dungeon room state:
-    auto in_dungeon = bus::read_u8(0x7E001B);
-    if (in_dungeon == 0) return;
-
-    auto dungeon_room = bus::read_u16(0x7E00A0);
-    if (dungeon_room >= rooms.length()) return;
-
-    // $0400
-    // $0401 - Tops four bits: In a given room, each bit corresponds to a door being opened.
-    //  If set, it has been opened by some means (bomb, key, etc.)
-    // $0402[0x01] - Certainly related to $0403, but contains other information I haven’t looked at yet.
-    // $0403[0x01] - Contains room information, such as whether the boss in this room has been defeated.
-    //  Loaded on every room load according to map information that is stored as you play the game.
-    //  Bit 0: Chest 1
-    //  Bit 1: Chest 2
-    //  Bit 2: Chest 3
-    //  Bit 3: Chest 4
-    //  Bit 4: Chest 5
-    //  Bit 5: Chest 6 / A second Key. Having 2 keys and 6 chests will cause conflicts here.
-    //  Bit 6: A key has been obtained in this room.
-    //  Bit 7: Heart Piece has been obtained in this room.
-
-    uint8 hi = rooms[dungeon_room] >> 8;
-    // mask off everything but doors opened state:
-    hi = hi & 0xF0;
-
-    // OR door state with current room state:
-    uint8 lhi = bus::read_u8(0x7E0401);
-    lhi |= hi;
-    bus::write_u8(0x7E0401, lhi);
   }
 
   void tilemap_testcase() {
