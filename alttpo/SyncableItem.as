@@ -93,10 +93,10 @@ class SyncableHealthCapacity : SyncableItem {
     return oldValue;
   }
 
-  uint16 read() {
+  uint16 read(const array<uint8> &in sram) override {
     // this works because [0x36C] is always a multiple of 8 and the lower 3 bits are always zero
     // and [0x36B] is in the range [0..3] aka 2 bits:
-    return bus::read_u8(0x7EF000 + 0x36C) | bus::read_u8(0x7EF000 + 0x36B);
+    return sram[0x36C] | sram[0x36B];
   }
 
   void write(uint16 newValue) override {
