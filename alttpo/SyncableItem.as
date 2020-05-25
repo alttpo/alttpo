@@ -58,6 +58,38 @@ class SyncableItem {
   }
 };
 
+class SyncableHealthCapacity : SyncableItem {
+  SyncableHealthCapacity() {
+    super(0x36C, 1, 0);
+
+    // this custom SyncableItem covers both:
+    // SyncableItem(0x36B, 1, 1),  // heart pieces (out of four)
+    // SyncableItem(0x36C, 1, 1),  // health capacity
+  }
+
+  uint16 modify(uint16 oldValue, uint16 newValue) override {
+    // max value:
+    if (newValue > oldValue) {
+      return newValue;
+    }
+    return oldValue;
+  }
+
+  uint16 read() {
+    // this works because [0x36C] is always a multiple of 8 and the lower 3 bits are always zero
+    // and [0x36B] is in the range [0..3] aka 2 bits:
+    return bus::read_u8(0x7EF000 + 0x36C) | bus::read_u8(0x7EF000 + 0x36B);
+  }
+
+  void write(uint16 newValue) override {
+    // split out the full hearts from the heart pieces:
+    auto hearts = uint8(newValue) & ~uint8(7);
+    auto pieces = uint8(newValue) & uint8(3);
+    bus::write_u8(0x7EF000 + 0x36C, hearts);
+    bus::write_u8(0x7EF000 + 0x36B, pieces);
+  }
+}
+
 uint16 mutateWorldState(uint16 oldValue, uint16 newValue) {
   // if local player is in the intro sequence, keep them there:
   if (oldValue < 2) return oldValue;
@@ -126,8 +158,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x368, 1, 2),  // dungeon maps 1/2
   SyncableItem(0x369, 1, 2),  // dungeon maps 2/2
 
-  SyncableItem(0x36B, 1, 1),  // heart pieces (out of four)
-  SyncableItem(0x36C, 1, 1),  // health capacity
+  SyncableHealthCapacity(),  // heart pieces (out of four) [0x36B], health capacity [0x36C]
 
   SyncableItem(0x370, 1, 1),  // bombs capacity
   SyncableItem(0x371, 1, 1),  // arrows capacity
