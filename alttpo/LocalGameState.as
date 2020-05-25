@@ -196,9 +196,9 @@ class LocalGameState : GameState {
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
     yoffs = int16(bus::read_u16(0x7E00E8)) - int16(bus::read_u16(0x7E011C));
 
-    fetch_items();
-
     fetch_sprites();
+
+    fetch_items();
 
     fetch_objects();
 
@@ -273,6 +273,8 @@ class LocalGameState : GameState {
   }
 
   void fetch_objects() {
+    if (is_dead()) return;
+
     // $7E0D00 - $7E0FA0
     uint i = 0;
 
@@ -288,6 +290,8 @@ class LocalGameState : GameState {
   }
 
   void fetch_rooms() {
+    if (is_dead()) return;
+
     // SRAM copy at $7EF000 - $7EF24F
     // room data live in WRAM at $0400,$0401
     // $0403 = 6 chests, key, heart piece
@@ -302,9 +306,7 @@ class LocalGameState : GameState {
   void fetch_sprites() {
     numsprites = 0;
     sprites.resize(0);
-    if (is_it_a_bad_time()) {
-      return;
-    }
+    if (is_it_a_bad_time()) return;
 
     sprites.reserve(64);
 
@@ -338,6 +340,9 @@ class LocalGameState : GameState {
       sprites.resize(++numsprites);
       @sprites[numsprites-1] = sprite;
     }
+
+    // don't sync OAM beyond link's body during or after GAME OVER animation after death:
+    if (is_dead()) return;
 
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
@@ -465,6 +470,8 @@ class LocalGameState : GameState {
   }
 
   void fetch_tilemap_changes() {
+    if (is_dead()) return;
+
     bool clear = false;
     /*
     if (module == 0x09 && sub_module == 0x05) {
@@ -523,6 +530,8 @@ class LocalGameState : GameState {
   }
 
   void fetch_ancillae() {
+    if (is_dead()) return;
+
     // update ancillae array from WRAM:
     for (uint i = 0; i < 0x0A; i++) {
       ancillae[i].readRAM(i);
@@ -547,6 +556,7 @@ class LocalGameState : GameState {
 
   void fetch_torches() {
     if (!is_in_dungeon()) return;
+    if (is_dead()) return;
 
     torchTimers.resize(0x10);
     bus::read_block_u8(0x7E04F0, 0, 0x10, torchTimers);

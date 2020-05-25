@@ -103,6 +103,24 @@ class GameState {
     return false;
   }
 
+  bool is_dead() const {
+    // death handled entirely in module 12:
+    if (module == 0x12) {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool is_game_over() const {
+    // GAME OVER animation starts at sub_module 06 in module 12:
+    if (module == 0x12 && sub_module >= 0x06) {
+      return true;
+    }
+
+    return false;
+  }
+
   bool can_see(uint32 other_location) const {
     return (actual_location == other_location);
   }
