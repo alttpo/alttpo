@@ -1,9 +1,6 @@
 
 class LocalGameState : GameState {
   LocalGameState() {
-    //message("tilemap intercept register");
-    bus::add_write_interceptor("7e:2000-3fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
-
     ancillaeOwner.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
       ancillaeOwner[i] = -1;
@@ -23,6 +20,9 @@ class LocalGameState : GameState {
     if (enableObjectSync) {
       cpu::register_pc_interceptor(rom.fn_sprite_init, cpu::PCInterceptCallback(this.on_object_init));
     }
+
+    //message("tilemap intercept register");
+    bus::add_write_interceptor("7e:2000-3fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
 
     registered = true;
   }
