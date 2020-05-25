@@ -776,6 +776,9 @@ class LocalGameState : GameState {
     sock.send(0, envelope.length(), envelope);
   }
 
+  uint16 maxSize0 = 0;
+  uint16 maxSize1 = 0;
+  uint16 maxSize2 = 0;
   void send() {
     // check if we need to detect our local index:
     if (index == -1) {
@@ -796,6 +799,17 @@ class LocalGameState : GameState {
       serialize_chr0(envelope);
 
       send_packet(envelope);
+
+      // stats on max packet size per 128 frames:
+      if (debugNet) {
+        if (envelope.length() > maxSize0) {
+          maxSize0 = envelope.length();
+        }
+        if ((frame & 0x7F) == 0) {
+          message("[0] = " + fmtInt(maxSize0));
+          maxSize0 = 0;
+        }
+      }
     }
 
     // send another packet:
@@ -808,6 +822,17 @@ class LocalGameState : GameState {
       serialize_torches(envelope);
 
       send_packet(envelope);
+
+      // stats on max packet size per 128 frames:
+      if (debugNet) {
+        if (envelope.length() > maxSize1) {
+          maxSize1 = envelope.length();
+        }
+        if ((frame & 0x7F) == 0) {
+          message("[1] = " + fmtInt(maxSize1));
+          maxSize1 = 0;
+        }
+      }
     }
 
 /*
@@ -830,6 +855,17 @@ class LocalGameState : GameState {
       serialize_tilemaps(envelope);
 
       send_packet(envelope);
+
+      // stats on max packet size per 128 frames:
+      if (debugNet) {
+        if (envelope.length() > maxSize2) {
+          maxSize2 = envelope.length();
+        }
+        if ((frame & 0x7F) == 0) {
+          message("[2] = " + fmtInt(maxSize2));
+          maxSize2 = 0;
+        }
+      }
     }
   }
 

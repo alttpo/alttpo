@@ -3,6 +3,7 @@ net::Address@ address;
 
 bool debug = false;
 bool debugData = false;
+bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
@@ -17,7 +18,7 @@ void init() {
 
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
-  settings.Group = "test";
+  settings.Group = "test2";
   settings.Name = "";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
