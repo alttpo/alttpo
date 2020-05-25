@@ -40,6 +40,8 @@ void pre_frame() {
 
   local.update_items();
 
+  local.update_overworld();
+
   if (enableObjectSync) {
     local.update_objects();
   }

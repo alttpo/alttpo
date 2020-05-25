@@ -771,8 +771,8 @@ class LocalGameState : GameState {
       // append local state to remote player:
       serialize_location(envelope);
       serialize_sfx(envelope);
-      serialize_sram(envelope, 0x340, 0x38C);
-      serialize_sram(envelope, 0x3C5, 0x407);
+      serialize_sram(envelope, 0x340, 0x38C); // items earned
+      serialize_sram(envelope, 0x3C5, 0x407); // progress made
       serialize_sprites(envelope);
       serialize_chr0(envelope);
 
@@ -830,6 +830,7 @@ class LocalGameState : GameState {
 
       // append local state to remote player:
       serialize_tilemaps(envelope);
+      serialize_sram(envelope, 0x280, 0x300); // overworld events; heart containers, overlays
 
       send_packet(envelope);
 
@@ -871,6 +872,31 @@ class LocalGameState : GameState {
 
       // write back any new updates:
       syncable.finish(this);
+    }
+  }
+
+  void update_overworld() {
+    if (is_it_a_bad_time()) return;
+
+    // SRAM [$280..$300] overworld events:
+    for (uint a = 0; a < 0x80; a++) {
+      // create temporary syncable item for each overworld area using bitwise OR operations (type=2) to accumulate latest state:
+      SyncableItem area(0x280 + a, 1, 2);
+
+      // read current state from SRAM:
+      area.start(this);
+
+      for (uint i = 0; i < players.length(); i++) {
+        auto @remote = players[i];
+        if (remote is null) continue;
+        if (remote is this) continue;
+        if (remote.ttl <= 0) continue;
+
+        area.apply(remote);
+      }
+
+      // write new state to SRAM:
+      area.finish(this);
     }
   }
 
