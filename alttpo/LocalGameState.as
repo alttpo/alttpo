@@ -900,6 +900,7 @@ class LocalGameState : GameState {
     // DISABLED
     return;
 
+  /*
     for (uint i = 0; i < rooms.length(); i++) {
       // High Byte           Low Byte
       // d d d d b k ck cr   c c c c q q q q
@@ -922,6 +923,7 @@ class LocalGameState : GameState {
       lhi |= hi;
       bus::write_u8(0x7EF000 + (i << 1) + 1, lhi);
     }
+  */
   }
 
   void update_room_current() {

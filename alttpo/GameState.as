@@ -108,7 +108,7 @@ class GameState {
   }
 
   bool deserialize(array<uint8> r, int c) {
-    if (c >= r.length()) return false;
+    if (c >= int(r.length())) return false;
 
     auto protocol = r[c++];
     //message("game protocol = " + fmtHex(protocol, 2));
@@ -250,7 +250,7 @@ class GameState {
   int deserialize_ancillae(array<uint8> r, int c) {
     uint8 count = r[c++];
     ancillae.resize(count);
-    for (int i = 0; i < count; i++) {
+    for (uint i = 0; i < count; i++) {
       if (ancillae[i] is null) {
         @ancillae[i] = @GameAncilla();
       }
