@@ -659,6 +659,8 @@ class LocalGameState : GameState {
   }
 
   void serialize_objects(array<uint8> &r) {
+    if (!enableObjectSync) return;
+
     r.write_u8(uint8(0x08));
 
     // 0x2A0 bytes
@@ -769,6 +771,8 @@ class LocalGameState : GameState {
       // append local state to remote player:
       serialize_location(envelope);
       serialize_sfx(envelope);
+      serialize_sram(envelope, 0x340, 0x38C);
+      serialize_sram(envelope, 0x3C5, 0x407);
       serialize_sprites(envelope);
       serialize_chr0(envelope);
 
@@ -790,8 +794,6 @@ class LocalGameState : GameState {
     {
       array<uint8> envelope = create_envelope(0x01);
 
-      serialize_sram(envelope, 0x340, 0x38C);
-      serialize_sram(envelope, 0x3C5, 0x407);
       serialize_objects(envelope);
       serialize_ancillae(envelope);
       serialize_torches(envelope);
