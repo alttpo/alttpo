@@ -21,6 +21,24 @@ class SyncableItem {
     @this.mutate = @mutate;
   }
 
+  uint16 oldValue;
+  uint16 newValue;
+  void start(LocalGameState @local) {
+    oldValue = read(local.sram);
+    newValue = oldValue;
+  }
+
+  void apply(GameState @remote) {
+    auto remoteValue = read(remote.sram);
+    newValue = modify(newValue, remoteValue);
+  }
+
+  void finish(LocalGameState @local) {
+    if (newValue != oldValue) {
+      write(newValue);
+    }
+  }
+
   uint16 modify(uint16 oldValue, uint16 newValue) {
     if (type == 0) {
       if (@this.mutate is null) {
@@ -41,11 +59,11 @@ class SyncableItem {
     return oldValue;
   }
 
-  uint16 read() {
+  uint16 read(const array<uint8> &in sram) {
     if (size == 1) {
-      return bus::read_u8(0x7EF000 + offs);
-    } else /* if (size == 2) */ {
-      return bus::read_u16(0x7EF000 + offs);
+      return sram[offs];
+    } else {
+      return uint16(sram[offs]) | uint16(sram[offs+1]) << 8;
     }
   }
 
@@ -176,10 +194,4 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x3C9, 1, 2)   // progress event flags 2/2
 
 // NO TRAILING COMMA HERE!
-};
-
-class SyncedItem {
-  uint16  offs;
-  uint16  value;
-  uint16  lastValue;
 };

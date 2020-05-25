@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x04;
+const uint8 script_protocol = 0x05;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -50,7 +50,7 @@ class GameState {
   uint8 sfx1;
   uint8 sfx2;
 
-  array<SyncedItem@> items;
+  array<uint8> sram(0x500);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -158,7 +158,7 @@ class GameState {
         case 0x03: c = deserialize_sprites(r, c); break;
         case 0x04: c = deserialize_chr0(r, c); break;
         case 0x05: c = deserialize_chr1(r, c); break;
-        case 0x06: c = deserialize_items(r, c); break;
+        case 0x06: c = deserialize_sram(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
         case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
@@ -279,27 +279,12 @@ class GameState {
     return c;
   }
 
-  int deserialize_items(array<uint8> r, int c) {
-    // items: (MUST be sorted by offs)
-    uint8 itemCount = r[c++];
-    items.resize(itemCount);
-    for (uint8 i = 0; i < itemCount; i++) {
-      auto @item = items[i];
-      if (@item == null) {
-        @item = @items[i] = SyncedItem();
-        item.lastValue = 0;
-        item.value = 0;
-      }
+  int deserialize_sram(array<uint8> r, int c) {
+    uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
-      // copy current value to last value:
-      item.lastValue = item.value;
-
-      // deserialize offset and new value:
-      item.offs = uint16(r[c++]) + 0x340;
-      item.value = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      //if (item.value != item.lastValue) {
-      //  message("deser[" + fmtInt(index) + "][" + fmtHex(item.offs, 3) + "] = " + fmtHex(item.value, 4));
-      //}
+    for (uint i = 0; i < count; i++) {
+      sram[start + i] = r[c++];
     }
 
     return c;

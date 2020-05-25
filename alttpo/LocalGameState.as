@@ -198,7 +198,7 @@ class LocalGameState : GameState {
 
     fetch_sprites();
 
-    fetch_items();
+    fetch_sram();
 
     fetch_objects();
 
@@ -243,29 +243,8 @@ class LocalGameState : GameState {
     }
   }
 
-  void fetch_items() {
-    // items: (MUST be sorted by offs)
-    items.resize(syncableItems.length());
-    for (uint i = 0; i < syncableItems.length(); i++) {
-      auto @syncable = syncableItems[i];
-
-      auto @item = items[i];
-      if (@item == null) {
-        @item = @items[i] = SyncedItem();
-        item.lastValue = 0;
-        item.value = 0;
-        item.offs = syncable.offs;
-      }
-
-      // record previous frame's value:
-      item.lastValue = item.value;
-
-      // read latest value:
-      item.value = syncable.read();
-      //if (item.value != item.lastValue) {
-      //  message("local[" + fmtHex(item.offs, 3) + "]=" + fmtHex(item.value, 4));
-      //}
-    }
+  void fetch_sram() {
+    bus::read_block_u8(0x7EF000, 0, 0x500, sram);
   }
 
   void fetch_objects() {
@@ -662,19 +641,14 @@ class LocalGameState : GameState {
     }
   }
 
-  void serialize_items(array<uint8> &r) {
+  void serialize_sram(array<uint8> &r, uint16 start, uint16 endExclusive) {
     r.write_u8(uint8(0x06));
 
-    // items: (MUST be sorted by offs)
-    //message("serialize: items="+fmtInt(items.length()));
-    r.write_u8(uint8(items.length()));
-    for (uint8 i = 0; i < items.length(); i++) {
-      auto @item = items[i];
-      // NOTE if @item == null a null exception will occur which is better to know about than to ignore.
-
-      // possible offsets are between 0x340 to 0x406 max, so subtract 0x340 to get a single byte between 0x00 and 0xC6
-      r.write_u8(uint8(items[i].offs - 0x340));
-      r.write_u16(items[i].value);
+    r.write_u16(start);
+    uint16 count = uint16(endExclusive - start);
+    r.write_u16(count);
+    for (uint8 i = 0; i < count; i++) {
+      r.write_u8(sram[start + i]);
     }
   }
 
@@ -816,7 +790,8 @@ class LocalGameState : GameState {
     {
       array<uint8> envelope = create_envelope(0x01);
 
-      serialize_items(envelope);
+      serialize_sram(envelope, 0x340, 0x38C);
+      serialize_sram(envelope, 0x3C5, 0x407);
       serialize_objects(envelope);
       serialize_ancillae(envelope);
       serialize_torches(envelope);
@@ -873,62 +848,27 @@ class LocalGameState : GameState {
   void update_items() {
     if (is_it_a_bad_time()) return;
 
-    // update local player with items from all remote players:
-    array<uint16> values;
-    values.resize(syncableItems.length());
-
-    // start with our own values:
     for (uint k = 0; k < syncableItems.length(); k++) {
       auto @syncable = syncableItems[k];
 
-      values[k] = this.items[k].value;
-    }
+      // start the sync process for each syncable item in SRAM:
+      syncable.start(this);
 
-    // find higher max values among remote players:
-    for (uint i = 0; i < players.length(); i++) {
-      auto @remote = players[i];
-      if (remote is null) continue;
-      if (remote is this) continue;
-      if (remote.ttl <= 0) {
-        continue;
-      }
-
-      for (uint j = 0; j < remote.items.length(); j++) {
-        uint16 offs = remote.items[j].offs;
-
-        // find a match by offs:
-        uint k = 0;
-        for (; k < syncableItems.length(); k++) {
-          if (offs == syncableItems[k].offs) {
-            break;
-          }
-        }
-        if (k == syncableItems.length()) {
-          message("["+fmtInt(i)+"] offs="+fmtHex(offs,3)+" not found!");
+      // apply remote values from all other active players:
+      for (uint i = 0; i < players.length(); i++) {
+        auto @remote = players[i];
+        if (remote is null) continue;
+        if (remote is this) continue;
+        if (remote.ttl <= 0) {
           continue;
         }
 
-        auto @syncable = syncableItems[k];
-
-        // apply operation to values:
-        uint16 value = remote.items[j].value;
-        values[k] = syncable.modify(value, values[k]);
+        // apply the remote values:
+        syncable.apply(remote);
       }
-    }
 
-    // write back our values:
-    for (uint k = 0; k < syncableItems.length(); k++) {
-      auto @syncable = syncableItems[k];
-
-      uint16 oldValue = this.items[k].value;
-      uint16 newValue = oldValue;
-
-      this.items[k].value = syncable.modify(oldValue, values[k]);
-
-      // write back to SRAM:
-      if (this.items[k].value != oldValue) {
-        syncable.write(this.items[k].value);
-      }
+      // write back any new updates:
+      syncable.finish(this);
     }
   }
 
