@@ -837,7 +837,7 @@ class LocalGameState : GameState {
 
       // append local state to remote player:
       serialize_sram(envelope, 0x0, 0x250);   // dungeon rooms
-      serialize_sram(envelope, 0x280, 0x300); // overworld events; heart containers, overlays
+      serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
       serialize_tilemaps(envelope);
 
       send_packet(envelope);
@@ -886,8 +886,8 @@ class LocalGameState : GameState {
   void update_overworld() {
     if (is_it_a_bad_time()) return;
 
-    // SRAM [$280..$300] overworld events:
-    for (uint a = 0; a < 0x80; a++) {
+    // SRAM [$280..$33f] overworld events:
+    for (uint a = 0; a < 0xC0; a++) {
       // create temporary syncable item for each overworld area using bitwise OR operations (type=2) to accumulate latest state:
       SyncableItem area(0x280 + a, 1, 2);
 
