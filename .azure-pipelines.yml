@@ -20,6 +20,11 @@ jobs:
           GOOS: 'windows'
           GOARCH: 'amd64'
 
+        win32:
+          archName: 'win32'
+          GOOS: 'windows'
+          GOARCH: '386'
+
         macOS:
           archName: 'macOS'
           GOOS: 'darwin'
