@@ -243,7 +243,14 @@ class LocalGameState : GameState {
     }
   }
 
+  bool is_frozen() {
+    return bus::read_u8(0x7E02E4) != 0;
+  }
+
   void fetch_sram() {
+    // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
+    if (is_frozen()) return;
+
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
   }
 
@@ -851,28 +858,28 @@ class LocalGameState : GameState {
 
   void update_items() {
     if (is_it_a_bad_time()) return;
+    // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
+    if (is_frozen()) return;
 
     for (uint k = 0; k < syncableItems.length(); k++) {
       auto @syncable = syncableItems[k];
 
       // start the sync process for each syncable item in SRAM:
-      syncable.start(this);
+      syncable.start();
 
       // apply remote values from all other active players:
       for (uint i = 0; i < players.length(); i++) {
         auto @remote = players[i];
         if (remote is null) continue;
         if (remote is this) continue;
-        if (remote.ttl <= 0) {
-          continue;
-        }
+        if (remote.ttl <= 0) continue;
 
         // apply the remote values:
         syncable.apply(remote);
       }
 
       // write back any new updates:
-      syncable.finish(this);
+      syncable.finish();
     }
   }
 
@@ -885,7 +892,7 @@ class LocalGameState : GameState {
       SyncableItem area(0x280 + a, 1, 2);
 
       // read current state from SRAM:
-      area.start(this);
+      area.start();
 
       for (uint i = 0; i < players.length(); i++) {
         auto @remote = players[i];
@@ -897,7 +904,7 @@ class LocalGameState : GameState {
       }
 
       // write new state to SRAM:
-      area.finish(this);
+      area.finish();
     }
   }
 
@@ -922,7 +929,7 @@ class LocalGameState : GameState {
       SyncableItem area(a << 1, 2, 2);
 
       // read current state from SRAM:
-      area.start(this);
+      area.start();
 
       for (uint i = 0; i < players.length(); i++) {
         auto @remote = players[i];
@@ -934,7 +941,7 @@ class LocalGameState : GameState {
       }
 
       // write new state to SRAM:
-      area.finish(this);
+      area.finish();
     }
   }
 

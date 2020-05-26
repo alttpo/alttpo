@@ -23,8 +23,8 @@ class SyncableItem {
 
   uint16 oldValue;
   uint16 newValue;
-  void start(LocalGameState @local) {
-    oldValue = read(local.sram);
+  void start() {
+    oldValue = readRAM();
     newValue = oldValue;
   }
 
@@ -33,7 +33,7 @@ class SyncableItem {
     newValue = modify(newValue, remoteValue);
   }
 
-  void finish(LocalGameState @local) {
+  void finish() {
     if (newValue != oldValue) {
       write(newValue);
     }
@@ -59,11 +59,19 @@ class SyncableItem {
     return oldValue;
   }
 
+  uint16 readRAM() {
+    if (size == 1) {
+      return bus::read_u8(0x7EF000 + offs);
+    } else {
+      return bus::read_u16(0x7EF000 + offs);
+    }
+  }
+
   uint16 read(const array<uint8> &in sram) {
     if (size == 1) {
       return sram[offs];
     } else {
-      return uint16(sram[offs]) | uint16(sram[offs+1]) << 8;
+      return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
     }
   }
 
@@ -93,18 +101,23 @@ class SyncableHealthCapacity : SyncableItem {
     return oldValue;
   }
 
+  uint16 readRAM() override {
+    return (bus::read_u8(0x7EF36C) & ~7) | (bus::read_u8(0x7EF36B) & 3);
+  }
+
   uint16 read(const array<uint8> &in sram) override {
     // this works because [0x36C] is always a multiple of 8 and the lower 3 bits are always zero
     // and [0x36B] is in the range [0..3] aka 2 bits:
-    return sram[0x36C] | sram[0x36B];
+    return (sram[0x36C] & ~7) | (sram[0x36B] & 3);
   }
 
   void write(uint16 newValue) override {
     // split out the full hearts from the heart pieces:
     auto hearts = uint8(newValue) & ~uint8(7);
     auto pieces = uint8(newValue) & uint8(3);
-    bus::write_u8(0x7EF000 + 0x36C, hearts);
-    bus::write_u8(0x7EF000 + 0x36B, pieces);
+    //message("heart write! " + fmtHex(uint8(oldValue),2) + " -> " + fmtHex(uint8(newValue),2) + " = " + fmtInt(hearts) + ", " + fmtInt(pieces));
+    bus::write_u8(0x7EF36C, hearts);
+    bus::write_u8(0x7EF36B, pieces);
   }
 }
 

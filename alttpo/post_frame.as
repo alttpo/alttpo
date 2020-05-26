@@ -42,7 +42,12 @@ void post_frame() {
     //ppu::frame.text(224, 16, fmtHex(bus::read_u16(0x7E0084), 4));
 
     // last entrance number in dungeon:
-    ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E010E), 4));
+    //ppu::frame.text(224, 8, fmtHex(bus::read_u16(0x7E010E), 4));
+
+    // heart pieces, heart containers:
+    //ppu::frame.text(224,  8, fmtHex(bus::read_u16(0x7EF36B), 4));
+    // freeze link:
+    //ppu::frame.text(224, 16, fmtHex(bus::read_u8 (0x7E02E4), 2));
 
     // Link's map16 tilemap coords:
     ppu::frame.text(224, 0, fmtHex(
