@@ -522,6 +522,8 @@ class LocalGameState : GameState {
       return;
     }
 
+    // don't fetch tilemap during lost woods transition:
+    if (sub_module >= 0x0d && sub_module < 0x16) return;
     // don't fetch tilemap during screen transition:
     if (sub_module >= 0x01 && sub_module < 0x07) return;
     // or during LW/DW transition:
