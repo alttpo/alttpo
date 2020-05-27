@@ -56,6 +56,9 @@ void pre_frame() {
 
     remote.ttl = remote.ttl - 1;
 
+    // don't render on in-game map:
+    if (local.module == 0x0e && local.sub_module == 0x07) continue;
+
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
       // subtract BG2 offset from sprite x,y coords to get local screen coords:
