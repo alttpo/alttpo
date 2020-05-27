@@ -141,7 +141,7 @@ array<SyncableItem@> @syncableItems = {
   SyncableItem(0x3C5, 1, @mutateWorldState),  // general progress indicator
   SyncableItem(0x3C6, 1, @mutateProgress1),  // progress event flags 1/2
   SyncableItem(0x3C7, 1, 1),  // map icons shown
-  SyncableItem(0x3C8, 1, 1),  // start at location… options
+  //SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
   SyncableItem(0x3C9, 1, 2)   // progress event flags 2/2
 
 // NO TRAILING COMMA HERE!
