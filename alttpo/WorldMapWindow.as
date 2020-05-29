@@ -287,7 +287,8 @@ class WorldMapWindow {
         py = p.last_overworld_y;
       } else {
         // has exit data:
-        for (uint i = 0; i < 0x9E; i += 2) {
+        uint i;
+        for (i = 0; i < 0x9E; i += 2) {
           auto exit_room = bus::read_u16(rom.exit_table_room + i);
           if (room == exit_room) {
             // use link X,Y coords for exit:
@@ -297,9 +298,11 @@ class WorldMapWindow {
           }
         }
 
-        // if no exit, use last coords:
-        px = p.last_overworld_x;
-        py = p.last_overworld_y;
+        if (i == 0x9E) {
+          // if no exit, use last coords:
+          px = p.last_overworld_x;
+          py = p.last_overworld_y;
+        }
       }
     }
 
