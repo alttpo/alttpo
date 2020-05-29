@@ -780,8 +780,6 @@ class LocalGameState : GameState {
       serialize_sfx(envelope);
       serialize_sram(envelope, 0x340, 0x38C); // items earned
       serialize_sram(envelope, 0x3C5, 0x407); // progress made
-      serialize_sprites(envelope);
-      serialize_chr0(envelope);
 
       send_packet(envelope);
 
@@ -801,6 +799,8 @@ class LocalGameState : GameState {
     {
       array<uint8> envelope = create_envelope(0x01);
 
+      serialize_sprites(envelope);
+      serialize_chr0(envelope);
       serialize_objects(envelope);
       serialize_ancillae(envelope);
       serialize_torches(envelope);
