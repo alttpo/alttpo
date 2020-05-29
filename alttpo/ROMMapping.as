@@ -85,6 +85,7 @@ abstract class ROMMapping {
     SyncableItem(0x371, 1, 1),  // arrows capacity
 
     SyncableItem(0x374, 1, 2),  // pendants
+    //SyncableItem(0x377, 1, 1),  // arrows
     SyncableItem(0x379, 1, 2),  // player ability flags
     SyncableItem(0x37A, 1, 2),  // crystals
 

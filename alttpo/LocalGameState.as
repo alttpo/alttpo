@@ -1030,10 +1030,8 @@ class LocalGameState : GameState {
     // TODO: sync dungeon tilemap changes
     if (module != 0x09) return;
 
-    //// don't write during LW/DW transition:
-    //if (sub_module >= 0x23) {
-    //  return;
-    //}
+    // don't write during LW/DW transition:
+    if (sub_module >= 0x23) return;
 
     // integrate tilemap changes from other players:
     for (uint i = 0; i < players.length(); i++) {
