@@ -147,19 +147,19 @@ class JPROMMapping : ROMMapping {
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC39; }
 
   // entrance & exit tables:
-  uint32 get_entrance_table_room()    property { return 0x02C813; } // TODO
-  uint32 get_exit_table_room()        property { return 0x02DD8A; } // TODO
-  uint32 get_exit_table_link_y()      property { return 0x02E051; } // TODO
-  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // TODO
+  uint32 get_entrance_table_room()    property { return 0x02C577; } // 0x14577 -> 0x02C577; 0x02C813 - 0x02C577 = 0x029C
+  uint32 get_exit_table_room()        property { return 0x02DAEE; } // TODO: verify
+  uint32 get_exit_table_link_y()      property { return 0x02DDB5; } // TODO: verify
+  uint32 get_exit_table_link_x()      property { return 0x02DE53; } // TODO: verify
 
-  uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
-  uint32 get_fn_patch() property                       { return 0x008056; } // TODO
+  uint32 get_fn_pre_main_loop() property               { return 0x008053; }
+  uint32 get_fn_patch() property                       { return 0x008056; }
   //uint32 get_fn_main_routing() property                { return 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
-  uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
-  uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO
-  uint32 get_fn_sprite_init() property                 { return 0xFFFFFF; } // TODO
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EA; }
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48B; }
+  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A4; }
+  uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
 };
 
 class RandomizerMapping : JPROMMapping {
@@ -228,8 +228,6 @@ class RandomizerMapping : JPROMMapping {
       }
     }
   }
-
-  //array<SyncableItem@> @extraItems = ;
 };
 
 ROMMapping@ detect() {
