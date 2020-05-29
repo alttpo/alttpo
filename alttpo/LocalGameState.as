@@ -779,7 +779,7 @@ class LocalGameState : GameState {
       serialize_location(envelope);
       serialize_sfx(envelope);
       serialize_sram(envelope, 0x340, 0x38C); // items earned
-      serialize_sram(envelope, 0x3C5, 0x407); // progress made
+      serialize_sram(envelope, 0x3C5, 0x424); // progress made
 
       send_packet(envelope);
 
@@ -861,8 +861,9 @@ class LocalGameState : GameState {
     // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
     if (is_frozen()) return;
 
-    for (uint k = 0; k < syncableItems.length(); k++) {
-      auto @syncable = syncableItems[k];
+    auto @syncables = rom.syncables;
+    for (uint k = 0; k < syncables.length(); k++) {
+      auto @syncable = syncables[k];
 
       // start the sync process for each syncable item in SRAM:
       syncable.start();

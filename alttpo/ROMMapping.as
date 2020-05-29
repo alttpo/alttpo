@@ -34,6 +34,66 @@ abstract class ROMMapping {
   uint32 get_fn_dungeon_light_torch_success() property { return 0; }
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0; }
   uint32 get_fn_sprite_init() property                 { return 0; }
+
+  // MUST be sorted by offs ascending:
+  array<SyncableItem@> @syncables = {
+    SyncableItem(0x340, 1, 1),  // bow
+    SyncableItem(0x341, 1, 1),  // boomerang
+    SyncableItem(0x342, 1, 1),  // hookshot
+    //SyncableItem(0x343, 1, 3),  // bombs (TODO)
+    SyncableItem(0x344, 1, 1),  // mushroom
+    SyncableItem(0x345, 1, 1),  // fire rod
+    SyncableItem(0x346, 1, 1),  // ice rod
+    SyncableItem(0x347, 1, 1),  // bombos
+    SyncableItem(0x348, 1, 1),  // ether
+    SyncableItem(0x349, 1, 1),  // quake
+    SyncableItem(0x34A, 1, 1),  // lantern
+    SyncableItem(0x34B, 1, 1),  // hammer
+    SyncableItem(0x34C, 1, 1),  // flute
+    SyncableItem(0x34D, 1, 1),  // bug net
+    SyncableItem(0x34E, 1, 1),  // book
+    //SyncableItem(0x34F, 1, 1),  // have bottles - FIXME: syncing this without bottle contents causes softlock for randomizer
+    SyncableItem(0x350, 1, 1),  // cane of somaria
+    SyncableItem(0x351, 1, 1),  // cane of byrna
+    SyncableItem(0x352, 1, 1),  // magic cape
+    SyncableItem(0x353, 1, 1),  // magic mirror
+    SyncableItem(0x354, 1, 1),  // gloves
+    SyncableItem(0x355, 1, 1),  // boots
+    SyncableItem(0x356, 1, 1),  // flippers
+    SyncableItem(0x357, 1, 1),  // moon pearl
+    // 0x358 unused
+    SyncableItem(0x359, 1, 1),  // sword
+    SyncableItem(0x35A, 1, 1),  // shield
+    SyncableItem(0x35B, 1, 1),  // armor
+
+    // bottle contents 0x35C-0x35F - TODO: sync bottle contents iff local bottle value == 0x02 (empty)
+
+    SyncableItem(0x364, 1, 2),  // dungeon compasses 1/2
+    SyncableItem(0x365, 1, 2),  // dungeon compasses 2/2
+    SyncableItem(0x366, 1, 2),  // dungeon big keys 1/2
+    SyncableItem(0x367, 1, 2),  // dungeon big keys 2/2
+    SyncableItem(0x368, 1, 2),  // dungeon maps 1/2
+    SyncableItem(0x369, 1, 2),  // dungeon maps 2/2
+
+    SyncableHealthCapacity(),  // heart pieces (out of four) [0x36B], health capacity [0x36C]
+
+    SyncableItem(0x370, 1, 1),  // bombs capacity
+    SyncableItem(0x371, 1, 1),  // arrows capacity
+
+    SyncableItem(0x374, 1, 2),  // pendants
+    SyncableItem(0x379, 1, 2),  // player ability flags
+    SyncableItem(0x37A, 1, 2),  // crystals
+
+    SyncableItem(0x37B, 1, 1),  // magic usage
+
+    SyncableItem(0x3C5, 1, @mutateWorldState),  // general progress indicator
+    SyncableItem(0x3C6, 1, @mutateProgress1),  // progress event flags 1/2
+    SyncableItem(0x3C7, 1, 1),  // map icons shown
+    //SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
+    SyncableItem(0x3C9, 1, 2)   // progress event flags 2/2
+
+  // NO TRAILING COMMA HERE!
+  };
 };
 
 class USROMMapping : ROMMapping {
@@ -102,6 +162,74 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_sprite_init() property                 { return 0xFFFFFF; } // TODO
 };
 
+class RandomizerMapping : JPROMMapping {
+  // syncables
+  RandomizerMapping() {
+    for (int i = syncables.length() - 1; i >= 0; i--) {
+      auto @syncable = syncables[i];
+
+      // remove mushroom syncable:
+      if (syncable.offs == 0x344) {
+        syncables.removeAt(i);
+      }
+
+      // remove flute syncable:
+      if (syncable.offs == 0x34C) {
+        syncables.removeAt(i);
+      }
+
+      // Need to insert in offs order, so find the place to insert before:
+      if (syncable.offs == 0x3C5) {
+        // INVENTORY_SWAP = "$7EF38C"
+        // Item Tracking Slot
+        // brmpnskf
+        // b = blue boomerang
+        // r = red boomerang
+        // m = mushroom current
+        // p = magic powder
+        // n = mushroom past
+        // s = shovel
+        // k = fake flute
+        // f = working flute
+        syncables.insertAt(i, SyncableItem(0x38C, 1, 2));
+
+        // INVENTORY_SWAP_2 = "$7EF38E"
+        // Item Tracking Slot #2
+        // bsp-----
+        // b = bow
+        // s = silver arrow bow
+        // p = 2nd progressive bow
+        // -
+        // -
+        // -
+        // -
+        // -
+        syncables.insertAt(i, SyncableItem(0x38E, 1, 2));
+      }
+    }
+
+    // append extra syncables for randomizer:
+    syncables.insertAt(syncables.length(), {
+      @SyncableItem(0x410, 1, 2),   // NPC Flags 1
+      @SyncableItem(0x411, 1, 2),   // NPC Flags 2
+      @SyncableItem(0x418, 1, 1),   // Current Triforce Count
+      @SyncableItem(0x434, 1, 1),   // ** TODO: need n-bit int support; hhhhdddd - item locations checked h - HC d - PoD
+      @SyncableItem(0x435, 1, 1),   // ** TODO: need n-bit int support; dddhhhaa - item locations checked d - DP h - ToH a - AT
+      @SyncableItem(0x436, 1, 1),   // ** TODO: need n-bit int support; gggggeee - item locations checked g - GT e - EP
+      @SyncableItem(0x437, 1, 1),   // ** TODO: need n-bit int support; sssstttt - item locations checked s - SW t - TT
+      @SyncableItem(0x438, 1, 1),   // ** TODO: need n-bit int support; iiiimmmm - item locations checked i - IP m - MM
+      @SyncableItem(0x439, 1, 1)    // ** TODO: need n-bit int support; ttttssss - item locations checked t - TR s - SP
+    });
+
+    for (uint i = 0; i < syncables.length(); i++) {
+      auto @syncable = syncables[i];
+      message(fmtHex(syncable.offs, 3));
+    }
+  }
+
+  //array<SyncableItem@> @extraItems = ;
+};
+
 ROMMapping@ detect() {
   array<uint8> sig(22);
   bus::read_block_u8(0x00FFC0, 0, 22, sig);
@@ -125,7 +253,7 @@ ROMMapping@ detect() {
   } else if (sig.toString(0, 3) == "VT ") {
     // randomizer. use JP ROM by default.
     message("Recognized randomized JP ROM version. Seed: " + sig.toString(3, 10));
-    return JPROMMapping();
+    return RandomizerMapping();
   } else {
     message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
     return JPROMMapping();
