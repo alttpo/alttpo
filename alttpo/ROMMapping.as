@@ -221,9 +221,11 @@ class RandomizerMapping : JPROMMapping {
       @SyncableItem(0x439, 1, 1)    // ** TODO: need n-bit int support; ttttssss - item locations checked t - TR s - SP
     });
 
-    for (uint i = 0; i < syncables.length(); i++) {
-      auto @syncable = syncables[i];
-      message(fmtHex(syncable.offs, 3));
+    if (debugData) {
+      for (uint i = 0; i < syncables.length(); i++) {
+        auto @syncable = syncables[i];
+        message(fmtHex(syncable.offs, 3));
+      }
     }
   }
 
