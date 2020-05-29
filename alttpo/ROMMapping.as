@@ -147,10 +147,10 @@ class JPROMMapping : ROMMapping {
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC39; }
 
   // entrance & exit tables:
-  uint32 get_entrance_table_room()    property { return 0x02C577; } // 0x14577 -> 0x02C577; 0x02C813 - 0x02C577 = 0x029C
-  uint32 get_exit_table_room()        property { return 0x02DAEE; } // TODO: verify
-  uint32 get_exit_table_link_y()      property { return 0x02DDB5; } // TODO: verify
-  uint32 get_exit_table_link_x()      property { return 0x02DE53; } // TODO: verify
+  uint32 get_entrance_table_room()    property { return 0x02C577; } // 0x14577 in ROM file
+  uint32 get_exit_table_room()        property { return 0x02DAEE; }
+  uint32 get_exit_table_link_y()      property { return 0x02DDB5; }
+  uint32 get_exit_table_link_x()      property { return 0x02DE53; }
 
   uint32 get_fn_pre_main_loop() property               { return 0x008053; }
   uint32 get_fn_patch() property                       { return 0x008056; }
