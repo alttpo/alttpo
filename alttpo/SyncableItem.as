@@ -148,3 +148,9 @@ uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
   }
   return newValue | oldValue;
 }
+
+uint16 mutateBottleItem(uint16 oldValue, uint16 newValue) {
+  // only sync gaining a new bottle: 0 = no bottle, 2 = empty bottle.
+  if (oldValue == 0 && newValue != 0) return newValue;
+  return oldValue;
+}
