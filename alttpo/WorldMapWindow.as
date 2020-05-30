@@ -3,6 +3,8 @@ WorldMapWindow @worldMapWindow;
 class WorldMapWindow {
   private GUI::Window @window;
   private GUI::VerticalLayout @vl;
+  private GUI::ComboButton @dd;
+  private GUI::CheckLabel @chkAuto;
   GUI::SNESCanvas @lightWorld;
   GUI::SNESCanvas @darkWorld;
 
@@ -25,7 +27,7 @@ class WorldMapWindow {
     // relative position to bsnes window:
     @window = GUI::Window(256*3*8/7, 0, true);
     window.title = "World Map";
-    window.size = GUI::Size(width*mapscale, height*mapscale);
+    window.size = GUI::Size(width*mapscale, height*mapscale + 32);
     window.resizable = false;
     window.dismissable = false;
 
@@ -48,6 +50,30 @@ class WorldMapWindow {
     darkWorld.setPosition(0, 0);
     darkWorld.visible = false;
 
+    auto @hl = GUI::HorizontalLayout();
+    vl.append(hl, GUI::Size(-1, 32));
+
+    @dd = GUI::ComboButton();
+    hl.append(dd, GUI::Size(-1, 0));
+    @chkAuto = GUI::CheckLabel();
+    hl.append(chkAuto, GUI::Size(0, 0));
+
+    auto @di = GUI::ComboButtonItem();
+    di.text = "Light World";
+    di.setSelected();
+    dd.append(di);
+
+    @di = GUI::ComboButtonItem();
+    di.text = "Dark World";
+    dd.append(di);
+
+    dd.onChange(@GUI::Callback(toggledLightDarkWorld));
+    dd.enabled = false;
+
+    chkAuto.text = "Auto";
+    chkAuto.checked = true;
+    chkAuto.onToggle(@GUI::Callback(toggledAuto));
+
     @localDot = makeDot(ppu::rgb(0, 0, 0x1f));
 
     vl.resize();
@@ -55,11 +81,35 @@ class WorldMapWindow {
     window.visible = true;
   }
 
-  void update(const GameState &in local) {
-    bool is_dark = local.is_in_dark_world();
+  void toggledAuto() {
+    dd.enabled = !chkAuto.checked;
+  }
 
-    darkWorld.visible = is_dark;
-    lightWorld.visible = !is_dark;
+  void toggledLightDarkWorld() {
+    // show light or dark world depending on dropdown selection offset (0 = light, 1 = dark):
+    showWorld( (dd.selected.offset == 1) );
+  }
+
+  void showWorld(bool isDark) {
+    darkWorld.visible = isDark;
+    lightWorld.visible = !isDark;
+  }
+
+  void update(const GameState &in local) {
+    if (!chkAuto.checked) {
+      toggledLightDarkWorld();
+      return;
+    }
+
+    // show the appropriate map:
+    auto isDark = local.is_in_dark_world();
+    showWorld(isDark);
+
+    // update dropdown selection if changed:
+    auto selectedOffset = isDark ? 1 : 0;
+    if (dd.selected.offset != selectedOffset) {
+      dd[selectedOffset].setSelected();
+    }
   }
 
   bool loaded = false;
