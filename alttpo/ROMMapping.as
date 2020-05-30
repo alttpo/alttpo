@@ -218,20 +218,13 @@ class RandomizerMapping : JPROMMapping {
       @SyncableItem(0x410, 1, 2),   // NPC Flags 1
       @SyncableItem(0x411, 1, 2),   // NPC Flags 2
       @SyncableItem(0x418, 1, 1),   // Current Triforce Count
-      @SyncableItem(0x434, 1, 1),   // ** TODO: need n-bit int support; hhhhdddd - item locations checked h - HC d - PoD
-      @SyncableItem(0x435, 1, 1),   // ** TODO: need n-bit int support; dddhhhaa - item locations checked d - DP h - ToH a - AT
-      @SyncableItem(0x436, 1, 1),   // ** TODO: need n-bit int support; gggggeee - item locations checked g - GT e - EP
-      @SyncableItem(0x437, 1, 1),   // ** TODO: need n-bit int support; sssstttt - item locations checked s - SW t - TT
-      @SyncableItem(0x438, 1, 1),   // ** TODO: need n-bit int support; iiiimmmm - item locations checked i - IP m - MM
-      @SyncableItem(0x439, 1, 1)    // ** TODO: need n-bit int support; ttttssss - item locations checked t - TR s - SP
+      @SyncableItem(0x434, 1, 1),   // hhhhdddd - item locations checked h - HC d - PoD
+      @SyncableItem(0x435, 1, 1),   // dddhhhaa - item locations checked d - DP h - ToH a - AT
+      @SyncableItem(0x436, 1, 1),   // gggggeee - item locations checked g - GT e - EP
+      @SyncableItem(0x437, 1, 1),   // sssstttt - item locations checked s - SW t - TT
+      @SyncableItem(0x438, 1, 1),   // iiiimmmm - item locations checked i - IP m - MM
+      @SyncableItem(0x439, 1, 1)    // ttttssss - item locations checked t - TR s - SP
     });
-
-    if (debugData) {
-      for (uint i = 0; i < syncables.length(); i++) {
-        auto @syncable = syncables[i];
-        message(fmtHex(syncable.offs, 3));
-      }
-    }
   }
 };
 
