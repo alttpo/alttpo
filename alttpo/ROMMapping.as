@@ -197,7 +197,7 @@ class RandomizerMapping : JPROMMapping {
         // s = shovel
         // k = fake flute
         // f = working flute
-        syncables.insertAt(i, SyncableItem(0x38C, 1, 2));
+        syncables.insertAt(i, SyncableItem(0x38C, 1, @mutateRandomizerItems));
 
         // INVENTORY_SWAP_2 = "$7EF38E"
         // Item Tracking Slot #2

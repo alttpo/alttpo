@@ -162,3 +162,58 @@ uint16 mutateFlute(uint16 oldValue, uint16 newValue) {
   if (oldValue == 2 && newValue == 3) return newValue;
   return oldValue;
 }
+
+const uint8 bitPowder   = 1<<4;
+const uint8 bitMushroom = 1<<5;
+
+uint16 mutateRandomizerItems(uint16 oldValue, uint16 newValue) {
+  // INVENTORY_SWAP = "$7EF38C"
+  // Item Tracking Slot
+  // brmpnskf
+  // b = blue boomerang
+  // r = red boomerang
+  // m = mushroom current
+  // p = magic powder
+  // n = mushroom past
+  // s = shovel
+  // k = fake flute
+  // f = working flute
+
+  uint8 mushroom = bus::read_u8(0x7EF344);
+  // if gaining powder and have no inventory:
+  if (
+    ((oldValue & bitPowder) == 0) &&
+    ((newValue & bitPowder) == bitPowder) &&
+    mushroom == 0
+  ) {
+    // set powder in inventory:
+    bus::write_u8(0x7EF344, 2);
+  }
+
+  // if gaining mushroom and have no inventory:
+  if (
+    ((oldValue & bitMushroom) == 0) &&
+    ((newValue & bitMushroom) == bitMushroom) &&
+    mushroom == 0
+  ) {
+    // set mushroom in inventory:
+    bus::write_u8(0x7EF344, 1);
+  }
+
+  // if had mushroom and lost mushroom:
+  if (
+    ((oldValue & bitMushroom) == bitMushroom) &&
+    ((newValue & bitMushroom) == 0) &&
+    mushroom == 1
+  ) {
+    // if don't have powder, set to empty:
+    if ((oldValue & bitPowder) == 0) {
+      bus::write_u8(0x7EF344, 0);
+    } else {
+      // else set powder in inventory:
+      bus::write_u8(0x7EF344, 2);
+    }
+  }
+
+  return oldValue | newValue;
+}
