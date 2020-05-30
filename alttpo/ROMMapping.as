@@ -168,7 +168,6 @@ class JPROMMapping : ROMMapping {
 };
 
 class RandomizerMapping : JPROMMapping {
-  // syncables
   RandomizerMapping() {
     for (int i = syncables.length() - 1; i >= 0; i--) {
       auto @syncable = syncables[i];
@@ -176,11 +175,13 @@ class RandomizerMapping : JPROMMapping {
       // remove mushroom syncable:
       if (syncable.offs == 0x344) {
         syncables.removeAt(i);
+        continue;
       }
 
-      // remove flute syncable:
+      // replace flute syncable with less strict behavior:
       if (syncable.offs == 0x34C) {
-        syncables.removeAt(i);
+        @syncables[i] = SyncableItem(0x34C, 1, @mutateFlute);
+        continue;
       }
 
       // Need to insert in offs order, so find the place to insert before:

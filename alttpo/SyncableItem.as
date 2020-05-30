@@ -154,3 +154,11 @@ uint16 mutateBottleItem(uint16 oldValue, uint16 newValue) {
   if (oldValue == 0 && newValue != 0) return newValue;
   return oldValue;
 }
+
+uint16 mutateFlute(uint16 oldValue, uint16 newValue) {
+  // Allow if replacing 'no item':
+  if (oldValue == 0 && newValue != 0) return newValue;
+  // Allow if replacing 'flute' with 'bird+flute':
+  if (oldValue == 2 && newValue == 3) return newValue;
+  return oldValue;
+}
