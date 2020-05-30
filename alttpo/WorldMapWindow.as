@@ -23,6 +23,9 @@ class WorldMapWindow {
   int height = mheight*8;
   int mapscale = 2;
 
+  // showing light world (false) or dark world (true):
+  bool isDark = false;
+
   WorldMapWindow() {
     // relative position to bsnes window:
     @window = GUI::Window(256*3*8/7, 0, true);
@@ -87,10 +90,11 @@ class WorldMapWindow {
 
   void toggledLightDarkWorld() {
     // show light or dark world depending on dropdown selection offset (0 = light, 1 = dark):
-    showWorld( (dd.selected.offset == 1) );
+    isDark = (dd.selected.offset == 1);
+    showWorld();
   }
 
-  void showWorld(bool isDark) {
+  void showWorld() {
     darkWorld.visible = isDark;
     lightWorld.visible = !isDark;
   }
@@ -102,8 +106,8 @@ class WorldMapWindow {
     }
 
     // show the appropriate map:
-    auto isDark = local.is_in_dark_world();
-    showWorld(isDark);
+    isDark = local.is_in_dark_world();
+    showWorld();
 
     // update dropdown selection if changed:
     auto selectedOffset = isDark ? 1 : 0;
@@ -381,8 +385,6 @@ class WorldMapWindow {
   }
 
   void renderPlayers(const GameState @local, const array<GameState@> @players) {
-    auto dw = local.is_in_dark_world();
-
     // grow dots array and create new Canvas instances:
     if (players.length() > dots.length()) {
       dots.resize(players.length());
@@ -404,7 +406,7 @@ class WorldMapWindow {
     float x, y;
     for (uint i = 0; i < players.length(); i++) {
       auto @p = @players[i];
-      if ((p.ttl <= 0) || (p.is_in_dark_world() != dw)) {
+      if ((p.ttl <= 0) || (p.is_in_dark_world() != isDark)) {
         // If player disappeared, hide their dot:
         dots[i].setPosition(-128, -128);
         continue;
