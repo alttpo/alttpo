@@ -172,6 +172,18 @@ class RandomizerMapping : JPROMMapping {
     for (int i = syncables.length() - 1; i >= 0; i--) {
       auto @syncable = syncables[i];
 
+      // bow
+      if (syncable.offs == 0x340) {
+        @syncables[i] = SyncableItem(0x340, 1, @mutateZeroToNonZero);
+        continue;
+      }
+
+      // boomerang
+      if (syncable.offs == 0x341) {
+        @syncables[i] = SyncableItem(0x341, 1, @mutateZeroToNonZero);
+        continue;
+      }
+
       // remove mushroom syncable:
       if (syncable.offs == 0x344) {
         syncables.removeAt(i);
