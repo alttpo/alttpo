@@ -748,51 +748,54 @@ class LocalGameState : GameState {
     return envelope;
   }
 
-  void send_packet(array<uint8> &in envelope) {
+  array<uint16> maxSize(5);
+
+  uint send_packet(array<uint8> &in envelope, uint p) {
     if (envelope.length() > 1452) {
       message("packet too big to send! " + fmtInt(envelope.length()));
-      return;
+      return p;
     }
 
     // send packet to server:
     //message("sent " + fmtInt(envelope.length()) + " bytes");
     sock.send(0, envelope.length(), envelope);
+
+    // stats on max packet size per 128 frames:
+    if (debugNet) {
+      if (envelope.length() > maxSize[p]) {
+        maxSize[p] = envelope.length();
+      }
+      if ((frame & 0x7F) == 0) {
+        message("["+fmtInt(p)+"] = " + fmtInt(maxSize[p]));
+        maxSize[p] = 0;
+      }
+    }
+    p++;
+
+    return p;
   }
 
-  uint16 maxSize0 = 0;
-  uint16 maxSize1 = 0;
-  uint16 maxSize2 = 0;
   void send() {
+    uint p = 0;
+
     // check if we need to detect our local index:
     if (index == -1) {
       // request our index; receive() will take care of the response:
       array<uint8> request = create_envelope(0x00);
-      send_packet(request);
+      p = send_packet(request, p);
     }
 
     // send main packet:
     {
-      // build server envelope:
       array<uint8> envelope = create_envelope(0x01);
 
-      // append local state to remote player:
       serialize_location(envelope);
       serialize_sfx(envelope);
-      serialize_sram(envelope, 0x340, 0x390); // items earned
-      serialize_sram(envelope, 0x3C5, 0x424); // progress made
 
-      send_packet(envelope);
+      serialize_ancillae(envelope);
+      serialize_objects(envelope);
 
-      // stats on max packet size per 128 frames:
-      if (debugNet) {
-        if (envelope.length() > maxSize0) {
-          maxSize0 = envelope.length();
-        }
-        if ((frame & 0x7F) == 0) {
-          message("[0] = " + fmtInt(maxSize0));
-          maxSize0 = 0;
-        }
-      }
+      p = send_packet(envelope, p);
     }
 
     // send another packet:
@@ -801,57 +804,35 @@ class LocalGameState : GameState {
 
       serialize_sprites(envelope);
       serialize_chr0(envelope);
-      serialize_objects(envelope);
-      serialize_ancillae(envelope);
+      //serialize_chr1(envelope);
+
+      p = send_packet(envelope, p);
+    }
+
+    // send packet every other frame:
+    if ((frame & 1) == 0) {
+      array<uint8> envelope = create_envelope(0x01);
+
       serialize_torches(envelope);
 
-      send_packet(envelope);
-
-      // stats on max packet size per 128 frames:
-      if (debugNet) {
-        if (envelope.length() > maxSize1) {
-          maxSize1 = envelope.length();
-        }
-        if ((frame & 0x7F) == 0) {
-          message("[1] = " + fmtInt(maxSize1));
-          maxSize1 = 0;
-        }
-      }
-    }
-
-/*
-    // send another packet:
-    {
-      array<uint8> envelope = create_envelope(0x01);
-
-      // send chr1 to remote player:
-      serialize_chr1(envelope);
-
-      send_packet(envelope);
-    }
-*/
-
-    // send another packet:
-    {
-      array<uint8> envelope = create_envelope(0x01);
-
-      // append local state to remote player:
-      serialize_sram(envelope, 0x0, 0x250);   // dungeon rooms
-      serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
       serialize_tilemaps(envelope);
 
-      send_packet(envelope);
+      p = send_packet(envelope, p);
+    }
 
-      // stats on max packet size per 128 frames:
-      if (debugNet) {
-        if (envelope.length() > maxSize2) {
-          maxSize2 = envelope.length();
-        }
-        if ((frame & 0x7F) == 0) {
-          message("[2] = " + fmtInt(maxSize2));
-          maxSize2 = 0;
-        }
+    // send SRAM updates once every 8 frames:
+    if ((frame & 7) == 0) {
+      array<uint8> envelope = create_envelope(0x01);
+
+      serialize_sram(envelope, 0x340, 0x390); // items earned
+      serialize_sram(envelope, 0x3C5, 0x424); // progress made
+
+      if ((frame & 15) == 0) {
+        serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
+        serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
       }
+
+      p = send_packet(envelope, p);
     }
   }
 
