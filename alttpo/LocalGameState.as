@@ -820,15 +820,18 @@ class LocalGameState : GameState {
       p = send_packet(envelope, p);
     }
 
-    // send SRAM updates once every 8 frames:
-    if ((frame & 7) == 0) {
+    // send SRAM updates once every 16 frames:
+    if ((frame & 15) == 0) {
       array<uint8> envelope = create_envelope(0x01);
 
       serialize_sram(envelope, 0x340, 0x390); // items earned
       serialize_sram(envelope, 0x3C5, 0x439); // progress made
 
-      if ((frame & 15) == 0) {
+      // and include dungeon and overworld sync alternating:
+      if ((frame & 31) == 0) {
         serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
+      }
+      if ((frame & 31) == 15) {
         serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
       }
 
