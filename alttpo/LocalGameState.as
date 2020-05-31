@@ -778,7 +778,7 @@ class LocalGameState : GameState {
       // append local state to remote player:
       serialize_location(envelope);
       serialize_sfx(envelope);
-      serialize_sram(envelope, 0x340, 0x38C); // items earned
+      serialize_sram(envelope, 0x340, 0x390); // items earned
       serialize_sram(envelope, 0x3C5, 0x424); // progress made
 
       send_packet(envelope);
