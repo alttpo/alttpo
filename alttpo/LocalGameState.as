@@ -825,7 +825,7 @@ class LocalGameState : GameState {
       array<uint8> envelope = create_envelope(0x01);
 
       serialize_sram(envelope, 0x340, 0x390); // items earned
-      serialize_sram(envelope, 0x3C5, 0x424); // progress made
+      serialize_sram(envelope, 0x3C5, 0x439); // progress made
 
       if ((frame & 15) == 0) {
         serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
