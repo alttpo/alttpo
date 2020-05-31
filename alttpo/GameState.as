@@ -122,7 +122,13 @@ class GameState {
   }
 
   bool can_see(uint32 other_location) const {
-    return (actual_location == other_location);
+    // easiest check:
+    if (actual_location == other_location) return true;
+    if ((actual_location & 0x010000) == 0x010000 && (other_location & 0x010000) == 0x010000) {
+      if ((actual_location & 0xFFFF) == (other_location & 0xFFFF)) return true;
+      return false;
+    }
+    return false;
   }
 
   bool deserialize(array<uint8> r, int c) {
