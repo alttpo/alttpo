@@ -206,20 +206,20 @@ uint16 mutateRandomizerItems(uint16 oldValue, uint16 newValue) {
     bus::write_u8(0x7EF344, 1);
   }
 
-  // if had mushroom and lost mushroom:
-  if (
-    ((oldValue & bitMushroom) == bitMushroom) &&
-    ((newValue & bitMushroom) == 0) &&
-    mushroom == 1
-  ) {
-    // if don't have powder, set to empty:
-    if ((oldValue & bitPowder) == 0) {
-      bus::write_u8(0x7EF344, 0);
-    } else {
-      // else set powder in inventory:
-      bus::write_u8(0x7EF344, 2);
-    }
-  }
+  //// if had mushroom and lost mushroom:
+  //if (
+  //  ((oldValue & bitMushroom) == bitMushroom) &&
+  //  ((newValue & bitMushroom) == 0) &&
+  //  mushroom == 1
+  //) {
+  //  // if don't have powder, set to empty:
+  //  if ((oldValue & bitPowder) == 0) {
+  //    bus::write_u8(0x7EF344, 0);
+  //  } else {
+  //    // else set powder in inventory:
+  //    bus::write_u8(0x7EF344, 2);
+  //  }
+  //}
 
   return oldValue | newValue;
 }
