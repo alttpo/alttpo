@@ -1,32 +1,54 @@
 
 class Sprite {
+  // OAM index:
   uint8 index;
-  uint16 chr;
-  int16 x;
-  int16 y;
-  uint8 size;
-  uint8 palette;
-  uint8 priority;
-  bool hflip;
-  bool vflip;
+  // actual data stored in bit-compressed format:
+  uint8 b0, b1, b2, b3, b4;
 
-  bool is_enabled;
+  uint16 get_chr() property {
+    return uint16(b2) | (uint16(b3 & 1) << 8);
+  }
+
+  int16 get_x() property {
+    return int16((uint16(b0) & 0xFF) | (uint16(b4 & 1) << 8));
+  }
+  void set_x(int16 value) property {
+    b0 = uint8(uint16(value) & 0xFF);
+    b4 = uint8((b4 & ~1) | ((uint16(value) >> 8) & 1));
+  }
+
+  int16 get_y() property {
+    return b1;
+  }
+  void set_y(int16 value) property {
+    b1 = value;
+  }
+
+  uint8 get_palette() property  { return (b3 >> 1) & 7; }
+  uint8 get_priority() property { return (b3 >> 4) & 3; }
+  bool get_hflip() property     { return ((b3 >> 6) & 1) != 0 ? true : false; }
+  bool get_vflip() property     { return ((b3 >> 7) & 1) != 0 ? true : false; }
+
+  uint8 get_size() property     { return (b4 >> 1) & 1; }
+
+  bool get_is_enabled() property { return (b1 != 0xF0); }
 
   // fetches all the OAM sprite data for OAM sprite at `index`
   void fetchOAM(uint8 i) {
     auto tile = ppu::oam[i];
 
-    index    = i;
-    chr      = tile.character;
-    x        = int16(tile.x);
-    y        = int16(tile.y);
-    size     = tile.size;
-    palette  = tile.palette;
-    priority = tile.priority;
-    hflip    = tile.hflip;
-    vflip    = tile.vflip;
+    index = i;
 
-    is_enabled = tile.is_enabled;
+    b0 = tile.x & 0xff;
+    b1 = tile.y;
+    b2 = tile.character & 0xff;
+    b3 = ((tile.character >> 8) & 1) |
+          (tile.palette << 1) |
+          (tile.priority << 4) |
+          (tile.hflip ? 1<<6 : 0) |
+          (tile.vflip ? 1<<7 : 0);
+    b4 = ((tile.x >> 8) & 1) |
+          (tile.size << 1);
   }
 
   // b0-b3 are main 4 bytes of OAM table
@@ -34,19 +56,11 @@ class Sprite {
   // b4 must be right-shifted to be the two least significant bits and all other bits cleared.
   void decodeOAMTableBytes(uint16 i, uint8 b0, uint8 b1, uint8 b2, uint8 b3, uint8 b4) {
     index    = i;
-    x        = b0;
-    y        = b1;
-    chr      = b2;
-    chr      = chr | (uint16(b3 >> 0 & 1) << 8);
-    palette  = b3 >> 1 & 7;
-    priority = b3 >> 4 & 3;
-    hflip    = (b3 >> 6 & 1) != 0 ? true : false;
-    vflip    = (b3 >> 7 & 1) != 0 ? true : false;
-
-    x    = (x & 0xff) | (uint16(b4) << 8 & 0x100);
-    size = (b4 >> 1) & 1;
-
-    is_enabled = (y != 0xF0);
+    this.b0 = b0;
+    this.b1 = b1;
+    this.b2 = b2;
+    this.b3 = b3;
+    this.b4 = b4;
   }
 
   void decodeOAMTable(uint16 i) {
@@ -60,41 +74,22 @@ class Sprite {
     decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
   }
 
-  void adjustXY(int16 rx, int16 ry) {
-    int16 ax = x;
-    int16 ay = y;
-
-    // adjust x to allow for slightly off-screen sprites:
-    if (ax >= 256) ax -= 512;
-    //if (ay + tile.height >= 256) ay -= 256;
-
-    // Make sprite x,y relative to incoming rx,ry coordinates (where Link is in screen coordinates):
-    x = ax - rx;
-    y = ay - ry;
-  }
-
   void serialize(array<uint8> &r) {
     r.write_u8(index);
-    r.write_u16(chr);
-    r.write_u16(uint16(x));
-    r.write_u16(uint16(y));
-    r.write_u8(size);
-    r.write_u8(palette);
-    r.write_u8(priority);
-    r.write_u8(hflip ? uint8(1) : uint8(0));
-    r.write_u8(vflip ? uint8(1) : uint8(0));
+    r.write_u8(b0);
+    r.write_u8(b1);
+    r.write_u8(b2);
+    r.write_u8(b3);
+    r.write_u8(b4);
   }
 
   int deserialize(array<uint8> &r, int c) {
     index = r[c++];
-    chr = uint16(r[c++]) | uint16(r[c++] << 8);
-    x = int16(uint16(r[c++]) | uint16(r[c++] << 8));
-    y = int16(uint16(r[c++]) | uint16(r[c++] << 8));
-    size = r[c++];
-    palette = r[c++];
-    priority = r[c++];
-    hflip = (r[c++] != 0 ? true : false);
-    vflip = (r[c++] != 0 ? true : false);
+    b0 = r[c++];
+    b1 = r[c++];
+    b2 = r[c++];
+    b3 = r[c++];
+    b4 = r[c++];
     return c;
   }
 };

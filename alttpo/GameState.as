@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x05;
+const uint8 script_protocol = 0x06;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -199,6 +199,9 @@ class GameState {
     last_overworld_x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     last_overworld_y = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
+    xoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    yoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
     return c;
   }
 
@@ -332,7 +335,7 @@ class GameState {
     return c;
   }
 
-  void render(int x, int y) {
+  void render(int dx, int dy) {
     for (uint i = 0; i < 512; i++) {
       reloc[i] = 0;
     }
@@ -358,10 +361,10 @@ class GameState {
       auto px = sprite.size == 0 ? 8 : 16;
 
       // bounds check for OAM sprites:
-      if (sprite.x + x < -px) continue;
-      if (sprite.x + x >= 256) continue;
-      if (sprite.y + y < -px) continue;
-      if (sprite.y + y >= 240) continue;
+      if (sprite.x + dx < -px) continue;
+      if (sprite.x + dx >= 256) continue;
+      if (sprite.y + dy < -px) continue;
+      if (sprite.y + dy >= 240) continue;
 
       // determine which OAM sprite slot is free around the desired index:
       uint j;
@@ -374,8 +377,8 @@ class GameState {
       // start building a new OAM sprite:
       j = j & 127;
       auto oam = ppu::oam[j];
-      oam.x = uint16(sprite.x + x);
-      oam.y = sprite.y + 1 + y;
+      oam.x = uint16(sprite.x + dx);
+      oam.y = sprite.y + 1 + dy;
       oam.hflip = sprite.hflip;
       oam.vflip = sprite.vflip;
       oam.priority = sprite.priority;

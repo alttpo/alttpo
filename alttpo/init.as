@@ -18,7 +18,7 @@ void init() {
 
   @settings = SettingsWindow();
   settings.ServerAddress = "bittwiddlers.org";
-  settings.Group = "test2";
+  settings.Group = "test4";
   settings.Name = "";
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";

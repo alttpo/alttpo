@@ -292,10 +292,6 @@ class LocalGameState : GameState {
 
     sprites.reserve(64);
 
-    // get link's on-screen coordinates in OAM space:
-    int16 rx = int16(x) - xoffs;
-    int16 ry = int16(y) - yoffs;
-
     // read OAM offset where link's sprites start at:
     int link_oam_start = bus::read_u16(0x7E0352) >> 2;
     //message(fmtInt(link_oam_start));
@@ -315,8 +311,6 @@ class LocalGameState : GameState {
       if (!sprite.is_enabled) continue;
 
       //message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
-
-      sprite.adjustXY(rx, ry);
 
       // append the sprite to our array:
       sprites.resize(++numsprites);
@@ -403,8 +397,6 @@ class LocalGameState : GameState {
 
       // skip OAM sprites that are not related to Link:
       if (!(fx || weapons || follower)) continue;
-
-      spr.adjustXY(rx, ry);
 
       // append the sprite to our array:
       sprites.resize(++numsprites);
@@ -570,6 +562,9 @@ class LocalGameState : GameState {
 
     r.write_u16(last_overworld_x);
     r.write_u16(last_overworld_y);
+
+    r.write_u16(xoffs);
+    r.write_u16(yoffs);
   }
 
   void serialize_sfx(array<uint8> &r) {

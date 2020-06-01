@@ -67,9 +67,9 @@ void pre_frame() {
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
-      // subtract BG2 offset from sprite x,y coords to get local screen coords:
-      int16 rx = int16(remote.x) - local.xoffs;
-      int16 ry = int16(remote.y) - local.yoffs;
+      // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
+      int rx = int(remote.xoffs - local.xoffs);
+      int ry = int(remote.yoffs - local.yoffs);
 
       // draw remote player relative to current BG offsets:
       //message("render");
