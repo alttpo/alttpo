@@ -1009,8 +1009,15 @@ class LocalGameState : GameState {
     // TODO: sync dungeon tilemap changes
     if (module != 0x09) return;
 
-    // don't write during LW/DW transition:
+    // don't update tilemap during LW/DW transition:
     if (sub_module >= 0x23) return;
+
+    // don't write to VRAM during area transition:
+    bool write_to_vram = true;
+    if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
+
+    // read WRAM values to determine VRAM write bounds:
+    tilemap.determine_vram_bounds();
 
     // integrate tilemap changes from other players:
     for (uint i = 0; i < players.length(); i++) {
@@ -1023,15 +1030,10 @@ class LocalGameState : GameState {
       // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
         auto @run = remote.tilemapRuns[j];
-        // apply the run to the local tilemap state:
-        tilemap.apply(run);
+        // apply the run to the local tilemap state and update VRAM if applicable on screen:
+        tilemap.apply(run, write_to_vram);
       }
     }
-
-    // don't write to vram during area transition:
-    bool write_to_vram = true;
-    if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
-    tilemap.copy_to_wram(write_to_vram);
   }
 
   void update_ancillae() {
