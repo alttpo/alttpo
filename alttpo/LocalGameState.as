@@ -826,7 +826,7 @@ class LocalGameState : GameState {
       if ((frame & 31) == 0) {
         serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
       }
-      if ((frame & 31) == 15) {
+      if ((frame & 31) == 16) {
         serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
       }
 
