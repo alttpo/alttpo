@@ -149,6 +149,12 @@ uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
   return newValue | oldValue;
 }
 
+uint16 mutateSword(uint16 oldValue, uint16 newValue) {
+  // during the dwarven swordsmith quest, sword goes to 0xFF when taken away, so avoid that trap:
+  if (newValue >= 1 && newValue <= 4 && newValue > oldValue) return newValue;
+  return oldValue;
+}
+
 uint16 mutateBottleItem(uint16 oldValue, uint16 newValue) {
   // only sync gaining a new bottle: 0 = no bottle, 2 = empty bottle.
   if (oldValue == 0 && newValue != 0) return newValue;
