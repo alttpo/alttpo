@@ -1,0 +1,13 @@
+
+dungeon map info:
+
+PC$575D9/ROM$0AF5D9: array<uint16>(14) data words; $0021 = 2 floors, 1 basement?
+
+PC$57605/ROM$0AF605: array<uint16>(14) pointers, indexed by $040C >> 1 (dungeon number)
+
+PC$57621/ROM$0AF621: first dungeon map
+    2 floors, 1 basement (from $F5D9)
+    5x5 grid of uint8 tilemap
+    $0F = empty cell
+
+PC$57C00/ROM$0AFC00: graphics tilemap?
