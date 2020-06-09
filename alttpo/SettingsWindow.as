@@ -55,7 +55,7 @@ class SettingsWindow {
   }
 
   SettingsWindow() {
-    @window = GUI::Window(-280, 0, true);
+    @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
     window.size = GUI::Size(280, 10*25);
     window.dismissable = false;
