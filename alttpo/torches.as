@@ -44,6 +44,9 @@ void update_torches() {
   if (!local.is_in_dungeon()) return;
   if (local.sub_module != 0) return;
 
+  // don't mess with torches in ganon's room:
+  if (local.dungeon_room == 0) return;
+
   array<bool>  is_lit(0x10);
   array<bool>  to_update(0x10);
 
