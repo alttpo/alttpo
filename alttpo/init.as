@@ -74,6 +74,8 @@ void post_power(bool reset) {
     init_torches();
   }
 
+  @onlyLocalPlayer[0] = local;
+
   if (@worldMapWindow != null) {
     worldMapWindow.loadMap();
     worldMapWindow.drawMap();
@@ -92,7 +94,6 @@ void debug_pc(uint32 addr) {
   message(fmtHex(addr, 6));
 }
 
-// TODO: debug window to show current full area and place GameSprites on it with X,Y coordinates
-
 LocalGameState local;
 array<GameState@> players(0);
+array<GameState@> onlyLocalPlayer(1);

@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x06;
+const uint8 script_protocol = 0x07;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -46,6 +46,8 @@ class GameState {
 
   uint16 last_overworld_x;
   uint16 last_overworld_y;
+
+  uint16 player_color;
 
   uint8 sfx1;
   uint8 sfx2;
@@ -201,6 +203,8 @@ class GameState {
 
     xoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
     yoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     return c;
   }

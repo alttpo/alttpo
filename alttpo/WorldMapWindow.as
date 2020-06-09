@@ -10,6 +10,7 @@ class WorldMapWindow {
 
   GUI::SNESCanvas @localDot;
   array<GUI::SNESCanvas@> dots;
+  array<uint16> colors;
 
   // expressed in map 8x8 tile sizes:
   int mtop = 14;
@@ -77,7 +78,8 @@ class WorldMapWindow {
     chkAuto.checked = true;
     chkAuto.onToggle(@GUI::Callback(toggledAuto));
 
-    @localDot = makeDot(ppu::rgb(0, 0, 0x1f));
+    @localDot = makeDot();
+    fillDot(localDot, ppu::rgb(0, 0, 0x1f));
 
     vl.resize();
 
@@ -272,8 +274,7 @@ class WorldMapWindow {
     }
   }
 
-  GUI::SNESCanvas @makeDot(uint16 color) {
-    int diam = 12;
+  GUI::SNESCanvas @makeDot(int diam = 12) {
     int max = diam-1;
     int s = diam/2;
 
@@ -282,6 +283,13 @@ class WorldMapWindow {
     c.size = GUI::Size(diam, diam);
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
+
+    return c;
+  }
+
+  void fillDot(GUI::SNESCanvas @c, uint16 color, int diam = 12) {
+    int max = diam-1;
+    int s = diam/2;
 
     uint16 outline = ppu::rgb(0x1f, 0x1f, 0x1f) | 0x8000;
     color |= 0x8000;
@@ -311,7 +319,6 @@ class WorldMapWindow {
     }
 
     c.update();
-    return c;
   }
 
   int mapsprleft = 126;
@@ -384,36 +391,49 @@ class WorldMapWindow {
     y = float((py / 16) + mapsprtop - top) * mapscale;
   }
 
-  void renderPlayers(const GameState @local, const array<GameState@> @players) {
+  void renderPlayers() {
+    const array<GameState@> @ps;
+
+    if (sock is null) {
+      @ps = onlyLocalPlayer;
+    } else {
+      @ps = players;
+    }
+
     // grow dots array and create new Canvas instances:
-    if (players.length() > dots.length()) {
-      dots.resize(players.length());
+    if (ps.length() > dots.length()) {
+      dots.resize(ps.length());
+      colors.resize(ps.length());
       for (uint i = 0; i < dots.length(); i++) {
         if (null != @dots[i]) continue;
 
         // create new dot:
-        auto j = i + 1;
-        auto color = ppu::rgb(
-          ((j & 4) >> 2) * 0x12 + ((j & 8) >> 3) * 0x0d,
-          ((j & 2) >> 1) * 0x12 + ((j & 8) >> 3) * 0x0d,
-          ((j & 1)) * 0x12 + ((j & 8) >> 3) * 0x0d
-        );
-        @dots[i] = makeDot(color);
+        @dots[i] = makeDot();
+        colors[i] = 0xffff;
       }
     }
 
     // Map world-pixel coordinates to world-map coordinates:
     float x, y;
-    for (uint i = 0; i < players.length(); i++) {
-      auto @p = @players[i];
+    for (uint i = 0; i < ps.length(); i++) {
+      auto @p = ps[i];
+      auto @dot = dots[i];
+
       if ((p.ttl <= 0) || (p.is_in_dark_world() != isDark)) {
         // If player disappeared, hide their dot:
-        dots[i].setPosition(-128, -128);
+        dot.setPosition(-128, -128);
         continue;
       }
 
+      // check if we need to fill the dot in with the player's color:
+      if (p.player_color != colors[i]) {
+        fillDot(dot, p.player_color | 0x8000);
+        colors[i] = p.player_color;
+      }
+
+      // position the dot:
       mapCoord(p, x, y);
-      dots[i].setPosition(x, y);
+      dot.setPosition(x, y);
     }
   }
 };

@@ -1,6 +1,4 @@
 
-array<GameState@> onlyLocalPlayer(1);
-
 void post_frame() {
   if (@oamWindow != null) {
     oamWindow.update();
@@ -8,12 +6,7 @@ void post_frame() {
 
   if (@worldMapWindow != null) {
     worldMapWindow.update(local);
-    if (sock is null) {
-      @onlyLocalPlayer[0] = local;
-      worldMapWindow.renderPlayers(local, onlyLocalPlayer);
-    } else {
-      worldMapWindow.renderPlayers(local, players);
-    }
+    worldMapWindow.renderPlayers();
   }
 
   if (debugData) {

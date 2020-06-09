@@ -565,6 +565,8 @@ class LocalGameState : GameState {
 
     r.write_u16(xoffs);
     r.write_u16(yoffs);
+
+    r.write_u16(player_color);
   }
 
   void serialize_sfx(array<uint8> &r) {
