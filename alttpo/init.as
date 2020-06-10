@@ -20,6 +20,7 @@ void init() {
   settings.ServerAddress = "bittwiddlers.org";
   settings.Group = "test4";
   settings.Name = "";
+  settings.load();
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
     //settings.Group = "debug";

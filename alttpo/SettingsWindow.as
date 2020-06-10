@@ -30,6 +30,16 @@ class SettingsWindow {
     }
   }
 
+  private string groupTrimmed;
+  string GroupTrimmed {
+    get { return groupTrimmed; }
+    set {
+      txtGroup.text = value;
+      groupTrimmed = value;
+      assignGroup(value);
+    }
+  }
+
   private void assignGroup(string value) {
     // pad out to exactly 20 bytes:
     auto newValue = value.slice(0, 20);
@@ -52,6 +62,33 @@ class SettingsWindow {
   uint16 player_color;
   uint16 PlayerColor {
     get { return player_color; }
+  }
+
+  void load() {
+    auto @doc = UserSettings::load("alttpo.bml");
+
+    ServerAddress = doc["server/address"].textOr(ServerAddress);
+    GroupTrimmed = doc["server/group"].textOr(GroupTrimmed);
+    Name = doc["player/name"].textOr(Name);
+
+    player_color = doc["player/color"].textOr("0x" + fmtHex(player_color, 4)).hex();
+    setColorSliders();
+    setColorText();
+
+    // apply color changes without persisting back to disk:
+    colorWasChanged(false);
+  }
+
+  void save() {
+    auto @doc = BML::Node();
+
+    doc.create("server/address").value = ServerAddress;
+    doc.create("server/group").value = GroupTrimmed;
+
+    doc.create("player/name").value = Name;
+    doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
+
+    UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
@@ -187,37 +224,50 @@ class SettingsWindow {
     vl.resize();
     window.visible = true;
     window.setFocused();
-    colorSliderChanged();
+
+    // set effects of color sliders but don't persist to disk:
+    colorWasChanged(false);
   }
 
+  // callback:
   private void startClicked() {
     start();
     hide();
   }
 
-  private void colorTextChanged() {
-    player_color = txtColor.text.hex();
-
-    // reset the sliders:
+  private void setColorSliders() {
+    // set the color sliders:
     slRed.position   = ( player_color        & 31);
     slGreen.position = ((player_color >>  5) & 31);
     slBlue.position  = ((player_color >> 10) & 31);
+  }
+
+  private void setColorText() {
+    // set the color text display:
+    txtColor.text = fmtHex(player_color, 4);
+  }
+
+  // callback:
+  private void colorTextChanged() {
+    player_color = txtColor.text.hex();
+
+    setColorSliders();
 
     colorWasChanged();
   }
 
+  // callback:
   private void colorSliderChanged() {
     player_color = (slRed.position & 31) |
       ((slGreen.position & 31) <<  5) |
       ((slBlue.position  & 31) << 10);
 
-    // reset the text display:
-    txtColor.text = fmtHex(player_color, 4);
+    setColorText();
 
     colorWasChanged();
   }
 
-  private void colorWasChanged() {
+  private void colorWasChanged(bool persist = true) {
     if (local.player_color == player_color) return;
 
     // assign to player:
@@ -229,12 +279,21 @@ class SettingsWindow {
     if (@worldMapWindow != null) {
       worldMapWindow.renderPlayers();
     }
+
+    if (!persist) return;
+
+    // persist settings to disk:
+    save();
   }
 
   void start() {
     serverAddress = txtServerAddress.text;
     assignGroup(txtGroup.text);
     name = txtName.text;
+    player_color = txtColor.text.hex();
+
+    save();
+
     started = true;
   }
 
