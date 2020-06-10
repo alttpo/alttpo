@@ -15,79 +15,96 @@ class SettingsWindow {
   private string serverAddress;
   string ServerAddress {
     get { return serverAddress; }
-    set {
-      serverAddress = value;
-      txtServerAddress.text = value;
-    }
+    set { serverAddress = value; }
   }
 
-  private string group;
-  string Group {
-    get { return group; }
-    set {
-      txtGroup.text = value;
-      assignGroup(value);
-    }
+  private string groupPadded;
+  string GroupPadded {
+    get { return groupPadded; }
   }
 
   private string groupTrimmed;
   string GroupTrimmed {
     get { return groupTrimmed; }
     set {
-      txtGroup.text = value;
       groupTrimmed = value;
-      assignGroup(value);
+      assignGroupPadded(value);
     }
   }
 
-  private void assignGroup(string value) {
+  private void assignGroupPadded(string value) {
     // pad out to exactly 20 bytes:
     auto newValue = value.slice(0, 20);
     for (int i = newValue.length(); i < 20; i++) {
       newValue += " ";
     }
-    group = newValue;
+    groupPadded = newValue;
   }
 
   private string name;
   string Name {
     get { return name; }
-    set {
-      name = value;
-      txtName.text = value;
-    }
+    set { name = value; }
   }
 
   bool started;
   uint16 player_color;
   uint16 PlayerColor {
     get { return player_color; }
+    set { player_color = value; }
+  }
+
+  private void setColorSliders() {
+    // set the color sliders:
+    slRed.position   = ( player_color        & 31);
+    slGreen.position = ((player_color >>  5) & 31);
+    slBlue.position  = ((player_color >> 10) & 31);
+  }
+
+  private void setColorText() {
+    // set the color text display:
+    txtColor.text = fmtHex(player_color, 4);
+  }
+
+  private void setServerSettingsGUI() {
+    txtServerAddress.text = serverAddress;
+    txtGroup.text = groupTrimmed;
+  }
+
+  private void setPlayerSettingsGUI() {
+    txtName.text = name;
+    setColorSliders();
+    setColorText();
   }
 
   void load() {
+    // try to load previous settings from disk:
     auto @doc = UserSettings::load("alttpo.bml");
-
-    ServerAddress = doc["server/address"].textOr(ServerAddress);
-    GroupTrimmed = doc["server/group"].textOr(GroupTrimmed);
-    Name = doc["player/name"].textOr(Name);
-
+    serverAddress = doc["server/address"].textOr(ServerAddress);
+    groupTrimmed = doc["server/group"].textOr(GroupTrimmed);
+    name = doc["player/name"].textOr(Name);
     player_color = doc["player/color"].textOr("0x" + fmtHex(player_color, 4)).hex();
-    setColorSliders();
-    setColorText();
+
+    // set GUI controls from values:
+    setServerSettingsGUI();
+    setPlayerSettingsGUI();
 
     // apply color changes without persisting back to disk:
     colorWasChanged(false);
   }
 
   void save() {
-    auto @doc = BML::Node();
+    // grab latest values from GUI:
+    ServerAddress = txtServerAddress.text;
+    GroupTrimmed = txtGroup.text;
+    Name = txtName.text;
+    PlayerColor = txtColor.text.hex();
 
+    auto @doc = BML::Node();
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
-
     doc.create("player/name").value = Name;
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
-
     UserSettings::save("alttpo.bml", doc);
   }
 
@@ -110,6 +127,7 @@ class SettingsWindow {
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtServerAddress = GUI::LineEdit();
+        txtServerAddress.onChange(@GUI::Callback(save));
         hz.append(txtServerAddress, GUI::Size(-1, 20));
       }
 
@@ -122,6 +140,7 @@ class SettingsWindow {
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtGroup = GUI::LineEdit();
+        txtGroup.onChange(@GUI::Callback(save));
         hz.append(txtGroup, GUI::Size(-1, 20));
       }
 
@@ -134,6 +153,7 @@ class SettingsWindow {
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtName = GUI::LineEdit();
+        txtName.onChange(@GUI::Callback(save));
         hz.append(txtName, GUI::Size(-1, 20));
       }
 
@@ -235,18 +255,6 @@ class SettingsWindow {
     hide();
   }
 
-  private void setColorSliders() {
-    // set the color sliders:
-    slRed.position   = ( player_color        & 31);
-    slGreen.position = ((player_color >>  5) & 31);
-    slBlue.position  = ((player_color >> 10) & 31);
-  }
-
-  private void setColorText() {
-    // set the color text display:
-    txtColor.text = fmtHex(player_color, 4);
-  }
-
   // callback:
   private void colorTextChanged() {
     player_color = txtColor.text.hex();
@@ -287,11 +295,6 @@ class SettingsWindow {
   }
 
   void start() {
-    serverAddress = txtServerAddress.text;
-    assignGroup(txtGroup.text);
-    name = txtName.text;
-    player_color = txtColor.text.hex();
-
     save();
 
     started = true;

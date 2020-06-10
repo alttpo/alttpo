@@ -729,7 +729,7 @@ class LocalGameState : GameState {
       // server protocol 2:
       envelope.write_u8(uint8(0x02));
       // group name: (20 bytes exactly)
-      envelope.write_str(settings.Group);
+      envelope.write_str(settings.GroupPadded);
       // message kind:
       envelope.write_u8(kind);
       // what we think our index is:
