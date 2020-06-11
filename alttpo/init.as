@@ -12,6 +12,7 @@ bool enableMap = true;
 bool enableBgMusic = true;
 
 bool enableObjectSync = false;
+bool enableRenderToExtra = true;
 
 void init() {
   //message("init()");

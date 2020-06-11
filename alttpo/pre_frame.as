@@ -48,7 +48,12 @@ void pre_frame() {
     local.update_objects();
   }
 
+  if (enableRenderToExtra) {
+    ppu::extra.reset();
+  }
+
   // render remote players:
+  int ei = 0;
   for (uint i = 0; i < players.length(); i++) {
     auto @remote = players[i];
     if (remote is null) continue;
@@ -72,8 +77,15 @@ void pre_frame() {
       int ry = int(remote.yoffs - local.yoffs);
 
       // draw remote player relative to current BG offsets:
-      //message("render");
-      remote.render(rx, ry);
+      if (enableRenderToExtra) {
+        ei = remote.renderToExtra(rx, ry, ei);
+      } else {
+        remote.renderToPPU(rx, ry);
+      }
     }
+  }
+
+  if (enableRenderToExtra) {
+    ppu::extra.count = ei;
   }
 }

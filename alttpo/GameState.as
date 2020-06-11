@@ -339,7 +339,7 @@ class GameState {
     return c;
   }
 
-  void render(int dx, int dy) {
+  void renderToPPU(int dx, int dy) {
     for (uint i = 0; i < 512; i++) {
       reloc[i] = 0;
     }
@@ -463,6 +463,53 @@ class GameState {
       localFrameState.claim_owner(j, index);
       @ppu::oam[j] = oam;
     }
+  }
+
+  int renderToExtra(int dx, int dy, int ei) {
+    // copy out all sprite palettes from CGRAM:
+    array<uint16> sprpalettes(8 * 16);
+    for (int c = 0; c < 8; c++) {
+      for (int i = 0; i < 16; i++) {
+        sprpalettes[c * 16 + i] = ppu::cgram[((c+8) << 4) + i];
+      }
+    }
+
+    for (uint i = 0; i < sprites.length(); i++) {
+      auto sprite = sprites[i];
+      auto px = sprite.size == 0 ? 8 : 16;
+
+      // bounds check for OAM sprites:
+      if (sprite.x + dx < -px) continue;
+      if (sprite.x + dx >= 256) continue;
+      if (sprite.y + dy < -px) continue;
+      if (sprite.y + dy >= 240) continue;
+
+      // start building a new OAM sprite (on "extra" layer):
+      auto @tile = ppu::extra[ei++];
+      tile.index = sprite.index;
+      tile.source = 5; // Source: 4 = OBJ1, 5 = OBJ2; TODO: control this somehow
+      tile.x = sprite.x + dx;
+      tile.y = sprite.y + 1 + dy;
+      tile.hflip = sprite.hflip;
+      tile.vflip = sprite.vflip;
+      tile.priority = sprite.priority;
+      tile.width = sprite.size != 0 ? 16 : 8;
+      tile.height = sprite.size != 0 ? 16 : 8;
+      tile.pixels_clear();
+
+      auto k = sprite.chr;
+      auto p = sprite.palette;
+      if (sprite.size == 0) {
+        tile.draw_sprite_4bpp(0, 0, p, chrs[k], sprpalettes);
+      } else {
+        tile.draw_sprite_4bpp(0, 0, p, chrs[k + 0x00], sprpalettes);
+        tile.draw_sprite_4bpp(8, 0, p, chrs[k + 0x01], sprpalettes);
+        tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], sprpalettes);
+        tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], sprpalettes);
+      }
+    }
+
+    return ei;
   }
 
   uint8 adjust_sfx_pan(uint8 sfx) {
