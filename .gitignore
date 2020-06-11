@@ -7,3 +7,7 @@
 alttp-server/alttp-server
 video/
 test.sh
+*.sfc
+image/
+old/
+*.sh
