@@ -504,7 +504,7 @@ class GameState {
       // start building a new OAM sprite (on "extra" layer):
       auto @tile = ppu::extra[ei++];
       tile.index = sprite.index;
-      tile.source = 5; // Source: 4 = OBJ1, 5 = OBJ2; TODO: control this somehow
+      tile.source = (sprite.palette < 4) ? 4 : 5; // Source: 4 = OBJ1, 5 = OBJ2 used for windowing purposes
       tile.x = sprite.x + dx;
       tile.y = sprite.y + 1 + dy;
       tile.hflip = sprite.hflip;
