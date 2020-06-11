@@ -44,6 +44,8 @@ void pre_frame() {
 
   local.update_rooms();
 
+  local.update_palette();
+
   if (enableObjectSync) {
     local.update_objects();
   }

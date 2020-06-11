@@ -1201,4 +1201,37 @@ class LocalGameState : GameState {
     }
   }
 
+  // update's link's tunic colors in his palette:
+  void update_palette() {
+    // read OAM offset where link's sprites start at:
+    uint link_oam_start = bus::read_u16(0x7E0352) >> 2;
+
+    uint8 palette = 8;
+    for (uint j = link_oam_start; j < link_oam_start + 0xC; j++) {
+      Sprite sprite;
+      sprite.fetchOAM(j);
+
+      // looking for just link body sprites:
+      if (!sprite.is_enabled) continue;
+      if (sprite.chr > 3) continue;
+
+      palette = sprite.palette;
+      break;
+    }
+    if (palette == 8) return;
+
+    // 9 - dark
+    // A - light
+
+    // NOTE: assume player_color is light, and make dark version
+    auto light = player_color;
+    auto dark  =
+        ((light & 31) * 3 / 4) |
+      ((((light >>  5) & 31) * 3 / 4) << 5) |
+      ((((light >> 10) & 31) * 3 / 4) << 10);
+
+    // assign palette colors:
+    ppu::cgram[((palette + 8) << 4) + 0x9] = dark;
+    ppu::cgram[((palette + 8) << 4) + 0xA] = light;
+  }
 };
