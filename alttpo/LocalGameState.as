@@ -206,8 +206,6 @@ class LocalGameState : GameState {
 
     fetch_tilemap_changes();
 
-    fetch_rooms();
-
     fetch_torches();
   }
 
@@ -271,26 +269,10 @@ class LocalGameState : GameState {
     }
   }
 
-  void fetch_rooms() {
-    if (is_dead()) return;
-
-    // SRAM copy at $7EF000 - $7EF24F
-    // room data live in WRAM at $0400,$0401
-    // $0403 = 6 chests, key, heart piece
-
-    // BUGS: encountered one-way door effect in fairy cave 0x010008
-    // disabling room door sync for now.
-
-    //rooms.resize(0x128);
-    //bus::read_block_u16(0x7EF000, 0, 0x128, rooms);
-  }
-
   void fetch_sprites() {
     numsprites = 0;
     sprites.resize(0);
     if (is_it_a_bad_time()) return;
-
-    sprites.reserve(64);
 
     // read OAM offset where link's sprites start at:
     int link_oam_start = bus::read_u16(0x7E0352) >> 2;
@@ -593,6 +575,37 @@ class LocalGameState : GameState {
     }
   }
 
+  void serialize_palettes(array<uint8> &r) {
+    uint8 count = 0;
+    array<bool> used(8);
+
+    // determine which palettes are used:
+    for (uint i = 0; i < sprites.length(); i++) {
+      uint p = sprites[i].palette;
+      if (!used[p]) {
+        count++;
+      }
+      used[p] = true;
+    }
+
+    if (count == 0) return;
+
+    // palettes chunk type:
+    r.write_u8(0x0B);
+    // how many palettes to sync:
+    r.write_u8(count);
+    for (uint i = 0; i < 8; i++) {
+      if (!used[i]) continue;
+
+      // which palette this is:
+      r.write_u8(i);
+      // sample the palette:
+      for (uint c = 0; c < 16; c++) {
+        r.write_u16(ppu::cgram[((i + 8) << 4) + c]);
+      }
+    }
+  }
+
   void serialize_chr0(array<uint8> &r) {
     // how many distinct characters:
     uint16 chr_count = 0;
@@ -802,6 +815,7 @@ class LocalGameState : GameState {
       serialize_sprites(envelope);
       serialize_chr0(envelope);
       //serialize_chr1(envelope);
+      serialize_palettes(envelope);
 
       p = send_packet(envelope, p);
     }

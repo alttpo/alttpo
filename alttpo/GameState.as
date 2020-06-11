@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x07;
+const uint8 script_protocol = 0x08;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -11,6 +11,7 @@ class GameState {
   // graphics data for current frame:
   array<Sprite@> sprites;
   array<array<uint16>> chrs(512);
+  array<uint16> palettes(8 * 16);
   // lookup remote chr number to find local chr number mapped to:
   array<uint16> reloc(512);
 
@@ -56,8 +57,6 @@ class GameState {
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
-
-  array<uint16> rooms;
 
   int numsprites;
 
@@ -171,6 +170,7 @@ class GameState {
         case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
+        case 0x0B: c = deserialize_palettes(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -232,6 +232,22 @@ class GameState {
       c = sprites[i].deserialize(r, c);
     }
 
+    return c;
+  }
+
+  int deserialize_palettes(array<uint8> r, int c) {
+    // how many palettes:
+    auto count = r[c++];
+
+    for (uint i = 0; i < count; i++) {
+      // palette number:
+      auto p = r[c++];
+
+      // read 16 colors:
+      for (int k = 0; k < 16; k++) {
+        palettes[(p << 4) + k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      }
+    }
     return c;
   }
 
@@ -466,11 +482,12 @@ class GameState {
   }
 
   int renderToExtra(int dx, int dy, int ei) {
-    // copy out all sprite palettes from CGRAM:
-    array<uint16> sprpalettes(8 * 16);
-    for (int c = 0; c < 8; c++) {
-      for (int i = 0; i < 16; i++) {
-        sprpalettes[c * 16 + i] = ppu::cgram[((c+8) << 4) + i];
+    if (false) {
+      // copy out all sprite palettes from CGRAM:
+      for (int c = 0; c < 8; c++) {
+        for (int i = 0; i < 16; i++) {
+          palettes[(c << 4) + i] = ppu::cgram[((c+8) << 4) + i];
+        }
       }
     }
 
@@ -500,12 +517,12 @@ class GameState {
       auto k = sprite.chr;
       auto p = sprite.palette;
       if (sprite.size == 0) {
-        tile.draw_sprite_4bpp(0, 0, p, chrs[k], sprpalettes);
+        tile.draw_sprite_4bpp(0, 0, p, chrs[k], palettes);
       } else {
-        tile.draw_sprite_4bpp(0, 0, p, chrs[k + 0x00], sprpalettes);
-        tile.draw_sprite_4bpp(8, 0, p, chrs[k + 0x01], sprpalettes);
-        tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], sprpalettes);
-        tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], sprpalettes);
+        tile.draw_sprite_4bpp(0, 0, p, chrs[k + 0x00], palettes);
+        tile.draw_sprite_4bpp(8, 0, p, chrs[k + 0x01], palettes);
+        tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], palettes);
+        tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], palettes);
       }
     }
 
