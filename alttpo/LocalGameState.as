@@ -1211,13 +1211,15 @@ class LocalGameState : GameState {
       Sprite sprite;
       sprite.fetchOAM(j);
 
-      // looking for just link body sprites:
+      // looking for Link body sprites only to grab the palette number:
       if (!sprite.is_enabled) continue;
       if (sprite.chr > 3) continue;
 
       palette = sprite.palette;
       break;
     }
+
+    // Link not found?
     if (palette == 8) return;
 
     // 9 - dark

@@ -18,6 +18,10 @@ void on_main_loop(uint32 pc) {
 
 // pre_frame always happens
 void pre_frame() {
+  if (settings.SyncTunic) {
+    local.update_palette();
+  }
+
   // Don't do anything until user fills out Settings window inputs:
   if (!settings.started) return;
   if (sock is null) return;
@@ -43,8 +47,6 @@ void pre_frame() {
   local.update_overworld();
 
   local.update_rooms();
-
-  local.update_palette();
 
   if (enableObjectSync) {
     local.update_objects();

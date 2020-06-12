@@ -6,11 +6,14 @@ class SettingsWindow {
   private GUI::LineEdit @txtGroup;
   private GUI::LineEdit @txtName;
   private GUI::LineEdit @txtColor;
+  private GUI::CheckLabel @chkTunic;
   private GUI::HorizontalSlider @slRed;
   private GUI::HorizontalSlider @slGreen;
   private GUI::HorizontalSlider @slBlue;
   private GUI::SNESCanvas @colorCanvas;
   private GUI::Button @ok;
+
+  bool started;
 
   private string serverAddress;
   string ServerAddress {
@@ -47,12 +50,14 @@ class SettingsWindow {
     set { name = value; }
   }
 
-  bool started;
   uint16 player_color;
   uint16 PlayerColor {
     get { return player_color; }
     set { player_color = value; }
   }
+
+  private bool syncTunic;
+  bool SyncTunic { get { return syncTunic; } }
 
   private void setColorSliders() {
     // set the color sliders:
@@ -73,6 +78,7 @@ class SettingsWindow {
 
   private void setPlayerSettingsGUI() {
     txtName.text = name;
+    chkTunic.checked = syncTunic;
     setColorSliders();
     setColorText();
   }
@@ -84,6 +90,7 @@ class SettingsWindow {
     groupTrimmed = doc["server/group"].textOr(GroupTrimmed);
     name = doc["player/name"].textOr(Name);
     player_color = doc["player/color"].textOr("0x" + fmtHex(player_color, 4)).hex();
+    syncTunic = doc["player/syncTunic"].booleanOr(true);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -100,11 +107,14 @@ class SettingsWindow {
     Name = txtName.text;
     PlayerColor = txtColor.text.hex();
 
+    syncTunic = chkTunic.checked;
+
     auto @doc = BML::Node();
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
     doc.create("player/name").value = Name;
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
+    doc.create("player/syncTunic").value = syncTunic ? "true" : "false";
     UserSettings::save("alttpo.bml", doc);
   }
 
@@ -172,6 +182,12 @@ class SettingsWindow {
           txtColor.onChange(@GUI::Callback(colorTextChanged));
           hz.append(txtColor, GUI::Size(-1, 20));
         }
+
+        @chkTunic = GUI::CheckLabel();
+        chkTunic.text = "Sync player color to Link's tunic";
+        chkTunic.checked = true;
+        chkTunic.onToggle(@GUI::Callback(chkTunicChanged));
+        vl.append(chkTunic, GUI::Size(-1, 0));
 
         auto @chl = GUI::HorizontalLayout();
         vl.append(chl, GUI::Size(-1, 0));
@@ -250,6 +266,13 @@ class SettingsWindow {
   }
 
   // callback:
+  private void chkTunicChanged() {
+    syncTunic = chkTunic.checked;
+    //message("syncTunic = " + fmtInt(syncTunic ? 1 : 0));
+    save();
+  }
+
+  // callback:
   private void startClicked() {
     start();
     hide();
@@ -307,4 +330,4 @@ class SettingsWindow {
   void hide() {
     ok.enabled = false;
   }
-};
+}
