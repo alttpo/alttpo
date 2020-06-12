@@ -731,6 +731,12 @@ class LocalGameState : GameState {
     }
   }
 
+  void serialize_name(array<uint8> &r) {
+    r.write_u8(uint8(0x0C));
+
+    r.write_str(namePadded);
+  }
+
   array<uint8> @create_envelope(uint8 kind) {
     array<uint8> @envelope = {};
     envelope.reserve(1452);
@@ -800,6 +806,7 @@ class LocalGameState : GameState {
       array<uint8> envelope = create_envelope(0x01);
 
       serialize_location(envelope);
+      serialize_name(envelope);
       serialize_sfx(envelope);
 
       serialize_ancillae(envelope);

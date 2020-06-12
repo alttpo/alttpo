@@ -16,7 +16,28 @@ class GameState {
   array<uint16> reloc(512);
 
   // $3D9-$3E4: 6x uint16 characters for player name
-  array<uint16> name(6);
+
+  string _name = "";
+  string name {
+    get { return _name; }
+    set {
+      _name = value.strip();
+      _namePadded = padTo(value, 20);
+    }
+  }
+
+  string _namePadded = "                    ";  // 20 spaces
+  string namePadded {
+    get { return _namePadded; }
+    set {
+      _name = value.strip();
+      if (value.length() == 20) {
+        _namePadded = value;
+      } else {
+        _namePadded = padTo(value, 20);
+      }
+    }
+  }
 
   // local: player index last synced objects from:
   uint16 objects_index_source;
@@ -188,6 +209,7 @@ class GameState {
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
         case 0x0B: c = deserialize_palettes(r, c); break;
+        case 0x0C: c = deserialize_name(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -372,6 +394,12 @@ class GameState {
     return c;
   }
 
+  int deserialize_name(array<uint8> r, int c) {
+    namePadded = r.toString(c, 20);
+    c += 20;
+    return c;
+  }
+
   void renderToPPU(int dx, int dy) {
     for (uint i = 0; i < 512; i++) {
       reloc[i] = 0;
@@ -499,18 +527,23 @@ class GameState {
   }
 
   int renderToExtra(int dx, int dy, int ei) {
-    if (false) {
-      // copy out all sprite palettes from CGRAM:
-      for (int c = 0; c < 8; c++) {
-        for (int i = 0; i < 16; i++) {
-          palettes[(c << 4) + i] = ppu::cgram[((c+8) << 4) + i];
-        }
-      }
-    }
+    int bx = -256, by = -256;
+    uint bs = 4, bp = 0;
 
     for (uint i = 0; i < sprites.length(); i++) {
       auto sprite = sprites[i];
       auto px = sprite.size == 0 ? 8 : 16;
+
+      auto k = sprite.chr;
+      auto p = sprite.palette;
+
+      // find shadow sprite since that's always guaranteed to be seen:
+      if ((bx == -256) && (k == 0x6c || k == 0x28)) {
+        bx = sprite.x + dx;
+        by = sprite.y + 1 + dy;
+        bs = (sprite.palette < 4) ? 4 : 5;
+        bp = sprite.priority;
+      }
 
       // bounds check for OAM sprites:
       if (sprite.x + dx < -px) continue;
@@ -520,7 +553,8 @@ class GameState {
 
       // start building a new OAM sprite (on "extra" layer):
       auto @tile = ppu::extra[ei++];
-      tile.index = sprite.index;
+      tile.index = (sprite.index + 0x8);  // artificially lower remote sprites priority beneath local sprites
+      if (tile.index > 127) tile.index = 127;
       tile.source = (sprite.palette < 4) ? 4 : 5; // Source: 4 = OBJ1, 5 = OBJ2 used for windowing purposes
       tile.x = sprite.x + dx;
       tile.y = sprite.y + 1 + dy;
@@ -531,8 +565,6 @@ class GameState {
       tile.height = sprite.size != 0 ? 16 : 8;
       tile.pixels_clear();
 
-      auto k = sprite.chr;
-      auto p = sprite.palette;
       if (sprite.size == 0) {
         tile.draw_sprite_4bpp(0, 0, p, chrs[k], palettes);
       } else {
@@ -541,6 +573,24 @@ class GameState {
         tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], palettes);
         tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], palettes);
       }
+    }
+
+    if (settings.ShowLabels) {
+      // render player name as text:
+      auto @label = ppu::extra[ei++];
+      label.reset();
+      label.index = 127;
+      label.source = bs;
+      label.priority = bp;
+      auto width = ppu::extra.measure_text(name);
+      label.width = width * 8 + 2;
+      label.height = 12;
+      ppu::extra.text_shadow = true;
+      ppu::extra.color = player_color;
+      label.text(0,0,name);
+      // centered below player:
+      label.x = bx + 8 - (label.width >> 1);
+      label.y = by + 8;
     }
 
     return ei;

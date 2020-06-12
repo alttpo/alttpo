@@ -7,6 +7,7 @@ class SettingsWindow {
   private GUI::LineEdit @txtName;
   private GUI::LineEdit @txtColor;
   private GUI::CheckLabel @chkTunic;
+  private GUI::CheckLabel @chkShowLabels;
   private GUI::HorizontalSlider @slRed;
   private GUI::HorizontalSlider @slGreen;
   private GUI::HorizontalSlider @slBlue;
@@ -31,17 +32,8 @@ class SettingsWindow {
     get { return groupTrimmed; }
     set {
       groupTrimmed = value;
-      assignGroupPadded(value);
+      groupPadded = padTo(value, 20);
     }
-  }
-
-  private void assignGroupPadded(string value) {
-    // pad out to exactly 20 bytes:
-    auto newValue = value.slice(0, 20);
-    for (int i = newValue.length(); i < 20; i++) {
-      newValue += " ";
-    }
-    groupPadded = newValue;
   }
 
   private string name;
@@ -64,6 +56,9 @@ class SettingsWindow {
 
   private uint16 syncTunicDarkColors;
   uint16 SyncTunicDarkColors { get { return syncTunicDarkColors; } }
+
+  private bool showLabels;
+  bool ShowLabels { get { return showLabels; } }
 
   private void setColorSliders() {
     // set the color sliders:
@@ -89,6 +84,10 @@ class SettingsWindow {
     setColorText();
   }
 
+  private void setFeaturesGUI() {
+    chkShowLabels.checked = showLabels;
+  }
+
   private uint16 parse_player_color(string &in text) {
     uint64 value = text.hex();
 
@@ -107,9 +106,15 @@ class SettingsWindow {
     syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x400);
     syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
 
+    showLabels = doc["feature/showLabels"].booleanOr(true);
+
     // set GUI controls from values:
     setServerSettingsGUI();
     setPlayerSettingsGUI();
+    setFeaturesGUI();
+
+    // apply player name change:
+    nameWasChanged(false);
 
     // apply color changes without persisting back to disk:
     colorWasChanged(false);
@@ -123,22 +128,24 @@ class SettingsWindow {
     PlayerColor = parse_player_color(txtColor.text);
 
     syncTunic = chkTunic.checked;
+    showLabels = chkShowLabels.checked;
 
     auto @doc = BML::Node();
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
     doc.create("player/name").value = Name;
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
-    doc.create("player/syncTunic").value = syncTunic ? "true" : "false";
+    doc.create("player/syncTunic").value = fmtBool(syncTunic);
     doc.create("player/syncTunic/lightColors").value = "0x" + fmtHex(syncTunicLightColors, 4);
     doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
+    doc.create("feature/showLabels").value = fmtBool(showLabels);
     UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
     @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(280, 10*25);
+    window.size = GUI::Size(280, 11*25);
     window.dismissable = false;
 
     auto vl = GUI::VerticalLayout();
@@ -180,7 +187,7 @@ class SettingsWindow {
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtName = GUI::LineEdit();
-        txtName.onChange(@GUI::Callback(save));
+        txtName.onChange(@GUI::Callback(txtNameChanged));
         hz.append(txtName, GUI::Size(-1, 20));
       }
 
@@ -262,6 +269,12 @@ class SettingsWindow {
         chl.append(colorCanvas, GUI::Size(64, 64));
       }
 
+      @chkShowLabels = GUI::CheckLabel();
+      chkShowLabels.text = "Show player labels";
+      chkShowLabels.checked = true;
+      chkShowLabels.onToggle(@GUI::Callback(chkShowLabelsChanged));
+      vl.append(chkShowLabels, GUI::Size(-1, 0));
+
       {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
@@ -283,9 +296,26 @@ class SettingsWindow {
   }
 
   // callback:
+  private void txtNameChanged() {
+    nameWasChanged();
+  }
+
+  private void nameWasChanged(bool persist = true) {
+    local.name = txtName.text.strip();
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
   private void chkTunicChanged() {
     syncTunic = chkTunic.checked;
-    //message("syncTunic = " + fmtInt(syncTunic ? 1 : 0));
+    save();
+  }
+
+  // callback:
+  private void chkShowLabelsChanged() {
+    showLabels = chkShowLabels.checked;
     save();
   }
 
