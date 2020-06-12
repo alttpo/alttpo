@@ -1223,26 +1223,24 @@ class LocalGameState : GameState {
       if ((sprite.chr & 0xf0) >= 0x20) continue;
 
       palette = sprite.palette;
-      break;
-    }
 
-    // Link not found?
-    if (palette == 8) return;
-
-    //message("palette: " + fmtInt(palette));
-
-    // for vanilla Link sprite:
-    // 9 = dark
-    // A = light
-
-    // assign light/dark palette colors:
-    auto light = player_color;
-    auto dark  = player_color_dark;
-    for (uint i = 0, m = 1; i < 16; i++, m <<= 1) {
-      if ((settings.SyncTunicLightColors & m) == m) {
-        ppu::cgram[(128 + (palette << 4)) + i] = light;
-      } else if ((settings.SyncTunicDarkColors & m) == m) {
-        ppu::cgram[(128 + (palette << 4)) + i] = dark;
+      // assign light/dark palette colors:
+      auto light = player_color;
+      auto dark  = player_color_dark;
+      for (uint i = 0, m = 1; i < 16; i++, m <<= 1) {
+        if ((settings.SyncTunicLightColors & m) == m) {
+          auto j = (128 + (palette << 4)) + i;
+          auto color = ppu::cgram[j];
+          if (color != light) {
+            ppu::cgram[j] = light;
+          }
+        } else if ((settings.SyncTunicDarkColors & m) == m) {
+          auto j = (128 + (palette << 4)) + i;
+          auto color = ppu::cgram[j];
+          if (color != dark) {
+            ppu::cgram[j] = dark;
+          }
+        }
       }
     }
   }
