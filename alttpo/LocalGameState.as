@@ -1232,8 +1232,13 @@ class LocalGameState : GameState {
       ((((light >>  5) & 31) * 3 / 4) << 5) |
       ((((light >> 10) & 31) * 3 / 4) << 10);
 
-    // assign palette colors:
-    ppu::cgram[((palette + 8) << 4) + 0x9] = dark;
-    ppu::cgram[((palette + 8) << 4) + 0xA] = light;
+    // assign light/dark palette colors:
+    for (uint i = 0, m = 1; i < 16; i++, m <<= 1) {
+      if ((settings.SyncTunicLightColors & m) == m) {
+        ppu::cgram[((palette + 8) << 4) + i] = light;
+      } else if ((settings.SyncTunicDarkColors & m) == m) {
+        ppu::cgram[((palette + 8) << 4) + i] = dark;
+      }
+    }
   }
 };

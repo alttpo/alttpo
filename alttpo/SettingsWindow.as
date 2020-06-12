@@ -59,6 +59,12 @@ class SettingsWindow {
   private bool syncTunic;
   bool SyncTunic { get { return syncTunic; } }
 
+  private uint16 syncTunicLightColors;
+  uint16 SyncTunicLightColors { get { return syncTunicLightColors; } }
+
+  private uint16 syncTunicDarkColors;
+  uint16 SyncTunicDarkColors { get { return syncTunicDarkColors; } }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -91,6 +97,8 @@ class SettingsWindow {
     name = doc["player/name"].textOr(Name);
     player_color = doc["player/color"].textOr("0x" + fmtHex(player_color, 4)).hex();
     syncTunic = doc["player/syncTunic"].booleanOr(true);
+    syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x400);
+    syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -115,6 +123,8 @@ class SettingsWindow {
     doc.create("player/name").value = Name;
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
     doc.create("player/syncTunic").value = syncTunic ? "true" : "false";
+    doc.create("player/syncTunic/lightColors").value = "0x" + fmtHex(syncTunicLightColors, 4);
+    doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
     UserSettings::save("alttpo.bml", doc);
   }
 
