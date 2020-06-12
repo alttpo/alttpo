@@ -1203,6 +1203,11 @@ class LocalGameState : GameState {
 
   // update's link's tunic colors in his palette:
   void update_palette() {
+    // make sure we're in a game module where Link is shown:
+    if (module <= 0x05) return;
+    if (module >= 0x14 && module <= 0x18) return;
+    if (module >= 0x1B) return;
+
     // read OAM offset where link's sprites start at:
     uint link_oam_start = bus::read_u16(0x7E0352) >> 2;
 
@@ -1213,7 +1218,9 @@ class LocalGameState : GameState {
 
       // looking for Link body sprites only to grab the palette number:
       if (!sprite.is_enabled) continue;
-      if (sprite.chr > 3) continue;
+      //message("chr: " + fmtHex(sprite.chr, 3));
+      if ((sprite.chr & 0x0f) >= 0x04) continue;
+      if ((sprite.chr & 0xf0) >= 0x20) continue;
 
       palette = sprite.palette;
       break;
@@ -1222,22 +1229,20 @@ class LocalGameState : GameState {
     // Link not found?
     if (palette == 8) return;
 
-    // 9 - dark
-    // A - light
+    //message("palette: " + fmtInt(palette));
 
-    // NOTE: assume player_color is light, and make dark version
-    auto light = player_color;
-    auto dark  =
-        ((light & 31) * 3 / 4) |
-      ((((light >>  5) & 31) * 3 / 4) << 5) |
-      ((((light >> 10) & 31) * 3 / 4) << 10);
+    // for vanilla Link sprite:
+    // 9 = dark
+    // A = light
 
     // assign light/dark palette colors:
+    auto light = player_color;
+    auto dark  = player_color_dark;
     for (uint i = 0, m = 1; i < 16; i++, m <<= 1) {
       if ((settings.SyncTunicLightColors & m) == m) {
-        ppu::cgram[((palette + 8) << 4) + i] = light;
+        ppu::cgram[(128 + (palette << 4)) + i] = light;
       } else if ((settings.SyncTunicDarkColors & m) == m) {
-        ppu::cgram[((palette + 8) << 4) + i] = dark;
+        ppu::cgram[(128 + (palette << 4)) + i] = dark;
       }
     }
   }

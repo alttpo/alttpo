@@ -53,7 +53,7 @@ void pre_frame() {
   }
 
   if (enableRenderToExtra) {
-    ppu::extra.reset();
+    ppu::extra.count = 0;
   }
 
   // render remote players:

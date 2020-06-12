@@ -48,7 +48,16 @@ class GameState {
   uint16 last_overworld_x;
   uint16 last_overworld_y;
 
-  uint16 player_color;
+  private uint16 _player_color;
+  uint16 player_color {
+    get { return _player_color; }
+    set {
+      _player_color = value;
+      calculate_player_color_dark();
+    }
+  }
+
+  uint16 player_color_dark;
 
   uint8 sfx1;
   uint8 sfx2;
@@ -74,6 +83,14 @@ class GameState {
     for (uint t = 0; t < 0x10; t++) {
       torchOwner[t] = -2;
     }
+  }
+
+  void calculate_player_color_dark() {
+    // shave off 25% brightness:
+    player_color_dark =
+        ((_player_color & 31) * 3 / 4) |
+      ((((_player_color >>  5) & 31) * 3 / 4) << 5) |
+      ((((_player_color >> 10) & 31) * 3 / 4) << 10);
   }
 
   bool is_in_dark_world() const {
