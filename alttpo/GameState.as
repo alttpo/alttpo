@@ -16,7 +16,28 @@ class GameState {
   array<uint16> reloc(512);
 
   // $3D9-$3E4: 6x uint16 characters for player name
-  array<uint16> name(6);
+
+  string _name = "";
+  string name {
+    get { return _name; }
+    set {
+      _name = value.strip();
+      _namePadded = padTo(value, 20);
+    }
+  }
+
+  string _namePadded = "                    ";  // 20 spaces
+  string namePadded {
+    get { return _namePadded; }
+    set {
+      _name = value.strip();
+      if (value.length() == 20) {
+        _namePadded = value;
+      } else {
+        _namePadded = padTo(value, 20);
+      }
+    }
+  }
 
   // local: player index last synced objects from:
   uint16 objects_index_source;
@@ -188,6 +209,7 @@ class GameState {
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
         case 0x0B: c = deserialize_palettes(r, c); break;
+        case 0x0C: c = deserialize_name(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -369,6 +391,12 @@ class GameState {
       torchOwner[t] = index;
     }
 
+    return c;
+  }
+
+  int deserialize_name(array<uint8> r, int c) {
+    namePadded = r.toString(c, 20);
+    c += 20;
     return c;
   }
 

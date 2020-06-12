@@ -31,17 +31,8 @@ class SettingsWindow {
     get { return groupTrimmed; }
     set {
       groupTrimmed = value;
-      assignGroupPadded(value);
+      groupPadded = padTo(value, 20);
     }
-  }
-
-  private void assignGroupPadded(string value) {
-    // pad out to exactly 20 bytes:
-    auto newValue = value.slice(0, 20);
-    for (int i = newValue.length(); i < 20; i++) {
-      newValue += " ";
-    }
-    groupPadded = newValue;
   }
 
   private string name;
@@ -180,7 +171,7 @@ class SettingsWindow {
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtName = GUI::LineEdit();
-        txtName.onChange(@GUI::Callback(save));
+        txtName.onChange(@GUI::Callback(txtNameChanged));
         hz.append(txtName, GUI::Size(-1, 20));
       }
 
@@ -280,6 +271,12 @@ class SettingsWindow {
 
     // set effects of color sliders but don't persist to disk:
     colorWasChanged(false);
+  }
+
+  // callback:
+  private void txtNameChanged() {
+    local.name = txtName.text.strip();
+    save();
   }
 
   // callback:

@@ -98,6 +98,14 @@ void debug_pc(uint32 addr) {
   message(fmtHex(addr, 6));
 }
 
+string padTo(string value, int len) {
+  auto newValue = value.slice(0, len);
+  for (int i = newValue.length(); i < len; i++) {
+    newValue += " ";
+  }
+  return newValue;
+}
+
 LocalGameState local;
 array<GameState@> players(0);
 array<GameState@> onlyLocalPlayer(1);
