@@ -89,13 +89,20 @@ class SettingsWindow {
     setColorText();
   }
 
+  private uint16 parse_player_color(string &in text) {
+    uint64 value = text.hex();
+
+    if (value > 0x7fff) value = 0x7fff;
+    return uint16(value);
+  }
+
   void load() {
     // try to load previous settings from disk:
     auto @doc = UserSettings::load("alttpo.bml");
     serverAddress = doc["server/address"].textOr(ServerAddress);
     groupTrimmed = doc["server/group"].textOr(GroupTrimmed);
     name = doc["player/name"].textOr(Name);
-    player_color = doc["player/color"].textOr("0x" + fmtHex(player_color, 4)).hex();
+    player_color = parse_player_color(doc["player/color"].textOr("0x" + fmtHex(player_color, 4)));
     syncTunic = doc["player/syncTunic"].booleanOr(true);
     syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x400);
     syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
@@ -113,7 +120,7 @@ class SettingsWindow {
     ServerAddress = txtServerAddress.text;
     GroupTrimmed = txtGroup.text;
     Name = txtName.text;
-    PlayerColor = txtColor.text.hex();
+    PlayerColor = parse_player_color(txtColor.text);
 
     syncTunic = chkTunic.checked;
 
@@ -290,7 +297,7 @@ class SettingsWindow {
 
   // callback:
   private void colorTextChanged() {
-    player_color = txtColor.text.hex();
+    player_color = parse_player_color(txtColor.text);
 
     setColorSliders();
 
