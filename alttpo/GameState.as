@@ -527,6 +527,9 @@ class GameState {
   }
 
   int renderToExtra(int dx, int dy, int ei) {
+    int bx = 128, by = 112;
+    uint bs = 4, bp = 0;
+
     if (false) {
       // copy out all sprite palettes from CGRAM:
       for (int c = 0; c < 8; c++) {
@@ -569,6 +572,32 @@ class GameState {
         tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], palettes);
         tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], palettes);
       }
+
+      if (k == 0x02) {
+        bx = tile.x;
+        by = tile.y;
+        bs = tile.source;
+        bp = tile.priority;
+      }
+    }
+
+    if (true) {
+      // render player name as text:
+      auto @label = ppu::extra[ei++];
+      label.reset();
+      label.index = 127;
+      label.source = bs;
+      label.priority = bp;
+      //auto name = "jsd1982";
+      auto width = ppu::extra.measure_text(name);
+      label.width = width * 8 + 2;
+      label.height = 12;
+      ppu::extra.text_shadow = true;
+      ppu::extra.color = player_color;
+      label.text(0,0,name);
+      // centered below player:
+      label.x = bx + 8 - (label.width >> 1);
+      label.y = by + 16;
     }
 
     return ei;

@@ -102,6 +102,9 @@ class SettingsWindow {
     setServerSettingsGUI();
     setPlayerSettingsGUI();
 
+    // apply player name change:
+    nameWasChanged(false);
+
     // apply color changes without persisting back to disk:
     colorWasChanged(false);
   }
@@ -275,7 +278,13 @@ class SettingsWindow {
 
   // callback:
   private void txtNameChanged() {
+    nameWasChanged();
+  }
+
+  private void nameWasChanged(bool persist = true) {
     local.name = txtName.text.strip();
+
+    if (!persist) return;
     save();
   }
 
