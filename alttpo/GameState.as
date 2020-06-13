@@ -527,7 +527,7 @@ class GameState {
   }
 
   int renderToExtra(int dx, int dy, int ei) {
-    int bx = 128, by = 112;
+    int bx = -1, by = -1;
     uint bs = 4, bp = 0;
 
     if (false) {
@@ -573,7 +573,8 @@ class GameState {
         tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], palettes);
       }
 
-      if (k == 0x02) {
+      // find shadow sprite since that's always guaranteed to be seen:
+      if ((bx == -1) && (k == 0x6c || k == 0x28)) {
         bx = tile.x;
         by = tile.y;
         bs = tile.source;
@@ -588,7 +589,6 @@ class GameState {
       label.index = 127;
       label.source = bs;
       label.priority = bp;
-      //auto name = "jsd1982";
       auto width = ppu::extra.measure_text(name);
       label.width = width * 8 + 2;
       label.height = 12;
@@ -597,7 +597,7 @@ class GameState {
       label.text(0,0,name);
       // centered below player:
       label.x = bx + 8 - (label.width >> 1);
-      label.y = by + 16;
+      label.y = by + 8;
     }
 
     return ei;
