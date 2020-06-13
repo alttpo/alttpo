@@ -7,6 +7,7 @@ class SettingsWindow {
   private GUI::LineEdit @txtName;
   private GUI::LineEdit @txtColor;
   private GUI::CheckLabel @chkTunic;
+  private GUI::CheckLabel @chkShowLabels;
   private GUI::HorizontalSlider @slRed;
   private GUI::HorizontalSlider @slGreen;
   private GUI::HorizontalSlider @slBlue;
@@ -56,6 +57,9 @@ class SettingsWindow {
   private uint16 syncTunicDarkColors;
   uint16 SyncTunicDarkColors { get { return syncTunicDarkColors; } }
 
+  private bool showLabels;
+  bool ShowLabels { get { return showLabels; } }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -80,6 +84,10 @@ class SettingsWindow {
     setColorText();
   }
 
+  private void setFeaturesGUI() {
+    chkShowLabels.checked = showLabels;
+  }
+
   private uint16 parse_player_color(string &in text) {
     uint64 value = text.hex();
 
@@ -98,9 +106,12 @@ class SettingsWindow {
     syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x400);
     syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
 
+    showLabels = doc["feature/showLabels"].booleanOr(true);
+
     // set GUI controls from values:
     setServerSettingsGUI();
     setPlayerSettingsGUI();
+    setFeaturesGUI();
 
     // apply player name change:
     nameWasChanged(false);
@@ -117,15 +128,17 @@ class SettingsWindow {
     PlayerColor = parse_player_color(txtColor.text);
 
     syncTunic = chkTunic.checked;
+    showLabels = chkShowLabels.checked;
 
     auto @doc = BML::Node();
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
     doc.create("player/name").value = Name;
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
-    doc.create("player/syncTunic").value = syncTunic ? "true" : "false";
+    doc.create("player/syncTunic").value = fmtBool(syncTunic);
     doc.create("player/syncTunic/lightColors").value = "0x" + fmtHex(syncTunicLightColors, 4);
     doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
+    doc.create("feature/showLabels").value = fmtBool(showLabels);
     UserSettings::save("alttpo.bml", doc);
   }
 
@@ -256,6 +269,12 @@ class SettingsWindow {
         chl.append(colorCanvas, GUI::Size(64, 64));
       }
 
+      @chkShowLabels = GUI::CheckLabel();
+      chkShowLabels.text = "Show player labels";
+      chkShowLabels.checked = true;
+      chkShowLabels.onToggle(@GUI::Callback(chkShowLabelsChanged));
+      vl.append(chkShowLabels, GUI::Size(-1, 0));
+
       {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
@@ -291,7 +310,12 @@ class SettingsWindow {
   // callback:
   private void chkTunicChanged() {
     syncTunic = chkTunic.checked;
-    //message("syncTunic = " + fmtInt(syncTunic ? 1 : 0));
+    save();
+  }
+
+  // callback:
+  private void chkShowLabelsChanged() {
+    showLabels = chkShowLabels.checked;
     save();
   }
 

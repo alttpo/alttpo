@@ -582,7 +582,7 @@ class GameState {
       }
     }
 
-    if (true) {
+    if (settings.ShowLabels) {
       // render player name as text:
       auto @label = ppu::extra[ei++];
       label.reset();
