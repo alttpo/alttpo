@@ -564,13 +564,7 @@ class LocalGameState : GameState {
     r.write_u8(uint8(sprites.length()));
 
     //message("serialize: numsprites = " + fmtInt(sprites.length()));
-    // sort 16x16 sprites first so that 8x8 can fit within them if needed (fixes shadows under thrown items):
     for (uint i = 0; i < sprites.length(); i++) {
-      if (sprites[i].size == 0) continue;
-      sprites[i].serialize(r);
-    }
-    for (uint i = 0; i < sprites.length(); i++) {
-      if (sprites[i].size != 0) continue;
       sprites[i].serialize(r);
     }
   }
