@@ -1229,16 +1229,16 @@ class LocalGameState : GameState {
       auto dark  = player_color_dark;
       for (uint i = 0, m = 1; i < 16; i++, m <<= 1) {
         if ((settings.SyncTunicLightColors & m) == m) {
-          auto j = (128 + (palette << 4)) + i;
-          auto color = ppu::cgram[j];
+          auto c = (128 + (palette << 4)) + i;
+          auto color = ppu::cgram[c];
           if (color != light) {
-            ppu::cgram[j] = light;
+            ppu::cgram[c] = light;
           }
         } else if ((settings.SyncTunicDarkColors & m) == m) {
-          auto j = (128 + (palette << 4)) + i;
-          auto color = ppu::cgram[j];
+          auto c = (128 + (palette << 4)) + i;
+          auto color = ppu::cgram[c];
           if (color != dark) {
-            ppu::cgram[j] = dark;
+            ppu::cgram[c] = dark;
           }
         }
       }
