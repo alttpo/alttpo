@@ -435,7 +435,7 @@ class LocalGameState : GameState {
       clear = true;
     } else
     */
-    if (location != last_location) {
+    if (actual_location != last_location) {
       // generic location changed event:
       clear = true;
     }
@@ -832,7 +832,6 @@ class LocalGameState : GameState {
       array<uint8> envelope = create_envelope(0x01);
 
       serialize_torches(envelope);
-
       serialize_tilemaps(envelope);
 
       p = send_packet(envelope, p);
