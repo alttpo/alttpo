@@ -450,6 +450,8 @@ class LocalGameState : GameState {
     }
   }
 
+  uint16 prevTilemapValue = 0;
+
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
   void tilemap_written(uint32 addr, uint8 value) {
     if (is_it_a_bad_time()) {
@@ -468,6 +470,8 @@ class LocalGameState : GameState {
     // or during LW/DW transition:
     if (sub_module >= 0x23) return;
 
+    uint8 prevValue = bus::read_u8(addr);
+
     // figure out offset from $7e2000:
     addr -= 0x7e2000;
 
@@ -477,10 +481,12 @@ class LocalGameState : GameState {
     // apply the write to either side of the uint16 (upcast to int32):
     if ((addr & 1) == 1) {
       // high byte:
+      prevTilemapValue |= uint16(prevValue) << 8;
       tilemap[i] = int32( (uint16(tilemap[i]) & 0x00ff) | (int32(value) << 8) );
       //message("tilemap[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 4));
     } else {
       // low byte:
+      prevTilemapValue = prevValue;
       tilemap[i] = int32( (uint16(tilemap[i]) & 0xff00) | (int32(value)) );
     }
   }

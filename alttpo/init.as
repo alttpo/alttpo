@@ -5,7 +5,7 @@ bool debug = false;
 bool debugData = false;
 bool debugNet = false;
 bool debugOAM = false;
-bool debugSprites = false;
+bool debugSprites = true;
 bool debugGameObjects = false;
 
 bool enableMap = true;
