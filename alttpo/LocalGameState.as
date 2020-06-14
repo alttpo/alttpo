@@ -1223,6 +1223,7 @@ class LocalGameState : GameState {
       if ((sprite.chr & 0xf0) >= 0x20) continue;
 
       palette = sprite.palette;
+      //message("chr="+fmtHex(sprite.chr,3) + " pal="+fmtHex(sprite.palette,1));
 
       // assign light/dark palette colors:
       auto light = player_color;
