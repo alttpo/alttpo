@@ -584,11 +584,9 @@ class GameState {
       label.priority = bp;
       auto width = ppu::extra.measure_text(name);
       label.width = width + 2;
-      ppu::extra.font_name = "kakwa";
-      label.height = ppu::extra.font_height + 1;
-      ppu::extra.text_shadow = true;
+      label.height = ppu::extra.font_height + 2;
       ppu::extra.color = player_color;
-      label.text(0,0,name);
+      label.text(1, 1, name);
       // centered below player:
       label.x = bx + 8 - (label.width >> 1);
       label.y = by + 8;

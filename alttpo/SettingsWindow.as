@@ -7,11 +7,12 @@ class SettingsWindow {
   private GUI::LineEdit @txtName;
   private GUI::LineEdit @txtColor;
   private GUI::CheckLabel @chkTunic;
-  private GUI::CheckLabel @chkShowLabels;
   private GUI::HorizontalSlider @slRed;
   private GUI::HorizontalSlider @slGreen;
   private GUI::HorizontalSlider @slBlue;
   private GUI::SNESCanvas @colorCanvas;
+  private GUI::CheckLabel @chkShowLabels;
+  private GUI::ComboButton @ddlFont;
   private GUI::Button @ok;
 
   bool started;
@@ -60,6 +61,11 @@ class SettingsWindow {
   private bool showLabels;
   bool ShowLabels { get { return showLabels; } }
 
+  private string fontName;
+  string FontName {
+    get { return fontName; }
+  }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -86,6 +92,13 @@ class SettingsWindow {
 
   private void setFeaturesGUI() {
     chkShowLabels.checked = showLabels;
+    for (uint i = 0; i < ddlFont.count(); i++) {
+      auto @di = ddlFont[i];
+      if (di.attributes["font"] == fontName) {
+        di.setSelected();
+        break;
+      }
+    }
   }
 
   private uint16 parse_player_color(string &in text) {
@@ -107,6 +120,7 @@ class SettingsWindow {
     syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
 
     showLabels = doc["feature/showLabels"].booleanOr(true);
+    fontName = doc["feature/fontName"].textOr("proggy-tinysz");
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -139,18 +153,20 @@ class SettingsWindow {
     doc.create("player/syncTunic/lightColors").value = "0x" + fmtHex(syncTunicLightColors, 4);
     doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
     doc.create("feature/showLabels").value = fmtBool(showLabels);
+    doc.create("feature/fontName").value = fontName;
     UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
     @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(280, 11*25);
+    window.size = GUI::Size(280, 12*25);
     window.dismissable = false;
 
     auto vl = GUI::VerticalLayout();
     vl.setSpacing();
     vl.setPadding(5, 5);
+    window.append(vl);
     {
       {
         auto @hz = GUI::HorizontalLayout();
@@ -277,6 +293,42 @@ class SettingsWindow {
 
       {
         auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        auto @lbl = GUI::Label();
+        lbl.text = "Label Font:";
+        hz.append(lbl, GUI::Size(100, 0));
+
+        @ddlFont = GUI::ComboButton();
+        hz.append(ddlFont, GUI::Size(0, 0));
+
+        auto @di = GUI::ComboButtonItem();
+        di.text = "Kakwa (6x12)";
+        di.attributes["font"] = "kakwa";
+        di.setSelected();
+        ddlFont.append(di);
+
+        @di = GUI::ComboButtonItem();
+        di.text = "Proggy (7x10)";
+        di.attributes["font"] = "proggy-tinysz";
+        ddlFont.append(di);
+
+        @di = GUI::ComboButtonItem();
+        di.text = "VGA (8x8)";
+        di.attributes["font"] = "vga8";
+        ddlFont.append(di);
+
+        @di = GUI::ComboButtonItem();
+        di.text = "VGA (8x16)";
+        di.attributes["font"] = "vga16";
+        ddlFont.append(di);
+
+        ddlFont.onChange(@GUI::Callback(this.ddlFontChanged));
+        ddlFont.enabled = true;
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
 
         @ok = GUI::Button();
@@ -285,7 +337,6 @@ class SettingsWindow {
         hz.append(ok, GUI::Size(-1, -1));
       }
     }
-    window.append(vl);
 
     vl.resize();
     window.visible = true;
@@ -293,6 +344,18 @@ class SettingsWindow {
 
     // set effects of color sliders but don't persist to disk:
     colorWasChanged(false);
+  }
+
+  // callback:
+  private void ddlFontChanged() {
+    fontName = ddlFont.selected.attributes["font"];
+
+    fontWasChanged();
+  }
+
+  private void fontWasChanged(bool persist = true) {
+    if (!persist) return;
+    save();
   }
 
   // callback:
