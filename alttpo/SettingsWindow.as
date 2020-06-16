@@ -12,6 +12,7 @@ class SettingsWindow {
   private GUI::HorizontalSlider @slBlue;
   private GUI::SNESCanvas @colorCanvas;
   private GUI::CheckLabel @chkShowLabels;
+  private GUI::CheckLabel @chkShowMyLabel;
   private GUI::ComboButton @ddlFont;
   private GUI::Button @ok;
 
@@ -61,6 +62,9 @@ class SettingsWindow {
   private bool showLabels;
   bool ShowLabels { get { return showLabels; } }
 
+  private bool showMyLabel;
+  bool ShowMyLabel { get { return showMyLabel; } }
+
   private string fontName;
   string FontName {
     get { return fontName; }
@@ -92,6 +96,9 @@ class SettingsWindow {
 
   private void setFeaturesGUI() {
     chkShowLabels.checked = showLabels;
+    chkShowMyLabel.checked = showMyLabel;
+
+    // set selected font option:
     for (uint i = 0; i < ddlFont.count(); i++) {
       auto @di = ddlFont[i];
       if (di.attributes["font"] == fontName) {
@@ -120,6 +127,7 @@ class SettingsWindow {
     syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
 
     showLabels = doc["feature/showLabels"].booleanOr(true);
+    showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
     fontName = doc["feature/fontName"].textOr("proggy-tinysz");
 
     // set GUI controls from values:
@@ -143,6 +151,7 @@ class SettingsWindow {
 
     syncTunic = chkTunic.checked;
     showLabels = chkShowLabels.checked;
+    showMyLabel = chkShowMyLabel.checked;
 
     auto @doc = BML::Node();
     doc.create("server/address").value = ServerAddress;
@@ -153,6 +162,7 @@ class SettingsWindow {
     doc.create("player/syncTunic/lightColors").value = "0x" + fmtHex(syncTunicLightColors, 4);
     doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
     doc.create("feature/showLabels").value = fmtBool(showLabels);
+    doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontName").value = fontName;
     UserSettings::save("alttpo.bml", doc);
   }
@@ -285,11 +295,22 @@ class SettingsWindow {
         chl.append(colorCanvas, GUI::Size(64, 64));
       }
 
-      @chkShowLabels = GUI::CheckLabel();
-      chkShowLabels.text = "Show player labels";
-      chkShowLabels.checked = true;
-      chkShowLabels.onToggle(@GUI::Callback(chkShowLabelsChanged));
-      vl.append(chkShowLabels, GUI::Size(-1, 0));
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        @chkShowLabels = GUI::CheckLabel();
+        chkShowLabels.text = "Show player labels";
+        chkShowLabels.checked = true;
+        chkShowLabels.onToggle(@GUI::Callback(chkShowLabelsChanged));
+        hz.append(chkShowLabels, GUI::Size(-1, 0));
+
+        @chkShowMyLabel = GUI::CheckLabel();
+        chkShowMyLabel.text = "Show my label";
+        chkShowMyLabel.checked = true;
+        chkShowMyLabel.onToggle(@GUI::Callback(chkShowMyLabelChanged));
+        hz.append(chkShowMyLabel, GUI::Size(-1, 0));
+      }
 
       {
         auto @hz = GUI::HorizontalLayout();
@@ -373,6 +394,12 @@ class SettingsWindow {
   // callback:
   private void chkTunicChanged() {
     syncTunic = chkTunic.checked;
+    save();
+  }
+
+  // callback:
+  private void chkShowMyLabelChanged() {
+    showMyLabel = chkShowMyLabel.checked;
     save();
   }
 

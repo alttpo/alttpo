@@ -78,7 +78,9 @@ class GameState {
     }
   }
 
-  uint16 player_color_dark;
+  uint16 player_color_dark_75;
+  uint16 player_color_dark_50;
+  uint16 player_color_dark_33;
 
   uint8 sfx1;
   uint8 sfx2;
@@ -107,11 +109,23 @@ class GameState {
   }
 
   void calculate_player_color_dark() {
-    // shave off 25% brightness:
-    player_color_dark =
+    // make 75% as bright:
+    player_color_dark_75 =
         ((_player_color & 31) * 3 / 4) |
       ((((_player_color >>  5) & 31) * 3 / 4) << 5) |
       ((((_player_color >> 10) & 31) * 3 / 4) << 10);
+
+    // make 50% as bright:
+    player_color_dark_50 =
+        ((_player_color & 31) * 2 / 4) |
+      ((((_player_color >>  5) & 31) * 2 / 4) << 5) |
+      ((((_player_color >> 10) & 31) * 2 / 4) << 10);
+
+    // make 33% as bright:
+    player_color_dark_33 =
+        ((_player_color & 31) * 1 / 3) |
+      ((((_player_color >>  5) & 31) * 1 / 3) << 5) |
+      ((((_player_color >> 10) & 31) * 1 / 3) << 10);
   }
 
   bool is_in_dark_world() const {
@@ -527,23 +541,12 @@ class GameState {
   }
 
   int renderToExtra(int dx, int dy, int ei) {
-    int bx = -256, by = -256;
-    uint bs = 4, bp = 0;
-
     for (uint i = 0; i < sprites.length(); i++) {
       auto sprite = sprites[i];
       auto px = sprite.size == 0 ? 8 : 16;
 
       auto k = sprite.chr;
       auto p = sprite.palette;
-
-      // find shadow sprite since that's always guaranteed to be seen:
-      if ((bx == -256) && (k == 0x6c || k == 0x28)) {
-        bx = sprite.x + dx;
-        by = sprite.y + 1 + dy;
-        bs = (sprite.palette < 4) ? 4 : 5;
-        bp = sprite.priority;
-      }
 
       // bounds check for OAM sprites:
       if (sprite.x + dx < -px) continue;
@@ -575,22 +578,48 @@ class GameState {
       }
     }
 
-    if (settings.ShowLabels) {
-      // render player name as text:
-      auto @label = ppu::extra[ei++];
-      label.reset();
-      label.index = 127;
-      label.source = bs;
-      label.priority = bp;
-      auto width = ppu::extra.measure_text(name);
-      label.width = width + 2;
-      label.height = ppu::extra.font_height + 2;
-      ppu::extra.color = player_color;
-      label.text(1, 1, name);
-      // centered below player:
-      label.x = bx + 8 - (label.width >> 1);
-      label.y = by + 8;
+    return ei;
+  }
+
+  Sprite@ findPlayerBody() {
+    for (uint i = 0; i < sprites.length(); i++) {
+      auto @sprite = sprites[i];
+      auto px = sprite.size == 0 ? 8 : 16;
+
+      auto k = sprite.chr;
+
+      // find body sprite since that's always guaranteed to be seen:
+      if (k == 0x00) {
+        return sprite;
+      }
     }
+
+    return null;
+  }
+
+  int renderLabel(int dx, int dy, int ei) {
+    auto @sprite = findPlayerBody();
+    if (sprite is null) return ei;
+
+    // render player name as text:
+    auto @label = ppu::extra[ei++];
+    label.reset();
+    label.index = 127;
+    label.source = (sprite.palette < 4) ? 4 : 5;
+    label.priority = sprite.priority;
+
+    // measure player name to set bounds of tile with:
+    auto width = ppu::extra.measure_text(name);
+    label.width = width + 2;
+    label.height = ppu::extra.font_height + 2;
+
+    // render player name as text into tile, making room for 1px outline:
+    ppu::extra.color = player_color;
+    ppu::extra.outline_color = player_color_dark_33;
+    label.text(1, 1, name);
+
+    label.x = (x - xoffs + dx + 8) - (label.width >> 1);
+    label.y = (y - yoffs + 17 + dy) + 8;
 
     return ei;
   }

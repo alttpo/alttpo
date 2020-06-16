@@ -85,10 +85,18 @@ void pre_frame() {
       // draw remote player relative to current BG offsets:
       if (enableRenderToExtra) {
         ei = remote.renderToExtra(rx, ry, ei);
+
+        if (settings.ShowLabels) {
+          ei = remote.renderLabel(rx, ry, ei);
+        }
       } else {
         remote.renderToPPU(rx, ry);
       }
     }
+  }
+
+  if (settings.ShowMyLabel) {
+    ei = local.renderLabel(0, 0, ei);
   }
 
   if (enableRenderToExtra) {

@@ -1227,7 +1227,7 @@ class LocalGameState : GameState {
 
       // assign light/dark palette colors:
       auto light = player_color;
-      auto dark  = player_color_dark;
+      auto dark  = player_color_dark_75;
       for (uint i = 0, m = 1; i < 16; i++, m <<= 1) {
         if ((settings.SyncTunicLightColors & m) == m) {
           auto c = (128 + (palette << 4)) + i;
