@@ -23,8 +23,10 @@ void pre_nmi() {
     }
   }
 
-  // restore previous VRAM tiles:
-  localFrameState.restore();
+  if (!enableRenderToExtra) {
+    // restore previous VRAM tiles:
+    localFrameState.restore();
+  }
 
   local.ttl = 255;
 
@@ -32,8 +34,6 @@ void pre_nmi() {
   local.fetch_module();
 
   local.fetch_sfx();
-
-  local.fetch();
 
   if (settings.started) {
     if (!local.is_it_a_bad_time()) {

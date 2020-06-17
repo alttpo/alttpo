@@ -158,10 +158,10 @@ class LocalGameState : GameState {
     last_overworld_y = bus::read_u16(0x7EC148);
 
     if (is_it_a_bad_time()) {
-      if (!can_sample_location()) {
-        x = 0xFFFF;
-        y = 0xFFFF;
-      }
+      //if (!can_sample_location()) {
+      //  x = 0xFFFF;
+      //  y = 0xFFFF;
+      //}
       return;
     }
 
@@ -272,7 +272,10 @@ class LocalGameState : GameState {
   void fetch_sprites() {
     numsprites = 0;
     sprites.resize(0);
-    if (is_it_a_bad_time()) return;
+    if (is_it_a_bad_time()) {
+      message("clear sprites");
+      return;
+    }
 
     // read OAM offset where link's sprites start at:
     int link_oam_start = bus::read_u16(0x7E0352) >> 2;
@@ -287,7 +290,7 @@ class LocalGameState : GameState {
 
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite sprite;
-      sprite.decodeOAMTable(i);
+      sprite.fetchOAM(i);
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
       if (!sprite.is_enabled) continue;
@@ -310,7 +313,7 @@ class LocalGameState : GameState {
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
       Sprite spr, sprp1, sprp2, sprn1, sprn2;
       // current sprite:
-      spr.decodeOAMTable(i);
+      spr.fetchOAM(i);
       // prev 2 sprites:
       if (i >= 1) {
         sprp1.decodeOAMTable(i - 1);

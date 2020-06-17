@@ -599,7 +599,10 @@ class GameState {
 
   int renderLabel(int dx, int dy, int ei) {
     auto @sprite = findPlayerBody();
-    if (sprite is null) return ei;
+    if (sprite is null) {
+      message("no player body sprite!");
+      return ei;
+    }
 
     // render player name as text:
     auto @label = ppu::extra[ei++];

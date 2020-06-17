@@ -18,25 +18,27 @@ void on_main_loop(uint32 pc) {
 
 // pre_frame always happens
 void pre_frame() {
+  local.fetch();
+
   if (settings.SyncTunic) {
     local.update_palette();
   }
 
-  // Don't do anything until user fills out Settings window inputs:
-  if (!settings.started) return;
-  if (sock is null) return;
-
-  // backup VRAM for OAM tiles which are in-use by game:
-  localFrameState.backup();
+  if (!enableRenderToExtra) {
+    // backup VRAM for OAM tiles which are in-use by game:
+    localFrameState.backup();
+  }
 
   // fetch local VRAM data for sprites:
   local.capture_sprites_vram();
 
-  // send updated state for our Link to server:
-  local.send();
+  if (settings.started && !(sock is null)) {
+    // send updated state for our Link to server:
+    local.send();
 
-  // receive network updates from remote players:
-  receive();
+    // receive network updates from remote players:
+    receive();
+  }
 
   local.update_tilemap();
 
