@@ -242,11 +242,11 @@ class RandomizerMapping : JPROMMapping {
 };
 
 ROMMapping@ detect() {
-  array<uint8> sig(22);
-  bus::read_block_u8(0x00FFC0, 0, 22, sig);
-  auto title = sig.toString(0, 22);
+  array<uint8> sig(21);
+  bus::read_block_u8(0x00FFC0, 0, 21, sig);
+  auto title = sig.toString(0, 21);
   message("ROM title: \"" + title + "\"");
-  if (title == "THE LEGEND OF ZELDA   ") {
+  if (title == "THE LEGEND OF ZELDA  ") {
     auto region = bus::read_u8(0x00FFD9);
     if (region == 0x01) {
       message("Recognized US ROM version.");
@@ -258,12 +258,12 @@ ROMMapping@ detect() {
       message("Unrecognized ROM version but has US title; assuming US ROM.");
       return USROMMapping();
     }
-  } else if (title == "ZELDANODENSETSU       ") {
+  } else if (title == "ZELDANODENSETSU      ") {
     message("Recognized JP ROM version.");
     return JPROMMapping();
   } else if (sig.toString(0, 3) == "VT ") {
-    // randomizer. use JP ROM by default.
-    message("Recognized randomized JP ROM version. Seed: " + sig.toString(3, 10));
+    // ALTTPR VT randomizer.
+    message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + sig.toString(3, 10));
     return RandomizerMapping();
   } else {
     message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
