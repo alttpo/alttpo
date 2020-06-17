@@ -71,6 +71,9 @@ void pre_frame() {
     ppu::extra.font_name = settings.FontName;
   }
 
+  // don't render players or labels in pre-game modules:
+  if (local.module < 0x05) return;
+
   // render remote players:
   int ei = 0;
   for (uint i = 0; i < players.length(); i++) {
