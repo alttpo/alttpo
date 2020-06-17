@@ -154,6 +154,7 @@ uint16 mutateSword(uint16 oldValue, uint16 newValue) {
   if (newValue >= 1 && newValue <= 4 && newValue > oldValue) {
     // JSL DecompSwordGfx
     pb.jsl(rom.fn_decomp_sword_gfx);
+    pb.jsl(rom.fn_sword_palette);
     return newValue;
   }
   return oldValue;
@@ -163,6 +164,7 @@ uint16 mutateShield(uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {
     // JSL DecompShieldGfx
     pb.jsl(rom.fn_decomp_shield_gfx);
+    pb.jsl(rom.fn_shield_palette);
     return newValue;
   }
   return oldValue;

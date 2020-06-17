@@ -37,6 +37,8 @@ abstract class ROMMapping {
 
   uint32 get_fn_decomp_sword_gfx() property   { return 0; }
   uint32 get_fn_decomp_shield_gfx() property  { return 0; }
+  uint32 get_fn_sword_palette() property      { return 0; }
+  uint32 get_fn_shield_palette() property     { return 0; }
 
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
@@ -127,6 +129,8 @@ class USROMMapping : ROMMapping {
 
   uint32 get_fn_decomp_sword_gfx() property   { return 0x00D2C8; }
   uint32 get_fn_decomp_shield_gfx() property  { return 0x00D308; }
+  uint32 get_fn_sword_palette() property      { return 0x1BED03; }
+  uint32 get_fn_shield_palette() property     { return 0x1BED29; }
 };
 
 class EUROMMapping : ROMMapping {
@@ -152,6 +156,8 @@ class EUROMMapping : ROMMapping {
 
   uint32 get_fn_decomp_sword_gfx() property   { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
   uint32 get_fn_decomp_shield_gfx() property  { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_sword_palette() property      { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_shield_palette() property     { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
 class JPROMMapping : ROMMapping {
@@ -177,6 +183,8 @@ class JPROMMapping : ROMMapping {
 
   uint32 get_fn_decomp_sword_gfx() property   { return 0x00D308; }
   uint32 get_fn_decomp_shield_gfx() property  { return 0x00D348; }
+  uint32 get_fn_sword_palette() property      { return 0x1BED03; }
+  uint32 get_fn_shield_palette() property     { return 0x1BED29; }
 };
 
 class RandomizerMapping : JPROMMapping {
