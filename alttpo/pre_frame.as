@@ -1,23 +1,18 @@
 
 // this function intercepts execution immediately before JSL MainRouting in the reset vector:
 // this function is not called for every frame but is for most frames.
+// when it is called, this function is always called before pre_frame.
 void on_main_loop(uint32 pc) {
+  //message("main");
+
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
 
-  // reset ownership of OAM sprites:
-  localFrameState.reset_owners();
+  if (!enableRenderToExtra) {
+    // reset ownership of OAM sprites:
+    localFrameState.reset_owners();
+  }
 
-  // Don't do anything until user fills out Settings window inputs:
-  if (!settings.started) return;
-  if (sock is null) return;
-
-  // synchronize torches:
-  update_torches();
-}
-
-// pre_frame always happens
-void pre_frame() {
   local.fetch();
 
   if (settings.SyncTunic) {
@@ -53,6 +48,22 @@ void pre_frame() {
   if (enableObjectSync) {
     local.update_objects();
   }
+
+  // synchronize torches:
+  update_torches();
+
+  pb.mark();
+
+  if (pb.offset > 0) {
+    // end the patch buffer:
+    pb.jsl(rom.fn_main_routing);  // JSL MainRouting
+    pb.rtl();                     // RTL
+  }
+}
+
+// pre_frame always happens
+void pre_frame() {
+  //message("pre_frame");
 
   if (enableRenderToExtra) {
     ppu::extra.count = 0;

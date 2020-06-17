@@ -117,7 +117,4 @@ void update_torches() {
     pb.lda_immed(local.torchTimers[t]); // LDA #{local.torchTimers[t]}
     pb.sta_bank(0x04F0 + t);            // STA {$04F0 + t}
   }
-
-  pb.jsl(rom.fn_main_routing);  // JSL MainRouting
-  pb.rtl();                     // RTL
 }

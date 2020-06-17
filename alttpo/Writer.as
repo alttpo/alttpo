@@ -1,6 +1,7 @@
 
 abstract class Writer {
   void seek(uint p) {}
+  uint get_offset() property { return 0; }
 
   void u8(uint8 d) {}
   void u16(uint16 d) {}
@@ -9,6 +10,7 @@ abstract class Writer {
 
 class NullWriter : Writer {
   void seek(uint p) {}
+  uint get_offset() property { return 0; }
 
   void u8(uint8 d) {}
   void u16(uint16 d) {}
@@ -16,8 +18,8 @@ class NullWriter : Writer {
 }
 
 class ArrayWriter : Writer {
-  array<uint8> @a;
-  uint p;
+  private array<uint8> @a;
+  private uint p;
 
   ArrayWriter(array<uint8> @a, uint p = 0) {
     @this.a = @a;
@@ -27,6 +29,8 @@ class ArrayWriter : Writer {
   void seek(uint p) {
     this.p = p;
   }
+
+  uint get_offset() property { return p; }
 
   void u8(uint8 d) {
     a[p++] = d;
@@ -45,8 +49,8 @@ class ArrayWriter : Writer {
 }
 
 class BusWriter : Writer {
-  uint32 addr;
-  uint p;
+  private uint32 addr;
+  private uint p;
 
   BusWriter(uint32 addr, uint p = 0) {
     this.addr = addr;
@@ -56,6 +60,8 @@ class BusWriter : Writer {
   void seek(uint p) {
     this.p = p;
   }
+
+  uint get_offset() property { return p; }
 
   void u8(uint8 d) {
     bus::write_u8(addr + p++, d);

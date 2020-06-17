@@ -151,7 +151,21 @@ uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
 
 uint16 mutateSword(uint16 oldValue, uint16 newValue) {
   // during the dwarven swordsmith quest, sword goes to 0xFF when taken away, so avoid that trap:
-  if (newValue >= 1 && newValue <= 4 && newValue > oldValue) return newValue;
+  if (newValue >= 1 && newValue <= 4 && newValue > oldValue) {
+    // TODO: call decompress gfx
+    // JSL DecompSwordGfx
+    // JSL DecompShieldGfx
+
+    return newValue;
+  }
+  return oldValue;
+}
+
+uint16 mutateShield(uint16 oldValue, uint16 newValue) {
+  if (newValue > oldValue) {
+    // TODO: call decompress gfx
+    return newValue;
+  }
   return oldValue;
 }
 

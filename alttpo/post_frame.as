@@ -1,5 +1,7 @@
 
 void post_frame() {
+  //message("post_frame");
+
   if (@oamWindow != null) {
     oamWindow.update();
   }

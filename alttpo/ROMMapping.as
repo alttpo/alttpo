@@ -62,8 +62,8 @@ abstract class ROMMapping {
     SyncableItem(0x356, 1, 1),  // flippers
     SyncableItem(0x357, 1, 1),  // moon pearl
     // 0x358 unused
-    SyncableItem(0x359, 1, @mutateSword),  // sword
-    SyncableItem(0x35A, 1, 1),  // shield
+    SyncableItem(0x359, 1, @mutateSword),   // sword
+    SyncableItem(0x35A, 1, @mutateShield),  // shield
     SyncableItem(0x35B, 1, 1),  // armor
 
     // bottle contents 0x35C-0x35F

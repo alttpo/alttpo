@@ -11,6 +11,18 @@ class CodeWriter {
     w.seek(p);
   }
 
+  uint get_offset() property { return w.offset; }
+
+  uint marked_offset = 0;
+  void mark() {
+    marked_offset = offset;
+  }
+
+  void rewind() {
+    w.seek(marked_offset);
+    marked_offset = 0;
+  }
+
   void jsl(uint32 addr) {
     w.u8(0x22); // JSL
     w.u24(addr);
@@ -85,4 +97,5 @@ class PatchBuffer : CodeWriter {
     rtl();
     seek(0);
   }
+
 };
