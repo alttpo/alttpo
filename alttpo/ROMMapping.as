@@ -265,6 +265,14 @@ ROMMapping@ detect() {
     // ALTTPR VT randomizer.
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + sig.toString(3, 10));
     return RandomizerMapping();
+  } else if (sig.toString(0, 6) == "ER002_") {
+    // ALTTPR VT-based Entrance Randomizer.
+    // e.g. "ER002_1_1_164246190  "
+    // "002" represents the __version__ string with '.'s removed.
+    // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
+    // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
+    message("Recognized ALTTPR VT-based Entrance Randomized JP ROM version. Seed: " + sig.toString(6, 13));
+    return RandomizerMapping();
   } else {
     message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
     return JPROMMapping();
