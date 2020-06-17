@@ -42,6 +42,8 @@ class LocalGameState : GameState {
         }
         return true;
       case 0x09:  // overworld
+        // disallow sampling during screen transition:
+        if (sub_module >= 0x01 && sub_module <= 0x08) return false;
         // normal mirror is 0x23
         // mirror fail back to dark world is 0x2c
         if (sub_module == 0x23 || sub_module == 0x2c) {
@@ -57,6 +59,7 @@ class LocalGameState : GameState {
           return false;
         }
         return true;
+      case 0x05:  // entering dungeon
       case 0x06:  // enter cave from overworld?
       case 0x0b:  // overworld master sword grove / zora waterfall
       case 0x08:  // exit cave to overworld
@@ -169,7 +172,7 @@ class LocalGameState : GameState {
     //ow_screen_transition = bus::read_u8(0x7E0410);
 
     // Don't update location until screen transition is complete:
-    if (can_sample_location()) {
+    if (can_sample_location() && !is_in_screen_transition()) {
       last_location = location;
       location = actual_location;
 
@@ -183,11 +186,6 @@ class LocalGameState : GameState {
         }
       }
     }
-
-    // TODO: read player name from SRAM
-    //name = bus::read_block_u8(0x7EF3D9);
-    // TODO: copy player name to Settings window
-    // TODO: allow settings window to rename player and write back to SRAM
 
     x = bus::read_u16(0x7E0022);
     y = bus::read_u16(0x7E0020);
@@ -1044,7 +1042,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
-      if (!can_see(remote.location)) continue;
+      if (!is_really_in_same_location(remote.location)) continue;
 
       // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
@@ -1056,11 +1054,13 @@ class LocalGameState : GameState {
   }
 
   void update_ancillae() {
+    if (is_dead()) return;
+
     for (uint i = 0; i < players.length(); i++) {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
-      if (!can_see(remote.location)) continue;
+      if (!is_really_in_same_location(remote.location)) continue;
 
       //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
       if (remote is this) {
@@ -1149,7 +1149,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
-      if (!can_see(remote.location)) {
+      if (!is_really_in_same_location(remote.location)) {
         // free ownership of any objects left behind:
         for (uint j = 0; j < 0x10; j++) {
           if (objectOwner[j] == remote.index) {

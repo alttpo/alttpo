@@ -4,6 +4,16 @@ const uint8 script_protocol = 0x08;
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
 
+bool locations_equal(uint32 a, uint32 b) {
+  // easiest check:
+  if (a == b) return true;
+  if ((a & 0x010000) == 0x010000 && (b & 0x010000) == 0x010000) {
+    if ((a & 0xFFFF) == (b & 0xFFFF)) return true;
+    return false;
+  }
+  return false;
+}
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -174,14 +184,30 @@ class GameState {
     return false;
   }
 
+  bool is_in_screen_transition() const {
+    // scrolling between overworld areas:
+    if (module == 0x09 && sub_module >= 0x01) return true;
+    // scrolling between dungeon rooms:
+    if (module == 0x07 && sub_module == 0x02) return true;
+    // mirroring in dungeon:
+    if (module == 0x07 && sub_module == 0x19) return true;
+    return false;
+  }
+
   bool can_see(uint32 other_location) const {
-    // easiest check:
-    if (actual_location == other_location) return true;
-    if ((actual_location & 0x010000) == 0x010000 && (other_location & 0x010000) == 0x010000) {
-      if ((actual_location & 0xFFFF) == (other_location & 0xFFFF)) return true;
-      return false;
+    // use location the player thinks it can see:
+    if (locations_equal(location, other_location)) return true;
+    // allow to see both old and new location during screen transition:
+    if (is_in_screen_transition()) {
+      if (locations_equal(actual_location, other_location)) return true;
+      return locations_equal(last_location, other_location);
     }
     return false;
+  }
+
+  bool is_really_in_same_location(uint32 other_location) const {
+    // use the location the game thinks is real:
+    return locations_equal(actual_location, other_location);
   }
 
   bool deserialize(array<uint8> r, int c) {
@@ -600,7 +626,6 @@ class GameState {
   int renderLabel(int dx, int dy, int ei) {
     auto @sprite = findPlayerBody();
     if (sprite is null) {
-      message("no player body sprite!");
       return ei;
     }
 
