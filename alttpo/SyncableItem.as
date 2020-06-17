@@ -170,6 +170,16 @@ uint16 mutateShield(uint16 oldValue, uint16 newValue) {
   return oldValue;
 }
 
+// NOTE: this is called for both gloves and armor separately so could JSL twice in succession for one frame.
+uint16 mutateArmorGloves(uint16 oldValue, uint16 newValue) {
+  if (newValue > oldValue) {
+    // JSL Palette_ChangeGloveColor
+    pb.jsl(rom.fn_armor_glove_palette);
+    return newValue;
+  }
+  return oldValue;
+}
+
 uint16 mutateBottleItem(uint16 oldValue, uint16 newValue) {
   // only sync gaining a new bottle: 0 = no bottle, 2 = empty bottle.
   if (oldValue == 0 && newValue != 0) return newValue;

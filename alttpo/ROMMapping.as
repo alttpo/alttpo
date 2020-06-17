@@ -35,10 +35,11 @@ abstract class ROMMapping {
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0; }
   uint32 get_fn_sprite_init() property                 { return 0; }
 
-  uint32 get_fn_decomp_sword_gfx() property   { return 0; }
-  uint32 get_fn_decomp_shield_gfx() property  { return 0; }
-  uint32 get_fn_sword_palette() property      { return 0; }
-  uint32 get_fn_shield_palette() property     { return 0; }
+  uint32 get_fn_decomp_sword_gfx() property    { return 0; }
+  uint32 get_fn_decomp_shield_gfx() property   { return 0; }
+  uint32 get_fn_sword_palette() property       { return 0; }
+  uint32 get_fn_shield_palette() property      { return 0; }
+  uint32 get_fn_armor_glove_palette() property { return 0; }
 
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
@@ -62,14 +63,14 @@ abstract class ROMMapping {
     SyncableItem(0x351, 1, 1),  // cane of byrna
     SyncableItem(0x352, 1, 1),  // magic cape
     SyncableItem(0x353, 1, 1),  // magic mirror
-    SyncableItem(0x354, 1, 1),  // gloves
+    SyncableItem(0x354, 1, @mutateArmorGloves),  // gloves
     SyncableItem(0x355, 1, 1),  // boots
     SyncableItem(0x356, 1, 1),  // flippers
     SyncableItem(0x357, 1, 1),  // moon pearl
     // 0x358 unused
     SyncableItem(0x359, 1, @mutateSword),   // sword
     SyncableItem(0x35A, 1, @mutateShield),  // shield
-    SyncableItem(0x35B, 1, 1),  // armor
+    SyncableItem(0x35B, 1, @mutateArmorGloves),   // armor
 
     // bottle contents 0x35C-0x35F
     SyncableItem(0x35C, 1, @mutateBottleItem),
@@ -127,10 +128,11 @@ class USROMMapping : ROMMapping {
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A6; }
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
 
-  uint32 get_fn_decomp_sword_gfx() property   { return 0x00D2C8; }
-  uint32 get_fn_decomp_shield_gfx() property  { return 0x00D308; }
-  uint32 get_fn_sword_palette() property      { return 0x1BED03; }
-  uint32 get_fn_shield_palette() property     { return 0x1BED29; }
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }
+  uint32 get_fn_sword_palette() property       { return 0x1BED03; }
+  uint32 get_fn_shield_palette() property      { return 0x1BED29; }
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
 };
 
 class EUROMMapping : ROMMapping {
@@ -154,10 +156,11 @@ class EUROMMapping : ROMMapping {
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO
   uint32 get_fn_sprite_init() property                 { return 0xFFFFFF; } // TODO
 
-  uint32 get_fn_decomp_sword_gfx() property   { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_decomp_shield_gfx() property  { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_sword_palette() property      { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_shield_palette() property     { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_sword_palette() property       { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_shield_palette() property      { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
 class JPROMMapping : ROMMapping {
@@ -181,10 +184,11 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A4; }
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
 
-  uint32 get_fn_decomp_sword_gfx() property   { return 0x00D308; }
-  uint32 get_fn_decomp_shield_gfx() property  { return 0x00D348; }
-  uint32 get_fn_sword_palette() property      { return 0x1BED03; }
-  uint32 get_fn_shield_palette() property     { return 0x1BED29; }
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D308; }
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D348; }
+  uint32 get_fn_sword_palette() property       { return 0x1BED03; }
+  uint32 get_fn_shield_palette() property      { return 0x1BED29; }
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
 };
 
 class RandomizerMapping : JPROMMapping {
