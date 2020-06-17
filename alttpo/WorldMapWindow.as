@@ -391,6 +391,8 @@ class WorldMapWindow {
     y = float((py / 16) + mapsprtop - top) * mapscale;
   }
 
+  array<float> dotX(0);
+  array<float> dotY(0);
   void renderPlayers() {
     const array<GameState@> @ps;
 
@@ -401,14 +403,19 @@ class WorldMapWindow {
     }
 
     // grow dots array and create new Canvas instances:
-    if (ps.length() > dots.length()) {
-      dots.resize(ps.length());
-      colors.resize(ps.length());
+    uint psLen = ps.length();
+    if (psLen > dots.length()) {
+      dots.resize(psLen);
+      colors.resize(psLen);
+      dotX.resize(psLen);
+      dotY.resize(psLen);
       for (uint i = 0; i < dots.length(); i++) {
         if (null != @dots[i]) continue;
 
         // create new dot:
         @dots[i] = makeDot();
+        dotX[i] = -127;
+        dotY[i] = -127;
         colors[i] = 0xffff;
       }
     }
@@ -433,7 +440,11 @@ class WorldMapWindow {
 
       // position the dot:
       mapCoord(p, x, y);
-      dot.setPosition(x, y);
+      if (x != dotX[i] || y != dotY[i]) {
+        dot.setPosition(x, y);
+        dotX[i] = x;
+        dotY[i] = y;
+      }
     }
   }
 };

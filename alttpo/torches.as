@@ -57,8 +57,9 @@ void update_torches() {
   }
 
   // find torches to light from remote players:
+  uint len = players.length();
   for (uint t = 0; t < 0x10; t++) {
-    for (uint i = 0; i < players.length(); i++) {
+    for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is local) continue;

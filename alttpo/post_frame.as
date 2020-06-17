@@ -2,11 +2,11 @@
 void post_frame() {
   //message("post_frame");
 
-  if (@oamWindow != null) {
+  if (!(oamWindow is null)) {
     oamWindow.update();
   }
 
-  if (@worldMapWindow != null) {
+  if (!(worldMapWindow is null)) {
     worldMapWindow.update(local);
     worldMapWindow.renderPlayers();
   }
@@ -52,7 +52,7 @@ void post_frame() {
     ));
   }
 
-  if (@sprites != null) {
+  if (!(sprites is null)) {
     for (int i = 0; i < 16; i++) {
       palette7[i] = ppu::cgram[(15 << 4) + i];
     }
@@ -60,7 +60,7 @@ void post_frame() {
     sprites.update();
   }
 
-  if (@gameSpriteWindow != null) {
+  if (!(gameSpriteWindow is null)) {
     gameSpriteWindow.update();
   }
 }

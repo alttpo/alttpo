@@ -851,6 +851,17 @@ class LocalGameState : GameState {
     }
   }
 
+  array<string> received_items(0);
+  array<string> received_quests(0);
+  void collectNotifications(const string &in name) {
+    if (name.length() == 0) return;
+
+    if (name.length() >= 2 && name.slice(0, 2) == "Q#") {
+      received_quests.insertLast(name.slice(2));
+      return;
+    }
+    received_items.insertLast(name);
+  }
 
   void update_items() {
     if (is_it_a_bad_time()) return;
@@ -858,14 +869,24 @@ class LocalGameState : GameState {
     if (is_frozen()) return;
 
     auto @syncables = rom.syncables;
+
+    // track names of items received:
+    received_items.reserve(syncables.length());
+    received_items.resize(0);
+    received_quests.reserve(16);
+    received_quests.resize(0);
+
+    uint len = players.length();
     for (uint k = 0; k < syncables.length(); k++) {
       auto @syncable = syncables[k];
+      // TODO: for some reason syncables.length() is one higher than it should be.
+      if (syncable is null) continue;
 
       // start the sync process for each syncable item in SRAM:
       syncable.start();
 
       // apply remote values from all other active players:
-      for (uint i = 0; i < players.length(); i++) {
+      for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
         if (remote is null) continue;
         if (remote is this) continue;
@@ -876,12 +897,26 @@ class LocalGameState : GameState {
       }
 
       // write back any new updates:
-      syncable.finish();
+      syncable.finish(@NotifyItemReceived(@this.collectNotifications));
+    }
+
+    // Generate notification messages:
+    if (received_items.length() > 0) {
+      for (uint i = 0; i < received_items.length(); i++) {
+        notify("Got " + received_items[i]);
+      }
+    }
+    if (received_quests.length() > 0) {
+      for (uint i = 0; i < received_quests.length(); i++) {
+        notify("Quest " + received_quests[i]);
+      }
     }
   }
 
   void update_overworld() {
     if (is_it_a_bad_time()) return;
+
+    uint len = players.length();
 
     // SRAM [$280..$2ff] overworld events:
     for (uint a = 0; a < 0x80; a++) {
@@ -891,7 +926,7 @@ class LocalGameState : GameState {
       // read current state from SRAM:
       area.start();
 
-      for (uint i = 0; i < players.length(); i++) {
+      for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
         if (remote is null) continue;
         if (remote is this) continue;
@@ -906,6 +941,8 @@ class LocalGameState : GameState {
   }
 
   void update_rooms() {
+    uint len = players.length();
+
     uint16 room_count = 0x128;  // 0x250 / 2
     for (uint a = 0; a < room_count; a++) {
       // $000 - $24F : Data for Rooms (two bytes per room)
@@ -928,7 +965,7 @@ class LocalGameState : GameState {
       // read current state from SRAM:
       area.start();
 
-      for (uint i = 0; i < players.length(); i++) {
+      for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
         if (remote is null) continue;
         if (remote is this) continue;
@@ -1036,8 +1073,10 @@ class LocalGameState : GameState {
     // read WRAM values to determine VRAM write bounds:
     tilemap.determine_vram_bounds();
 
+    uint len = players.length();
+
     // integrate tilemap changes from other players:
-    for (uint i = 0; i < players.length(); i++) {
+    for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is this) continue;
@@ -1056,7 +1095,9 @@ class LocalGameState : GameState {
   void update_ancillae() {
     if (is_dead()) return;
 
-    for (uint i = 0; i < players.length(); i++) {
+    uint len = players.length();
+
+    for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
@@ -1144,7 +1185,8 @@ class LocalGameState : GameState {
     }
 
     // sync in remote objects:
-    for (uint i = 0; i < players.length(); i++) {
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is local) continue;
@@ -1247,5 +1289,52 @@ class LocalGameState : GameState {
         }
       }
     }
+  }
+
+  // Notifications system:
+  array<string> notifications(0);
+  void notify(const string &in msg) {
+    notifications.insertLast(msg);
+    message(msg);
+  }
+
+  int notificationFrameTimer = 0;
+  int renderNotifications(int ei) {
+    if (notifications.length() == 0) return ei;
+
+    // pop off the first notification if its timer is expired:
+    if (notificationFrameTimer++ >= 80) {
+      notifications.removeAt(0);
+      notificationFrameTimer = 0;
+    }
+    if (notifications.length() == 0) return ei;
+
+    // only render first two notification messages:
+    int count = notifications.length();
+    if (count > 2) count = 2;
+
+    ppu::extra.font_name = "proggy-tinysz";
+    ppu::extra.color = ppu::rgb(26, 26, 26);
+    ppu::extra.outline_color = ppu::rgb(0, 0, 0);
+    auto height = ppu::extra.font_height + 1;
+
+    for (int i = 0; i < count; i++) {
+      auto msg = notifications[i];
+
+      auto row = count - i;
+      auto @label = ppu::extra[ei++];
+      label.reset();
+      label.index = 127;
+      label.source = 5;
+      label.priority = 3;
+      label.x = 2;
+      label.y = 222 - (height * row);
+      auto width = ppu::extra.measure_text(msg);
+      label.width = width + 2;
+      label.height = ppu::extra.font_height + 2;
+      label.text(1, 1, msg);
+    }
+
+    return ei;
   }
 };

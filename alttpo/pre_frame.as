@@ -74,7 +74,8 @@ void pre_frame() {
 
   // render remote players:
   int ei = 0;
-  for (uint i = 0; i < players.length(); i++) {
+  uint len = players.length();
+  for (uint i = 0; i < len; i++) {
     auto @remote = players[i];
     if (remote is null) continue;
     if (remote is local) continue;
@@ -117,6 +118,18 @@ void pre_frame() {
   }
 
   if (enableRenderToExtra) {
-    ppu::extra.count = ei;
+    // don't render notifications during spotlight open/close:
+    if (local.module >= 0x07 && local.module <= 0x18) {
+      if (local.module != 0x08 && local.module != 0x0a
+       && local.module != 0x0d && local.module != 0x0e
+       && local.module != 0x0f && local.module != 0x10) {
+        // TODO: checkbox to enable/disable
+        ei = local.renderNotifications(ei);
+      }
+    }
+
+    if (ei > 0) {
+      ppu::extra.count = ei;
+    }
   }
 }
