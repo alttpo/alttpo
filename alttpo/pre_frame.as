@@ -52,8 +52,6 @@ void on_main_loop(uint32 pc) {
   // synchronize torches:
   update_torches();
 
-  pb.mark();
-
   if (pb.offset > 0) {
     // end the patch buffer:
     pb.jsl(rom.fn_main_routing);  // JSL MainRouting

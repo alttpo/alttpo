@@ -35,6 +35,9 @@ abstract class ROMMapping {
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0; }
   uint32 get_fn_sprite_init() property                 { return 0; }
 
+  uint32 get_fn_decomp_sword_gfx() property   { return 0; }
+  uint32 get_fn_decomp_shield_gfx() property  { return 0; }
+
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
     SyncableItem(0x340, 1, 1),  // bow
@@ -121,6 +124,9 @@ class USROMMapping : ROMMapping {
   uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48D; }
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A6; }
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
+
+  uint32 get_fn_decomp_sword_gfx() property   { return 0x00D2C8; }
+  uint32 get_fn_decomp_shield_gfx() property  { return 0x00D308; }
 };
 
 class EUROMMapping : ROMMapping {
@@ -143,6 +149,9 @@ class EUROMMapping : ROMMapping {
   uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO
   uint32 get_fn_sprite_init() property                 { return 0xFFFFFF; } // TODO
+
+  uint32 get_fn_decomp_sword_gfx() property   { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_shield_gfx() property  { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
 class JPROMMapping : ROMMapping {
@@ -165,6 +174,9 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48B; }
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A4; }
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
+
+  uint32 get_fn_decomp_sword_gfx() property   { return 0x00D308; }
+  uint32 get_fn_decomp_shield_gfx() property  { return 0x00D348; }
 };
 
 class RandomizerMapping : JPROMMapping {
