@@ -195,6 +195,7 @@ class RandomizerMapping : JPROMMapping {
   RandomizerMapping() {
     for (int i = syncables.length() - 1; i >= 0; i--) {
       auto @syncable = syncables[i];
+      if (syncable is null) continue;
 
       // bow
       if (syncable.offs == 0x340) {
@@ -262,6 +263,11 @@ class RandomizerMapping : JPROMMapping {
       @SyncableItem(0x438, 1, 1),   // iiiimmmm - item locations checked i - IP m - MM
       @SyncableItem(0x439, 1, 1)    // ttttssss - item locations checked t - TR s - SP
     });
+
+    // sync !SHOP_PURCHASE_COUNTS for VT randomizer shops, e.g. bomb and arrow upgrades in happiness pond:
+    for (int i = 0x3C; i >= 0; i--) {
+      syncables.insertAt(0, @SyncableItem(0x302 + i, 1, 1));
+    }
   }
 };
 

@@ -883,8 +883,8 @@ class LocalGameState : GameState {
   void update_overworld() {
     if (is_it_a_bad_time()) return;
 
-    // SRAM [$280..$33f] overworld events:
-    for (uint a = 0; a < 0xC0; a++) {
+    // SRAM [$280..$2ff] overworld events:
+    for (uint a = 0; a < 0x80; a++) {
       // create temporary syncable item for each overworld area using bitwise OR operations (type=2) to accumulate latest state:
       SyncableItem area(0x280 + a, 1, 2);
 
