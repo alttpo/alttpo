@@ -162,7 +162,8 @@ class GameAncilla {
     if (t == 0x13) return true;
     // 0x14 - Unused; Don't use as it will crash the game.
     // 0x15 - Jump Splash; Splash from the player jumping into or out of deep water
-    if (t == 0x15) return true;
+    // NOTE: disabled; causes soft lock for fake flippering!
+    //if (t == 0x15) return true;
     // 0x16 - The Hammer's Stars / Stars from hitting hard ground with the shovel
     if (t == 0x16) return true;
     // 0x17 - Dirt from digging a hole with the shovel
