@@ -113,13 +113,29 @@ class SyncableHealthCapacity : SyncableItem {
   void finish(NotifyItemReceived @notifyItemReceived = null) override {
     if (newValue != oldValue) {
       if (!(notifyItemReceived is null)) {
+        auto oldHearts = uint8(oldValue) & ~uint8(7);
+        auto oldPieces = uint8(oldValue) & uint8(3);
         auto newHearts = uint8(newValue) & ~uint8(7);
         auto newPieces = uint8(newValue) & uint8(3);
-        string hc = fmtInt(newHearts >> 3);
-        if (newPieces == 1) hc += ".25";
-        else if (newPieces == 2) hc += ".5";
-        else if (newPieces == 3) hc += ".75";
-        hc += " heart containers";
+
+        auto diffHearts = (newHearts + (newPieces << 1)) - (oldHearts + (oldPieces << 1));
+        auto fullHearts = diffHearts >> 3;
+        auto pieces = (diffHearts & 7) >> 1;
+
+        string hc;
+        if (fullHearts == 1) {
+          hc = "1 new heart";
+        } else if (fullHearts > 1) {
+          hc = fmtInt(fullHearts) + " new hearts";
+        }
+        if (fullHearts >= 1 && pieces >= 1) hc += ", ";
+
+        if (pieces == 1) {
+          hc += "1 new heart piece";
+        } else if (pieces > 0) {
+          hc += fmtInt(pieces) + " new heart pieces";
+        }
+
         notifyItemReceived(hc);
       }
       write(newValue);
@@ -347,11 +363,12 @@ void nameForBottle     (uint16 _, uint16 new, NotifyItemReceived @notify) { noti
 
 void nameForMagic         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicNames, notify, new); }
 void nameForWorldState    (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(worldStateNames, notify, new); }
-void nameForTriforcePieces(uint16 _, uint16 new, NotifyItemReceived @notify) {
-  if (new == 1) {
-    notify("1 triforce piece");
+void nameForTriforcePieces(uint16 old, uint16 new, NotifyItemReceived @notify) {
+  auto diff = new - old;
+  if (diff == 1) {
+    notify("1 new triforce piece");
   } else {
-    notify(fmtInt(new) + " triforce pieces");
+    notify(fmtInt(diff) + " new triforce pieces");
   }
 }
 
@@ -441,8 +458,8 @@ const array<string> @progress1Names = { "Q#Uncle check completed",
                                         "Q#Priest's Wishes started",
                                         "Q#Zelda Rescue completed",
                                         "",
-                                        "Q#Uncle Left completed",
-                                        "Q#Book Obtained completed",
+                                        "",
+                                        "",
                                         "",
                                         "" };
 
