@@ -35,22 +35,24 @@ void on_main_loop(uint32 pc) {
     receive();
   }
 
-  local.update_tilemap();
+  if (!settings.RaceMode) {
+    local.update_tilemap();
 
-  local.update_ancillae();
+    local.update_ancillae();
 
-  local.update_items();
+    local.update_items();
 
-  local.update_overworld();
+    local.update_overworld();
 
-  local.update_rooms();
+    local.update_rooms();
 
-  if (enableObjectSync) {
-    local.update_objects();
+    if (enableObjectSync) {
+      local.update_objects();
+    }
+
+    // synchronize torches:
+    update_torches();
   }
-
-  // synchronize torches:
-  update_torches();
 
   if (pb.offset > 0) {
     // end the patch buffer:

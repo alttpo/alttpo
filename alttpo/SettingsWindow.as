@@ -13,6 +13,7 @@ class SettingsWindow {
   private GUI::SNESCanvas @colorCanvas;
   private GUI::CheckLabel @chkShowLabels;
   private GUI::CheckLabel @chkShowMyLabel;
+  private GUI::CheckLabel @chkRaceMode;
   private GUI::ComboButton @ddlFont;
   private GUI::Button @ok;
 
@@ -70,6 +71,11 @@ class SettingsWindow {
     get { return fontName; }
   }
 
+  private bool raceMode;
+  bool RaceMode {
+    get { return raceMode; }
+  }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -97,6 +103,7 @@ class SettingsWindow {
   private void setFeaturesGUI() {
     chkShowLabels.checked = showLabels;
     chkShowMyLabel.checked = showMyLabel;
+    chkRaceMode.checked = raceMode;
 
     // set selected font option:
     for (uint i = 0; i < ddlFont.count(); i++) {
@@ -129,6 +136,7 @@ class SettingsWindow {
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
     fontName = doc["feature/fontName"].textOr("proggy-tinysz");
+    raceMode = doc["feature/raceMode"].booleanOr(false);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -152,6 +160,7 @@ class SettingsWindow {
     syncTunic = chkTunic.checked;
     showLabels = chkShowLabels.checked;
     showMyLabel = chkShowMyLabel.checked;
+    raceMode = chkRaceMode.checked;
 
     auto @doc = BML::Node();
     doc.create("server/address").value = ServerAddress;
@@ -164,13 +173,14 @@ class SettingsWindow {
     doc.create("feature/showLabels").value = fmtBool(showLabels);
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontName").value = fontName;
+    doc.create("feature/raceMode").value = fmtBool(raceMode);
     UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
     @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(280, 12*25);
+    window.size = GUI::Size(280, 13*25);
     window.dismissable = false;
 
     auto vl = GUI::VerticalLayout();
@@ -350,6 +360,17 @@ class SettingsWindow {
 
       {
         auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        @chkRaceMode = GUI::CheckLabel();
+        chkRaceMode.text = "Race Mode";
+        chkRaceMode.checked = false;
+        chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
+        hz.append(chkRaceMode, GUI::Size(-1, 0));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
 
         @ok = GUI::Button();
@@ -365,6 +386,18 @@ class SettingsWindow {
 
     // set effects of color sliders but don't persist to disk:
     colorWasChanged(false);
+  }
+
+  // callback:
+  private void chkRaceModeChanged() {
+    raceModeWasChanged();
+  }
+
+  private void raceModeWasChanged(bool persist = true) {
+    raceMode = chkRaceMode.checked;
+
+    if (!persist) return;
+    save();
   }
 
   // callback:

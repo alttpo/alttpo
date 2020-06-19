@@ -804,8 +804,10 @@ class LocalGameState : GameState {
       serialize_name(envelope);
       serialize_sfx(envelope);
 
-      serialize_ancillae(envelope);
-      serialize_objects(envelope);
+      if (!settings.RaceMode) {
+        serialize_ancillae(envelope);
+        serialize_objects(envelope);
+      }
 
       p = send_packet(envelope, p);
     }
@@ -822,32 +824,34 @@ class LocalGameState : GameState {
       p = send_packet(envelope, p);
     }
 
-    // send packet every other frame:
-    if ((frame & 1) == 0) {
-      array<uint8> envelope = create_envelope(0x01);
+    if (!settings.RaceMode) {
+      // send packet every other frame:
+      if ((frame & 1) == 0) {
+        array<uint8> envelope = create_envelope(0x01);
 
-      serialize_torches(envelope);
-      serialize_tilemaps(envelope);
+        serialize_torches(envelope);
+        serialize_tilemaps(envelope);
 
-      p = send_packet(envelope, p);
-    }
-
-    // send SRAM updates once every 16 frames:
-    if ((frame & 15) == 0) {
-      array<uint8> envelope = create_envelope(0x01);
-
-      serialize_sram(envelope, 0x340, 0x390); // items earned
-      serialize_sram(envelope, 0x3C5, 0x439); // progress made
-
-      // and include dungeon and overworld sync alternating:
-      if ((frame & 31) == 0) {
-        serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
-      }
-      if ((frame & 31) == 16) {
-        serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
+        p = send_packet(envelope, p);
       }
 
-      p = send_packet(envelope, p);
+      // send SRAM updates once every 16 frames:
+      if ((frame & 15) == 0) {
+        array<uint8> envelope = create_envelope(0x01);
+
+        serialize_sram(envelope, 0x340, 0x390); // items earned
+        serialize_sram(envelope, 0x3C5, 0x439); // progress made
+
+        // and include dungeon and overworld sync alternating:
+        if ((frame & 31) == 0) {
+          serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
+        }
+        if ((frame & 31) == 16) {
+          serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
+        }
+
+        p = send_packet(envelope, p);
+      }
     }
   }
 
