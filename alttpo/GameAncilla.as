@@ -204,7 +204,7 @@ class GameAncilla {
     // 0x28 - item sprite that you throw into magic faerie ponds.
     if (t == 0x28) return true;
     // 0x29 - Pendants and crystals
-    if (t == 0x29) return true;
+    //if (t == 0x29) return true;
     // 0x2A - Start of spin attack sparkle
     // 0x2B - During Spin attack sparkles
     // 0x2C - Cane of Somaria blocks
