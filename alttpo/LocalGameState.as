@@ -1,5 +1,8 @@
 
 class LocalGameState : GameState {
+  array<SyncableItem@> areas(0x80);
+  array<SyncableItem@> rooms(0x128);
+
   LocalGameState() {
     ancillaeOwner.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
@@ -9,6 +12,22 @@ class LocalGameState : GameState {
     ancillae.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
       @ancillae[i] = @GameAncilla();
+    }
+
+    // SRAM [$000..$24f] underworld rooms:
+    // create syncable item for each underworld room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
+    rooms.resize(0x128);
+    for (uint a = 0; a < 0x128; a++) {
+      @rooms[a] = @SyncableItem(a << 1, 2, 2);
+    }
+
+    // SRAM [$250..$27f] unused
+
+    // SRAM [$280..$2ff] overworld areas:
+    // create syncable item for each overworld area (byte; size=1) using bitwise OR operations (type=2) to accumulate latest state:
+    areas.resize(0x80);
+    for (uint a = 0; a < 0x80; a++) {
+      @areas[a] = @SyncableItem(0x280 + a, 1, 2);
     }
   }
 
@@ -923,10 +942,8 @@ class LocalGameState : GameState {
 
     uint len = players.length();
 
-    // SRAM [$280..$2ff] overworld events:
     for (uint a = 0; a < 0x80; a++) {
-      // create temporary syncable item for each overworld area using bitwise OR operations (type=2) to accumulate latest state:
-      SyncableItem area(0x280 + a, 1, 2);
+      auto @area = areas[a];
 
       // read current state from SRAM:
       area.start();
@@ -948,8 +965,7 @@ class LocalGameState : GameState {
   void update_rooms() {
     uint len = players.length();
 
-    uint16 room_count = 0x128;  // 0x250 / 2
-    for (uint a = 0; a < room_count; a++) {
+    for (uint a = 0; a < 0x128; a++) {
       // $000 - $24F : Data for Rooms (two bytes per room)
       //
       // High Byte               Low Byte
@@ -964,11 +980,10 @@ class LocalGameState : GameState {
       //
       // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
 
-      // create temporary syncable item for each room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
-      SyncableItem area(a << 1, 2, 2);
+      auto @room = rooms[a];
 
       // read current state from SRAM:
-      area.start();
+      room.start();
 
       for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
@@ -976,11 +991,11 @@ class LocalGameState : GameState {
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
 
-        area.apply(remote);
+        room.apply(remote);
       }
 
       // write new state to SRAM:
-      area.finish();
+      room.finish();
     }
   }
 
