@@ -1317,10 +1317,10 @@ class LocalGameState : GameState {
     int count = notifications.length();
     if (count > 2) count = 2;
 
-    ppu::extra.font_name = "proggy-tinysz";
+    @ppu::extra.font = ppu::fonts[0];
     ppu::extra.color = ppu::rgb(26, 26, 26);
     ppu::extra.outline_color = ppu::rgb(0, 0, 0);
-    auto height = ppu::extra.font_height + 1;
+    auto height = ppu::extra.font.height + 1;
 
     for (int i = 0; i < count; i++) {
       auto msg = notifications[i];
@@ -1333,9 +1333,9 @@ class LocalGameState : GameState {
       label.priority = 3;
       label.x = 2;
       label.y = 222 - (height * row);
-      auto width = ppu::extra.measure_text(msg);
+      auto width = ppu::extra.font.measureText(msg);
       label.width = width + 2;
-      label.height = ppu::extra.font_height + 2;
+      label.height = ppu::extra.font.height + 2;
       label.text(1, 1, msg);
     }
 

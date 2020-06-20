@@ -68,7 +68,7 @@ void pre_frame() {
   if (enableRenderToExtra) {
     ppu::extra.count = 0;
     ppu::extra.text_outline = true;
-    ppu::extra.font_name = settings.FontName;
+    @ppu::extra.font = settings.Font;
   }
 
   // don't render players or labels in pre-game modules:

@@ -66,9 +66,17 @@ class SettingsWindow {
   private bool showMyLabel;
   bool ShowMyLabel { get { return showMyLabel; } }
 
-  private string fontName;
-  string FontName {
-    get { return fontName; }
+  private ppu::Font@ font;
+  ppu::Font@ Font {
+    get { return font; }
+  }
+  private uint fontIndex;
+  uint FontIndex {
+    get { return fontIndex; }
+    set {
+      fontIndex = value;
+      @font = ppu::fonts[value];
+    }
   }
 
   private bool raceMode;
@@ -106,13 +114,7 @@ class SettingsWindow {
     chkRaceMode.checked = raceMode;
 
     // set selected font option:
-    for (uint i = 0; i < ddlFont.count(); i++) {
-      auto @di = ddlFont[i];
-      if (di.attributes["font"] == fontName) {
-        di.setSelected();
-        break;
-      }
-    }
+    ddlFont[fontIndex].setSelected();
   }
 
   private uint16 parse_player_color(string &in text) {
@@ -135,7 +137,7 @@ class SettingsWindow {
 
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
-    fontName = doc["feature/fontName"].textOr("proggy-tinysz");
+    FontIndex = doc["feature/fontIndex"].naturalOr(0);
     raceMode = doc["feature/raceMode"].booleanOr(false);
 
     // set GUI controls from values:
@@ -172,7 +174,7 @@ class SettingsWindow {
     doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
     doc.create("feature/showLabels").value = fmtBool(showLabels);
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
-    doc.create("feature/fontName").value = fontName;
+    doc.create("feature/fontIndex").value = fmtInt(fontIndex);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
     UserSettings::save("alttpo.bml", doc);
   }
@@ -333,26 +335,14 @@ class SettingsWindow {
         @ddlFont = GUI::ComboButton();
         hz.append(ddlFont, GUI::Size(0, 0));
 
-        auto @di = GUI::ComboButtonItem();
-        di.text = "Kakwa (6x12)";
-        di.attributes["font"] = "kakwa";
-        di.setSelected();
-        ddlFont.append(di);
-
-        @di = GUI::ComboButtonItem();
-        di.text = "Proggy (7x10)";
-        di.attributes["font"] = "proggy-tinysz";
-        ddlFont.append(di);
-
-        @di = GUI::ComboButtonItem();
-        di.text = "VGA (8x8)";
-        di.attributes["font"] = "vga8";
-        ddlFont.append(di);
-
-        @di = GUI::ComboButtonItem();
-        di.text = "VGA (8x16)";
-        di.attributes["font"] = "vga16";
-        ddlFont.append(di);
+        uint len = ppu::fonts_count;
+        for (uint i = 0; i < len; i++) {
+          auto @di = GUI::ComboButtonItem();
+          auto @f = ppu::fonts[i];
+          di.text = f.displayName;
+          ddlFont.append(di);
+        }
+        ddlFont[0].setSelected();
 
         ddlFont.onChange(@GUI::Callback(this.ddlFontChanged));
         ddlFont.enabled = true;
@@ -402,7 +392,7 @@ class SettingsWindow {
 
   // callback:
   private void ddlFontChanged() {
-    fontName = ddlFont.selected.attributes["font"];
+    FontIndex = ddlFont.selected.offset;
 
     fontWasChanged();
   }
