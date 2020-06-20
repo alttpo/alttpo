@@ -231,8 +231,9 @@ class TilemapChanges {
     }
 
     // serialize runs to message:
-    r.write_u8(runs.length());
-    for (uint i = 0; i < runs.length(); i++) {
+    uint len = runs.length();
+    r.write_u8(len);
+    for (uint i = 0; i < len; i++) {
       auto @run = runs[i];
       //if ((rate_limit & 0x7f) == 0) {
       //  message( (run.vertical ? "vert" : "horz") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,4));

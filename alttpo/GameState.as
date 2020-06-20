@@ -461,7 +461,8 @@ class GameState {
     reloc[0x7c] = 0x7c;
     reloc[0x7d] = 0x7d;
 
-    for (uint i = 0; i < sprites.length(); i++) {
+    uint len = sprites.length();
+    for (uint i = 0; i < len; i++) {
       auto sprite = sprites[i];
       auto px = sprite.size == 0 ? 8 : 16;
 
@@ -567,7 +568,8 @@ class GameState {
   }
 
   int renderToExtra(int dx, int dy, int ei) {
-    for (uint i = 0; i < sprites.length(); i++) {
+    uint len = sprites.length();
+    for (uint i = 0; i < len; i++) {
       auto sprite = sprites[i];
       auto px = sprite.size == 0 ? 8 : 16;
 
@@ -608,7 +610,8 @@ class GameState {
   }
 
   Sprite@ findPlayerBody() {
-    for (uint i = 0; i < sprites.length(); i++) {
+    uint len = sprites.length();
+    for (uint i = 0; i < len; i++) {
       auto @sprite = sprites[i];
       auto px = sprite.size == 0 ? 8 : 16;
 

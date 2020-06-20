@@ -37,12 +37,15 @@ class GameAncilla {
     }
 
     // copy ancilla facts from:
+    uint len;
     if (index < 5) {
       facts.resize(ancillaeFactsCount1);
+      len = ancillaeFactsCount1;
     } else {
       facts.resize(ancillaeFactsCount2);
+      len = ancillaeFactsCount2;
     }
-    for (uint i = 0; i < facts.length(); i++) {
+    for (uint i = 0; i < len; i++) {
       facts[i] = r[c++];
     }
 

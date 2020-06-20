@@ -404,12 +404,13 @@ class WorldMapWindow {
 
     // grow dots array and create new Canvas instances:
     uint psLen = ps.length();
-    if (psLen > dots.length()) {
+    uint dotsLen = dots.length();
+    if (psLen > dotsLen) {
       dots.resize(psLen);
       colors.resize(psLen);
       dotX.resize(psLen);
       dotY.resize(psLen);
-      for (uint i = 0; i < dots.length(); i++) {
+      for (uint i = 0; i < psLen; i++) {
         if (null != @dots[i]) continue;
 
         // create new dot:
@@ -422,7 +423,7 @@ class WorldMapWindow {
 
     // Map world-pixel coordinates to world-map coordinates:
     float x, y;
-    for (uint i = 0; i < ps.length(); i++) {
+    for (uint i = 0; i < psLen; i++) {
       auto @p = ps[i];
       auto @dot = dots[i];
 

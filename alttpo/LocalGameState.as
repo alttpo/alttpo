@@ -586,10 +586,11 @@ class LocalGameState : GameState {
   void serialize_sprites(array<uint8> &r) {
     r.write_u8(uint8(0x03));
 
-    r.write_u8(uint8(sprites.length()));
+    uint len = sprites.length();
+    r.write_u8(uint8(len));
 
     //message("serialize: numsprites = " + fmtInt(sprites.length()));
-    for (uint i = 0; i < sprites.length(); i++) {
+    for (uint i = 0; i < len; i++) {
       sprites[i].serialize(r);
     }
   }
@@ -599,7 +600,8 @@ class LocalGameState : GameState {
     array<bool> used(8);
 
     // determine which palettes are used:
-    for (uint i = 0; i < sprites.length(); i++) {
+    uint len = sprites.length();
+    for (uint i = 0; i < len; i++) {
       uint p = sprites[i].palette;
       if (!used[p]) {
         count++;
@@ -786,19 +788,20 @@ class LocalGameState : GameState {
   array<uint16> maxSize(5);
 
   uint send_packet(array<uint8> &in envelope, uint p) {
-    if (envelope.length() > 1452) {
-      message("packet too big to send! " + fmtInt(envelope.length()));
+    uint len = envelope.length();
+    if (len > 1452) {
+      message("packet too big to send! " + fmtInt(len));
       return p;
     }
 
     // send packet to server:
     //message("sent " + fmtInt(envelope.length()) + " bytes");
-    sock.send(0, envelope.length(), envelope);
+    sock.send(0, len, envelope);
 
     // stats on max packet size per 128 frames:
     if (debugNet) {
-      if (envelope.length() > maxSize[p]) {
-        maxSize[p] = envelope.length();
+      if (len > maxSize[p]) {
+        maxSize[p] = len;
       }
       if ((frame & 0x7F) == 0) {
         message("["+fmtInt(p)+"] = " + fmtInt(maxSize[p]));
@@ -905,7 +908,8 @@ class LocalGameState : GameState {
     received_quests.resize(0);
 
     uint len = players.length();
-    for (uint k = 0; k < syncables.length(); k++) {
+    uint slen = syncables.length();
+    for (uint k = 0; k < slen; k++) {
       auto @syncable = syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
@@ -1132,8 +1136,9 @@ class LocalGameState : GameState {
         continue;
       }
 
-      if (remote.ancillae.length() > 0) {
-        for (uint j = 0; j < remote.ancillae.length(); j++) {
+      uint alen = remote.ancillae.length();
+      if (alen > 0) {
+        for (uint j = 0; j < alen; j++) {
           auto @an = remote.ancillae[j];
           auto k = an.index;
 
