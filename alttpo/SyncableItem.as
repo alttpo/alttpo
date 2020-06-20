@@ -314,7 +314,7 @@ const array<string> @icerodNames      = {"Ice Rod"};
 const array<string> @bombosNames      = {"Bombos Medallion"};
 const array<string> @etherNames       = {"Ether Medallion"};
 const array<string> @quakeNames       = {"Quake Medallion"};
-const array<string> @torchNames       = {"Torch"};
+const array<string> @lampNames        = {"Lamp"};
 const array<string> @hammerNames      = {"Hammer"};
 const array<string> @fluteNames       = {"Shovel", "Flute", "Flute (activated)"};
 const array<string> @bugnetNames      = {"Bug Catching Net"};
@@ -343,7 +343,7 @@ void nameForIcerod     (uint16 _, uint16 new, NotifyItemReceived @notify) { noti
 void nameForBombos     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bombosNames, notify, new); }
 void nameForEther      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(etherNames, notify, new); }
 void nameForQuake      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(quakeNames, notify, new); }
-void nameForTorch      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(torchNames, notify, new); }
+void nameForLamp       (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(lampNames, notify, new); }
 void nameForHammer     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hammerNames, notify, new); }
 void nameForFlute      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(fluteNames, notify, new); }
 void nameForBugnet     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bugnetNames, notify, new); }

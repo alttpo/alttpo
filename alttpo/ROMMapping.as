@@ -53,7 +53,7 @@ abstract class ROMMapping {
     SyncableItem(0x347, 1, 1, @nameForBombos),      // bombos
     SyncableItem(0x348, 1, 1, @nameForEther),       // ether
     SyncableItem(0x349, 1, 1, @nameForQuake),       // quake
-    SyncableItem(0x34A, 1, 1, @nameForTorch),       // torch/lantern
+    SyncableItem(0x34A, 1, 1, @nameForLamp),        // lamp/lantern
     SyncableItem(0x34B, 1, 1, @nameForHammer),      // hammer
     SyncableItem(0x34C, 1, 1, @nameForFlute),       // flute
     SyncableItem(0x34D, 1, 1, @nameForBugnet),      // bug net
