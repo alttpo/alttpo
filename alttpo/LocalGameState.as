@@ -251,6 +251,7 @@ class LocalGameState : GameState {
   }
 
   void fetch_objects() {
+    if (!enableObjectSync) return;
     if (is_dead()) return;
 
     // $7E0D00 - $7E0FA0
@@ -314,17 +315,17 @@ class LocalGameState : GameState {
       spr.fetchOAM(i);
       // prev 2 sprites:
       if (i >= 1) {
-        sprp1.decodeOAMTable(i - 1);
+        sprp1.fetchOAM(i - 1);
       }
       if (i >= 2) {
-        sprp2.decodeOAMTable(i - 2);
+        sprp2.fetchOAM(i - 2);
       }
       // next 2 sprites:
       if (i <= 0x7E) {
-        sprn1.decodeOAMTable(i + 1);
+        sprn1.fetchOAM(i + 1);
       }
       if (i <= 0x7D) {
-        sprn2.decodeOAMTable(i + 2);
+        sprn2.fetchOAM(i + 2);
       }
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
@@ -1317,7 +1318,10 @@ class LocalGameState : GameState {
     int count = notifications.length();
     if (count > 2) count = 2;
 
-    @ppu::extra.font = ppu::fonts[0];
+    if (font_set) {
+      @ppu::extra.font = ppu::fonts[0];
+      font_set = false;
+    }
     ppu::extra.color = ppu::rgb(26, 26, 26);
     ppu::extra.outline_color = ppu::rgb(0, 0, 0);
     auto height = ppu::extra.font.height + 1;

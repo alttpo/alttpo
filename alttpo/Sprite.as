@@ -35,19 +35,21 @@ class Sprite {
 
   // fetches all the OAM sprite data for OAM sprite at `index`
   void fetchOAM(uint8 i) {
-    auto tile = ppu::oam[i];
+    auto @tile = ppu::oam[i];
 
     index = i;
 
-    b0 = tile.x & 0xff;
+    auto x = tile.x;
+    auto chr = tile.character;
+    b0 = x & 0xff;
     b1 = tile.y;
-    b2 = tile.character & 0xff;
-    b3 = ((tile.character >> 8) & 1) |
+    b2 = chr & 0xff;
+    b3 = ((chr >> 8) & 1) |
           (tile.palette << 1) |
           (tile.priority << 4) |
           (tile.hflip ? 1<<6 : 0) |
           (tile.vflip ? 1<<7 : 0);
-    b4 = ((tile.x >> 8) & 1) |
+    b4 = ((x >> 8) & 1) |
           (tile.size << 1);
   }
 
@@ -70,6 +72,18 @@ class Sprite {
     b2 = bus::read_u8(0x7E0802 + (i << 2));
     b3 = bus::read_u8(0x7E0803 + (i << 2));
     b4 = bus::read_u8(0x7E0A00 + (i >> 2));
+    b4 = (b4 >> ((i&3)<<1)) & 3;
+    decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
+  }
+
+  // assumes tbl is 0x220 bytes, read from 0x7E0800
+  void decodeOAMArray(const array<uint8> &in tbl, uint16 i) {
+    uint8 b0, b1, b2, b3, b4;
+    b0 = tbl[0x000 + (i << 2)];
+    b1 = tbl[0x001 + (i << 2)];
+    b2 = tbl[0x002 + (i << 2)];
+    b3 = tbl[0x003 + (i << 2)];
+    b4 = tbl[0x200 + (i >> 2)];
     b4 = (b4 >> ((i&3)<<1)) & 3;
     decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
   }
