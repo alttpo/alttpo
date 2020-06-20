@@ -35,19 +35,21 @@ class Sprite {
 
   // fetches all the OAM sprite data for OAM sprite at `index`
   void fetchOAM(uint8 i) {
-    auto tile = ppu::oam[i];
+    auto @tile = ppu::oam[i];
 
     index = i;
 
-    b0 = tile.x & 0xff;
+    auto x = tile.x;
+    auto chr = tile.character;
+    b0 = x & 0xff;
     b1 = tile.y;
-    b2 = tile.character & 0xff;
-    b3 = ((tile.character >> 8) & 1) |
+    b2 = chr & 0xff;
+    b3 = ((chr >> 8) & 1) |
           (tile.palette << 1) |
           (tile.priority << 4) |
           (tile.hflip ? 1<<6 : 0) |
           (tile.vflip ? 1<<7 : 0);
-    b4 = ((tile.x >> 8) & 1) |
+    b4 = ((x >> 8) & 1) |
           (tile.size << 1);
   }
 
