@@ -29,8 +29,8 @@ class SyncableItem {
 
   uint16 oldValue;
   uint16 newValue;
-  void start() {
-    oldValue = readRAM();
+  void start(const array<uint8> &in sram) {
+    oldValue = read(sram);
     newValue = oldValue;
   }
 
@@ -66,14 +66,6 @@ class SyncableItem {
       return newValue;
     }
     return oldValue;
-  }
-
-  uint16 readRAM() {
-    if (size == 1) {
-      return bus::read_u8(0x7EF000 + offs);
-    } else {
-      return bus::read_u16(0x7EF000 + offs);
-    }
   }
 
   uint16 read(const array<uint8> &in sram) {
@@ -140,10 +132,6 @@ class SyncableHealthCapacity : SyncableItem {
       }
       write(newValue);
     }
-  }
-
-  uint16 readRAM() override {
-    return (bus::read_u8(0x7EF36C) & ~7) | (bus::read_u8(0x7EF36B) & 3);
   }
 
   uint16 read(const array<uint8> &in sram) override {

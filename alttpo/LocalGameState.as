@@ -2,8 +2,11 @@
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
+  NotifyItemReceived@ itemReceivedDelegate;
 
   LocalGameState() {
+    @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
+
     ancillaeOwner.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
       ancillaeOwner[i] = -1;
@@ -329,9 +332,13 @@ class LocalGameState : GameState {
       if ((i >= link_oam_start) && (i < link_oam_start + 0x0C)) continue;
 
       // fetch ALTTP's copy of the OAM sprite data from WRAM:
-      Sprite spr, sprp1, sprp2, sprn1, sprn2;
-      // current sprite:
+      Sprite spr;
       spr.fetchOAM(i);
+
+      // skip OAM sprite if not enabled (X, Y coords are out of display range):
+      if (!spr.is_enabled) continue;
+
+      Sprite sprp1, sprp2, sprn1, sprn2;
       // prev 2 sprites:
       if (i >= 1) {
         sprp1.fetchOAM(i - 1);
@@ -346,9 +353,6 @@ class LocalGameState : GameState {
       if (i <= 0x7D) {
         sprn2.fetchOAM(i + 2);
       }
-
-      // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (!spr.is_enabled) continue;
 
       auto chr = spr.chr;
       if (chr >= 0x100) continue;
@@ -907,7 +911,7 @@ class LocalGameState : GameState {
       if (syncable is null) continue;
 
       // start the sync process for each syncable item in SRAM:
-      syncable.start();
+      syncable.start(sram);
 
       // apply remote values from all other active players:
       for (uint i = 0; i < len; i++) {
@@ -921,7 +925,7 @@ class LocalGameState : GameState {
       }
 
       // write back any new updates:
-      syncable.finish(@NotifyItemReceived(@this.collectNotifications));
+      syncable.finish(itemReceivedDelegate);
     }
 
     // Generate notification messages:
@@ -946,7 +950,7 @@ class LocalGameState : GameState {
       auto @area = areas[a];
 
       // read current state from SRAM:
-      area.start();
+      area.start(sram);
 
       for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
@@ -983,7 +987,7 @@ class LocalGameState : GameState {
       auto @room = rooms[a];
 
       // read current state from SRAM:
-      room.start();
+      room.start(sram);
 
       for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
