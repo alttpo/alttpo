@@ -315,17 +315,17 @@ class LocalGameState : GameState {
       spr.fetchOAM(i);
       // prev 2 sprites:
       if (i >= 1) {
-        sprp1.decodeOAMTable(i - 1);
+        sprp1.fetchOAM(i - 1);
       }
       if (i >= 2) {
-        sprp2.decodeOAMTable(i - 2);
+        sprp2.fetchOAM(i - 2);
       }
       // next 2 sprites:
       if (i <= 0x7E) {
-        sprn1.decodeOAMTable(i + 1);
+        sprn1.fetchOAM(i + 1);
       }
       if (i <= 0x7D) {
-        sprn2.decodeOAMTable(i + 2);
+        sprn2.fetchOAM(i + 2);
       }
 
       // skip OAM sprite if not enabled (X, Y coords are out of display range):
