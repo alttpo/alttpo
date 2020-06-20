@@ -68,7 +68,10 @@ void pre_frame() {
   if (enableRenderToExtra) {
     ppu::extra.count = 0;
     ppu::extra.text_outline = true;
-    @ppu::extra.font = settings.Font;
+    if (!font_set) {
+      @ppu::extra.font = settings.Font;
+      font_set = true;
+    }
   }
 
   // don't render players or labels in pre-game modules:
@@ -112,14 +115,14 @@ void pre_frame() {
     }
   }
 
-  if (settings.ShowMyLabel) {
-    // don't render on in-game map:
-    if (!( local.module == 0x0e && local.sub_module == 0x07 )) {
-      ei = local.renderLabel(0, 0, ei);
-    }
-  }
-
   if (enableRenderToExtra) {
+    if (settings.ShowMyLabel) {
+      // don't render on in-game map:
+      if (!( local.module == 0x0e && local.sub_module == 0x07 )) {
+        ei = local.renderLabel(0, 0, ei);
+      }
+    }
+
     // don't render notifications during spotlight open/close:
     if (local.module >= 0x07 && local.module <= 0x18) {
       if (local.module != 0x08 && local.module != 0x0a

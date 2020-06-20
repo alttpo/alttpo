@@ -251,6 +251,7 @@ class LocalGameState : GameState {
   }
 
   void fetch_objects() {
+    if (!enableObjectSync) return;
     if (is_dead()) return;
 
     // $7E0D00 - $7E0FA0
@@ -1317,7 +1318,10 @@ class LocalGameState : GameState {
     int count = notifications.length();
     if (count > 2) count = 2;
 
-    @ppu::extra.font = ppu::fonts[0];
+    if (font_set) {
+      @ppu::extra.font = ppu::fonts[0];
+      font_set = false;
+    }
     ppu::extra.color = ppu::rgb(26, 26, 26);
     ppu::extra.outline_color = ppu::rgb(0, 0, 0);
     auto height = ppu::extra.font.height + 1;
