@@ -132,8 +132,8 @@ class SettingsWindow {
     name = doc["player/name"].textOr(Name);
     player_color = parse_player_color(doc["player/color"].textOr("0x" + fmtHex(player_color, 4)));
     syncTunic = doc["player/syncTunic"].booleanOr(true);
-    syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x400);
-    syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x200);
+    syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x1400);
+    syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x0A00);
 
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
@@ -170,8 +170,8 @@ class SettingsWindow {
     doc.create("player/name").value = Name;
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
     doc.create("player/syncTunic").value = fmtBool(syncTunic);
-    doc.create("player/syncTunic/lightColors").value = "0x" + fmtHex(syncTunicLightColors, 4);
-    doc.create("player/syncTunic/darkColors").value = "0x" + fmtHex(syncTunicDarkColors, 4);
+    doc.create("player/syncTunic/lightColors").value = "0b" + fmtBinary(syncTunicLightColors, 16);
+    doc.create("player/syncTunic/darkColors").value = "0b" + fmtBinary(syncTunicDarkColors, 16);
     doc.create("feature/showLabels").value = fmtBool(showLabels);
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
