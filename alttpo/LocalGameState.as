@@ -2,6 +2,8 @@
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
+  array<Sprite@> sprs(0x80);
+
   NotifyItemReceived@ itemReceivedDelegate;
 
   LocalGameState() {
@@ -31,6 +33,10 @@ class LocalGameState : GameState {
     areas.resize(0x80);
     for (uint a = 0; a < 0x80; a++) {
       @areas[a] = @SyncableItem(0x280 + a, 1, 2);
+    }
+
+    for (uint i = 0; i < 0x80; i++) {
+      @sprs[i] = Sprite();
     }
   }
 
@@ -305,22 +311,24 @@ class LocalGameState : GameState {
     // read in relevant sprites from OAM and VRAM:
     sprites.reserve(128);
 
+    // capture all OAM sprites from VRAM:
+    for (int i = 0x00; i <= 0x7f; i++) {
+      sprs[i].fetchOAM(i);
+    }
+
     // start from reserved region for Link (either at 0x64 or ):
     for (int j = 0; j < 0x0C; j++) {
       auto i = (link_oam_start + j) & 0x7F;
 
-      // fetch ALTTP's copy of the OAM sprite data from WRAM:
-      Sprite sprite;
-      sprite.fetchOAM(i);
+      auto @spr = sprs[i];
+      // skip OAM sprite if not enabled:
+      if (!spr.is_enabled) continue;
 
-      // skip OAM sprite if not enabled (X, Y coords are out of display range):
-      if (!sprite.is_enabled) continue;
-
-      //message("[" + fmtInt(sprite.index) + "] " + fmtInt(sprite.x) + "," + fmtInt(sprite.y) + "=" + fmtInt(sprite.chr));
+      //message("[" + fmtInt(spr.index) + "] " + fmtInt(spr.x) + "," + fmtInt(spr.y) + "=" + fmtInt(spr.chr));
 
       // append the sprite to our array:
       sprites.resize(++numsprites);
-      @sprites[numsprites-1] = sprite;
+      @sprites[numsprites-1] = spr;
     }
 
     // don't sync OAM beyond link's body during or after GAME OVER animation after death:
@@ -331,33 +339,14 @@ class LocalGameState : GameState {
       // skip already synced Link sprites:
       if ((i >= link_oam_start) && (i < link_oam_start + 0x0C)) continue;
 
-      // fetch ALTTP's copy of the OAM sprite data from WRAM:
-      Sprite spr;
-      spr.fetchOAM(i);
-
-      // skip OAM sprite if not enabled (X, Y coords are out of display range):
+      auto @spr = sprs[i];
+      // skip OAM sprite if not enabled:
       if (!spr.is_enabled) continue;
-
-      Sprite sprp1, sprp2, sprn1, sprn2;
-      // prev 2 sprites:
-      if (i >= 1) {
-        sprp1.fetchOAM(i - 1);
-      }
-      if (i >= 2) {
-        sprp2.fetchOAM(i - 2);
-      }
-      // next 2 sprites:
-      if (i <= 0x7E) {
-        sprn1.fetchOAM(i + 1);
-      }
-      if (i <= 0x7D) {
-        sprn2.fetchOAM(i + 2);
-      }
 
       auto chr = spr.chr;
       if (chr >= 0x100) continue;
 
-      bool fx = (
+      if (
         // sparkles around sword spin attack AND magic boomerang:
            chr == 0x80 || chr == 0x83 || chr == 0xb7
         // when boomerang hits solid tile:
@@ -370,10 +359,8 @@ class LocalGameState : GameState {
         || chr == 0xe2 || chr == 0xf2
         // pot shards or stone shards (large and small)
         || chr == 0x58 || chr == 0x48
-      );
-      bool weapons = (
         // boomerang
-           chr == 0x26
+        || chr == 0x26
         // magic powder
         || chr == 0x09 || chr == 0x0a
         // magic cape
@@ -387,27 +374,46 @@ class LocalGameState : GameState {
         || chr == 0x4a
         // holding pot / bush or small stone or sign
         || chr == 0x46 || chr == 0x44 || chr == 0x42
-        // shadow underneath pot / bush or small stone
-        || (chr == 0x6c && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42))
-      );
-      bool follower = (
-           chr == 0x20 || chr == 0x22
+        // follower:
+        || chr == 0x20 || chr == 0x22
+      ) {
+        // append the sprite to our array:
+        sprites.resize(++numsprites);
+        @sprites[numsprites-1] = spr;
+        continue;
+      }
+
+      auto @sprp1 = spr;
+      if (i > 0) {
+        @sprp1 = sprs[i-1];
+      }
+      // shadow underneath pot / bush or small stone
+      if (chr == 0x6c && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42)) {
+        // append the sprite to our array:
+        sprites.resize(++numsprites);
+        @sprites[numsprites-1] = spr;
+        continue;
+      }
+
+      auto @sprn1 = spr;
+      if (i <= 0x7E) {
+        @sprn1 = sprs[i+1];
+      }
+      if (
         // water under follower:
-        || (chr == 0xd8 && (sprn1.chr == 0xd8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+           (chr == 0xd8 && (sprn1.chr == 0xd8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
         || (chr == 0xd9 && (sprn1.chr == 0xd9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
         || (chr == 0xda && (sprn1.chr == 0xda || sprn1.chr == 0x22 || sprn1.chr == 0x20))
         // grass under follower:
         || (chr == 0xc8 && (sprn1.chr == 0xc8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
         || (chr == 0xc9 && (sprn1.chr == 0xc9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
         || (chr == 0xca && (sprn1.chr == 0xca || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-      );
-
-      // skip OAM sprites that are not related to Link:
-      if (!(fx || weapons || follower)) continue;
-
-      // append the sprite to our array:
-      sprites.resize(++numsprites);
-      @sprites[numsprites-1] = spr;
+      ) {
+        // append the sprite to our array:
+        sprites.resize(++numsprites);
+        @sprites[numsprites-1] = spr;
+        continue;
+      }
     }
   }
 
