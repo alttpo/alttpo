@@ -950,60 +950,92 @@ class LocalGameState : GameState {
 
     uint len = players.length();
 
-    for (uint a = 0; a < 0x80; a++) {
-      auto @area = areas[a];
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
 
       // read current state from SRAM:
-      area.start(sram);
-
-      for (uint i = 0; i < len; i++) {
-        auto @remote = players[i];
-        if (remote is null) continue;
-        if (remote is this) continue;
-        if (remote.ttl <= 0) continue;
-
-        area.apply(remote);
+      for (uint a = 0; a < 0x80; a++) {
+        areas[a].start(sram);
       }
+    }
 
-      // write new state to SRAM:
-      area.finish();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
+
+      for (uint a = 0; a < 0x80; a++) {
+        areas[a].apply(remote);
+      }
+    }
+
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
+
+      for (uint a = 0; a < 0x80; a++) {
+        // write new state to SRAM:
+        areas[a].finish();
+      }
     }
   }
 
   void update_rooms() {
     uint len = players.length();
 
-    for (uint a = 0; a < 0x128; a++) {
-      // $000 - $24F : Data for Rooms (two bytes per room)
-      //
-      // High Byte               Low Byte
-      // d d d d b k ck cr       c c c c q q q q
-      //
-      // c - chest, big key chest, or big key lock. Any combination of them totalling to 6 is valid.
-      // q - quadrants visited:
-      // k - key or item (such as a 300 rupee gift)
-      // d - door opened (either unlocked, bombed or other means)
-      // r - special rupee tiles, whether they've been obtained or not.
-      // b - boss battle won
-      //
-      // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
+    // $000 - $24F : Data for Rooms (two bytes per room)
+    //
+    // High Byte               Low Byte
+    // d d d d b k ck cr       c c c c q q q q
+    //
+    // c - chest, big key chest, or big key lock. Any combination of them totalling to 6 is valid.
+    // q - quadrants visited:
+    // k - key or item (such as a 300 rupee gift)
+    // d - door opened (either unlocked, bombed or other means)
+    // r - special rupee tiles, whether they've been obtained or not.
+    // b - boss battle won
+    //
+    // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
 
-      auto @room = rooms[a];
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
 
       // read current state from SRAM:
-      room.start(sram);
-
-      for (uint i = 0; i < len; i++) {
-        auto @remote = players[i];
-        if (remote is null) continue;
-        if (remote is this) continue;
-        if (remote.ttl <= 0) continue;
-
-        room.apply(remote);
+      for (uint a = 0; a < 0x128; a++) {
+        rooms[a].start(sram);
       }
+    }
+
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
+
+      for (uint a = 0; a < 0x128; a++) {
+        rooms[a].apply(remote);
+      }
+    }
+
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
 
       // write new state to SRAM:
-      room.finish();
+      for (uint a = 0; a < 0x128; a++) {
+        rooms[a].finish();
+      }
     }
   }
 
