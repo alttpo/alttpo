@@ -1,5 +1,5 @@
 
-// Represents an ALTTP ancilla object with fields scattered about WRAWM:
+// Represents an ALTTP ancilla object with fields scattered about WRAM:
 const int ancillaeFactsCount1 = 0x20;
 const int ancillaeFactsCount2 = 0x16;
 class GameAncilla {
@@ -62,7 +62,7 @@ class GameAncilla {
     r.write_arr(facts);
   }
 
-  void readRAM(uint8 index) {
+  void readRAM(uint8 index, array<uint8> &in u280, array<uint8> &in u380, array<uint8> &in uBF0) {
     this.index = index;
 
     if (index < 5) {
@@ -72,24 +72,24 @@ class GameAncilla {
     }
 
     for (uint i = 0, j = index; i < 0x11; i++, j += 0x0A) {
-      facts[0x00+i] = bus::read_u8(0x7E0BF0 + j);
+      facts[0x00+i] = uBF0[j];
     }
     for (uint i = 0, j = index; i < 0x05; i++, j += 0x0A) {
-      facts[0x11+i] = bus::read_u8(0x7E0280 + j);
+      facts[0x11+i] = u280[j];
     }
 
     // first 5 ancillae are special and have more supporting data:
     if (index < 5) {
-      facts[0x16] = bus::read_u8(0x7E0380 + index);
-      facts[0x17] = bus::read_u8(0x7E0385 + index);
-      facts[0x18] = bus::read_u8(0x7E038A + index);
-      facts[0x19] = bus::read_u8(0x7E038F + index);
-      facts[0x1A] = bus::read_u8(0x7E0394 + index);
-      facts[0x1B] = bus::read_u8(0x7E039F + index);
-      facts[0x1C] = bus::read_u8(0x7E03A9 + index);
-      facts[0x1D] = bus::read_u8(0x7E03B1 + index);
-      facts[0x1E] = bus::read_u8(0x7E03C5 + index);
-      facts[0x1F] = bus::read_u8(0x7E03CA + index);
+      facts[0x16] = u380[0x380 - 0x380 + index];
+      facts[0x17] = u380[0x385 - 0x380 + index];
+      facts[0x18] = u380[0x38A - 0x380 + index];
+      facts[0x19] = u380[0x38F - 0x380 + index];
+      facts[0x1A] = u380[0x394 - 0x380 + index];
+      facts[0x1B] = u380[0x39F - 0x380 + index];
+      facts[0x1C] = u380[0x3A9 - 0x380 + index];
+      facts[0x1D] = u380[0x3B1 - 0x380 + index];
+      facts[0x1E] = u380[0x3C5 - 0x380 + index];
+      facts[0x1F] = u380[0x3CA - 0x380 + index];
     }
   }
 

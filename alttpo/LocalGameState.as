@@ -522,23 +522,30 @@ class LocalGameState : GameState {
     if (is_dead()) return;
 
     // update ancillae array from WRAM:
+    array<uint8> u280(0x32);
+    array<uint8> u380(0x4F);
+    array<uint8> uBF0(0xAA);
+    bus::read_block_u8(0x7E0280, 0, 0x32, u280);
+    bus::read_block_u8(0x7E0380, 0, 0x4F, u380);
+    bus::read_block_u8(0x7E0BF0, 0, 0xAA, uBF0);
     for (uint i = 0; i < 0x0A; i++) {
-      ancillae[i].readRAM(i);
+      auto @anc = ancillae[i];
+      anc.readRAM(i, u280, u380, uBF0);
 
       // Update ownership:
       if (ancillaeOwner[i] == index) {
-        ancillae[i].requestOwnership = false;
-        if (ancillae[i].type == 0) {
+        anc.requestOwnership = false;
+        if (anc.type == 0) {
           ancillaeOwner[i] = -2;
         }
       } else if (ancillaeOwner[i] == -1) {
-        if (ancillae[i].type != 0) {
+        if (anc.type != 0) {
           ancillaeOwner[i] = index;
-          ancillae[i].requestOwnership = false;
+          anc.requestOwnership = false;
         }
       } else if (ancillaeOwner[i] == -2) {
         ancillaeOwner[i] = -1;
-        ancillae[i].requestOwnership = false;
+        anc.requestOwnership = false;
       }
     }
   }
