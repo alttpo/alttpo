@@ -1,4 +1,6 @@
 
+const uint MaxPacketSize = 1452;
+
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
@@ -589,145 +591,6 @@ class LocalGameState : GameState {
     r.write_u8(sfx2);
   }
 
-  void serialize_sprites(array<uint8> &r) {
-    r.write_u8(uint8(0x03));
-
-    //uint mark = r.length();
-    //uint markLen = r.length();
-
-    uint len = sprites.length();
-    r.write_u8(uint8(len));
-
-    //message("serialize: numsprites = " + fmtInt(sprites.length()));
-    array<bool> sent(0x80);
-    sent[0x6c] = true;
-    sent[0x6d] = true;
-    sent[0x6e] = true;
-    sent[0x6f] = true;
-    sent[0x7c] = true;
-    sent[0x7d] = true;
-    sent[0x7e] = true;
-    sent[0x7f] = true;
-    for (uint i = 0; i < len; i++) {
-      auto @spr = sprites[i];
-      auto chr = spr.chr;
-      auto index = spr.index;
-      if ((chr < 0x80) && !sent[chr]) {
-        index |= 0x80;
-      }
-
-      //mark = r.length();
-      r.write_u8(index);
-      r.write_u8(spr.b0);
-      r.write_u8(spr.b1);
-      r.write_u8(spr.b2);
-      r.write_u8(spr.b3);
-      r.write_u8(spr.b4);
-
-      // send VRAM data along:
-      if ((index & 0x80) != 0) {
-        r.write_arr(chrs[chr+0x00]);
-        chrs[chr+0x00].resize(0);
-        sent[chr+0x00] = true;
-        if (spr.size != 0) {
-          r.write_arr(chrs[chr+0x01]);
-          r.write_arr(chrs[chr+0x10]);
-          r.write_arr(chrs[chr+0x11]);
-          chrs[chr+0x01].resize(0);
-          chrs[chr+0x10].resize(0);
-          chrs[chr+0x11].resize(0);
-          sent[chr+0x01] = true;
-          sent[chr+0x10] = true;
-          sent[chr+0x11] = true;
-        }
-      }
-    }
-  }
-
-  void serialize_palettes(array<uint8> &r) {
-    uint8 count = 0;
-    array<bool> used(8);
-
-    // determine which palettes are used:
-    uint len = sprites.length();
-    for (uint i = 0; i < len; i++) {
-      uint p = sprites[i].palette;
-      if (!used[p]) {
-        count++;
-      }
-      used[p] = true;
-    }
-
-    if (count == 0) return;
-
-    // palettes chunk type:
-    r.write_u8(0x0B);
-    // how many palettes to sync:
-    r.write_u8(count);
-    for (uint i = 0; i < 8; i++) {
-      if (!used[i]) continue;
-
-      // which palette this is:
-      r.write_u8(i);
-      // sample the palette:
-      for (uint c = 0; c < 16; c++) {
-        r.write_u16(ppu::cgram[((i + 8) << 4) + c]);
-      }
-    }
-  }
-
-  void serialize_chr0(array<uint8> &r) {
-    // how many distinct characters:
-    uint16 chr_count = 0;
-    for (uint16 i = 0; i < 0x100; i++) {
-      if (chrs[i].length() == 0) continue;
-      ++chr_count;
-    }
-
-    //message("serialize: chr0="+fmtInt(chr_count));
-    r.write_u8(uint8(0x04));
-
-    // emit how many chrs:
-    r.write_u8(uint8(chr_count));
-    for (uint16 i = 0; i < 0x100; ++i) {
-      if (chrs[i].length() == 0) continue;
-
-      // which chr is it:
-      r.write_u8(uint8(i));
-      // emit the tile data:
-      r.write_arr(chrs[i]);
-
-      // clear the chr tile data for next frame:
-      chrs[i].resize(0);
-    }
-  }
-
-  void serialize_chr1(array<uint8> &r) {
-    // how many distinct characters:
-    uint16 chr_count = 0;
-    for (uint16 i = 0x100; i < 0x200; i++) {
-      if (chrs[i].length() == 0) continue;
-      ++chr_count;
-    }
-
-    //message("serialize: chr1="+fmtInt(chr_count));
-    r.write_u8(uint8(0x05));
-
-    // emit how many chrs:
-    r.write_u8(uint8(chr_count));
-    for (uint16 i = 0x100; i < 0x200; ++i) {
-      if (chrs[i].length() == 0) continue;
-
-      // which chr is it:
-      r.write_u8(uint8(i - 0x100));
-      // emit the tile data:
-      r.write_arr(chrs[i]);
-
-      // clear the chr tile data for next frame:
-      chrs[i].resize(0);
-    }
-  }
-
   void serialize_sram(array<uint8> &r, uint16 start, uint16 endExclusive) {
     r.write_u8(uint8(0x06));
 
@@ -807,9 +670,132 @@ class LocalGameState : GameState {
     r.write_str(namePadded);
   }
 
-  array<uint8> @create_envelope(uint8 kind) {
+  uint send_sprites(uint p) {
+    uint len = sprites.length();
+
+    uint start = 0;
+    uint end = len;
+
+    // never send the shadow sprite or bomb sprite data (or anything for chr >= 0x80):
+    array<bool> paletteSent(8);
+    array<bool> chrSent(0x80);
+    chrSent[0x6c] = true;
+    chrSent[0x6d] = true;
+    chrSent[0x6e] = true;
+    chrSent[0x6f] = true;
+    chrSent[0x7c] = true;
+    chrSent[0x7d] = true;
+    chrSent[0x7e] = true;
+    chrSent[0x7f] = true;
+
+    // send out possibly multiple packets to cover all sprites:
+    while (start < end) {
+      array<uint8> r = create_envelope();
+
+      // serialize_sprites:
+      if (start == 0) {
+        // start of sprites:
+        r.write_u8(uint8(0x03));
+      } else {
+        // continuation of sprites:
+        r.write_u8(uint8(0x04));
+        r.write_u8(uint8(start));
+      }
+
+      uint markLen = r.length();
+      r.write_u8(uint8(end - start));
+
+      uint mark = r.length();
+
+      uint i;
+      //message("build start=" + fmtInt(start));
+      for (i = start; i < end; i++) {
+        auto @spr = sprites[i];
+        auto chr = spr.chr;
+        auto index = spr.index;
+        uint pal = spr.palette;
+        auto b4 = spr.b4;
+
+        // do we need to send the VRAM data?
+        if ((chr < 0x80) && !chrSent[chr]) {
+          index |= 0x80;
+        }
+        // do we need to send the palette data?
+        if (!paletteSent[pal]) {
+          b4 |= 0x80;
+        }
+
+        mark = r.length();
+        //message("  mark=" + fmtInt(mark));
+
+        // emit the OAM data:
+        r.write_u8(index);
+        r.write_u8(spr.b0);
+        r.write_u8(spr.b1);
+        r.write_u8(spr.b2);
+        r.write_u8(spr.b3);
+        r.write_u8(b4);
+
+        // send VRAM data along:
+        if ((index & 0x80) != 0) {
+          r.write_arr(chrs[chr+0x00]);
+          if (spr.size != 0) {
+            r.write_arr(chrs[chr+0x01]);
+            r.write_arr(chrs[chr+0x10]);
+            r.write_arr(chrs[chr+0x11]);
+          }
+        }
+
+        // include the palette for this sprite:
+        if ((b4 & 0x80) != 0) {
+          // sample the palette:
+          uint cgaddr = (pal + 8) << 4;
+          for (uint k = cgaddr; k < cgaddr + 16; k++) {
+            r.write_u16(ppu::cgram[k]);
+          }
+        }
+
+        // check length of packet:
+        if (r.length() <= MaxPacketSize) {
+          // mark data as sent:
+          if ((index & 0x80) != 0) {
+            chrSent[chr+0x00] = true;
+            chrs[chr+0x00].resize(0);
+            if (spr.size != 0) {
+              chrSent[chr+0x01] = true;
+              chrSent[chr+0x10] = true;
+              chrSent[chr+0x11] = true;
+              chrs[chr+0x01].resize(0);
+              chrs[chr+0x10].resize(0);
+              chrs[chr+0x11].resize(0);
+            }
+          }
+          if ((b4 & 0x80) != 0) {
+            paletteSent[pal] = true;
+          }
+        } else {
+          // back out the last sprite:
+          r.removeRange(mark, r.length() - mark);
+
+          // continue at the last sprite in the next packet:
+          //message("  scratch last mark");
+          break;
+        }
+      }
+
+      r[markLen] = uint8(i - start);
+      start = i;
+
+      // send this packet:
+      p = send_packet(r, p);
+    }
+
+    return p;
+  }
+
+  array<uint8> @create_envelope(uint8 kind = 0x01) {
     array<uint8> @envelope = {};
-    envelope.reserve(1452);
+    envelope.reserve(MaxPacketSize);
 
     // server envelope:
     {
@@ -838,8 +824,8 @@ class LocalGameState : GameState {
 
   uint send_packet(array<uint8> &in envelope, uint p) {
     uint len = envelope.length();
-    if (len > 1452) {
-      message("packet[" + fmtInt(p) + "] too big to send! " + fmtInt(len) + " > 1452");
+    if (len > MaxPacketSize) {
+      message("packet[" + fmtInt(p) + "] too big to send! " + fmtInt(len) + " > " + fmtInt(MaxPacketSize));
       return p;
     }
 
@@ -874,7 +860,7 @@ class LocalGameState : GameState {
 
     // send main packet:
     {
-      array<uint8> envelope = create_envelope(0x01);
+      array<uint8> envelope = create_envelope();
 
       serialize_location(envelope);
       serialize_name(envelope);
@@ -889,21 +875,12 @@ class LocalGameState : GameState {
     }
 
     // send another packet:
-    {
-      array<uint8> envelope = create_envelope(0x01);
-
-      serialize_palettes(envelope);
-      serialize_sprites(envelope);
-      //serialize_chr0(envelope);
-      //serialize_chr1(envelope);
-
-      p = send_packet(envelope, p);
-    }
+    p = send_sprites(p);
 
     if (!settings.RaceMode) {
       // send packet every other frame:
       if ((frame & 1) == 0) {
-        array<uint8> envelope = create_envelope(0x01);
+        array<uint8> envelope = create_envelope();
 
         serialize_torches(envelope);
         serialize_tilemaps(envelope);
@@ -913,7 +890,7 @@ class LocalGameState : GameState {
 
       // send SRAM updates once every 16 frames:
       if ((frame & 15) == 0) {
-        array<uint8> envelope = create_envelope(0x01);
+        array<uint8> envelope = create_envelope();
 
         serialize_sram(envelope, 0x340, 0x390); // items earned
         serialize_sram(envelope, 0x3C5, 0x439); // progress made

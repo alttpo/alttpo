@@ -241,14 +241,14 @@ class GameState {
         case 0x01: c = deserialize_location(r, c); break;
         case 0x02: c = deserialize_sfx(r, c); break;
         case 0x03: c = deserialize_sprites(r, c); break;
-        //case 0x04: c = deserialize_chr0(r, c); break;
+        case 0x04: c = deserialize_sprites(r, c, true); break;
         //case 0x05: c = deserialize_chr1(r, c); break;
         case 0x06: c = deserialize_sram(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
         case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
-        case 0x0B: c = deserialize_palettes(r, c); break;
+        //case 0x0B: c = deserialize_palettes(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
@@ -302,32 +302,41 @@ class GameState {
     return c;
   }
 
-  int deserialize_sprites(array<uint8> r, int c) {
+  int deserialize_sprites(array<uint8> r, int c, bool continuation = false) {
     // read in OAM sprites:
-    auto numsprites = r[c++];
-    sprites.resize(numsprites);
-    //message(fmtInt(numsprites));
-    for (uint i = 0; i < numsprites; i++) {
-      @sprites[i] = Sprite();
+    uint start = 0;
+    if (continuation) {
+      start = r[c++];
+    }
+    uint len = r[c++];
 
+    sprites.resize(start + len);
+    //message("start=" + fmtInt(start) + " len=" + fmtInt(len) + "; msglen=" + fmtInt(r.length()));
+
+    for (uint i = start; i < start + len; i++) {
+      auto @spr = Sprite();
+      @sprites[i] = spr;
+
+      //message("  c=" + fmtInt(c));
       auto fl = r[c++];
-      sprites[i].index = fl & 0x7f;
-      sprites[i].b0 = r[c++];
-      sprites[i].b1 = r[c++];
-      sprites[i].b2 = r[c++];
-      sprites[i].b3 = r[c++];
-      sprites[i].b4 = r[c++];
-      //message("oam " + fmtHex(sprites[i].index, 2));
+      spr.index = fl & 0x7f;
+      spr.b0 = r[c++];
+      spr.b1 = r[c++];
+      spr.b2 = r[c++];
+      spr.b3 = r[c++];
+      auto b4 = r[c++];
+      spr.b4 = b4 & 0x7f;
+      //message("oam " + fmtHex(spr.index, 2));
 
       // read VRAM for chrs:
       if ((fl & 0x80) != 0) {
-        auto h = sprites[i].chr;
+        auto h = spr.chr;
         //message(" chr=" + fmtHex(h+0x00, 3));
         chrs[h+0x00].resize(16);
         for (int k = 0; k < 16; k++) {
           chrs[h+0x00][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
         }
-        if (sprites[i].size != 0) {
+        if (spr.size != 0) {
           //message(" chr=" + fmtHex(h+0x01, 3));
           chrs[h+0x01].resize(16);
           for (int k = 0; k < 16; k++) {
@@ -345,24 +354,18 @@ class GameState {
           }
         }
       }
-    }
 
-    return c;
-  }
+      // read palette data:
+      if ((b4 & 0x80) != 0) {
+        uint pal = spr.palette << 4;
 
-  int deserialize_palettes(array<uint8> r, int c) {
-    // how many palettes:
-    auto count = r[c++];
-
-    for (uint i = 0; i < count; i++) {
-      // palette number:
-      auto p = r[c++];
-
-      // read 16 colors:
-      for (int k = 0; k < 16; k++) {
-        palettes[(p << 4) + k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        // read 16 colors:
+        for (uint k = pal; k < pal + 16; k++) {
+          palettes[k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        }
       }
     }
+
     return c;
   }
 
