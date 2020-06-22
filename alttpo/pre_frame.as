@@ -40,11 +40,16 @@ void on_main_loop(uint32 pc) {
 
     local.update_ancillae();
 
-    local.update_items();
+    if ((local.frame & 15) == 0) {
+      local.update_items();
+    }
 
-    local.update_overworld();
-
-    local.update_rooms();
+    if ((local.frame & 31) == 0) {
+      local.update_rooms();
+    }
+    if ((local.frame & 31) == 16) {
+      local.update_overworld();
+    }
 
     if (enableObjectSync) {
       local.update_objects();

@@ -6,7 +6,7 @@ void pre_nmi() {
 
   if (settings.started) {
     // Attempt to open a server socket:
-    if (@sock == null) {
+    if (sock is null) {
       try {
         // open a UDP socket to receive data from:
         @address = net::resolve_udp(settings.ServerAddress, "4590");
