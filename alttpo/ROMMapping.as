@@ -295,7 +295,7 @@ ROMMapping@ detect() {
     // ALTTPR VT randomizer.
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + sig.toString(3, 10));
     return RandomizerMapping();
-  } else if (sig.toString(0, 6) == "ER002_") {
+  } else if (sig.toString(0, 2) == "ER") {
     // ALTTPR VT-based Entrance Randomizer.
     // e.g. "ER002_1_1_164246190  "
     // "002" represents the __version__ string with '.'s removed.
