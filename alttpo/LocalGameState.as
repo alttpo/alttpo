@@ -893,7 +893,7 @@ class LocalGameState : GameState {
         array<uint8> envelope = create_envelope();
 
         serialize_sram(envelope, 0x340, 0x390); // items earned
-        serialize_sram(envelope, 0x3C5, 0x439); // progress made
+        serialize_sram(envelope, 0x3C5, 0x43a); // progress made
 
         // and include dungeon and overworld sync alternating:
         if ((frame & 31) == 0) {
