@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x08;
+const uint8 script_protocol = 0x09;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -241,8 +241,8 @@ class GameState {
         case 0x01: c = deserialize_location(r, c); break;
         case 0x02: c = deserialize_sfx(r, c); break;
         case 0x03: c = deserialize_sprites(r, c); break;
-        case 0x04: c = deserialize_chr0(r, c); break;
-        case 0x05: c = deserialize_chr1(r, c); break;
+        //case 0x04: c = deserialize_chr0(r, c); break;
+        //case 0x05: c = deserialize_chr1(r, c); break;
         case 0x06: c = deserialize_sram(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
         case 0x08: c = deserialize_objects(r, c); break;
@@ -306,9 +306,45 @@ class GameState {
     // read in OAM sprites:
     auto numsprites = r[c++];
     sprites.resize(numsprites);
+    //message(fmtInt(numsprites));
     for (uint i = 0; i < numsprites; i++) {
       @sprites[i] = Sprite();
-      c = sprites[i].deserialize(r, c);
+
+      auto fl = r[c++];
+      sprites[i].index = fl & 0x7f;
+      sprites[i].b0 = r[c++];
+      sprites[i].b1 = r[c++];
+      sprites[i].b2 = r[c++];
+      sprites[i].b3 = r[c++];
+      sprites[i].b4 = r[c++];
+      //message("oam " + fmtHex(sprites[i].index, 2));
+
+      // read VRAM for chrs:
+      if ((fl & 0x80) != 0) {
+        auto h = sprites[i].chr;
+        //message(" chr=" + fmtHex(h+0x00, 3));
+        chrs[h+0x00].resize(16);
+        for (int k = 0; k < 16; k++) {
+          chrs[h+0x00][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        }
+        if (sprites[i].size != 0) {
+          //message(" chr=" + fmtHex(h+0x01, 3));
+          chrs[h+0x01].resize(16);
+          for (int k = 0; k < 16; k++) {
+            chrs[h+0x01][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+          }
+          //message(" chr=" + fmtHex(h+0x10, 3));
+          chrs[h+0x10].resize(16);
+          for (int k = 0; k < 16; k++) {
+            chrs[h+0x10][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+          }
+          //message(" chr=" + fmtHex(h+0x11, 3));
+          chrs[h+0x11].resize(16);
+          for (int k = 0; k < 16; k++) {
+            chrs[h+0x11][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+          }
+        }
+      }
     }
 
     return c;
@@ -596,12 +632,29 @@ class GameState {
       tile.height = sprite.size != 0 ? 16 : 8;
       tile.pixels_clear();
 
-      if (sprite.size == 0) {
-        tile.draw_sprite_4bpp(0, 0, p, chrs[k], palettes);
-      } else {
-        tile.draw_sprite_4bpp(0, 0, p, chrs[k + 0x00], palettes);
+      // draw sprite:
+      if (chrs[k + 0x00].length() == 0) {
+        chrs[k + 0x00].resize(16);
+        ppu::vram.read_block(ppu::vram.chr_address(k + 0x00), 0, 16, chrs[k + 0x00]);
+      }
+      tile.draw_sprite_4bpp(0, 0, p, chrs[k + 0x00], palettes);
+      if (sprite.size != 0) {
+        if (chrs[k + 0x01].length() == 0) {
+          chrs[k + 0x01].resize(16);
+          ppu::vram.read_block(ppu::vram.chr_address(k + 0x01), 0, 16, chrs[k + 0x01]);
+        }
         tile.draw_sprite_4bpp(8, 0, p, chrs[k + 0x01], palettes);
+
+        if (chrs[k + 0x10].length() == 0) {
+          chrs[k + 0x10].resize(16);
+          ppu::vram.read_block(ppu::vram.chr_address(k + 0x10), 0, 16, chrs[k + 0x10]);
+        }
         tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], palettes);
+
+        if (chrs[k + 0x11].length() == 0) {
+          chrs[k + 0x11].resize(16);
+          ppu::vram.read_block(ppu::vram.chr_address(k + 0x11), 0, 16, chrs[k + 0x11]);
+        }
         tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], palettes);
       }
     }

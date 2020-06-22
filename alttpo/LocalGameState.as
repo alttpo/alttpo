@@ -300,7 +300,7 @@ class LocalGameState : GameState {
     numsprites = 0;
     sprites.resize(0);
     if (is_it_a_bad_time()) {
-      message("clear sprites");
+      //message("clear sprites");
       return;
     }
 
@@ -592,12 +592,55 @@ class LocalGameState : GameState {
   void serialize_sprites(array<uint8> &r) {
     r.write_u8(uint8(0x03));
 
+    //uint mark = r.length();
+    //uint markLen = r.length();
+
     uint len = sprites.length();
     r.write_u8(uint8(len));
 
     //message("serialize: numsprites = " + fmtInt(sprites.length()));
+    array<bool> sent(0x80);
+    sent[0x6c] = true;
+    sent[0x6d] = true;
+    sent[0x6e] = true;
+    sent[0x6f] = true;
+    sent[0x7c] = true;
+    sent[0x7d] = true;
+    sent[0x7e] = true;
+    sent[0x7f] = true;
     for (uint i = 0; i < len; i++) {
-      sprites[i].serialize(r);
+      auto @spr = sprites[i];
+      auto chr = spr.chr;
+      auto index = spr.index;
+      if ((chr < 0x80) && !sent[chr]) {
+        index |= 0x80;
+      }
+
+      //mark = r.length();
+      r.write_u8(index);
+      r.write_u8(spr.b0);
+      r.write_u8(spr.b1);
+      r.write_u8(spr.b2);
+      r.write_u8(spr.b3);
+      r.write_u8(spr.b4);
+
+      // send VRAM data along:
+      if ((index & 0x80) != 0) {
+        r.write_arr(chrs[chr+0x00]);
+        chrs[chr+0x00].resize(0);
+        sent[chr+0x00] = true;
+        if (spr.size != 0) {
+          r.write_arr(chrs[chr+0x01]);
+          r.write_arr(chrs[chr+0x10]);
+          r.write_arr(chrs[chr+0x11]);
+          chrs[chr+0x01].resize(0);
+          chrs[chr+0x10].resize(0);
+          chrs[chr+0x11].resize(0);
+          sent[chr+0x01] = true;
+          sent[chr+0x10] = true;
+          sent[chr+0x11] = true;
+        }
+      }
     }
   }
 
@@ -796,7 +839,7 @@ class LocalGameState : GameState {
   uint send_packet(array<uint8> &in envelope, uint p) {
     uint len = envelope.length();
     if (len > 1452) {
-      message("packet too big to send! " + fmtInt(len));
+      message("packet[" + fmtInt(p) + "] too big to send! " + fmtInt(len) + " > 1452");
       return p;
     }
 
@@ -849,10 +892,10 @@ class LocalGameState : GameState {
     {
       array<uint8> envelope = create_envelope(0x01);
 
-      serialize_sprites(envelope);
-      serialize_chr0(envelope);
-      //serialize_chr1(envelope);
       serialize_palettes(envelope);
+      serialize_sprites(envelope);
+      //serialize_chr0(envelope);
+      //serialize_chr1(envelope);
 
       p = send_packet(envelope, p);
     }
