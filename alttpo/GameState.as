@@ -502,7 +502,8 @@ class GameState {
 
     uint len = sprites.length();
     for (uint i = 0; i < len; i++) {
-      auto sprite = sprites[i];
+      auto @sprite = sprites[i];
+      if (sprite is null) continue;
       auto px = sprite.size == 0 ? 8 : 16;
 
       // bounds check for OAM sprites:
@@ -609,7 +610,9 @@ class GameState {
   int renderToExtra(int dx, int dy, int ei) {
     uint len = sprites.length();
     for (uint i = 0; i < len; i++) {
-      auto sprite = sprites[i];
+      auto @sprite = sprites[i];
+      if (sprite is null) continue;
+
       auto px = sprite.size == 0 ? 8 : 16;
 
       auto k = sprite.chr;
