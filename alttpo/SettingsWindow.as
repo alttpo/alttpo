@@ -76,6 +76,7 @@ class SettingsWindow {
     set {
       fontIndex = value;
       @font = ppu::fonts[value];
+      font_set = false; // global
     }
   }
 
