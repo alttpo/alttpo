@@ -310,12 +310,15 @@ class LocalGameState : GameState {
     int link_oam_start = bus::read_u16(0x7E0352) >> 2;
     //message(fmtInt(link_oam_start));
 
-    // read in relevant sprites from OAM and VRAM:
-    sprites.reserve(128);
+    // read in relevant sprites from OAM:
+    array<uint8> oam(0x220);
+    ppu::oam.read_block_u8(0, 0, 0x220, oam);
 
-    // capture all OAM sprites from VRAM:
+    // extract OAM sprites to class instances:
+    sprites.reserve(128);
     for (int i = 0x00; i <= 0x7f; i++) {
-      sprs[i].fetchOAM(i);
+      //sprs[i].fetchOAM(i);
+      sprs[i].decodeOAMArray(oam, i);
     }
 
     // start from reserved region for Link (either at 0x64 or ):
