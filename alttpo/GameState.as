@@ -699,14 +699,14 @@ class GameState {
     label.priority = sprite.priority;
 
     // measure player name to set bounds of tile with:
-    auto width = ppu::extra.font.measureText(name);
+    auto width = ppu::extra.font.measureText(_name);
     label.width = width + 2;
     label.height = ppu::extra.font.height + 2;
 
     // render player name as text into tile, making room for 1px outline:
     ppu::extra.color = player_color;
     ppu::extra.outline_color = player_color_dark_33;
-    label.text(1, 1, name);
+    label.text(1, 1, _name);
 
     label.x = (x - xoffs + dx + 8) - (label.width >> 1);
     label.y = (y - yoffs + 17 + dy) + 8;
