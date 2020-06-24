@@ -67,7 +67,7 @@ jobs:
         set -e
 
         # expand the wildcard to find the folder name:
-        bsnes_nightly=( $(compgen -W "bsnes-angelscript-$(archName)-*") )
+        bsnes_nightly=( $(compgen -W "bsnes-angelscript-profiler-$(archName)-*") )
         echo "Determined bsnes_nightly=${bsnes_nightly[0]}"
 
         # extract the commit id from the folder name:
