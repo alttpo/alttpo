@@ -143,6 +143,8 @@ jobs:
   - job: "Success"
     dependsOn: "Build"
     condition: succeeded()
+    variables:
+      notes: $[ replace( replace(variables['Build.SourceVersionMessage'], '\n', '\\n'), '\"', '\\\"') ]
 
     pool: server
     steps:
@@ -154,7 +156,7 @@ jobs:
           method: 'POST'
           body: |
             {
-                "content": "A new stable build from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(Build.SourceVersionMessage)"
+                "content": "A new stable build from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(notes)"
             }
           headers: |
             {
@@ -172,7 +174,7 @@ jobs:
           method: 'POST'
           body: |
             {
-                "content": "A new unstable build from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(Build.SourceVersionMessage)"
+                "content": "A new unstable build from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(notes)"
             }
           headers: |
             {
