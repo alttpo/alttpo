@@ -68,34 +68,26 @@ class USROMMapping {
     @SyncableItem(0x359, 1, @mutateMax, @notify),
     @SyncableItem(0x35A, 1, @mutateMax, @notify),
     @SyncableItem(0x35B, 1, @mutateMax, @notify),
-
     @SyncableItem(0x35C, 1, @mutateMax, @notify),
     @SyncableItem(0x35D, 1, @mutateMax, @notify),
     @SyncableItem(0x35E, 1, @mutateMax, @notify),
     @SyncableItem(0x35F, 1, @mutateMax, @notify),
-
     @SyncableItem(0x364, 1, 2, @notify),
     @SyncableItem(0x365, 1, 2, @notify),
     @SyncableItem(0x366, 1, 2, @notify),
     @SyncableItem(0x367, 1, 2, @notify),
     @SyncableItem(0x368, 1, 2, @notify),
     @SyncableItem(0x369, 1, 2, @notify),
-
     @SyncableItem(0x370, 1, 1),
     @SyncableItem(0x371, 1, 1),
-
     @SyncableItem(0x374, 1, 2, @notify),
     @SyncableItem(0x379, 1, 2),
     @SyncableItem(0x37A, 1, 2, @notify),
-
     @SyncableItem(0x37B, 1, 1, @notify),
-
     @SyncableItem(0x3C5, 1, @mutateMax, @notify),
     @SyncableItem(0x3C6, 1, @mutateMax, @notify),
     @SyncableItem(0x3C7, 1, 1),
-
     @SyncableItem(0x3C9, 1, 2, @notify)
-
   };
 };
 
