@@ -144,7 +144,8 @@ jobs:
     dependsOn: "Build"
     condition: succeeded()
     variables:
-      notes: $[replace(replace(variables['Build.SourceVersionMessage'], '\n', '\\n'), '"', '\\"')]
+      #notes: $[replace(replace(variables['Build.SourceVersionMessage'], '\n', '\\n'), '"', '\\"')]
+      notes: $[variables['Build.SourceVersionMessage']]
 
     pool: server
     steps:
