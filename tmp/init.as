@@ -12,19 +12,17 @@ class SyncableItem {
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null) {
+  SyncableItem(uint16 offs, uint8 size, uint8 type) {
     this.offs = offs;
     this.size = size;
     this.type = type;
-    @this.notifyNewItems = notifyNewItems;
   }
 
-  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null) {
+  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate) {
     this.offs = offs;
     this.size = size;
     this.type = 0;
     @this.mutate = mutate;
-    @this.notifyNewItems = notifyNewItems;
   }
 };
 
