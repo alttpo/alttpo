@@ -65,12 +65,10 @@ class USROMMapping {
     @SyncableItem(0x355, 1, 1, @notify),
     @SyncableItem(0x356, 1, 1, @notify),
     @SyncableItem(0x357, 1, 1, @notify),
-    // 0x358 unused
     @SyncableItem(0x359, 1, @mutateMax, @notify),
     @SyncableItem(0x35A, 1, @mutateMax, @notify),
     @SyncableItem(0x35B, 1, @mutateMax, @notify),
 
-    // bottle contents 0x35C-0x35F
     @SyncableItem(0x35C, 1, @mutateMax, @notify),
     @SyncableItem(0x35D, 1, @mutateMax, @notify),
     @SyncableItem(0x35E, 1, @mutateMax, @notify),
