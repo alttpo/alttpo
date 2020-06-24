@@ -12,18 +12,10 @@ class SyncableItem {
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems) {
+  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null) {
     this.offs = offs;
     this.size = size;
     this.type = type;
-    @this.notifyNewItems = notifyNewItems;
-  }
-
-  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems) {
-    this.offs = offs;
-    this.size = size;
-    this.type = 0;
-    @this.mutate = mutate;
     @this.notifyNewItems = notifyNewItems;
   }
 };
@@ -43,51 +35,24 @@ USROMMapping @rom = null;
 class USROMMapping {
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
-    @SyncableItem(0x340, 1, 1, null),
-    @SyncableItem(0x341, 1, 1, null),
-    @SyncableItem(0x342, 1, 1, null),
-    @SyncableItem(0x344, 1, 1, null),
-    @SyncableItem(0x345, 1, 1, null),
-    @SyncableItem(0x346, 1, 1, null),
-    @SyncableItem(0x347, 1, 1, null),
-    @SyncableItem(0x348, 1, 1, null),
-    @SyncableItem(0x349, 1, 1, null),
-    @SyncableItem(0x34A, 1, 1, null),
-    @SyncableItem(0x34B, 1, 1, null),
-    @SyncableItem(0x34C, 1, 1, null),
-    @SyncableItem(0x34D, 1, 1, null),
-    @SyncableItem(0x34E, 1, 1, null),
-    @SyncableItem(0x350, 1, 1, null),
-    @SyncableItem(0x351, 1, 1, null),
-    @SyncableItem(0x352, 1, 1, null),
-    @SyncableItem(0x353, 1, 1, null),
-    @SyncableItem(0x354, 1, @mutateMax, null),
-    @SyncableItem(0x355, 1, 1, null),
-    @SyncableItem(0x356, 1, 1, null),
-    @SyncableItem(0x357, 1, 1, null),
-    @SyncableItem(0x359, 1, @mutateMax, null),
-    @SyncableItem(0x35A, 1, @mutateMax, null),
-    @SyncableItem(0x35B, 1, @mutateMax, null),
-    @SyncableItem(0x35C, 1, @mutateMax, null),
-    @SyncableItem(0x35D, 1, @mutateMax, null),
-    @SyncableItem(0x35E, 1, @mutateMax, null),
-    @SyncableItem(0x35F, 1, @mutateMax, null),
-    @SyncableItem(0x364, 1, 2, null),
-    @SyncableItem(0x365, 1, 2, null),
-    @SyncableItem(0x366, 1, 2, null),
-    @SyncableItem(0x367, 1, 2, null),
-    @SyncableItem(0x368, 1, 2, null),
-    @SyncableItem(0x369, 1, 2, null),
-    @SyncableItem(0x370, 1, 1, null),
-    @SyncableItem(0x371, 1, 1, null),
-    @SyncableItem(0x374, 1, 2, null),
-    @SyncableItem(0x379, 1, 2, null),
-    @SyncableItem(0x37A, 1, 2, null),
-    @SyncableItem(0x37B, 1, 1, null),
-    @SyncableItem(0x3C5, 1, @mutateMax, null),
-    @SyncableItem(0x3C6, 1, @mutateMax, null),
-    @SyncableItem(0x3C7, 1, 1, null),
-    @SyncableItem(0x3C9, 1, 2, null)
+    @SyncableItem(0x340, 1, 1),
+    @SyncableItem(0x341, 1, 1),
+    @SyncableItem(0x342, 1, 1),
+    @SyncableItem(0x344, 1, 1),
+    @SyncableItem(0x345, 1, 1),
+    @SyncableItem(0x346, 1, 1),
+    @SyncableItem(0x347, 1, 1),
+    @SyncableItem(0x348, 1, 1),
+    @SyncableItem(0x349, 1, 1),
+    @SyncableItem(0x34A, 1, 1),
+    @SyncableItem(0x34B, 1, 1),
+    @SyncableItem(0x34C, 1, 1),
+    @SyncableItem(0x34D, 1, 1),
+    @SyncableItem(0x34E, 1, 1),
+    @SyncableItem(0x350, 1, 1),
+    @SyncableItem(0x351, 1, 1),
+    @SyncableItem(0x352, 1, 1),
+    @SyncableItem(0x353, 1, 1)
   };
 };
 
