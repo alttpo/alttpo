@@ -28,16 +28,6 @@ class SyncableItem {
   }
 };
 
-class SyncableHealthCapacity : SyncableItem {
-  SyncableHealthCapacity() {
-    super(0x36C, 1, 0);
-
-    // this custom SyncableItem covers both:
-    // SyncableItem(0x36B, 1, 1),  // heart pieces (out of four)
-    // SyncableItem(0x36C, 1, 1),  // health capacity
-  }
-}
-
 uint16 mutateMax(uint16 oldValue, uint16 newValue) {
   // sync the bigger value:
   if (newValue > oldValue) return newValue;
@@ -94,8 +84,6 @@ class USROMMapping {
     @SyncableItem(0x367, 1, 2, @notify),   // dungeon big keys 2/2
     @SyncableItem(0x368, 1, 2, @notify),      // dungeon maps 1/2
     @SyncableItem(0x369, 1, 2, @notify),      // dungeon maps 2/2
-
-    @SyncableHealthCapacity(),  // heart pieces (out of four) [0x36B], health capacity [0x36C]
 
     @SyncableItem(0x370, 1, 1),  // bombs capacity
     @SyncableItem(0x371, 1, 1),  // arrows capacity
