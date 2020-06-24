@@ -293,7 +293,7 @@ void notifySingleItem(const array<string> @names, NotifyItemReceived @notify, ui
   notify(names[new]);
 }
 
-const array<string> @bowNames         = {"Bow", "Bow", "Bow w/ Silver Arrows"};
+const array<string> @bowNames         = {"Bow", "Bow", "Silver Bow", "Silver Bow"};
 const array<string> @boomerangNames   = {"Blue Boomerang", "Red Boomerang"};
 const array<string> @hookshotNames    = {"Hookshot"};
 const array<string> @mushroomNames    = {"Mushroom", "Magic Powder"};
@@ -322,7 +322,15 @@ const array<string> @bottleNames      = {"", "Empty Bottle", "Red Potion", "Gree
 const array<string> @magicNames       = {"1/2 Magic", "1/4 Magic"};
 const array<string> @worldStateNames  = {"Q#Hyrule Castle Dungeon started", "Q#Hyrule Castle Dungeon completed", "Q#Search for Crystals started"};
 
-void nameForBow        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bowNames, notify, new); }
+void nameForBow        (uint16 old, uint16 new, NotifyItemReceived @notify) {
+  // 0x01 - normal bow with no arrows
+  // 0x02 - normal bow with arrows
+  // 0x03 - silver bow with no silver arrows
+  // 0x04 - silver bow with silver arrows
+  if (old == 2 && new == 1) return;
+  if (old == 4 && new == 3) return;
+  notifySingleItem(bowNames, notify, new);
+}
 void nameForBoomerang  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(boomerangNames, notify, new); }
 void nameForHookshot   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hookshotNames, notify, new); }
 void nameForMushroom   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(mushroomNames, notify, new); }
