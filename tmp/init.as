@@ -1,55 +1,33 @@
+funcdef void Callback();
 
-funcdef uint16 ItemMutate(uint16 oldValue, uint16 newValue);
+class Object {
+  Callback @cb = null;
 
-funcdef void NotifyItemReceived(const string &in name);
-funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
-
-// list of SRAM values to sync as items:
-class SyncableItem {
-  NotifyNewItems @notifyNewItems = null;
-
-  SyncableItem(NotifyNewItems @notifyNewItems = null) {
-    @this.notifyNewItems = notifyNewItems;
+  Object(Callback @cb = null) {
+    @this.cb = cb;
   }
 };
 
-// Lookup table of ROM addresses depending on version:
-class Container {
-  // MUST be sorted by offs ascending:
-  array<SyncableItem@> @syncables = {
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem(),
-    @SyncableItem()
+class List {
+  array<Object@> @objects = {
+    @Object(null),
+    @Object(null),
+    @Object()
   };
 };
 
 void init() {
   message("init()");
 
-  auto @list = Container();
+  auto @list = List();
 
-  auto len = list.syncables.length();
+  auto len = list.objects.length();
   for (uint i = 0; i < len; i++) {
-    auto @s = list.syncables[i];
+    auto @s = list.objects[i];
     if (s is null) {
-      message("[" + fmtInt(i) + "] = null");
+      message("[" + fmtInt(i) + "] = NULL");
       continue;
     }
-    message("[" + fmtInt(i) + "] = yes");
+    message("[" + fmtInt(i) + "] = not null");
   }
 }
