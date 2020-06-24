@@ -1,7 +1,7 @@
-ROMMapping @rom = null;
+USROMMapping @rom = null;
 
 // Lookup table of ROM addresses depending on version:
-abstract class ROMMapping {
+class USROMMapping {
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
     @SyncableItem(0x340, 1, 1, @nameForBow),         // bow
@@ -67,11 +67,5 @@ abstract class ROMMapping {
     // progress event flags 2/2
     @SyncableItem(0x3C9, 1, 2, @nameForProgress2)
 
-    // sentinel null value as last item in array to work around bug where last array item is always nulled out.
-    //null
-
   };
-};
-
-class USROMMapping : ROMMapping {
 };
