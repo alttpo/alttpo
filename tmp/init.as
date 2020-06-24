@@ -24,20 +24,20 @@ class USROMMapping {
     @SyncableItem(0x351, 1, 1, @notify),   // cane of byrna
     @SyncableItem(0x352, 1, 1, @notify),   // magic cape
     @SyncableItem(0x353, 1, 1, @notify), // magic mirror
-    @SyncableItem(0x354, 1, @mutateArmorGloves, @notify),  // gloves
+    @SyncableItem(0x354, 1, @mutateMax, @notify),  // gloves
     @SyncableItem(0x355, 1, 1, @notify),       // boots
     @SyncableItem(0x356, 1, 1, @notify),    // flippers
     @SyncableItem(0x357, 1, 1, @notify),   // moon pearl
     // 0x358 unused
-    @SyncableItem(0x359, 1, @mutateSword, @notify),   // sword
-    @SyncableItem(0x35A, 1, @mutateShield, @notify),  // shield
-    @SyncableItem(0x35B, 1, @mutateArmorGloves, @notify),   // armor
+    @SyncableItem(0x359, 1, @mutateMax, @notify),   // sword
+    @SyncableItem(0x35A, 1, @mutateMax, @notify),  // shield
+    @SyncableItem(0x35B, 1, @mutateMax, @notify),   // armor
 
     // bottle contents 0x35C-0x35F
-    @SyncableItem(0x35C, 1, @mutateBottleItem, @notify),
-    @SyncableItem(0x35D, 1, @mutateBottleItem, @notify),
-    @SyncableItem(0x35E, 1, @mutateBottleItem, @notify),
-    @SyncableItem(0x35F, 1, @mutateBottleItem, @notify),
+    @SyncableItem(0x35C, 1, @mutateMax, @notify),
+    @SyncableItem(0x35D, 1, @mutateMax, @notify),
+    @SyncableItem(0x35E, 1, @mutateMax, @notify),
+    @SyncableItem(0x35F, 1, @mutateMax, @notify),
 
     @SyncableItem(0x364, 1, 2, @notify),  // dungeon compasses 1/2
     @SyncableItem(0x365, 1, 2, @notify),  // dungeon compasses 2/2
@@ -58,8 +58,8 @@ class USROMMapping {
 
     @SyncableItem(0x37B, 1, 1, @notify),  // magic usage
 
-    @SyncableItem(0x3C5, 1, @mutateWorldState, @notify),  // general progress indicator
-    @SyncableItem(0x3C6, 1, @mutateProgress1, @notify),  // progress event flags 1/2
+    @SyncableItem(0x3C5, 1, @mutateMax, @notify),  // general progress indicator
+    @SyncableItem(0x3C6, 1, @mutateMax, @notify),  // progress event flags 1/2
     @SyncableItem(0x3C7, 1, 1),  // map icons shown
 
     //@SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
