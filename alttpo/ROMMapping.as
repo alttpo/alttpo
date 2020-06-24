@@ -100,10 +100,15 @@ abstract class ROMMapping {
     @SyncableItem(0x3C5, 1, @mutateWorldState, @nameForWorldState),  // general progress indicator
     @SyncableItem(0x3C6, 1, @mutateProgress1, @nameForProgress1),  // progress event flags 1/2
     @SyncableItem(0x3C7, 1, 1),  // map icons shown
-    //SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
-    @SyncableItem(0x3C9, 1, 2, @nameForProgress2)   // progress event flags 2/2
 
-  // NO TRAILING COMMA HERE!
+    //@SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
+
+    // progress event flags 2/2
+    @SyncableItem(0x3C9, 1, 2, @nameForProgress2),
+
+    // sentinel null value as last item in array to work around bug where last array item is always nulled out.
+    null
+
   };
 };
 

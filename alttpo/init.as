@@ -54,6 +54,16 @@ void cartridge_loaded() {
   // Auto-detect ROM version:
   @rom = detect();
 
+  //auto len = rom.syncables.length();
+  //for (uint i = 0; i < len; i++) {
+  //  auto @s = rom.syncables[i];
+  //  if (s is null) {
+  //    message("[" + fmtInt(i) + "] = null");
+  //    continue;
+  //  }
+  //  message("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
+  //}
+
   // read the JSL target address from the RESET vector code:
   rom.read_main_routing();
 
