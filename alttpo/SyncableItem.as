@@ -494,7 +494,7 @@ const array<string> @randomizerItems2Names = { "",
                                                "",
                                                "",
                                                "",  // Progressive Bow
-                                               "Bow w/ Silver Arrows",
+                                               "Silver Bow",
                                                "Bow" };
 
 void nameForRandomizerItems1(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(randomizerItems1Names, notify, old, new); }
