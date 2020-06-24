@@ -46,7 +46,6 @@ class USROMMapping {
     @SyncableItem(0x340, 1, 1, @notify),         // bow
     @SyncableItem(0x341, 1, 1, @notify),   // boomerang
     @SyncableItem(0x342, 1, 1, @notify),    // hookshot
-    //SyncableItem(0x343, 1, 3),  // bombs (TODO)
     @SyncableItem(0x344, 1, 1, @notify),    // mushroom
     @SyncableItem(0x345, 1, 1, @notify),     // fire rod
     @SyncableItem(0x346, 1, 1, @notify),      // ice rod
@@ -58,7 +57,6 @@ class USROMMapping {
     @SyncableItem(0x34C, 1, 1, @notify),       // flute
     @SyncableItem(0x34D, 1, 1, @notify),      // bug net
     @SyncableItem(0x34E, 1, 1, @notify),        // book
-    //SyncableItem(0x34F, 1, 1),  // current bottle selection (1-4); do not sync as it locks the bottle selector in place
     @SyncableItem(0x350, 1, 1, @notify), // cane of somaria
     @SyncableItem(0x351, 1, 1, @notify),   // cane of byrna
     @SyncableItem(0x352, 1, 1, @notify),   // magic cape
@@ -89,7 +87,6 @@ class USROMMapping {
     @SyncableItem(0x371, 1, 1),  // arrows capacity
 
     @SyncableItem(0x374, 1, 2, @notify),  // pendants
-    //SyncableItem(0x377, 1, 1),  // arrows
     @SyncableItem(0x379, 1, 2),  // player ability flags
     @SyncableItem(0x37A, 1, 2, @notify),  // crystals
 
@@ -98,8 +95,6 @@ class USROMMapping {
     @SyncableItem(0x3C5, 1, @mutateMax, @notify),  // general progress indicator
     @SyncableItem(0x3C6, 1, @mutateMax, @notify),  // progress event flags 1/2
     @SyncableItem(0x3C7, 1, 1),  // map icons shown
-
-    //@SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
 
     // progress event flags 2/2
     @SyncableItem(0x3C9, 1, 2, @notify)
