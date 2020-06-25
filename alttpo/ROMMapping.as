@@ -1,5 +1,7 @@
 ROMMapping @rom = null;
 
+funcdef void SerializeSRAMDelegate(array<uint8> &r, uint16 start, uint16 endExclusive);
+
 // Lookup table of ROM addresses depending on version:
 abstract class ROMMapping {
   uint32 get_tilemap_lightWorldMap() property { return 0; }
@@ -110,6 +112,11 @@ abstract class ROMMapping {
     null
 
   };
+
+  void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) {
+    serialize(r, 0x340, 0x37C); // items earned
+    serialize(r, 0x3C5, 0x3CA); // progress made
+  }
 };
 
 class USROMMapping : ROMMapping {
@@ -198,6 +205,17 @@ class JPROMMapping : ROMMapping {
 
 class RandomizerMapping : JPROMMapping {
   RandomizerMapping() {
+    syncAll();
+  }
+
+  void syncAll() {
+    syncItems();
+    syncShops();
+    syncFlags();
+    syncStats();
+  }
+
+  void syncItems() {
     for (int i = syncables.length() - 1; i >= 0; i--) {
       auto @syncable = syncables[i];
       if (syncable is null) continue;
@@ -228,19 +246,6 @@ class RandomizerMapping : JPROMMapping {
 
       // Need to insert in offs order, so find the place to insert before:
       if (syncable.offs == 0x3C5) {
-        // INVENTORY_SWAP = "$7EF38C"
-        // Item Tracking Slot
-        // brmpnskf
-        // b = blue boomerang
-        // r = red boomerang
-        // m = mushroom current
-        // p = magic powder
-        // n = mushroom past
-        // s = shovel
-        // k = fake flute
-        // f = working flute
-        syncables.insertAt(i, @SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1));
-
         // INVENTORY_SWAP_2 = "$7EF38E"
         // Item Tracking Slot #2
         // bsp-----
@@ -253,26 +258,98 @@ class RandomizerMapping : JPROMMapping {
         // -
         // -
         syncables.insertAt(i, @SyncableItem(0x38E, 1, 2, @nameForRandomizerItems2));
+
+        // INVENTORY_SWAP = "$7EF38C"
+        // Item Tracking Slot
+        // brmpnskf
+        // b = blue boomerang
+        // r = red boomerang
+        // m = mushroom current
+        // p = magic powder
+        // n = mushroom past
+        // s = shovel
+        // k = fake flute
+        // f = working flute
+        syncables.insertAt(i, @SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1));
       }
     }
+  }
 
-    // append extra syncables for randomizer:
-    syncables.insertAt(syncables.length(), {
-      @SyncableItem(0x410, 1, 2),   // NPC Flags 1
-      @SyncableItem(0x411, 1, 2),   // NPC Flags 2
-      @SyncableItem(0x418, 1, 1, @nameForTriforcePieces),   // Current Triforce Count
-      @SyncableItem(0x434, 1, 1),   // hhhhdddd - item locations checked h - HC d - PoD
-      @SyncableItem(0x435, 1, 1),   // dddhhhaa - item locations checked d - DP h - ToH a - AT
-      @SyncableItem(0x436, 1, 1),   // gggggeee - item locations checked g - GT e - EP
-      @SyncableItem(0x437, 1, 1),   // sssstttt - item locations checked s - SW t - TT
-      @SyncableItem(0x438, 1, 1),   // iiiimmmm - item locations checked i - IP m - MM
-      @SyncableItem(0x439, 1, 1)    // ttttssss - item locations checked t - TR s - SP
-    });
-
+  void syncShops() {
     // sync !SHOP_PURCHASE_COUNTS for VT randomizer shops, e.g. bomb and arrow upgrades in happiness pond:
-    for (int i = 0x3C; i >= 0; i--) {
+    for (int i = 0x3D; i >= 0; i--) {
       syncables.insertAt(0, @SyncableItem(0x302 + i, 1, 1));
     }
+  }
+
+  void syncFlags() {
+    syncables.insertLast(@SyncableItem(0x410, 1, 2)); // NPC Flags 1
+    syncables.insertLast(@SyncableItem(0x411, 1, 2)); // NPC Flags 2
+  }
+
+  void syncStats() {
+    syncables.insertLast(@SyncableItem(0x418, 1, 1, @nameForTriforcePieces)); // Current Triforce Count
+    syncables.insertLast(@SyncableItem(0x434, 1, 1));                         // hhhhdddd - item locations checked h - HC d - PoD
+    syncables.insertLast(@SyncableItem(0x435, 1, 1));                         // dddhhhaa - item locations checked d - DP h - ToH a - AT
+    syncables.insertLast(@SyncableItem(0x436, 1, 1));                         // gggggeee - item locations checked g - GT e - EP
+    syncables.insertLast(@SyncableItem(0x437, 1, 1));                         // sssstttt - item locations checked s - SW t - TT
+    syncables.insertLast(@SyncableItem(0x438, 1, 1));                         // iiiimmmm - item locations checked i - IP m - MM
+    syncables.insertLast(@SyncableItem(0x439, 1, 1));                         // ttttssss - item locations checked t - TR s - SP
+  }
+
+  void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
+    serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x3C5, 0x43A); // progress made
+  }
+};
+
+class DoorRandomizerMapping : RandomizerMapping {
+  void syncAll() override {
+    syncItems();
+    syncShops();
+    syncFlags();
+    syncStats();
+    // extra data for door randomizer:
+    syncKeys();
+    syncChests();
+  }
+
+  void syncKeys() {
+    syncables.insertLast(@SyncableItem(0x4b0, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b1, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b2, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b3, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b4, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b5, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b6, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b7, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b8, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4b9, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4ba, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4bb, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4bc, 1, 1));
+  }
+
+  void syncChests() {
+    syncables.insertLast(@SyncableItem(0x4c0, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c1, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c2, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c3, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c4, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c5, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c6, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c7, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c8, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4c9, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4ca, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4cb, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4cc, 1, 1));
+  }
+
+  void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
+    serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x3C5, 0x43A); // progress made
+    serialize(r, 0x4B0, 0x4CD); // keys and chests
   }
 };
 
@@ -307,7 +384,8 @@ ROMMapping@ detect() {
     // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
     // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
     message("Recognized ALTTPR VT-based Entrance Randomized JP ROM version. Seed: " + sig.toString(6, 13));
-    return RandomizerMapping();
+    // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
+    return DoorRandomizerMapping();
   } else {
     message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
     return JPROMMapping();

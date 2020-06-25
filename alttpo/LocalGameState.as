@@ -7,9 +7,11 @@ class LocalGameState : GameState {
   array<Sprite@> sprs(0x80);
 
   NotifyItemReceived@ itemReceivedDelegate;
+  SerializeSRAMDelegate@ serializeSramDelegate;
 
   LocalGameState() {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
+    @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
 
     ancillaeOwner.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
@@ -901,18 +903,19 @@ class LocalGameState : GameState {
       // send SRAM updates once every 16 frames:
       if ((frame & 15) == 0) {
         array<uint8> envelope = create_envelope();
+        rom.serialize_sram_ranges(envelope, serializeSramDelegate);
+        p = send_packet(envelope, p);
+      }
 
-        serialize_sram(envelope, 0x340, 0x390); // items earned
-        serialize_sram(envelope, 0x3C5, 0x43a); // progress made
-
-        // and include dungeon and overworld sync alternating:
-        if ((frame & 31) == 0) {
-          serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
-        }
-        if ((frame & 31) == 16) {
-          serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
-        }
-
+      // send dungeon and overworld SRAM alternating every 16 frames:
+      if ((frame & 31) == 0) {
+        array<uint8> envelope = create_envelope();
+        serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
+        p = send_packet(envelope, p);
+      }
+      if ((frame & 31) == 16) {
+        array<uint8> envelope = create_envelope();
+        serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
         p = send_packet(envelope, p);
       }
     }
