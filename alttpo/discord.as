@@ -11,15 +11,16 @@ namespace discord {
   }
 
   void pre_frame() {
+    auto module = bus::read_u8(0x7E0010);
     // measure when game starts:
     if (timeStart == 0) {
       // when we enter module 5, start the timer:
-      if (local.module >= 0x05 && local.module <= 0x19) {
+      if (module >= 0x05 && module <= 0x19) {
         timeStart = ::chrono::timestamp;
       }
     } else {
       if (timeEnd == 0) {
-        if (local.module == 0x19) {
+        if (module == 0x19) {
           timeEnd = ::chrono::timestamp;
         }
       }
@@ -48,19 +49,21 @@ namespace discord {
       presenceCount = 5 * 60;
 
       auto activity = Activity();
-      activity.Type = 1;  // playing
+      activity.Type = 1;  // Playing
       activity.Details = ::rom.title;
-      if (!settings.started) {
-        //activity.State = "Disconnected";
-      } else {
-        activity.State = "Connected";
+      if (settings.started) {
+        activity.State = "Group '" + ::settings.GroupTrimmed + "'";
       }
+
       activity.Assets.LargeImage = "logo";
       activity.Assets.LargeText = "ALttPO";
       //activity.Assets.SmallImage = "logo";
       //activity.Assets.SmallText = "small text";
-      activity.Timestamps.Start = timeStart;
-      activity.Timestamps.End = timeEnd;
+
+      // Nothing to do with timeEnd since Timestamps.End creates a countdown timer.
+      if (timeEnd == 0) {
+        activity.Timestamps.Start = timeStart;
+      }
       activity.Instance = true;
       activityManager.UpdateActivity(activity, null);
     }
