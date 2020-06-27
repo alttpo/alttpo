@@ -4,6 +4,11 @@ funcdef void SerializeSRAMDelegate(array<uint8> &r, uint16 start, uint16 endExcl
 
 // Lookup table of ROM addresses depending on version:
 abstract class ROMMapping {
+  protected string _title;
+  string get_title() property {
+    return _title;
+  }
+
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
   uint32 get_palette_lightWorldMap() property { return 0; }
@@ -119,7 +124,11 @@ abstract class ROMMapping {
   }
 };
 
-class USROMMapping : ROMMapping {
+class USAROMMapping : ROMMapping {
+  USAROMMapping() {
+    _title = "USA v1." + fmtInt(bus::read_u8(0x00FFDB));
+  }
+
   uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
   uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
   uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
@@ -147,7 +156,11 @@ class USROMMapping : ROMMapping {
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
 };
 
-class EUROMMapping : ROMMapping {
+class EURROMMapping : ROMMapping {
+  EURROMMapping() {
+    _title = "EUR v1." + fmtInt(bus::read_u8(0x00FFDB));
+  }
+
   uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
   uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
   uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
@@ -175,7 +188,11 @@ class EUROMMapping : ROMMapping {
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
-class JPROMMapping : ROMMapping {
+class JAPROMMapping : ROMMapping {
+  JAPROMMapping() {
+    _title = "JAP v1." + fmtInt(bus::read_u8(0x00FFDB));
+  }
+
   uint32 get_tilemap_lightWorldMap() property { return 0x0AC739; }
   uint32 get_tilemap_darkWorldMap()  property { return 0x0AD739; }
   uint32 get_palette_lightWorldMap() property { return 0x0ADB39; }
@@ -203,12 +220,15 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
 };
 
-class RandomizerMapping : JPROMMapping {
-  RandomizerMapping() {
+class RandomizerMapping : JAPROMMapping {
+  protected string _seed;
+  RandomizerMapping(const string &in seed) {
+    _seed = seed;
     syncAll();
   }
 
   void syncAll() {
+    _title = "VT Seed " + _seed;
     syncItems();
     syncShops();
     syncFlags();
@@ -304,7 +324,13 @@ class RandomizerMapping : JPROMMapping {
 };
 
 class DoorRandomizerMapping : RandomizerMapping {
+  DoorRandomizerMapping(const string &in seed) {
+    super(seed);
+  }
+
   void syncAll() override {
+    _title = "ER Seed " + _seed;
+
     syncItems();
     syncShops();
     syncFlags();
@@ -361,33 +387,35 @@ ROMMapping@ detect() {
   if (title == "THE LEGEND OF ZELDA  ") {
     auto region = bus::read_u8(0x00FFD9);
     if (region == 0x01) {
-      message("Recognized US ROM version.");
-      return USROMMapping();
+      message("Recognized USA ROM version.");
+      return USAROMMapping();
     } else if (region == 0x02) {
-      message("Recognized EU ROM version.");
-      return EUROMMapping();
+      message("Recognized EUR ROM version.");
+      return EURROMMapping();
     } else {
-      message("Unrecognized ROM version but has US title; assuming US ROM.");
-      return USROMMapping();
+      message("Unrecognized ROM version but has US title; assuming USA ROM.");
+      return USAROMMapping();
     }
   } else if (title == "ZELDANODENSETSU      ") {
-    message("Recognized JP ROM version.");
-    return JPROMMapping();
+    message("Recognized JAP ROM version.");
+    return JAPROMMapping();
   } else if (sig.toString(0, 3) == "VT ") {
     // ALTTPR VT randomizer.
-    message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + sig.toString(3, 10));
-    return RandomizerMapping();
+    auto seed = sig.toString(3, 10);
+    message("Recognized ALTTPR VT randomized JAP ROM version. Seed: " + seed);
+    return RandomizerMapping(seed);
   } else if (sig.toString(0, 2) == "ER") {
     // ALTTPR VT-based Entrance Randomizer.
     // e.g. "ER002_1_1_164246190  "
     // "002" represents the __version__ string with '.'s removed.
     // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
     // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
-    message("Recognized ALTTPR VT-based Entrance Randomized JP ROM version. Seed: " + sig.toString(6, 13));
+    auto seed = sig.toString(6, 13);
+    message("Recognized ALTTPR VT-based Entrance Randomized JAP ROM version. Seed: " + seed);
     // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
-    return DoorRandomizerMapping();
+    return DoorRandomizerMapping(seed);
   } else {
-    message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
-    return JPROMMapping();
+    message("Unrecognized ALTTP ROM version! Assuming JAP ROM version.");
+    return JAPROMMapping();
   }
 }

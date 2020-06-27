@@ -70,6 +70,10 @@ void on_main_loop(uint32 pc) {
 void pre_frame() {
   //message("pre_frame");
 
+  if (settings.DiscordEnable) {
+    discord::pre_frame();
+  }
+
   if (enableRenderToExtra) {
     ppu::extra.count = 0;
     ppu::extra.text_outline = true;

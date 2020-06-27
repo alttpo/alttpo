@@ -14,6 +14,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkShowLabels;
   private GUI::CheckLabel @chkShowMyLabel;
   private GUI::CheckLabel @chkRaceMode;
+  private GUI::CheckLabel @chkDiscordEnable;
   private GUI::ComboButton @ddlFont;
   private GUI::Button @ok;
 
@@ -85,6 +86,11 @@ class SettingsWindow {
     get { return raceMode; }
   }
 
+  private bool discordEnable;
+  bool DiscordEnable {
+    get { return discordEnable; }
+  }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -113,6 +119,7 @@ class SettingsWindow {
     chkShowLabels.checked = showLabels;
     chkShowMyLabel.checked = showMyLabel;
     chkRaceMode.checked = raceMode;
+    chkDiscordEnable.checked = discordEnable;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -140,6 +147,7 @@ class SettingsWindow {
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
     FontIndex = doc["feature/fontIndex"].naturalOr(0);
     raceMode = doc["feature/raceMode"].booleanOr(false);
+    discordEnable = doc["feature/discordEnable"].booleanOr(false);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -177,13 +185,14 @@ class SettingsWindow {
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
+    doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
     @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(280, 13*25);
+    window.size = GUI::Size(280, 15*25);
     window.dismissable = false;
 
     auto vl = GUI::VerticalLayout();
@@ -345,7 +354,7 @@ class SettingsWindow {
         }
         ddlFont[0].setSelected();
 
-        ddlFont.onChange(@GUI::Callback(this.ddlFontChanged));
+        ddlFont.onChange(@GUI::Callback(ddlFontChanged));
         ddlFont.enabled = true;
       }
 
@@ -362,11 +371,22 @@ class SettingsWindow {
 
       {
         auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        @chkDiscordEnable = GUI::CheckLabel();
+        chkDiscordEnable.text = "Discord Integration";
+        chkDiscordEnable.checked = false;
+        chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
+        hz.append(chkDiscordEnable, GUI::Size(-1, 0));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
 
         @ok = GUI::Button();
         ok.text = "Connect";
-        ok.onActivate(@GUI::Callback(this.startClicked));
+        ok.onActivate(@GUI::Callback(startClicked));
         hz.append(ok, GUI::Size(-1, -1));
       }
     }
@@ -377,6 +397,18 @@ class SettingsWindow {
 
     // set effects of color sliders but don't persist to disk:
     colorWasChanged(false);
+  }
+
+  // callback:
+  private void chkDiscordEnableChanged() {
+    discordEnableWasChanged();
+  }
+
+  private void discordEnableWasChanged(bool persist = true) {
+    discordEnable = chkDiscordEnable.checked;
+
+    if (!persist) return;
+    save();
   }
 
   // callback:

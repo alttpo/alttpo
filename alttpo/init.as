@@ -72,6 +72,10 @@ void cartridge_loaded() {
 
   // register ROM intercepts for local player:
   local.register();
+
+  if (settings.DiscordEnable) {
+    discord::cartridge_loaded();
+  }
 }
 
 // called when cartridge powered on or reset or after init when cartridge already loaded and script loaded afterwards:
