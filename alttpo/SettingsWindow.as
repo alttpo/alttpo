@@ -15,6 +15,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkShowMyLabel;
   private GUI::CheckLabel @chkRaceMode;
   private GUI::CheckLabel @chkDiscordEnable;
+  private GUI::CheckLabel @chkDiscordPrivate;
   private GUI::ComboButton @ddlFont;
   private GUI::Button @ok;
 
@@ -91,6 +92,11 @@ class SettingsWindow {
     get { return discordEnable; }
   }
 
+  private bool discordPrivate;
+  bool DiscordPrivate {
+    get { return discordPrivate; }
+  }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -120,6 +126,7 @@ class SettingsWindow {
     chkShowMyLabel.checked = showMyLabel;
     chkRaceMode.checked = raceMode;
     chkDiscordEnable.checked = discordEnable;
+    chkDiscordPrivate.checked = discordPrivate;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -148,6 +155,7 @@ class SettingsWindow {
     FontIndex = doc["feature/fontIndex"].naturalOr(0);
     raceMode = doc["feature/raceMode"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
+    discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -186,6 +194,7 @@ class SettingsWindow {
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
+    doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
     UserSettings::save("alttpo.bml", doc);
   }
 
@@ -378,6 +387,12 @@ class SettingsWindow {
         chkDiscordEnable.checked = false;
         chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
         hz.append(chkDiscordEnable, GUI::Size(-1, 0));
+
+        @chkDiscordPrivate = GUI::CheckLabel();
+        chkDiscordPrivate.text = "Hide Group Name";
+        chkDiscordPrivate.checked = false;
+        chkDiscordPrivate.onToggle(@GUI::Callback(chkDiscordPrivateChanged));
+        hz.append(chkDiscordPrivate, GUI::Size(-1, 0));
       }
 
       {
@@ -397,6 +412,18 @@ class SettingsWindow {
 
     // set effects of color sliders but don't persist to disk:
     colorWasChanged(false);
+  }
+
+  // callback:
+  private void chkDiscordPrivateChanged() {
+    discordPrivateWasChanged();
+  }
+
+  private void discordPrivateWasChanged(bool persist = true) {
+    discordPrivate = chkDiscordPrivate.checked;
+
+    if (!persist) return;
+    save();
   }
 
   // callback:

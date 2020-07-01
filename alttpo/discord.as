@@ -16,12 +16,12 @@ namespace discord {
     if (timeStart == 0) {
       // when we enter module 5, start the timer:
       if (module >= 0x05 && module <= 0x19) {
-        timeStart = ::chrono::timestamp;
+        timeStart = chrono::timestamp;
       }
     } else {
       if (timeEnd == 0) {
         if (module == 0x19) {
-          timeEnd = ::chrono::timestamp;
+          timeEnd = chrono::timestamp;
         }
       }
     }
@@ -50,9 +50,13 @@ namespace discord {
 
       auto activity = Activity();
       activity.Type = 1;  // Playing
-      activity.Details = ::rom.title;
+      activity.Details = rom.title;
       if (settings.started) {
-        activity.State = "Group '" + ::settings.GroupTrimmed + "'";
+        if (settings.DiscordPrivate) {
+          activity.State = "In Private Group";
+        } else {
+          activity.State = "Group '" + settings.GroupTrimmed + "'";
+        }
       }
 
       activity.Assets.LargeImage = "logo";
