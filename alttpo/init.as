@@ -18,7 +18,7 @@ void init() {
   //message("init()");
 
   @settings = SettingsWindow();
-  settings.ServerAddress = "bittwiddlers.org";
+  settings.ServerAddress = "alttp.online";
   settings.GroupTrimmed = "group1";
   settings.Name = "player1";
   settings.PlayerColor = ppu::rgb(28, 2, 2);

@@ -142,13 +142,21 @@ class SettingsWindow {
   void load() {
     // try to load previous settings from disk:
     auto @doc = UserSettings::load("alttpo.bml");
+    auto version = doc["version"].naturalOr(0);
     serverAddress = doc["server/address"].textOr(ServerAddress);
+    if (version == 0) {
+      if (serverAddress == "bittwiddlers.org") serverAddress = "alttp.online";
+    }
     groupTrimmed = doc["server/group"].textOr(GroupTrimmed);
     name = doc["player/name"].textOr(Name);
     player_color = parse_player_color(doc["player/color"].textOr("0x" + fmtHex(player_color, 4)));
     syncTunic = doc["player/syncTunic"].booleanOr(true);
     syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x1400);
     syncTunicDarkColors = doc["player/syncTunic/darkColors"].naturalOr(0x0A00);
+    if (version == 0) {
+      if (syncTunicLightColors == 0x400) syncTunicLightColors = 0x1400;
+      if (syncTunicLightColors == 0x200) syncTunicLightColors = 0x0A00;
+    }
 
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
@@ -182,6 +190,7 @@ class SettingsWindow {
     raceMode = chkRaceMode.checked;
 
     auto @doc = BML::Node();
+    doc.create("version").value = "1";
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
     doc.create("player/name").value = Name;
