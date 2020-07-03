@@ -30,6 +30,16 @@ class LocalGameState : GameState {
       @rooms[a] = @SyncableItem(a << 1, 2, 2);
     }
 
+    // desync the indoor flags for the swamp palace and the watergate:
+    // LDA $7EF216 : AND.b #$7F : STA $7EF216
+    // LDA $7EF051 : AND.b #$FE : STA $7EF051
+    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(uint16 oldValue, uint16 newValue) {
+      return oldValue | (newValue & 0xFF7F);
+    });
+    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(uint16 oldValue, uint16 newValue) {
+      return oldValue | (newValue & 0xFEFF);
+    });
+
     // SRAM [$250..$27f] unused
 
     // SRAM [$280..$2ff] overworld areas:
@@ -38,6 +48,16 @@ class LocalGameState : GameState {
     for (uint a = 0; a < 0x80; a++) {
       @areas[a] = @SyncableItem(0x280 + a, 1, 2);
     }
+
+    // desync the overlay flags for the swamp palace and its light world counterpart:
+    // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
+    // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
+    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(uint16 oldValue, uint16 newValue) {
+      return oldValue | (newValue & 0xDF);
+    });
+    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(uint16 oldValue, uint16 newValue) {
+      return oldValue | (newValue & 0xDF);
+    });
 
     for (uint i = 0; i < 0x80; i++) {
       @sprs[i] = Sprite();
