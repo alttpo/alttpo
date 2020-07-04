@@ -32,7 +32,7 @@ Everything you need is contained in the client build. There should be nothing ex
 1. Launch `bsnes.exe` (Windows) or `bsnes.app` (macOS), depending on your system.
 1. In bsnes, System > Load Game... and find your ALTTP ROM.
 1. In bsnes, Script > Load Script Folder... and select `alttpo` folder from the current directory.
-1. Find the "Join a Game" window that should have popped up after loading the script. It may have popped under the main BSNES window. ![Join a Game](static/join-a-game.png)
+1. Find the "Join a Game" window that should have popped up after loading the script. It may have popped under the main BSNES window.
 1. Find a friend to play with; make sure they follow all these steps up to this point.
 1. Leave the "Address" field alone unless you intend on running your own ALTTP multiplayer server instance. [See below](#running-your-own-server) if you wish to do so.
 1. Agree with your friend on a unique group name and enter it into the "Group" field. This group name can be anything but make sure it's unique enough for others not to guess otherwise they might be able to join your game. The group name field is limited to 20 characters and is not case sensitive.
@@ -40,6 +40,33 @@ Everything you need is contained in the client build. There should be nothing ex
 1. Play through the game together and report bugs and/or feature requests back to me at https://github.com/JamesDunne/alttp-multiplayer/issues .
 
 Thanks for testing!
+
+## Join a Game window
+![Join a Game](static/join-a-game-2.png)
+
+| Field               | Purpose                                                                                                                                                                                                                                                                |
+|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Address             | Server address (DNS or IP address) to connect to; the default alttp.online server is a small Linode instance hosted in Newark, NJ, US.                                                                                                                                 |
+| Group               | Name of the group to join on the server, aka lobby. Max 20 characters, not case sensitive, whitespace trimmed at both ends.                                                                                                                                            |
+| Player Name         | Your name for other players to see in their game screens (if Show player labels is enabled)                                                                                                                                                                            |
+| Player Color        | Either enter a 16-bit hex value to represent the BGR color which is SNES compatible, or use the R,G,B sliders below to pick the color.                                                                                                                                 |
+| Sync player color   | Adjusts Link's palette for his tunic to use the Player Color and a 75% brightness color for shading.                                                                                                                                                                   |
+| R,G,B sliders       | Adjusts the Red, Green, and Blue components of the Player Color                                                                                                                                                                                                        |
+| Show player labels  | Renders player name labels in the game screen underneath remote player avatars                                                                                                                                                                                         |
+| Show my label       | Renders your own player name label under your own avatar                                                                                                                                                                                                               |
+| Label Font          | The pixel font used to render player name labels with                                                                                                                                                                                                                  |
+| Race Mode           | Players who check this box will not send or receive game state updates to/from any other player but will still be visible to other players on the map and the in-game screen. Players who have this box unchecked will share items, progress, crystals, pendants, etc. |
+| Discord integration | Integrates with your local Discord client to provide activity updates.                                                                                                                                                                                                 |
+| Hide Group Name     | Hide your group name in the Discord activity updates.                                                                                                                                                                                                                  |
+
+Press the `Connect` button to go online and join your group. This window will stay open while connected so that you may adjust your player name and player color at will. The updates will be synced in real time to other players.
+
+## Map window
+![Map Window](static/map-window.png)
+
+In this window you will see small colored circular map markers that represent the approximate location of other players in your group. Your player color determines the color of the map marker.
+
+Uncheck the `Auto` checkbox to allow manual switching between Light World and Dark World map views. Keep it checked to synchronize the map window to your current Light/Dark World position.
 
 # Linux Support
 
@@ -68,31 +95,35 @@ If you wish to run your own ALttPO server, you will need:
 
 Log in to your server (I'll assume it's Linux or at least has a bash-like shell) and follow these steps:
 
-TODO: elaborate on this better!!!
-1. `go install github.com/JamesDunne/alttp-multiplayer/alttp-server`
-1. `$HOME/go/bin/alttp-server`
+1. `mkdir -p /srv/go`
+1. `export GOPATH=/srv/go`
+1. `go get github.com/JamesDunne/alttp-multiplayer/alttp-server`
 
-Consult your system documentation on how to create a service wrapper around the `alttp-server` process.
-
-My server is running an older variant of Ubuntu 14.04 LTS and as such still uses the old `upstart` service manager. Here is my `/etc/init/alttp-server.conf` upstart conf file for reference:
+Create this systemd service unit file at `/etc/systemd/system/alttp-server.service`:
 
 ```
-# configuration for upstart
+[Unit]
+Description=ALTTP UDP multiplayer group server on port 4590
 
-description     "ALTTP UDP multiplayer group server on port 4590"
-author          "James Dunne <james.jdunne@gmail.com>"
+[Service]
+WorkingDirectory=/tmp
+ExecStart=/srv/go/bin/alttp-server
+User=nobody
+Group=nogroup
+Restart=always
 
-start on runlevel [2345]
-stop on starting rc RUNLEVEL=[016]
+[Install]
+WantedBy=multi-user.target
+```
+ 
+To start the service immediately, run:
+```
+$ sudo systemctl start alttp-server
+```
 
-respawn
-respawn limit 2 5
-
-setuid nobody
-setgid nogroup
-
-console log
-exec /srv/bittwiddlers.org/go/bin/alttp-server
+To enable the service to have it always start on boot, run:
+```
+$ sudo systemctl enable alttp-server
 ```
 
 The main takeaways here are that you just need a nice place to store the compiled binary `alttp-server` and you should be able to run it as `nobody` UID with `nogroup` GID to limit its access to the rest of your system. Definitely DO NOT run it as a privileged user of any kind. The less privileges it has, the better. All it needs to do is bind to UDP port 4590 and send UDP messages and nothing else.
