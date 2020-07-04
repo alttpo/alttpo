@@ -397,8 +397,11 @@ ROMMapping@ detect() {
       return USAROMMapping();
     }
   } else if (title == "ZELDANODENSETSU      ") {
-    message("Recognized JAP ROM version.");
+    message("Recognized JP ROM version.");
     return JAPROMMapping();
+  } else if (title == "LOZ: PARALLEL WORLDS ") {
+    message("Recognized Parallel Worlds ROM.");
+    return USAROMMapping();
   } else if (sig.toString(0, 3) == "VT ") {
     // ALTTPR VT randomizer.
     auto seed = sig.toString(3, 10);
