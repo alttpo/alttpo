@@ -188,9 +188,9 @@ class EURROMMapping : ROMMapping {
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
-class JAPROMMapping : ROMMapping {
-  JAPROMMapping() {
-    _title = "JAP v1." + fmtInt(bus::read_u8(0x00FFDB));
+class JPROMMapping : ROMMapping {
+  JPROMMapping() {
+    _title = "JP v1." + fmtInt(bus::read_u8(0x00FFDB));
   }
 
   uint32 get_tilemap_lightWorldMap() property { return 0x0AC739; }
@@ -220,7 +220,7 @@ class JAPROMMapping : ROMMapping {
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
 };
 
-class RandomizerMapping : JAPROMMapping {
+class RandomizerMapping : JPROMMapping {
   protected string _seed;
   RandomizerMapping(const string &in seed) {
     _seed = seed;
@@ -398,14 +398,14 @@ ROMMapping@ detect() {
     }
   } else if (title == "ZELDANODENSETSU      ") {
     message("Recognized JP ROM version.");
-    return JAPROMMapping();
+    return JPROMMapping();
   } else if (title == "LOZ: PARALLEL WORLDS ") {
     message("Recognized Parallel Worlds ROM.");
     return USAROMMapping();
   } else if (sig.toString(0, 3) == "VT ") {
     // ALTTPR VT randomizer.
     auto seed = sig.toString(3, 10);
-    message("Recognized ALTTPR VT randomized JAP ROM version. Seed: " + seed);
+    message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + seed);
     return RandomizerMapping(seed);
   } else if (sig.toString(0, 2) == "ER") {
     // ALTTPR VT-based Entrance Randomizer.
@@ -414,11 +414,11 @@ ROMMapping@ detect() {
     // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
     // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
     auto seed = sig.toString(6, 13);
-    message("Recognized ALTTPR VT-based Entrance Randomized JAP ROM version. Seed: " + seed);
+    message("Recognized ALTTPR VT-based Entrance Randomized JP ROM version. Seed: " + seed);
     // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
     return DoorRandomizerMapping(seed);
   } else {
-    message("Unrecognized ALTTP ROM version! Assuming JAP ROM version.");
-    return JAPROMMapping();
+    message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
+    return JPROMMapping();
   }
 }
