@@ -382,25 +382,26 @@ class DoorRandomizerMapping : RandomizerMapping {
 ROMMapping@ detect() {
   array<uint8> sig(21);
   bus::read_block_u8(0x00FFC0, 0, 21, sig);
-  auto title = sig.toString(0, 21);
+  auto region  = bus::read_u8(0x00FFD9);
+  auto version = bus::read_u8(0x00FFDB);
+  auto title   = sig.toString(0, 21);
   message("ROM title: \"" + title + "\"");
   if (title == "THE LEGEND OF ZELDA  ") {
-    auto region = bus::read_u8(0x00FFD9);
     if (region == 0x01) {
-      message("Recognized USA ROM version.");
+      message("Recognized USA region ROM version v1." + fmtInt(version));
       return USAROMMapping();
     } else if (region == 0x02) {
-      message("Recognized EUR ROM version.");
+      message("Recognized EUR region ROM version v1." + fmtInt(version));
       return EURROMMapping();
     } else {
-      message("Unrecognized ROM version but has US title; assuming USA ROM.");
+      message("Unrecognized ROM region but has US title; assuming USA ROM v1." + fmtInt(version));
       return USAROMMapping();
     }
   } else if (title == "ZELDANODENSETSU      ") {
-    message("Recognized JP ROM version.");
+    message("Recognized JP ROM version v1." + fmtInt(version));
     return JPROMMapping();
   } else if (title == "LOZ: PARALLEL WORLDS ") {
-    message("Recognized Parallel Worlds ROM.");
+    message("Recognized Parallel Worlds ROM hack. Most functionality will not work due to the extreme customization of this hack.");
     return USAROMMapping();
   } else if (sig.toString(0, 3) == "VT ") {
     // ALTTPR VT randomizer.
@@ -418,7 +419,18 @@ ROMMapping@ detect() {
     // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
     return DoorRandomizerMapping(seed);
   } else {
-    message("Unrecognized ALTTP ROM version! Assuming JP ROM version.");
+    switch (region) {
+      case 0x00:
+        message("Unrecognized ALTTP ROM title but region is JP v1." + fmtInt(version));
+        return JPROMMapping();
+      case 0x01:
+        message("Unrecognized ALTTP ROM title but region is USA v1." + fmtInt(version));
+        return USAROMMapping();
+      case 0x02:
+        message("Unrecognized ALTTP ROM title but region is EUR v1." + fmtInt(version));
+        return EURROMMapping();
+    }
+    message("Unrecognized ALTTP ROM title and region! Assuming JP ROM region; version v1." + fmtInt(version));
     return JPROMMapping();
   }
 }

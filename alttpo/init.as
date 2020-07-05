@@ -73,6 +73,12 @@ void cartridge_loaded() {
   // register ROM intercepts for local player:
   local.register();
 
+  // draw map window when cartridge loaded:
+  if (@worldMapWindow != null) {
+    worldMapWindow.loadMap(true);
+    worldMapWindow.drawMap();
+  }
+
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }
@@ -93,11 +99,6 @@ void post_power(bool reset) {
   }
 
   @onlyLocalPlayer[0] = local;
-
-  if (@worldMapWindow != null) {
-    worldMapWindow.loadMap();
-    worldMapWindow.drawMap();
-  }
 }
 
 // called when script itself is unloaded:

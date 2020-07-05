@@ -124,8 +124,13 @@ class WorldMapWindow {
   array<uint8> tilemapLight;
   array<uint8> tilemapDark;
   array<uint8> gfx;
-  void loadMap() {
-    if (loaded) return;
+  void loadMap(bool reload = false) {
+    if (reload) {
+      loaded = false;
+    }
+    if (loaded) {
+      return;
+    }
 
     // mode7 tile map and gfx data for world maps:
     paletteLight.resize(0x100);
