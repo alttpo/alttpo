@@ -85,10 +85,6 @@ jobs:
         # rename the bsnes folder:
         mv ${bsnes_nightly} ${alttpo_nightly}
 
-        # restructure
-        mkdir ${alttpo_nightly}/test-scripts
-        mv ${alttpo_nightly}/*.as ${alttpo_nightly}/test-scripts/
-
         # package alttpo folder:
         mkdir ${alttpo_nightly}/alttpo
         cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
