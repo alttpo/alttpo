@@ -385,7 +385,7 @@ ROMMapping@ detect() {
   auto region  = bus::read_u8(0x00FFD9);
   auto version = bus::read_u8(0x00FFDB);
   auto title   = sig.toString(0, 21);
-  message("ROM title: \"" + title + "\"");
+  message("ROM title: \"" + title.trimRight("\0") + "\"");
   if (title == "THE LEGEND OF ZELDA  ") {
     if (region == 0x01) {
       message("Recognized USA region ROM version v1." + fmtInt(version));
