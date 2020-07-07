@@ -74,7 +74,8 @@ class LocalGameState : GameState {
     }
 
     //message("tilemap intercept register");
-    bus::add_write_interceptor("7e:2000-3fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
+    bus::add_write_interceptor("7e:2000-5fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
+    //bus::add_write_interceptor("7f:2000-5fff", 0, bus::WriteInterceptCallback(this.tilemap_written_dungeon));
 
     registered = true;
   }
@@ -508,29 +509,57 @@ class LocalGameState : GameState {
     }
   }
 
+  // intercept 8-bit writes to a 16-bit array in WRAM at $7f2000:
+  void tilemap_written_dungeon(uint32 addr, uint8 value) {
+    if (is_it_a_bad_time()) {
+      return;
+    }
+
+    if (module == 0x09) {
+      // don't fetch tilemap during lost woods transition:
+      if (sub_module >= 0x0d && sub_module < 0x16) return;
+      // don't fetch tilemap during screen transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) return;
+      // or during LW/DW transition:
+      if (sub_module >= 0x23) return;
+    } else if (module == 0x07) {
+      // don't fetch tilemap during screen transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) return;
+    } else {
+      // don't fetch tilemap changes:
+      return;
+    }
+
+    auto i = addr - 0x7f2000;
+    //message("dungeon[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(value, 2));
+  }
+
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
   void tilemap_written(uint32 addr, uint8 value) {
     if (is_it_a_bad_time()) {
       return;
     }
 
-    // overworld only for the moment:
-    if (module != 0x09) {
+    if (module == 0x09) {
+      // don't fetch tilemap during lost woods transition:
+      if (sub_module >= 0x0d && sub_module < 0x16) return;
+      // don't fetch tilemap during screen transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) return;
+      // or during LW/DW transition:
+      if (sub_module >= 0x23) return;
+    } else if (module == 0x07) {
+      // don't fetch tilemap during screen transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) return;
+    } else {
+      // don't fetch tilemap changes:
       return;
     }
-
-    // don't fetch tilemap during lost woods transition:
-    if (sub_module >= 0x0d && sub_module < 0x16) return;
-    // don't fetch tilemap during screen transition:
-    if (sub_module >= 0x01 && sub_module < 0x07) return;
-    // or during LW/DW transition:
-    if (sub_module >= 0x23) return;
 
     // figure out offset from $7e2000:
     addr -= 0x7e2000;
 
     // mask off low bit of offset and divide by 2 for 16-bit index:
-    uint i = (addr & 0x1ffe) >> 1;
+    uint i = addr >> 1;
 
     // apply the write to either side of the uint16 (upcast to int32):
     if ((addr & 1) == 1) {
@@ -1179,18 +1208,20 @@ class LocalGameState : GameState {
   }
 
   void update_tilemap() {
-    // TODO: sync dungeon tilemap changes
-    if (module != 0x09) return;
+    if (module == 0x09) {
+      // don't update tilemap during LW/DW transition:
+      if (sub_module >= 0x23) return;
 
-    // don't update tilemap during LW/DW transition:
-    if (sub_module >= 0x23) return;
+      tilemap.determine_vram_bounds_overworld();
+    } else if (module == 0x07) {
+      tilemap.determine_vram_bounds_underworld();
+    } else {
+      return;
+    }
 
     // don't write to VRAM during area transition:
     bool write_to_vram = true;
     if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
-
-    // read WRAM values to determine VRAM write bounds:
-    tilemap.determine_vram_bounds();
 
     uint len = players.length();
 

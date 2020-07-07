@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x09;
+const uint8 script_protocol = 0x0A;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
