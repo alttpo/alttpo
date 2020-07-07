@@ -71,7 +71,7 @@ void cartridge_loaded() {
   pb.power(true);
 
   // register ROM intercepts for local player:
-  local.register();
+  local.register(true);
 
   // draw map window when cartridge loaded:
   if (@worldMapWindow != null) {

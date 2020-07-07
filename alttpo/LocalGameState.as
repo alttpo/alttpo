@@ -522,16 +522,15 @@ class LocalGameState : GameState {
     }
 
     if (module == 0x09) {
-      // don't fetch tilemap during lost woods transition:
-      if (sub_module >= 0x0d && sub_module < 0x16) return;
       // don't fetch tilemap during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return;
+      // don't fetch tilemap during lost woods transition:
+      if (sub_module >= 0x0d && sub_module < 0x16) return;
       // or during LW/DW transition:
       if (sub_module >= 0x23) return;
     } else if (module == 0x07) {
       // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) return;
-      if (sub_module >= 0x08 && sub_module < 0x0f) return;
+      if (sub_module >= 0x01) return;
     } else {
       // don't fetch tilemap changes:
       return;
@@ -567,8 +566,7 @@ class LocalGameState : GameState {
       if (sub_module >= 0x23) return;
     } else if (module == 0x07) {
       // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) return;
-      if (sub_module >= 0x08 && sub_module < 0x0f) return;
+      if (sub_module >= 0x01) return;
     } else {
       // don't fetch tilemap changes:
       return;
@@ -1245,7 +1243,7 @@ class LocalGameState : GameState {
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
       // don't write to VRAM during room transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
+      if (sub_module >= 0x01) write_to_vram = false;
 
       tilemap.determine_vram_bounds_underworld();
     } else {
