@@ -65,7 +65,10 @@ class LocalGameState : GameState {
   }
 
   bool registered = false;
-  void register() {
+  void register(bool force = false) {
+    if (force) {
+      registered = false;
+    }
     if (registered) return;
     if (rom is null) return;
 
@@ -74,8 +77,8 @@ class LocalGameState : GameState {
     }
 
     //message("tilemap intercept register");
-    bus::add_write_interceptor("7e:2000-5fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
-    bus::add_write_interceptor("7f:2000-2fff", 0, bus::WriteInterceptCallback(this.tilemap_written_dungeon));
+    bus::add_write_interceptor("7e:2000-5fff", bus::WriteInterceptCallback(this.tilemap_written));
+    bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
 
     registered = true;
   }
@@ -502,6 +505,7 @@ class LocalGameState : GameState {
     if (!clear) return;
 
     // clear tilemap to -1 when changing rooms:
+    //message("tilemap.reset()");
     tilemap.reset(area_size);
 
     if (actual_location != last_location) {
@@ -509,8 +513,9 @@ class LocalGameState : GameState {
     }
   }
 
-  // intercept 8-bit writes to a 16-bit array in WRAM at $7f2000:
-  void tilemap_written_dungeon(uint32 addr, uint8 oldValue, uint8 newValue) {
+  // intercept 8-bit writes to a 8-bit array in WRAM at $7f2000:
+  void attributes_written(uint32 addr, uint8 oldValue, uint8 newValue) {
+    //message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
     //if (newValue == oldValue) return;
     if (is_it_a_bad_time()) {
       return;
@@ -526,25 +531,28 @@ class LocalGameState : GameState {
     } else if (module == 0x07) {
       // don't fetch tilemap during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return;
+      if (sub_module >= 0x08 && sub_module < 0x0f) return;
     } else {
       // don't fetch tilemap changes:
       return;
     }
 
     // figure out offset from $7f2000:
-    auto i = addr - 0x7f2000;
+    auto i = addr - 0x7F2000;
 
     if (tilemap[i] == -1) {
-      tilemap[i] = int32(newValue) << 16;
+      // sample tile and attribute simultaneously:
+      tilemap[i] = bus::read_u16(0x7E2000 + (i << 1)) | (int32(newValue) << 16);
     } else {
+      // just overwrite attribute:
       tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
     }
-    //message("attr[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(newValue, 2) + " (was 0x" + fmtHex(oldValue, 2) + ")");
     //message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
   void tilemap_written(uint32 addr, uint8 oldValue, uint8 newValue) {
+    //message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
     //if (newValue == oldValue) return;
     if (is_it_a_bad_time()) {
       return;
@@ -560,13 +568,14 @@ class LocalGameState : GameState {
     } else if (module == 0x07) {
       // don't fetch tilemap during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return;
+      if (sub_module >= 0x08 && sub_module < 0x0f) return;
     } else {
       // don't fetch tilemap changes:
       return;
     }
 
-    // figure out offset from $7e2000:
-    addr -= 0x7e2000;
+    // figure out offset from $7E2000:
+    addr -= 0x7E2000;
 
     // mask off low bit of offset and divide by 2 for 16-bit index:
     uint i = addr >> 1;
@@ -579,10 +588,10 @@ class LocalGameState : GameState {
     } else {
       // low byte:
       if (tilemap[i] == -1) {
-        // include attribute and low byte of tile:
+        // sample low byte of tile and attribute simultaneously:
         tilemap[i] = int32(newValue) | (bus::read_u8(0x7F2000 + i) << 16);
       } else {
-        // just replace low byte of tile:
+        // just overwrite low byte of tile:
         tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
       }
     }
@@ -1231,10 +1240,13 @@ class LocalGameState : GameState {
       if (sub_module >= 0x23) return;
 
       // don't write to VRAM during area transition:
-      if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
+      if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
+      // don't write to VRAM during room transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
+
       tilemap.determine_vram_bounds_underworld();
     } else {
       return;
