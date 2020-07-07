@@ -75,7 +75,7 @@ class LocalGameState : GameState {
 
     //message("tilemap intercept register");
     bus::add_write_interceptor("7e:2000-5fff", 0, bus::WriteInterceptCallback(this.tilemap_written));
-    //bus::add_write_interceptor("7f:2000-5fff", 0, bus::WriteInterceptCallback(this.tilemap_written_dungeon));
+    bus::add_write_interceptor("7f:2000-2fff", 0, bus::WriteInterceptCallback(this.tilemap_written_dungeon));
 
     registered = true;
   }
@@ -510,7 +510,8 @@ class LocalGameState : GameState {
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7f2000:
-  void tilemap_written_dungeon(uint32 addr, uint8 value) {
+  void tilemap_written_dungeon(uint32 addr, uint8 oldValue, uint8 newValue) {
+    //if (newValue == oldValue) return;
     if (is_it_a_bad_time()) {
       return;
     }
@@ -530,12 +531,21 @@ class LocalGameState : GameState {
       return;
     }
 
+    // figure out offset from $7f2000:
     auto i = addr - 0x7f2000;
-    //message("dungeon[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(value, 2));
+
+    if (tilemap[i] == -1) {
+      tilemap[i] = int32(newValue) << 16;
+    } else {
+      tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
+    }
+    //message("attr[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(newValue, 2) + " (was 0x" + fmtHex(oldValue, 2) + ")");
+    //message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
-  void tilemap_written(uint32 addr, uint8 value) {
+  void tilemap_written(uint32 addr, uint8 oldValue, uint8 newValue) {
+    //if (newValue == oldValue) return;
     if (is_it_a_bad_time()) {
       return;
     }
@@ -564,11 +574,17 @@ class LocalGameState : GameState {
     // apply the write to either side of the uint16 (upcast to int32):
     if ((addr & 1) == 1) {
       // high byte:
-      tilemap[i] = int32( (uint16(tilemap[i]) & 0x00ff) | (int32(value) << 8) );
-      //message("tilemap[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 4));
+      tilemap[i] = (int32(tilemap[i]) & 0x00ff00ff) | (int32(newValue) << 8);
+      //message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
     } else {
       // low byte:
-      tilemap[i] = int32( (uint16(tilemap[i]) & 0xff00) | (int32(value)) );
+      if (tilemap[i] == -1) {
+        // include attribute and low byte of tile:
+        tilemap[i] = int32(newValue) | (bus::read_u8(0x7F2000 + i) << 16);
+      } else {
+        // just replace low byte of tile:
+        tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
+      }
     }
   }
 
@@ -1208,9 +1224,14 @@ class LocalGameState : GameState {
   }
 
   void update_tilemap() {
+    bool write_to_vram = true;
+
     if (module == 0x09) {
       // don't update tilemap during LW/DW transition:
       if (sub_module >= 0x23) return;
+
+      // don't write to VRAM during area transition:
+      if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
@@ -1218,10 +1239,6 @@ class LocalGameState : GameState {
     } else {
       return;
     }
-
-    // don't write to VRAM during area transition:
-    bool write_to_vram = true;
-    if (sub_module > 0x00 && sub_module < 0x07) write_to_vram = false;
 
     uint len = players.length();
 

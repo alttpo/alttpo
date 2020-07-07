@@ -39,7 +39,7 @@ class TilemapRun {
       // if not all the same tile, read all tile values:
       tiles.resize(count);
       for (uint i = 0; i < count; i++) {
-        tiles[i] = uint32(r[c++]) | uint32(r[c++]) << 8 | uint32(r[c++]) << 16;;
+        tiles[i] = uint32(r[c++]) | uint32(r[c++]) << 8 | uint32(r[c++]) << 16;
       }
     }
 
