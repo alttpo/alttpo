@@ -12,6 +12,10 @@ class TilemapChanges {
     serialized = false;
   }
 
+  TilemapChanges() {
+    reset(0x40);
+  }
+
   void reset(uint8 size) {
     // only 0x20 or 0x40 are acceptable values:
     if (size <= 0x20) size = 0x20;
@@ -63,14 +67,22 @@ class TilemapChanges {
     wram_left    = int32(0);
   }
 
-  void write_tilemap(uint i, int32 tile, bool include_vram) {
+  void write_tilemap(uint i, int32 c, bool include_vram) {
+    if (state[i] == c) return;
+
     // record state change:
-    state[i] = int32(tile);
+    state[i] = c;
+
+    uint16 tile = uint16(c & 0x00ffff);
+    uint8  attr = uint8 ((c & 0xff0000) >> 16);
 
     // write to WRAM:
-    bus::write_u16(0x7E2000 + (i << 1), uint16(tile));
-    bus::write_u8 (0x7F2000 + i, uint32(tile) >> 16);
+    bus::write_u16(0x7E2000 + (i << 1), tile);
     //message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
+    if (!overworld) {
+      bus::write_u8 (0x7F2000 + i, attr);
+      //message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
+    }
 
     // write to VRAM:
     if (!include_vram) return;
@@ -85,7 +97,7 @@ class TilemapChanges {
       if (left > wram_left + 0x10+2) return;
 
       // convert tilemap address to VRAM address for BG0 or BG1 layer:
-      uint16 vaddr = ow_tilemap_to_vram_address(i << 1) | (i & 0x1000);
+      uint16 vaddr = ow_tilemap_to_vram_address(i << 1);
 
       // look up tile in tile gfx:
       uint16 a = tile << 3;
