@@ -6,8 +6,8 @@ class TilemapRun {
   bool vertical;
 
   uint8 count;
-  uint16 tile;
-  array<uint16> tiles;
+  uint32 tile;
+  array<uint32> tiles;
 
   int deserialize(array<uint8> @r, int c) {
     offs = uint16(r[c++]) | uint16(r[c++]) << 8;
@@ -27,19 +27,19 @@ class TilemapRun {
     }
 
     // mask off signal bits to get pure offset:
-    offs &= 0x1FFF;
+    offs &= 0x3FFF;
 
     // read count of tiles:
     count = r[c++];
 
     if (same) {
       // if all the same tile, read single value:
-      tile = uint16(r[c++]) | uint16(r[c++]) << 8;
+      tile = uint32(r[c++]) | uint32(r[c++]) << 8 | uint32(r[c++]) << 16;
     } else {
       // if not all the same tile, read all tile values:
       tiles.resize(count);
       for (uint i = 0; i < count; i++) {
-        tiles[i] = uint16(r[c++]) | uint16(r[c++]) << 8;
+        tiles[i] = uint32(r[c++]) | uint32(r[c++]) << 8 | uint32(r[c++]) << 16;;
       }
     }
 
@@ -58,10 +58,10 @@ class TilemapRun {
     r.write_u16(t);
     r.write_u8(count);
     if (same) {
-      r.write_u16(tile);
+      r.write_u24(tile);
     } else {
       for (uint i = 0; i < count; i++) {
-        r.write_u16(tiles[i]);
+        r.write_u24(tiles[i]);
       }
     }
   }
