@@ -3,6 +3,9 @@ class TilemapChanges {
   array<int32> state(0x2000); // 0x2000 * 16-bit items = 0x4000 bytes (using int32 type to allow -1 to mean "no change")
   int size = 0;
   bool serialized = false;
+  uint64 runTimestamp = 0;
+
+  array<TilemapRun> runs;
 
   int32 get_opIndex(int idx) property {
     return state[idx];
@@ -79,14 +82,14 @@ class TilemapChanges {
     if (oldstate != c) {
       // write to WRAM:
       bus::write_u16(0x7E2000 + (i << 1), tile);
-      if (debugRTDS) {
-        message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
-      }
+      //if (debugRTDS) {
+      //  message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
+      //}
       if (!overworld) {
         bus::write_u8 (0x7F2000 + i, attr);
-        if (debugRTDS) {
-          message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
-        }
+        //if (debugRTDS) {
+        //  message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
+        //}
       }
     }
 
@@ -134,12 +137,12 @@ class TilemapChanges {
         }
 
         vram += (addr - ((addr & 0xFF80) >> 1));
-        vram >>= 1;
+        vram = (vram >> 1) | (i & 0x1000);
 
-        if (debugRTDS) {
-          message("vram[0x" + fmtHex(vram, 4) + "] <- 0x" + fmtHex(tile, 4));
-        }
-        ppu::vram[vram | (i & 0x1000)] = tile;
+        //if (debugRTDS) {
+        //  message("vram[0x" + fmtHex(vram, 4) + "] <- 0x" + fmtHex(tile, 4));
+        //}
+        ppu::vram[vram] = tile;
       }
     }
   }
@@ -169,8 +172,6 @@ class TilemapChanges {
       }
     }
   }
-
-  array<TilemapRun> runs;
 
   void serialize(array<uint8> @r) {
     if (!serialized) {
@@ -285,11 +286,14 @@ class TilemapChanges {
         }
       }
 
+      runTimestamp = chrono::millisecond;
+      message("ts="+fmtUint(runTimestamp));
       serialized = true;
     }
 
     // serialize runs to message:
     uint len = runs.length();
+    r.write_u32(runTimestamp);
     r.write_u8(len);
     for (uint i = 0; i < len; i++) {
       auto @run = runs[i];

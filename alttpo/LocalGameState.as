@@ -524,8 +524,10 @@ class LocalGameState : GameState {
       if (sub_module >= 0x23) return false;
     } else if (module == 0x07) {
       // underworld:
-      // don't sample tilemap when moving between rooms:
+      // scrolling between rooms in same supertile:
       if (sub_module == 0x01) return false;
+      // loading new supertile:
+      if (sub_module == 0x02) return false;
       if (sub_module == 0x07) return false;
     } else {
       // don't sample tilemap changes:
@@ -695,6 +697,8 @@ class LocalGameState : GameState {
     r.write_u8(uint8(0x07));
 
     tilemap.serialize(r);
+
+    tilemapTimestamp = tilemap.runTimestamp;
   }
 
   void serialize_objects(array<uint8> &r) {
@@ -1247,8 +1251,9 @@ class LocalGameState : GameState {
 
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
-      // don't write to VRAM during room transition:
-      //if (sub_module >= 0x01) write_to_vram = false;
+      // don't write to VRAM during when...
+      // loading new supertile:
+      if (sub_module == 0x02) write_to_vram = false;
 
       tilemap.determine_vram_bounds_underworld();
     } else {
@@ -1265,12 +1270,16 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
       if (!is_really_in_same_location(remote.location)) continue;
 
+      if (remote.tilemapTimestamp <= remote.tilemapTimestampLast) continue;
+
       // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
         auto @run = remote.tilemapRuns[j];
         // apply the run to the local tilemap state and update VRAM if applicable on screen:
         tilemap.apply(run, write_to_vram);
       }
+
+      remote.tilemapTimestampLast = remote.tilemapTimestamp;
     }
   }
 
