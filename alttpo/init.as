@@ -7,6 +7,7 @@ bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
+bool debugRTDS = false;
 
 bool enableMap = true;
 bool enableBgMusic = true;
