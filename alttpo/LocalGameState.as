@@ -513,6 +513,29 @@ class LocalGameState : GameState {
     }
   }
 
+  bool is_safe_to_sample_tilemap() {
+    if (module == 0x09) {
+      // overworld:
+      // don't sample tilemap during screen transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) return false;
+      // don't sample tilemap during lost woods transition:
+      if (sub_module >= 0x0d && sub_module < 0x16) return false;
+      // or during LW/DW transition:
+      if (sub_module >= 0x23) return false;
+    } else if (module == 0x07) {
+      // underworld:
+      // don't sample tilemap when moving between rooms:
+      if (sub_module == 0x01) return false;
+      if (sub_module == 0x07) return false;
+    } else {
+      // don't sample tilemap changes:
+      return false;
+    }
+
+    // allow tilemap sampling:
+    return true;
+  }
+
   // intercept 8-bit writes to a 8-bit array in WRAM at $7f2000:
   void attributes_written(uint32 addr, uint8 oldValue, uint8 newValue) {
     //message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
@@ -521,18 +544,7 @@ class LocalGameState : GameState {
       return;
     }
 
-    if (module == 0x09) {
-      // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) return;
-      // don't fetch tilemap during lost woods transition:
-      if (sub_module >= 0x0d && sub_module < 0x16) return;
-      // or during LW/DW transition:
-      if (sub_module >= 0x23) return;
-    } else if (module == 0x07) {
-      // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01) return;
-    } else {
-      // don't fetch tilemap changes:
+    if (!is_safe_to_sample_tilemap()) {
       return;
     }
 
@@ -559,18 +571,7 @@ class LocalGameState : GameState {
       return;
     }
 
-    if (module == 0x09) {
-      // don't fetch tilemap during lost woods transition:
-      if (sub_module >= 0x0d && sub_module < 0x16) return;
-      // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) return;
-      // or during LW/DW transition:
-      if (sub_module >= 0x23) return;
-    } else if (module == 0x07) {
-      // don't fetch tilemap during screen transition:
-      if (sub_module >= 0x01) return;
-    } else {
-      // don't fetch tilemap changes:
+    if (!is_safe_to_sample_tilemap()) {
       return;
     }
 
