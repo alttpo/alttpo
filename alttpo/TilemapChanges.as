@@ -79,10 +79,14 @@ class TilemapChanges {
     if (oldstate != c) {
       // write to WRAM:
       bus::write_u16(0x7E2000 + (i << 1), tile);
-      //message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
+      if (debugRTDS) {
+        message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
+      }
       if (!overworld) {
         bus::write_u8 (0x7F2000 + i, attr);
-        //message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
+        if (debugRTDS) {
+          message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
+        }
       }
     }
 
@@ -132,7 +136,9 @@ class TilemapChanges {
         vram += (addr - ((addr & 0xFF80) >> 1));
         vram >>= 1;
 
-        //message("vram[0x" + fmtHex(vram, 4) + "] <- 0x" + fmtHex(tile, 4));
+        if (debugRTDS) {
+          message("vram[0x" + fmtHex(vram, 4) + "] <- 0x" + fmtHex(tile, 4));
+        }
         ppu::vram[vram | (i & 0x1000)] = tile;
       }
     }

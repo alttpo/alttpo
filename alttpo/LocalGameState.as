@@ -546,7 +546,9 @@ class LocalGameState : GameState {
       // just overwrite attribute:
       tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
     }
-    //message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
+    if (debugRTDS) {
+      message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
+    }
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
@@ -582,7 +584,9 @@ class LocalGameState : GameState {
     if ((addr & 1) == 1) {
       // high byte:
       tilemap[i] = (int32(tilemap[i]) & 0x00ff00ff) | (int32(newValue) << 8);
-      //message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
+      if (debugRTDS) {
+        message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
+      }
     } else {
       // low byte:
       if (tilemap[i] == -1) {
