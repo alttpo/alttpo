@@ -1248,7 +1248,7 @@ class LocalGameState : GameState {
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
       // don't write to VRAM during room transition:
-      if (sub_module >= 0x01) write_to_vram = false;
+      //if (sub_module >= 0x01) write_to_vram = false;
 
       tilemap.determine_vram_bounds_underworld();
     } else {
