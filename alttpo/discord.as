@@ -16,12 +16,12 @@ namespace discord {
     if (timeStart == 0) {
       // when we enter module 5, start the timer:
       if (module >= 0x05 && module <= 0x19) {
-        timeStart = chrono::timestamp;
+        timeStart = chrono::realtime::second;
       }
     } else {
       if (timeEnd == 0) {
         if (module == 0x19) {
-          timeEnd = chrono::timestamp;
+          timeEnd = chrono::realtime::second;
         }
       }
     }

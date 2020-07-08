@@ -563,7 +563,7 @@ class LocalGameState : GameState {
     if (debugRTDS) {
       message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
     }
-    tilemapTimestamp = chrono::millisecond;
+    tilemapTimestamp = chrono::realtime::millisecond;
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
@@ -601,7 +601,7 @@ class LocalGameState : GameState {
         tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
       }
     }
-    tilemapTimestamp = chrono::millisecond;
+    tilemapTimestamp = chrono::realtime::millisecond;
   }
 
   void fetch_ancillae() {
