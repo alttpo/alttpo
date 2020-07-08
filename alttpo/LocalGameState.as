@@ -563,6 +563,7 @@ class LocalGameState : GameState {
     if (debugRTDS) {
       message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
     }
+    tilemapTimestamp = chrono::millisecond;
   }
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
@@ -600,6 +601,7 @@ class LocalGameState : GameState {
         tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
       }
     }
+    tilemapTimestamp = chrono::millisecond;
   }
 
   void fetch_ancillae() {
@@ -695,10 +697,9 @@ class LocalGameState : GameState {
 
   void serialize_tilemaps(array<uint8> &r) {
     r.write_u8(uint8(0x07));
-
+    // truncating 64-bit timestamp to 32-bit value (in milliseconds):
+    r.write_u32(tilemapTimestamp);
     tilemap.serialize(r);
-
-    tilemapTimestamp = tilemap.runTimestamp;
   }
 
   void serialize_objects(array<uint8> &r) {
@@ -1270,16 +1271,13 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
       if (!is_really_in_same_location(remote.location)) continue;
 
-      if (remote.tilemapTimestamp <= remote.tilemapTimestampLast) continue;
+      if (remote.tilemapTimestamp <= tilemapTimestamp) continue;
 
-      // TODO: may need to order updates by timestamp - e.g. sanctuary doors opening animation
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
         auto @run = remote.tilemapRuns[j];
         // apply the run to the local tilemap state and update VRAM if applicable on screen:
         tilemap.apply(run, write_to_vram);
       }
-
-      remote.tilemapTimestampLast = remote.tilemapTimestamp;
     }
   }
 

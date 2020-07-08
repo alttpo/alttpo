@@ -3,8 +3,6 @@ class TilemapChanges {
   array<int32> state(0x2000); // 0x2000 * 16-bit items = 0x4000 bytes (using int32 type to allow -1 to mean "no change")
   int size = 0;
   bool serialized = false;
-  uint64 runTimestamp = 0;
-
   array<TilemapRun> runs;
 
   int32 get_opIndex(int idx) property {
@@ -286,14 +284,11 @@ class TilemapChanges {
         }
       }
 
-      runTimestamp = chrono::millisecond;
-      message("ts="+fmtUint(runTimestamp));
       serialized = true;
     }
 
     // serialize runs to message:
     uint len = runs.length();
-    r.write_u32(runTimestamp);
     r.write_u8(len);
     for (uint i = 0; i < len; i++) {
       auto @run = runs[i];
