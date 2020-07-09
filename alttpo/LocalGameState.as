@@ -161,15 +161,33 @@ class LocalGameState : GameState {
     module = bus::read_u8(0x7E0010);
 
     // when module = 0x07: dungeon
-    //    sub_module = 0x00 normal gameplay in dungeon
-    //               = 0x01 going through door
-    //               = 0x03 triggered a star tile to change floor hole configuration
-    //               = 0x05 initializing room? / locked doors?
-    //               = 0x07 falling down hole in floor
-    //               = 0x0e going up/down stairs
-    //               = 0x0f entering dungeon first time (or from mirror)
-    //               = 0x16 when orange/blue barrier blocks transition
-    //               = 0x19 when using mirror
+    //    sub_module = 0x00: Default behavior
+    //               = 0x01: Intra-room transition
+    //               = 0x02: Inter-room transition
+    //               = 0x03: Perform overlay change (e.g. adding holes)
+    //               = 0x04: opening key or big key door
+    //               = 0x05: initializing room? / locked doors? / Trigger an animation?
+    //               = 0x06: Upward floor transition
+    //               = 0x07: Downward floor transition
+    //               = 0x08: Walking up/down an in-room staircase
+    //               = 0x09: Bombing or using dash attack to open a door.
+    //               = 0x0A: Think it has to do with Agahnim's room in Ganon's Tower (before Ganon pops out) (or light level in room changing?)
+    //               = 0x0B: Turn off water (used in swamp palace)
+    //               = 0x0C: Turn on water submodule (used in swamp palace)
+    //               = 0x0D: Watergate room filling with water submodule (no other known uses at the moment)
+    //               = 0x0E: Going up or down inter-room spiral staircases (floor to floor)
+    //               = 0x0F: Entering dungeon first time (or from mirror)
+    //               = 0x10: Going up or down in-room staircases (clarify, how is this different from 0x08. Did I mean in-floor staircases?!
+    //               = 0x11: ??? adds extra sprites on screen
+    //               = 0x12: Walking up straight inter-room staircase
+    //               = 0x13: Walking down straight inter-room staircase
+    //               = 0x14: What Happens when Link falls into a damaging pit.
+    //               = 0x15: Warping to another room.
+    //               = 0x16: Orange/blue barrier state change?
+    //               = 0x17: Quick little submodule that runs when you step on a switch to open trap doors?
+    //               = 0x18: Used in the crystal sequence.
+    //               = 0x19: Magic mirror as used in a dungeon. (Only works in palaces, specifically)
+    //               = 0x1A:
     // when module = 0x09: overworld
     //    sub_module = 0x00 normal gameplay in overworld
     //               = 0x0e
@@ -528,10 +546,20 @@ class LocalGameState : GameState {
       if (sub_module == 0x01) return false;
       // loading new supertile:
       if (sub_module == 0x02) return false;
-      // falling through floor:
+      // up/down through floor:
+      if (sub_module == 0x06) return false;
       if (sub_module == 0x07) return false;
-      // going up/down stairwells between floors:
+      // going up/down spiral stairwells between floors:
+      if (sub_module == 0x08) return false;
       if (sub_module == 0x0e) return false;
+      if (sub_module == 0x10) return false;
+      // going up/down straight stairwells between floors:
+      if (sub_module == 0x12) return false;
+      if (sub_module == 0x13) return false;
+      // warp to another room:
+      if (sub_module == 0x15) return false;
+      // crystal sequence:
+      if (sub_module == 0x18) return false;
       // using mirror:
       if (sub_module == 0x19) return false;
     } else {
