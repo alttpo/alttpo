@@ -528,7 +528,12 @@ class LocalGameState : GameState {
       if (sub_module == 0x01) return false;
       // loading new supertile:
       if (sub_module == 0x02) return false;
+      // falling through floor:
       if (sub_module == 0x07) return false;
+      // going up/down stairwells between floors:
+      if (sub_module == 0x0e) return false;
+      // using mirror:
+      if (sub_module == 0x19) return false;
     } else {
       // don't sample tilemap changes:
       return false;
