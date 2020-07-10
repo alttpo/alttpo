@@ -752,13 +752,6 @@ class LocalGameState : GameState {
     }
   }
 
-  void serialize_tilemaps(array<uint8> &r) {
-    r.write_u8(uint8(0x07));
-    // truncating 64-bit timestamp to 32-bit value (in milliseconds):
-    r.write_u32(tilemapTimestamp);
-    tilemap.serialize(r);
-  }
-
   void serialize_objects(array<uint8> &r) {
     if (!enableObjectSync) return;
 
@@ -944,6 +937,58 @@ class LocalGameState : GameState {
     return p;
   }
 
+  uint send_tilemaps(uint p) {
+    // compress tilemap into horizontal/vertical runs if not already done:
+    tilemap.compress_runs();
+
+    auto @runs = tilemap.runs;
+    uint len = runs.length();
+
+    uint start = 0;
+    uint end = len;
+
+    // send out possibly multiple packets to cover all sprites:
+    while (start < end) {
+      array<uint8> r = create_envelope();
+
+      r.write_u8(uint8(0x07));
+      // truncating 64-bit timestamp to 32-bit value (in milliseconds):
+      r.write_u32(tilemapTimestamp);
+      r.write_u8(uint8(start));
+
+      // serialize as many runs as can fit into packet:
+      uint markLen = r.length();
+      r.write_u8(uint8(end - start));
+
+      uint mark = r.length();
+
+      uint i;
+      for (i = start; i < end; i++) {
+        auto @run = runs[i];
+
+        mark = r.length();
+        run.serialize(r);
+
+        if (r.length() > MaxPacketSize) {
+          // back out the last run:
+          r.removeRange(mark, r.length() - mark);
+
+          // continue at the last run in the next packet:
+          //message("  scratch last mark");
+          break;
+        }
+      }
+
+      r[markLen] = uint8(i - start);
+      start = i;
+
+      // send this packet:
+      p = send_packet(r, p);
+    }
+
+    return p;
+  }
+
   array<uint8> @create_envelope(uint8 kind = 0x01) {
     array<uint8> @envelope = {};
     envelope.reserve(MaxPacketSize);
@@ -1025,17 +1070,17 @@ class LocalGameState : GameState {
       p = send_packet(envelope, p);
     }
 
-    // send another packet:
+    // send posisbly multiple packets for sprites:
     p = send_sprites(p);
 
     if (!settings.RaceMode) {
+      // send posisbly multiple packets for tilemaps:
+      p = send_tilemaps(p);
+
       // send packet every other frame:
       if ((frame & 1) == 0) {
         array<uint8> envelope = create_envelope();
-
         serialize_torches(envelope);
-        serialize_tilemaps(envelope);
-
         p = send_packet(envelope, p);
       }
 

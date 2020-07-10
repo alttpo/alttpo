@@ -171,127 +171,135 @@ class TilemapChanges {
     }
   }
 
+  void compress_runs() {
+    if (serialized) {
+      return;
+    }
+
+    if (debugRTDScapture) {
+      message("rtds: compress_runs()");
+    }
+
+    // reset runs:
+    runs.reserve(20);
+    runs.resize(0);
+
+    // copy the state to a tmp array so we can mutate it:
+    array<int32> tmp = state;
+
+    // $20 x $20 or $40 x $40
+    uint width = size;
+    uint height = size;
+    uint stride = 0x40;
+
+    if (debugRTDScapture) {
+      message("tilemap: " + fmtInt(width) + "x" + fmtInt(height));
+      for (uint y = 0; y < height; y++) {
+        string str = "";
+        auto row = (y * stride);
+        for (uint x = 0; x < width; x++) {
+          // start a run at first tile that's not -1:
+          auto tile = tmp[row + x];
+          if (tile == -1) {
+            str = str+"      ,";
+          } else {
+            str = str+fmtHex(tile,6)+",";
+          }
+          if (tile == -1) continue;
+        }
+        message(str);
+      }
+    }
+
+    for (uint m = 0; m < 0x2000; m += 0x1000) {
+      for (uint y = 0; y < height; y++) {
+        auto row = (y * stride);
+        for (uint x = 0; x < width; x++) {
+          // start a run at first tile that's not -1:
+          auto tile = tmp[m + row + x];
+          if (tile == -1) continue;
+
+          // measure horizontal span:
+          uint hcount = 1;
+          bool hsame = true;
+          for (uint n = x+1; n < width; n++) {
+            auto i = m + row + n;
+            if (tmp[i] == -1) break;
+            if (tmp[i] != tile) hsame = false;
+            hcount++;
+          }
+
+          // measure vertical span:
+          uint vcount = 1;
+          bool vsame = true;
+          for (uint n = y+1; n < height; n++) {
+            auto i = m + (n * stride) + x;
+            if (tmp[i] == -1) break;
+            if (tmp[i] != tile) vsame = false;
+            vcount++;
+          }
+
+          // create the run:
+          TilemapRun run;
+          run.offs = m + row + x;
+          if (vcount > hcount) {
+            // vertical run:
+            run.vertical = true;
+            run.count = vcount;
+            run.same = vsame;
+            if (run.same) {
+              run.tile = tile;
+            } else {
+              run.tiles.reserve(vcount);
+            }
+
+            // add each tile to the run:
+            for (uint n = y; n < y + vcount; n++) {
+              auto i = m + (n * stride) + x;
+              if (!run.same) {
+                run.tiles.insertLast(tmp[i]);
+              }
+
+              // mark as processed:
+              tmp[i] = -1;
+            }
+          } else {
+            // horizontal run:
+            run.vertical = false;
+            run.count = hcount;
+            run.same = hsame;
+            if (run.same) {
+              run.tile = tile;
+            } else {
+              run.tiles.reserve(hcount);
+            }
+
+            // add each tile to the run:
+            for (uint n = x; n < x + hcount; n++) {
+              auto i = m + row + n;
+              if (!run.same) {
+                run.tiles.insertLast(tmp[i]);
+              }
+
+              // mark as processed:
+              tmp[i] = -1;
+            }
+          }
+
+          if (debugRTDScapture) {
+            message("  " + (run.vertical ? "V" : "H") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,6));
+          }
+          runs.insertLast(run);
+        }
+      }
+    }
+
+    serialized = true;
+  }
+
   void serialize(array<uint8> @r) {
     if (!serialized) {
-      if (debugRTDScapture) {
-        message("rtds: serialize tilemaps");
-      }
-
-      // reset runs:
-      runs.reserve(20);
-      runs.resize(0);
-
-      // copy the state to a tmp array so we can mutate it:
-      array<int32> tmp = state;
-
-      // $20 x $20 or $40 x $40
-      uint width = size;
-      uint height = size;
-      uint stride = 0x40;
-
-      if (debugRTDScapture) {
-        message("tilemap: " + fmtInt(width) + "x" + fmtInt(height));
-        for (uint y = 0; y < height; y++) {
-          string str = "";
-          auto row = (y * stride);
-          for (uint x = 0; x < width; x++) {
-            // start a run at first tile that's not -1:
-            auto tile = tmp[row + x];
-            if (tile == -1) {
-              str = str+"      ,";
-            } else {
-              str = str+fmtHex(tile,6)+",";
-            }
-            if (tile == -1) continue;
-          }
-          message(str);
-        }
-      }
-
-      for (uint m = 0; m < 0x2000; m += 0x1000) {
-        for (uint y = 0; y < height; y++) {
-          auto row = (y * stride);
-          for (uint x = 0; x < width; x++) {
-            // start a run at first tile that's not -1:
-            auto tile = tmp[m + row + x];
-            if (tile == -1) continue;
-
-            // measure horizontal span:
-            uint hcount = 1;
-            bool hsame = true;
-            for (uint n = x+1; n < width; n++) {
-              auto i = m + row + n;
-              if (tmp[i] == -1) break;
-              if (tmp[i] != tile) hsame = false;
-              hcount++;
-            }
-
-            // measure vertical span:
-            uint vcount = 1;
-            bool vsame = true;
-            for (uint n = y+1; n < height; n++) {
-              auto i = m + (n * stride) + x;
-              if (tmp[i] == -1) break;
-              if (tmp[i] != tile) vsame = false;
-              vcount++;
-            }
-
-            // create the run:
-            TilemapRun run;
-            run.offs = m + row + x;
-            if (vcount > hcount) {
-              // vertical run:
-              run.vertical = true;
-              run.count = vcount;
-              run.same = vsame;
-              if (run.same) {
-                run.tile = tile;
-              } else {
-                run.tiles.reserve(vcount);
-              }
-
-              // add each tile to the run:
-              for (uint n = y; n < y + vcount; n++) {
-                auto i = m + (n * stride) + x;
-                if (!run.same) {
-                  run.tiles.insertLast(tmp[i]);
-                }
-
-                // mark as processed:
-                tmp[i] = -1;
-              }
-            } else {
-              // horizontal run:
-              run.vertical = false;
-              run.count = hcount;
-              run.same = hsame;
-              if (run.same) {
-                run.tile = tile;
-              } else {
-                run.tiles.reserve(hcount);
-              }
-
-              // add each tile to the run:
-              for (uint n = x; n < x + hcount; n++) {
-                auto i = m + row + n;
-                if (!run.same) {
-                  run.tiles.insertLast(tmp[i]);
-                }
-
-                // mark as processed:
-                tmp[i] = -1;
-              }
-            }
-
-            if (debugRTDScapture) {
-              message("  " + (run.vertical ? "V" : "H") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,6));
-            }
-            runs.insertLast(run);
-          }
-        }
-      }
-
-      serialized = true;
+      compress_runs();
     }
 
     // serialize runs to message:

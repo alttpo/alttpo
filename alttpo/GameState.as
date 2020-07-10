@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0B;
+const uint8 script_protocol = 0x0C;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -455,10 +455,12 @@ class GameState {
   int deserialize_tilemaps(array<uint8> r, int c) {
     // read timestamp:
     tilemapTimestamp = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    // start in array:
+    uint8 start = r[c++];
     // read number of runs:
-    uint8 runCount = r[c++];
-    tilemapRuns.resize(runCount);
-    for (uint i = 0; i < runCount; i++) {
+    uint8 len = r[c++];
+    tilemapRuns.resize(start + len);
+    for (uint i = start; i < start + len; i++) {
       // deserialize the run's parameters:
       auto @run = tilemapRuns[i];
       c = run.deserialize(r, c);
