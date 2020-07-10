@@ -97,10 +97,7 @@ void pre_frame() {
       remote.ttl = 0;
       continue;
     }
-
-    if (remote.ttl > 0) {
-      remote.ttl = remote.ttl - 1;
-    }
+    remote.ttl_count();
 
     // don't render on in-game map:
     if (local.module == 0x0e && local.sub_module == 0x07) continue;

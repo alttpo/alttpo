@@ -95,6 +95,9 @@ class GameState {
   uint8 sfx1;
   uint8 sfx2;
 
+  uint8 sfx1_ttl = 0;
+  uint8 sfx2_ttl = 0;
+
   array<uint8> sram(0x500);
 
   array<GameSprite@> objects(0x10);
@@ -212,6 +215,18 @@ class GameState {
     return locations_equal(actual_location, other_location);
   }
 
+  void ttl_count() {
+    if (ttl > 0) {
+      ttl--;
+    }
+    if (sfx1_ttl > 0) {
+      sfx1_ttl--;
+    }
+    if (sfx2_ttl > 0) {
+      sfx2_ttl--;
+    }
+  }
+
   bool deserialize(array<uint8> r, int c) {
     if (c >= int(r.length())) return false;
 
@@ -296,9 +311,11 @@ class GameState {
     tx2 = r[c++];
     if (tx1 != 0) {
       sfx1 = tx1;
+      sfx1_ttl = 16;
     }
     if (tx2 != 0) {
       sfx2 = tx2;
+      sfx2_ttl = 16;
     }
 
     return c;
@@ -735,7 +752,7 @@ class GameState {
   }
 
   void play_sfx() {
-    if (sfx1 != 0) {
+    if (sfx1 != 0 && sfx1_ttl > 0) {
       //message("sfx1 = " + fmtHex(sfx1,2));
       uint8 lfx1 = bus::read_u8(0x7E012E);
       if (lfx1 == 0) {
@@ -745,7 +762,7 @@ class GameState {
       }
     }
 
-    if (sfx2 != 0) {
+    if (sfx2 != 0 && sfx2_ttl > 0) {
       //message("sfx2 = " + fmtHex(sfx2,2));
       uint8 lfx2 = bus::read_u8(0x7E012F);
       if (lfx2 == 0) {
