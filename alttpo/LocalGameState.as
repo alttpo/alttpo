@@ -526,6 +526,9 @@ class LocalGameState : GameState {
     //message("tilemap.reset()");
     tilemap.reset(area_size);
 
+    // we need to load in new tilemap from other players:
+    tilemapTimestamp = 0;
+
     if (actual_location != last_location) {
       //tilemap_testcase();
     }
@@ -1273,25 +1276,84 @@ class LocalGameState : GameState {
     }
   }
 
+  bool is_safe_to_write_tilemap() {
+    if (module == 0x09) {
+      // overworld:
+      // during screen transition:
+      if (sub_module >= 0x01 && sub_module < 0x07) return false;
+      // during lost woods transition:
+      if (sub_module >= 0x0d && sub_module < 0x16) return false;
+      // during LW/DW transition:
+      if (sub_module >= 0x23) return false;
+    } else if (module == 0x07) {
+      // underworld:
+      // scrolling between rooms in same supertile:
+      if (sub_module == 0x01) return false;
+      // loading new supertile:
+      if (sub_module == 0x02) return false;
+      // up/down through floor:
+      if (sub_module == 0x06) return false;
+      if (sub_module == 0x07) return false;
+      // going up/down spiral stairwells between floors:
+      if (sub_module == 0x08) return false;
+      if (sub_module == 0x0e) return false;
+      if (sub_module == 0x10) return false;
+      // going up/down straight stairwells between floors:
+      if (sub_module == 0x12) return false;
+      if (sub_module == 0x13) return false;
+      // warp to another room:
+      if (sub_module == 0x15) return false;
+      // crystal sequence:
+      if (sub_module == 0x18) return false;
+      // using mirror:
+      if (sub_module == 0x19) return false;
+    } else {
+      // don't write tilemap changes:
+      return false;
+    }
+
+    return true;
+  }
+
   void update_tilemap() {
     bool write_to_vram = true;
 
-    if (module == 0x09) {
-      // don't update tilemap during LW/DW transition:
-      if (sub_module >= 0x23) return;
+    if (!is_safe_to_write_tilemap()) return;
 
-      // don't write to VRAM during area transition:
+    if (module == 0x09) {
+      // overworld:
+
+      // don't write to VRAM when...
+      // area transition:
       if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
-      // don't write to VRAM during when...
+      // underworld:
+
+      // don't write to VRAM when...
+      // scrolling between rooms in same supertile:
+      if (sub_module == 0x01) write_to_vram = false;
       // loading new supertile:
       if (sub_module == 0x02) write_to_vram = false;
+      // up/down through floor:
+      if (sub_module == 0x06) write_to_vram = false;
+      if (sub_module == 0x07) write_to_vram = false;
+      // going up/down spiral stairwells between floors:
+      if (sub_module == 0x08) write_to_vram = false;
+      if (sub_module == 0x0e) write_to_vram = false;
+      if (sub_module == 0x10) write_to_vram = false;
+      // going up/down straight stairwells between floors:
+      if (sub_module == 0x12) write_to_vram = false;
+      if (sub_module == 0x13) write_to_vram = false;
+      // warp to another room:
+      if (sub_module == 0x15) write_to_vram = false;
+      // crystal sequence:
+      if (sub_module == 0x18) write_to_vram = false;
+      // using mirror:
+      if (sub_module == 0x19) write_to_vram = false;
 
       tilemap.determine_vram_bounds_underworld();
-    } else {
-      return;
     }
 
     uint len = players.length();
@@ -1304,6 +1366,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
       if (!is_really_in_same_location(remote.location)) continue;
 
+      // don't make older updates:
       if (remote.tilemapTimestamp <= tilemapTimestamp) continue;
 
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
@@ -1311,6 +1374,9 @@ class LocalGameState : GameState {
         // apply the run to the local tilemap state and update VRAM if applicable on screen:
         tilemap.apply(run, write_to_vram);
       }
+
+      // accept this new timestamp as latest:
+      tilemapTimestamp = remote.tilemapTimestamp;
     }
   }
 
