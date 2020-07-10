@@ -585,7 +585,10 @@ class LocalGameState : GameState {
 
   // intercept 8-bit writes to a 8-bit array in WRAM at $7f2000:
   void attributes_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    //if (newValue == oldValue) return;
+    if (newValue == oldValue) {
+      return;
+    }
+
     if (is_it_a_bad_time()) {
       return;
     }
@@ -616,7 +619,10 @@ class LocalGameState : GameState {
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
   void tilemap_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    //if (newValue == oldValue) return;
+    if (newValue == oldValue) {
+      return;
+    }
+
     if (is_it_a_bad_time()) {
       return;
     }
