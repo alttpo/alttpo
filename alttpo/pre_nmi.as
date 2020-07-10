@@ -47,6 +47,7 @@ void pre_nmi() {
           remote.ttl = 0;
           continue;
         }
+        remote.ttl_count();
 
         // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
         if (local.can_see(remote.location)) {
