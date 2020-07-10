@@ -505,25 +505,34 @@ class LocalGameState : GameState {
     }
   }
 
+  uint8 get_area_size() property {
+    if (module == 0x06 || module == 0x07) {
+      // underworld is always 64x64 tiles:
+      return 0x40;
+    }
+    // assume overworld:
+    return bus::read_u8(0x7E0712) > 0 ? 0x40 : 0x20;
+  }
+
   void fetch_tilemap_changes() {
-    if (is_dead()) return;
+    if (is_dead()) {
+      return;
+    }
 
     bool clear = false;
-    /*
-    if (module == 0x09 && sub_module == 0x05) {
-      // scrolling overworld areas:
-      clear = true;
-    } else
-    */
     if (actual_location != last_location) {
       // generic location changed event:
       clear = true;
     }
 
-    if (!clear) return;
+    if (!clear) {
+      return;
+    }
 
     // clear tilemap to -1 when changing rooms:
-    //message("tilemap.reset()");
+    if (debugRTDScapture) {
+      message("tilemap.reset()");
+    }
     tilemap.reset(area_size);
 
     // we need to load in new tilemap from other players:
@@ -576,7 +585,6 @@ class LocalGameState : GameState {
 
   // intercept 8-bit writes to a 8-bit array in WRAM at $7f2000:
   void attributes_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    //message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
     //if (newValue == oldValue) return;
     if (is_it_a_bad_time()) {
       return;
@@ -584,6 +592,10 @@ class LocalGameState : GameState {
 
     if (!is_safe_to_sample_tilemap()) {
       return;
+    }
+
+    if (debugRTDScapture) {
+      message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
     }
 
     // figure out offset from $7f2000:
@@ -596,7 +608,7 @@ class LocalGameState : GameState {
       // just overwrite attribute:
       tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
     }
-    if (debugRTDS) {
+    if (debugRTDScapture) {
       message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
     }
     tilemapTimestamp = chrono::realtime::millisecond;
@@ -604,7 +616,6 @@ class LocalGameState : GameState {
 
   // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
   void tilemap_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    //message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
     //if (newValue == oldValue) return;
     if (is_it_a_bad_time()) {
       return;
@@ -612,6 +623,10 @@ class LocalGameState : GameState {
 
     if (!is_safe_to_sample_tilemap()) {
       return;
+    }
+
+    if (debugRTDScapture) {
+      message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
     }
 
     // figure out offset from $7E2000:
@@ -624,7 +639,7 @@ class LocalGameState : GameState {
     if ((addr & 1) == 1) {
       // high byte:
       tilemap[i] = (int32(tilemap[i]) & 0x00ff00ff) | (int32(newValue) << 8);
-      if (debugRTDS) {
+      if (debugRTDScapture) {
         message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
       }
     } else {
@@ -1318,7 +1333,9 @@ class LocalGameState : GameState {
   void update_tilemap() {
     bool write_to_vram = true;
 
-    if (!is_safe_to_write_tilemap()) return;
+    if (!is_safe_to_write_tilemap()) {
+      return;
+    }
 
     if (module == 0x09) {
       // overworld:
@@ -1364,10 +1381,18 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
-      if (!is_really_in_same_location(remote.location)) continue;
+      if (!is_really_in_same_location(remote.location)) {
+        continue;
+      }
 
       // don't make older updates:
-      if (remote.tilemapTimestamp <= tilemapTimestamp) continue;
+      if (remote.tilemapTimestamp <= tilemapTimestamp) {
+        continue;
+      }
+
+      if (debugRTDSapply) {
+        message("rtds: apply from player " + fmtInt(remote.index) + "; " + fmtInt(remote.tilemapRuns.length()) + " runs with VRAM write " + fmtBool(write_to_vram));
+      }
 
       for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
         auto @run = remote.tilemapRuns[j];

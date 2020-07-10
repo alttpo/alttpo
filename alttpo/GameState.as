@@ -151,10 +151,6 @@ class GameState {
     return (actual_location & 0x010000) == 0x010000;
   }
 
-  uint8 get_area_size() property {
-    return bus::read_u8(0x7E0712) > 0 ? 0x40 : 0x20;
-  }
-
   bool is_it_a_bad_time() const {
     if (module <= 0x05) return true;
     if (module >= 0x14 && module <= 0x18) return true;
