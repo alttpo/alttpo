@@ -79,7 +79,7 @@ jobs:
         echo "Determined alttpo_commit=${alttpo_commit}"
 
         # find our nightly folder name:
-        alttpo_nightly=alttpo-client-$(archName)-$(Build.SourceBranchName)-${alttpo_commit:0:7}-${bsnes_commit:0:7}
+        alttpo_nightly=alttpo-client-$(archName)-$(Build.SourceBranchName)-${Build.BuildNumber}
         echo "Determined alttpo_nightly=${alttpo_nightly}"
 
         # rename the bsnes folder:
@@ -117,7 +117,7 @@ jobs:
         echo "Determined alttpo_commit=${alttpo_commit}"
 
         # find our nightly folder name:
-        alttpo_server_nightly=alttpo-server-$(archName)-$(Build.SourceBranchName)-${alttpo_commit:0:7}
+        alttpo_server_nightly=alttpo-server-$(archName)-$(Build.SourceBranchName)-${Build.BuildNumber}
         echo "Determined alttpo_server_nightly=${alttpo_server_nightly}"
 
         # package up server binary:
@@ -150,14 +150,14 @@ jobs:
           method: 'POST'
           body: |
             {
-                "content": "A new stable build from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(Build.SourceVersionMessage)"
+                "content": "A new stable build `$(Build.BuildNumber)` from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(Build.SourceVersionMessage)"
             }
           headers: |
             {
               "Content-Type": "application/json"
             }
           waitForCompletion: 'false'
-        condition: eq(variables['Build.SourceBranchName'], 'master')
+        condition: eq(variables['Build.SourceBranchName'], 'stable')
         displayName: "Discord: post link to #stable channel"
 
       # Post a link to latest build artifacts on success to #stable channel in Discord:
@@ -168,12 +168,12 @@ jobs:
           method: 'POST'
           body: |
             {
-                "content": "A new unstable build from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(Build.SourceVersionMessage)"
+                "content": "A new unstable build `$(Build.BuildNumber)` from the `$(Build.SourceBranchName)` branch is available! Download it here:\nhttps://dev.azure.com/ALttPO/alttpo/_build/results?buildId=$(Build.BuildId)&view=artifacts&type=publishedArtifacts\n\nBuild notes:\n$(Build.SourceVersionMessage)"
             }
           headers: |
             {
               "Content-Type": "application/json"
             }
           waitForCompletion: 'false'
-        condition: ne(variables['Build.SourceBranchName'], 'master')
+        condition: ne(variables['Build.SourceBranchName'], 'stable')
         displayName: "Discord: post link to #unstable channel"
