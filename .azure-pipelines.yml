@@ -70,16 +70,12 @@ jobs:
         bsnes_nightly=( $(compgen -W "bsnes-angelscript-$(archName)-*") )
         echo "Determined bsnes_nightly=${bsnes_nightly[0]}"
 
-        # extract the commit id from the folder name:
-        bsnes_commit=${bsnes_nightly[0]:(-40)}
-        echo "Determined bsnes_commit=${bsnes_commit}"
-
         # determine our own commit:
         alttpo_commit=$(Build.SourceVersion)
         echo "Determined alttpo_commit=${alttpo_commit}"
 
         # find our nightly folder name:
-        alttpo_nightly=alttpo-client-$(archName)-$(Build.SourceBranchName)-${Build.BuildNumber}
+        alttpo_nightly=alttpo-client-$(archName)-$(Build.SourceBranchName)-$(Build.BuildNumber)
         echo "Determined alttpo_nightly=${alttpo_nightly}"
 
         # rename the bsnes folder:
@@ -117,7 +113,7 @@ jobs:
         echo "Determined alttpo_commit=${alttpo_commit}"
 
         # find our nightly folder name:
-        alttpo_server_nightly=alttpo-server-$(archName)-$(Build.SourceBranchName)-${Build.BuildNumber}
+        alttpo_server_nightly=alttpo-server-$(archName)-$(Build.SourceBranchName)-$(Build.BuildNumber)
         echo "Determined alttpo_server_nightly=${alttpo_server_nightly}"
 
         # package up server binary:
