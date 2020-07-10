@@ -173,6 +173,10 @@ class TilemapChanges {
 
   void serialize(array<uint8> @r) {
     if (!serialized) {
+      if (debugRTDScapture) {
+        message("rtds: serialize tilemaps");
+      }
+
       // reset runs:
       runs.reserve(20);
       runs.resize(0);
@@ -185,24 +189,24 @@ class TilemapChanges {
       uint height = size;
       uint stride = 0x40;
 
-      //if ((rate_limit & 0x7f) == 0) {
-      //  message("tilemap:");
-      //  for (uint y = 0; y < height; y++) {
-      //    string str = "";
-      //    auto row = (y * stride);
-      //    for (uint x = 0; x < width; x++) {
-      //      // start a run at first tile that's not -1:
-      //      auto tile = tmp[row + x];
-      //      if (tile == -1) {
-      //        str = str+"    ,";
-      //      } else {
-      //        str = str+fmtHex(tile,4)+",";
-      //      }
-      //      if (tile == -1) continue;
-      //    }
-      //    message(str);
-      //  }
-      //}
+      if (debugRTDScapture) {
+        message("tilemap: " + fmtInt(width) + "x" + fmtInt(height));
+        for (uint y = 0; y < height; y++) {
+          string str = "";
+          auto row = (y * stride);
+          for (uint x = 0; x < width; x++) {
+            // start a run at first tile that's not -1:
+            auto tile = tmp[row + x];
+            if (tile == -1) {
+              str = str+"      ,";
+            } else {
+              str = str+fmtHex(tile,6)+",";
+            }
+            if (tile == -1) continue;
+          }
+          message(str);
+        }
+      }
 
       for (uint m = 0; m < 0x2000; m += 0x1000) {
         for (uint y = 0; y < height; y++) {
@@ -279,6 +283,9 @@ class TilemapChanges {
               }
             }
 
+            if (debugRTDScapture) {
+              message("  " + (run.vertical ? "V" : "H") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,6));
+            }
             runs.insertLast(run);
           }
         }
@@ -292,12 +299,7 @@ class TilemapChanges {
     r.write_u8(len);
     for (uint i = 0; i < len; i++) {
       auto @run = runs[i];
-      //if ((rate_limit & 0x7f) == 0) {
-      //  message( (run.vertical ? "vert" : "horz") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,4));
-      //}
       run.serialize(r);
     }
-
-    //rate_limit++;
   }
 }
