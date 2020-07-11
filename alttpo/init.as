@@ -2,14 +2,16 @@ net::Socket@ sock;
 net::Address@ address;
 
 bool debug = false;
+
 bool debugData = false;
 bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
+
 bool debugRTDScapture = false;
-bool debugRTDSapply = false;
 bool debugRTDScompress = false;
+bool debugRTDSapply = false;
 
 bool enableMap = true;
 bool enableBgMusic = true;

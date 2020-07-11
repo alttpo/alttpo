@@ -535,6 +535,7 @@ class LocalGameState : GameState {
       message("tilemap.reset()");
     }
     tilemap.reset(area_size);
+    tilemapLocation = actual_location;
 
     // we need to load in new tilemap from other players:
     tilemapTimestamp = 0;
@@ -728,7 +729,7 @@ class LocalGameState : GameState {
     r.write_u8(sub_module);
     r.write_u8(sub_sub_module);
 
-    r.write_u32(location);
+    r.write_u24(location);
 
     r.write_u16(x);
     r.write_u16(y);
@@ -965,6 +966,7 @@ class LocalGameState : GameState {
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
       r.write_u32(tilemapTimestamp);
+      r.write_u24(tilemapLocation);
       r.write_u8(uint8(start));
 
       // serialize as many runs as can fit into packet:
@@ -1452,6 +1454,11 @@ class LocalGameState : GameState {
 
       // don't make older updates:
       if (remote.tilemapTimestamp <= tilemapTimestamp) {
+        continue;
+      }
+
+      if (!locations_equal(actual_location, remote.tilemapLocation)) {
+        message("rtds: apply from player " + fmtInt(remote.index) + "; skipping as locations do not match: local " + fmtHex(actual_location, 6) + " != " + fmtHex(remote.tilemapLocation, 6));
         continue;
       }
 
