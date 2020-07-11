@@ -571,6 +571,9 @@ class LocalGameState : GameState {
       if (sub_module == 0x18) return false;
       // using mirror:
       if (sub_module == 0x19) return false;
+
+      // in Ganon's room:
+      if (dungeon_room == 0x00) return false;
     } else {
       // don't sample tilemap changes:
       return false;
@@ -1378,6 +1381,9 @@ class LocalGameState : GameState {
       if (sub_module == 0x18) return false;
       // using mirror:
       if (sub_module == 0x19) return false;
+
+      // in Ganon's room:
+      if (dungeon_room == 0x0000) return false;
     } else {
       // don't write tilemap changes:
       return false;
