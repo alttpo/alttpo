@@ -74,9 +74,9 @@ class TilemapChanges {
     // record state change:
     state[i] = c;
 
-    if (debugRTDSapply) {
-      message("m[0x" + fmtHex(i, 4) + "] <- 0x" + fmtHex(c, 6));
-    }
+    //if (debugRTDSapply) {
+    //  message("m[0x" + fmtHex(i, 4) + "] <- 0x" + fmtHex(c, 6));
+    //}
 
     uint16 tile = uint16(c & 0x00ffff);
     uint8  attr = uint8 ((c & 0xff0000) >> 16);
@@ -180,7 +180,7 @@ class TilemapChanges {
       return;
     }
 
-    if (debugRTDScapture) {
+    if (debugRTDScompress) {
       message("rtds: compress_runs()");
     }
 
@@ -197,7 +197,7 @@ class TilemapChanges {
     uint stride = 0x40;
 
     for (uint m = 0; m < 0x2000; m += 0x1000) {
-      if (debugRTDScapture) {
+      if (debugRTDScompress) {
         message("tilemap: " + fmtInt(width) + "x" + fmtInt(height) + " BG" + fmtInt(2 - (m >> 12)));
         for (uint y = 0; y < height; y++) {
           string str = "";
@@ -290,7 +290,7 @@ class TilemapChanges {
             }
           }
 
-          if (debugRTDScapture) {
+          if (debugRTDScompress) {
             message("  " + (run.vertical ? "V" : "H") + " " + (run.same ? "same" : "diff") + " offs="+fmtHex(run.offs,4)+" count="+fmtInt(run.count)+" tiles="+fmtHex(run.tile,6));
           }
           runs.insertLast(run);

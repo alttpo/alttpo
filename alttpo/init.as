@@ -9,6 +9,7 @@ bool debugSprites = false;
 bool debugGameObjects = false;
 bool debugRTDScapture = false;
 bool debugRTDSapply = false;
+bool debugRTDScompress = false;
 
 bool enableMap = true;
 bool enableBgMusic = true;
