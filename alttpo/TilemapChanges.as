@@ -74,9 +74,9 @@ class TilemapChanges {
     // record state change:
     state[i] = c;
 
-    //if (debugRTDSapply) {
-    //  message("m[0x" + fmtHex(i, 4) + "] <- 0x" + fmtHex(c, 6));
-    //}
+    if (debugRTDSapply) {
+      message("tile[0x" + fmtHex(i, 4) + "] <- 0x" + fmtHex(c, 6));
+    }
 
     uint16 tile = uint16(c & 0x00ffff);
     uint8  attr = uint8 ((c & 0xff0000) >> 16);

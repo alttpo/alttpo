@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0C;
+const uint8 script_protocol = 0x0D;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -109,7 +109,7 @@ class GameState {
   TilemapChanges tilemap;
   array<TilemapRun> tilemapRuns;
   uint32 tilemapTimestamp;
-  uint32 tilemapTimestampLast = 0;
+  uint32 tilemapLocation;
 
   array<int> ancillaeOwner;
   array<GameAncilla@> ancillae;
@@ -280,8 +280,7 @@ class GameState {
 
     location = uint32(r[c++])
                | (uint32(r[c++]) << 8)
-               | (uint32(r[c++]) << 16)
-               | (uint32(r[c++]) << 24);
+               | (uint32(r[c++]) << 16);
     actual_location = location;
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -456,6 +455,10 @@ class GameState {
   int deserialize_tilemaps(array<uint8> r, int c) {
     // read timestamp:
     tilemapTimestamp = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    // read location:
+    tilemapLocation = uint32(r[c++])
+             | (uint32(r[c++]) << 8)
+             | (uint32(r[c++]) << 16);
     // start in array:
     uint8 start = r[c++];
     // read number of runs:
