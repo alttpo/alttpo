@@ -606,7 +606,7 @@ class LocalGameState : GameState {
 
     if (tilemap[i] == -1) {
       // sample tile and attribute simultaneously:
-      tilemap[i] = bus::read_u16(0x7E2000 + (i << 1)) | (int32(newValue) << 16);
+      tilemap[i] = int32(bus::read_u16(0x7E2000 + (i << 1))) | (int32(newValue) << 16);
     } else {
       // just overwrite attribute:
       tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
@@ -635,6 +635,9 @@ class LocalGameState : GameState {
       message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ") at cpu.r.pc = " + fmtHex(cpu::r.pc, 6));
     }
 
+    // read current entire word at address being written to:
+    uint16 word = bus::read_u16(addr & 0xFFFFFE);
+
     // figure out offset from $7E2000:
     addr -= 0x7E2000;
 
@@ -647,17 +650,17 @@ class LocalGameState : GameState {
 
       if (tilemap[i] == -1) {
         // sample high byte of tile and attribute simultaneously:
-        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (int32(newValue) << 8);
+        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (int32(word) & 0x00ff) | (int32(newValue) << 8);
       } else {
         // just overwrite high byte of tile:
-        tilemap[i] = (int32(tilemap[i]) & 0x00ff00ff) | (int32(newValue) << 8);
+        tilemap[i] = (tilemap[i] & 0x00ff00ff) | (int32(newValue) << 8);
       }
     } else {
       // low byte:
 
       if (tilemap[i] == -1) {
         // sample low byte of tile and attribute simultaneously:
-        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (int32(newValue));
+        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (word & 0xff00) | (int32(newValue));
       } else {
         // just overwrite low byte of tile:
         tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
