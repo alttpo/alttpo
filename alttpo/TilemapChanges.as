@@ -74,18 +74,22 @@ class TilemapChanges {
     // record state change:
     state[i] = c;
 
+    if (debugRTDSapply) {
+      message("m[0x" + fmtHex(i, 4) + "] <- 0x" + fmtHex(c, 6));
+    }
+
     uint16 tile = uint16(c & 0x00ffff);
     uint8  attr = uint8 ((c & 0xff0000) >> 16);
 
     if (oldstate != c) {
       // write to WRAM:
       bus::write_u16(0x7E2000 + (i << 1), tile);
-      //if (debugRTDS) {
+      //if (debugRTDSapply) {
       //  message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
       //}
       if (!overworld) {
         bus::write_u8 (0x7F2000 + i, attr);
-        //if (debugRTDS) {
+        //if (debugRTDSapply) {
         //  message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
         //}
       }
@@ -192,26 +196,26 @@ class TilemapChanges {
     uint height = size;
     uint stride = 0x40;
 
-    if (debugRTDScapture) {
-      message("tilemap: " + fmtInt(width) + "x" + fmtInt(height));
-      for (uint y = 0; y < height; y++) {
-        string str = "";
-        auto row = (y * stride);
-        for (uint x = 0; x < width; x++) {
-          // start a run at first tile that's not -1:
-          auto tile = tmp[row + x];
-          if (tile == -1) {
-            str = str+"      ,";
-          } else {
-            str = str+fmtHex(tile,6)+",";
-          }
-          if (tile == -1) continue;
-        }
-        message(str);
-      }
-    }
-
     for (uint m = 0; m < 0x2000; m += 0x1000) {
+      if (debugRTDScapture) {
+        message("tilemap: " + fmtInt(width) + "x" + fmtInt(height) + " BG" + fmtInt(2 - (m >> 12)));
+        for (uint y = 0; y < height; y++) {
+          string str = "";
+          auto row = (y * stride);
+          for (uint x = 0; x < width; x++) {
+            // start a run at first tile that's not -1:
+            auto tile = tmp[m + row + x];
+            if (tile == -1) {
+              str = str+"      ,";
+            } else {
+              str = str+fmtHex(tile,6)+",";
+            }
+            if (tile == -1) continue;
+          }
+          message(str);
+        }
+      }
+
       for (uint y = 0; y < height; y++) {
         auto row = (y * stride);
         for (uint x = 0; x < width; x++) {
