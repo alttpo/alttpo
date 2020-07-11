@@ -225,6 +225,7 @@ class LocalGameState : GameState {
     dungeon_entrance = bus::read_u16(0x7E010E);
 
     // compute aggregated location for Link into a single 24-bit number:
+    last_actual_location = actual_location;
     actual_location =
       uint32(in_dark_world & 1) << 17 |
       uint32(in_dungeon & 1) << 16 |
@@ -520,7 +521,7 @@ class LocalGameState : GameState {
     }
 
     bool clear = false;
-    if (actual_location != last_location) {
+    if (actual_location != last_actual_location) {
       // generic location changed event:
       clear = true;
     }
@@ -537,10 +538,6 @@ class LocalGameState : GameState {
 
     // we need to load in new tilemap from other players:
     tilemapTimestamp = 0;
-
-    if (actual_location != last_location) {
-      //tilemap_testcase();
-    }
   }
 
   bool is_safe_to_sample_tilemap() {
@@ -598,7 +595,7 @@ class LocalGameState : GameState {
     }
 
     if (debugRTDScapture) {
-      message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
+      message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ") at cpu.r.pc = " + fmtHex(cpu::r.pc, 6));
     }
 
     // figure out offset from $7f2000:
@@ -632,7 +629,7 @@ class LocalGameState : GameState {
     }
 
     if (debugRTDScapture) {
-      message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ")");
+      message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ") at cpu.r.pc = " + fmtHex(cpu::r.pc, 6));
     }
 
     // figure out offset from $7E2000:
@@ -644,19 +641,27 @@ class LocalGameState : GameState {
     // apply the write to either side of the uint16 (upcast to int32):
     if ((addr & 1) == 1) {
       // high byte:
-      tilemap[i] = (int32(tilemap[i]) & 0x00ff00ff) | (int32(newValue) << 8);
-      if (debugRTDScapture) {
-        message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
+
+      if (tilemap[i] == -1) {
+        // sample high byte of tile and attribute simultaneously:
+        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (int32(newValue) << 8);
+      } else {
+        // just overwrite high byte of tile:
+        tilemap[i] = (int32(tilemap[i]) & 0x00ff00ff) | (int32(newValue) << 8);
       }
     } else {
       // low byte:
+
       if (tilemap[i] == -1) {
         // sample low byte of tile and attribute simultaneously:
-        tilemap[i] = int32(newValue) | (bus::read_u8(0x7F2000 + i) << 16);
+        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (int32(newValue));
       } else {
         // just overwrite low byte of tile:
         tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
       }
+    }
+    if (debugRTDScapture) {
+      message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
     }
     tilemapTimestamp = chrono::realtime::millisecond;
   }

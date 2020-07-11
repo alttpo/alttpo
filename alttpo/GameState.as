@@ -55,6 +55,7 @@ class GameState {
   // values copied from RAM:
   uint8  frame;
   uint32 actual_location;
+  uint32 last_actual_location;
   uint32 location;
   uint32 last_location;
 
