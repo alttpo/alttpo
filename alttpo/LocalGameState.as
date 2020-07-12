@@ -612,9 +612,9 @@ class LocalGameState : GameState {
       // just overwrite attribute:
       tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
     }
-    if (debugRTDScapture) {
-      message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
-    }
+    //if (debugRTDScapture) {
+    //  message("tile[0x" + fmtHex(i, 4) + "] -> 0x" + fmtHex(tilemap[i], 6));
+    //}
     tilemapTimestamp = chrono::realtime::millisecond;
   }
 
@@ -667,9 +667,9 @@ class LocalGameState : GameState {
         tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
       }
     }
-    if (debugRTDScapture) {
-      message("tile[0x" + fmtHex(i, 4) + "]=0x" + fmtHex(tilemap[i], 6));
-    }
+    //if (debugRTDScapture) {
+    //  message("tile[0x" + fmtHex(i, 4) + "] -> 0x" + fmtHex(tilemap[i], 6));
+    //}
     tilemapTimestamp = chrono::realtime::millisecond;
   }
 
@@ -1458,7 +1458,9 @@ class LocalGameState : GameState {
       }
 
       if (!locations_equal(actual_location, remote.tilemapLocation)) {
-        message("rtds: apply from player " + fmtInt(remote.index) + "; skipping as locations do not match: local " + fmtHex(actual_location, 6) + " != " + fmtHex(remote.tilemapLocation, 6));
+        if (debugRTDSapply) {
+          message("rtds: apply from player " + fmtInt(remote.index) + "; skipping as locations do not match: local " + fmtHex(actual_location, 6) + " != " + fmtHex(remote.tilemapLocation, 6));
+        }
         continue;
       }
 
