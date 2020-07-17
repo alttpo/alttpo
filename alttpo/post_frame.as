@@ -50,6 +50,13 @@ void post_frame() {
     //  (((bus::read_u16(0x7E0020) + 0x0C - bus::read_u16(0x7E0708)) & bus::read_u16(0x7E070A)) << 3),
     //  4
     //));
+
+    //// water rooms:
+    //ppu::frame.text(224,  0, fmtHex(bus::read_u8(0x7E0403), 2));
+    //ppu::frame.text(224,  8, fmtHex(bus::read_u8(0x7E0424), 2));
+    //ppu::frame.text(224, 16, fmtHex(bus::read_u8(0x7E045C), 2));
+    //ppu::frame.text(224, 24, fmtHex(bus::read_u8(0x7E0642), 2));
+
   }
 
   if (!(sprites is null)) {
