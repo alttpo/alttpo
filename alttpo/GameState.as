@@ -215,6 +215,9 @@ class GameState {
   void ttl_count() {
     if (ttl > 0) {
       ttl--;
+      if (ttl == 0) {
+        local.notify(name + " left");
+      }
     }
     if (sfx1_ttl > 0) {
       sfx1_ttl--;

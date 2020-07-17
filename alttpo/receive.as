@@ -83,8 +83,15 @@ void receive() {
     }
 
     // deserialize data packet:
+    bool joined = false;
+    if (players[index].ttl <= 0) {
+      joined = true;
+    }
     players[index].ttl = 255;
     players[index].index = index;
     players[index].deserialize(r, c);
+    if (joined) {
+      local.notify(players[index].name + " joined");
+    }
   }
 }
