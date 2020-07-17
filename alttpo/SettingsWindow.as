@@ -224,6 +224,10 @@ class SettingsWindow {
 
         auto @lbl = GUI::Label();
         lbl.text = "Address:";
+        lbl.toolTip =
+          "Server address (hostname or IP address) to connect to. If unsure, use the default `alttpo.online`.\n\n"
+          "If running your own server, enter its hostname or IP address here. Note that alttpo.online is hosted in "
+          "New Jersey, USA on a Linode VPS.";
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtServerAddress = GUI::LineEdit();
@@ -237,6 +241,11 @@ class SettingsWindow {
 
         auto @lbl = GUI::Label();
         lbl.text = "Group:";
+        lbl.toolTip =
+          "Group name to join on the server, a.k.a. the lobby name (case-insensitive, max 20 chars).\n\n"
+          "Private groups are not available yet so try to make your group name unique and hard to guess if you don't "
+          "want other players joining. Also be sure to enable Hide Group Name if using Discord integration.\n\n"
+          "Group name is updated in real time so if you change this while connected, you will move between groups.";
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtGroup = GUI::LineEdit();
@@ -250,6 +259,10 @@ class SettingsWindow {
 
         auto @lbl = GUI::Label();
         lbl.text = "Player Name:";
+        lbl.toolTip =
+          "Your player's name which will show up on other players' screens if they have the `Show Player Labels` "
+          "feature enabled (max 20 chars). Enable `Show My Label` to see your own player name on your own screen.\n\n"
+          "Your player name is updated in real time so players will see changes as you make them in this text box.";
         hz.append(lbl, GUI::Size(100, 0));
 
         @txtName = GUI::LineEdit();
@@ -265,6 +278,12 @@ class SettingsWindow {
 
           auto @lbl = GUI::Label();
           lbl.text = "Player Color:";
+          lbl.toolTip =
+            "Your player's primary color. Use the Red, Green, Blue sliders below to select your color. This color "
+            "is used as your map marker color as seen on the map window. It can also be used to customize your avatar's "
+            "tunic color if you enable that feature below.\n\n"
+            "If you're a turbo nerd you can enter a 15-bit BGR hex color here. Note that it is NOT a 24-bit RGB hex "
+            "colors.";
           hz.append(lbl, GUI::Size(100, 20));
 
           @txtColor = GUI::LineEdit();
@@ -274,7 +293,12 @@ class SettingsWindow {
         }
 
         @chkTunic = GUI::CheckLabel();
-        chkTunic.text = "Sync player color to Link's tunic";
+        chkTunic.text = "Use player color as tunic color";
+        chkTunic.toolTip =
+          "If enabled, changes your avatar's tunic colors to use your primary player color and a secondary 75% "
+          "brightness version of your primary color to shade the tunic with. Other players will see your customized "
+          "tunic as well.\n\n"
+          "For custom sprites, this feature may have unpredictable effects on the sprite's appearance.";
         chkTunic.checked = true;
         chkTunic.onToggle(@GUI::Callback(chkTunicChanged));
         vl.append(chkTunic, GUI::Size(-1, 0));
@@ -289,10 +313,12 @@ class SettingsWindow {
           cvl.append(hz, GUI::Size(-1, 0));
 
           auto @lbl = GUI::Label();
-          lbl.text = "R";
-          hz.append(lbl, GUI::Size(20, 20));
+          lbl.text = "Red";
+          lbl.toolTip = "Adjust the red component of your player color (0..31)";
+          hz.append(lbl, GUI::Size(40, 20));
 
           @slRed = GUI::HorizontalSlider();
+          slRed.toolTip = "Adjust the red component of your player color (0..31)";
           hz.append(slRed, GUI::Size(-1, 0));
           slRed.length = 31;
           slRed.position = 31;
@@ -303,10 +329,12 @@ class SettingsWindow {
           cvl.append(hz, GUI::Size(-1, 0));
 
           auto @lbl = GUI::Label();
-          lbl.text = "G";
-          hz.append(lbl, GUI::Size(20, 20));
+          lbl.text = "Green";
+          lbl.toolTip = "Adjust the green component of your player color (0..31)";
+          hz.append(lbl, GUI::Size(40, 20));
 
           @slGreen = GUI::HorizontalSlider();
+          slGreen.toolTip = "Adjust the green component of your player color (0..31)";
           hz.append(slGreen, GUI::Size(-1, 0));
           slGreen.length = 31;
           slGreen.position = 31;
@@ -317,10 +345,12 @@ class SettingsWindow {
           cvl.append(hz, GUI::Size(-1, 0));
 
           auto @lbl = GUI::Label();
-          lbl.text = "B";
-          hz.append(lbl, GUI::Size(20, 20));
+          lbl.text = "Blue";
+          lbl.toolTip = "Adjust the blue component of your player color (0..31)";
+          hz.append(lbl, GUI::Size(40, 20));
 
           @slBlue = GUI::HorizontalSlider();
+          slBlue.toolTip = "Adjust the blue component of your player color (0..31)";
           hz.append(slBlue, GUI::Size(-1, 0));
           slBlue.length = 31;
           slBlue.position = 31;
@@ -340,13 +370,17 @@ class SettingsWindow {
         vl.append(hz, GUI::Size(-1, 0));
 
         @chkShowLabels = GUI::CheckLabel();
-        chkShowLabels.text = "Show player labels";
+        chkShowLabels.text = "Show Player Labels";
+        chkShowLabels.toolTip =
+          "Enable this to see other players' name labels rendered on screen beneath their avatars.";
         chkShowLabels.checked = true;
         chkShowLabels.onToggle(@GUI::Callback(chkShowLabelsChanged));
         hz.append(chkShowLabels, GUI::Size(-1, 0));
 
         @chkShowMyLabel = GUI::CheckLabel();
-        chkShowMyLabel.text = "Show my label";
+        chkShowMyLabel.text = "Show My Label";
+        chkShowMyLabel.toolTip =
+          "Enable this to see your own player name label rendered on screen beneath your avatar.";
         chkShowMyLabel.checked = true;
         chkShowMyLabel.onToggle(@GUI::Callback(chkShowMyLabelChanged));
         hz.append(chkShowMyLabel, GUI::Size(-1, 0));
@@ -358,9 +392,13 @@ class SettingsWindow {
 
         auto @lbl = GUI::Label();
         lbl.text = "Label Font:";
+        lbl.toolTip =
+          "Choose the on-screen font to render player labels with.";
         hz.append(lbl, GUI::Size(100, 0));
 
         @ddlFont = GUI::ComboButton();
+        ddlFont.toolTip =
+          "Choose the on-screen font to render player labels with.";
         hz.append(ddlFont, GUI::Size(0, 0));
 
         uint len = ppu::fonts_count;
@@ -381,7 +419,12 @@ class SettingsWindow {
         vl.append(hz, GUI::Size(-1, 0));
 
         @chkRaceMode = GUI::CheckLabel();
-        chkRaceMode.text = "Race Mode";
+        chkRaceMode.text = "Race Mode (disable sync)";
+        chkRaceMode.toolTip =
+          "Enable this feature to disable synchronization with other players in the group. This can be used to have "
+          "one or more players race one player who does not share the others' items, progress, or world state.\n\n"
+          "Specifically, this feature disables item sync, progress sync, overworld sync, underworld sync, and "
+          "real-time screen sync for both overworld and underworld areas.";
         chkRaceMode.checked = false;
         chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
         hz.append(chkRaceMode, GUI::Size(-1, 0));
@@ -393,12 +436,18 @@ class SettingsWindow {
 
         @chkDiscordEnable = GUI::CheckLabel();
         chkDiscordEnable.text = "Discord Integration";
+        chkDiscordEnable.toolTip =
+          "Enable to integrate ALttPO with Discord so that others can see that you're playing ALttPO, which ROM version, "
+          "and which randomizer seed if applicable. By default, your group name will be shown unless you disable that "
+          "with `Hide Group Name`.";
         chkDiscordEnable.checked = false;
         chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
         hz.append(chkDiscordEnable, GUI::Size(-1, 0));
 
         @chkDiscordPrivate = GUI::CheckLabel();
         chkDiscordPrivate.text = "Hide Group Name";
+        chkDiscordPrivate.toolTip =
+          "Enable this to hide your group name from Discord if you're playing a private game.";
         chkDiscordPrivate.checked = false;
         chkDiscordPrivate.onToggle(@GUI::Callback(chkDiscordPrivateChanged));
         hz.append(chkDiscordPrivate, GUI::Size(-1, 0));
@@ -410,6 +459,11 @@ class SettingsWindow {
 
         @ok = GUI::Button();
         ok.text = "Connect";
+        ok.toolTip =
+          "Click this button to connect to the server and join your group.\n\n"
+          "Make sure everyone in your group is using the same ALTTP ROM version and/or randomizer seed, otherwise "
+          "unpredictable effects may occur.\n\n"
+          "Also, if resuming a game and cooperating with others, make sure to join with the proper save game file.";
         ok.onActivate(@GUI::Callback(startClicked));
         hz.append(ok, GUI::Size(-1, -1));
       }
