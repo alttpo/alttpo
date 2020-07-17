@@ -1691,7 +1691,7 @@ class LocalGameState : GameState {
     if (notifications.length() == 0) return ei;
 
     // pop off the first notification if its timer is expired:
-    if (notificationFrameTimer++ >= 120) {
+    if (notificationFrameTimer++ >= 160) {
       notifications.removeAt(0);
       notificationFrameTimer = 0;
     }
