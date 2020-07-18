@@ -334,7 +334,7 @@ class LocalGameState : GameState {
 
     bus::read_block_u8(0x7E0D00, 0, 0x2A0, objectsBlock);
     for (i = 0; i < 0x10; i++) {
-      auto @en = @objects[i];
+      auto @en = objects[i];
       if (@en is null) {
         @en = @objects[i] = GameSprite();
       }
@@ -362,7 +362,6 @@ class LocalGameState : GameState {
     // extract OAM sprites to class instances:
     sprites.reserve(128);
     for (int i = 0x00; i <= 0x7f; i++) {
-      //sprs[i].fetchOAM(i);
       sprs[i].decodeOAMArray(oam, i);
     }
 
@@ -1646,8 +1645,7 @@ class LocalGameState : GameState {
 
     uint8 palette = 8;
     for (uint j = link_oam_start; j < link_oam_start + 0xC; j++) {
-      Sprite sprite;
-      sprite.fetchOAM(j);
+      auto @sprite = sprs[j];
 
       // looking for Link body sprites only to grab the palette number:
       if (!sprite.is_enabled) continue;

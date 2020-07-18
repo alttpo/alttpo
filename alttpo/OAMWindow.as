@@ -57,13 +57,15 @@ class OAMWindow {
   }
 
   void update() {
-    Sprite s;
     for (uint i = 0; i < 8; i++) {
       for (uint j = 0; j < 16; j++) {
+        auto @s = local.sprs[i*16+j];
         //s.decodeOAMTable(i*16+j);
-        s.fetchOAM(i*16+j);
+        //s.fetchOAM(i*16+j);
         col[i][j].foregroundColor = s.is_enabled ? clrEnabled : clrDisabled;
         col[i][j].text = fmtHex(s.chr, 3);
+        //col[i][j].text = fmtInt(s.x) + "," + fmtInt(s.y);
+        //col[i][j].text = fmtHex(s.priority, 1);
       }
     }
   }
