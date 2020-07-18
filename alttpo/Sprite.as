@@ -10,7 +10,9 @@ class Sprite {
   }
 
   int16 get_x() property {
-    return int16((uint16(b0) & 0xFF) | (uint16(b4 & 1) << 8));
+    int16 x = int16(uint16(b0) | (uint16(b4 & 1) << 8));
+    if (x >= 256) x -= 512;
+    return x;
   }
   void set_x(int16 value) property {
     b0 = uint8(uint16(value) & 0xFF);
