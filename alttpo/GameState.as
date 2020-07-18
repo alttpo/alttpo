@@ -645,9 +645,9 @@ class GameState {
       auto p = sprite.palette;
 
       // bounds check for OAM sprites:
-      if (sprite.x + dx < -px) continue;
+      if (sprite.x + dx <= -px) continue;
       if (sprite.x + dx >= 256) continue;
-      if (sprite.y + dy < -px) continue;
+      if (sprite.y + dy <= -px) continue;
       if (sprite.y + dy >= 240) continue;
 
       // start building a new OAM sprite (on "extra" layer):
