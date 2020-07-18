@@ -9,6 +9,8 @@ class LocalGameState : GameState {
   NotifyItemReceived@ itemReceivedDelegate;
   SerializeSRAMDelegate@ serializeSramDelegate;
 
+  uint8 state;
+
   LocalGameState() {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
@@ -215,6 +217,9 @@ class LocalGameState : GameState {
     // read frame counter (increments from 00 to FF and wraps around):
     frame = bus::read_u8(0x7E001A);
 
+    // player state:
+    state = bus::read_u8(0x7E005D);
+
     // fetch various room indices and flags about where exactly Link currently is:
     in_dark_world = bus::read_u8(0x7E0FFF);
     in_dungeon = bus::read_u8(0x7E001B);
@@ -395,6 +400,53 @@ class LocalGameState : GameState {
       auto chr = spr.chr;
       if (chr >= 0x100) continue;
 
+      if (i > 0) {
+        auto @sprp1 = sprs[i-1];
+        // Work around a bug with Leevers where they show up for a few frames as boomerangs:
+        if (chr == 0x026 && sprp1.chr == 0x126) {
+          continue;
+        }
+        // shadow underneath pot / bush or small stone
+        if (chr == 0x6c && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42)) {
+          // append the sprite to our array:
+          sprites.resize(++numsprites);
+          @sprites[numsprites-1] = spr;
+          continue;
+        }
+      }
+
+      if (i <= 0x7E) {
+        auto @sprn1 = sprs[i+1];
+        if (
+          // water under follower:
+             (chr == 0xd8 && (sprn1.chr == 0xd8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+          || (chr == 0xd9 && (sprn1.chr == 0xd9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+          || (chr == 0xda && (sprn1.chr == 0xda || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+          // grass under follower:
+          || (chr == 0xc8 && (sprn1.chr == 0xc8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+          || (chr == 0xc9 && (sprn1.chr == 0xc9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+          || (chr == 0xca && (sprn1.chr == 0xca || sprn1.chr == 0x22 || sprn1.chr == 0x20))
+        ) {
+          // append the sprite to our array:
+          sprites.resize(++numsprites);
+          @sprites[numsprites-1] = spr;
+          continue;
+        }
+      }
+
+      // ether, bombos, quake:
+      if (state == 0x08 || state == 0x09 || state == 0x0A) {
+        if (
+           (chr >= 0x40 && chr <= 0x4f)
+        || (chr >= 0x60 && chr < 0x6c)
+        ) {
+          // append the sprite to our array:
+          sprites.resize(++numsprites);
+          @sprites[numsprites-1] = spr;
+          continue;
+        }
+      }
+
       if (
         // sparkles around sword spin attack AND magic boomerang:
            chr == 0x80 || chr == 0x83 || chr == 0xb7
@@ -414,9 +466,6 @@ class LocalGameState : GameState {
         || chr == 0x09 || chr == 0x0a
         // magic cape
         || chr == 0x86 || chr == 0xa9 || chr == 0x9b
-        // quake & ether:
-        || chr == 0x40 || chr == 0x42 || chr == 0x44 || chr == 0x46 || chr == 0x48 || chr == 0x4a || chr == 0x4c || chr == 0x4e
-        || chr == 0x60 || chr == 0x62 || chr == 0x63 || chr == 0x64 || chr == 0x66 || chr == 0x68 || chr == 0x6a
         // push block
         || chr == 0x0c
         // large stone
@@ -432,37 +481,6 @@ class LocalGameState : GameState {
         continue;
       }
 
-      auto @sprp1 = spr;
-      if (i > 0) {
-        @sprp1 = sprs[i-1];
-      }
-      // shadow underneath pot / bush or small stone
-      if (chr == 0x6c && (sprp1.chr == 0x46 || sprp1.chr == 0x44 || sprp1.chr == 0x42)) {
-        // append the sprite to our array:
-        sprites.resize(++numsprites);
-        @sprites[numsprites-1] = spr;
-        continue;
-      }
-
-      auto @sprn1 = spr;
-      if (i <= 0x7E) {
-        @sprn1 = sprs[i+1];
-      }
-      if (
-        // water under follower:
-           (chr == 0xd8 && (sprn1.chr == 0xd8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-        || (chr == 0xd9 && (sprn1.chr == 0xd9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-        || (chr == 0xda && (sprn1.chr == 0xda || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-        // grass under follower:
-        || (chr == 0xc8 && (sprn1.chr == 0xc8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-        || (chr == 0xc9 && (sprn1.chr == 0xc9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-        || (chr == 0xca && (sprn1.chr == 0xca || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-      ) {
-        // append the sprite to our array:
-        sprites.resize(++numsprites);
-        @sprites[numsprites-1] = spr;
-        continue;
-      }
     }
   }
 
