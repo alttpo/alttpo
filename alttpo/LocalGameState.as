@@ -415,23 +415,27 @@ class LocalGameState : GameState {
         }
       }
 
-      if (i <= 0x7E) {
-        auto @sprn1 = sprs[i+1];
-        if (
-          // water under follower:
-             (chr == 0xd8 && (sprn1.chr == 0xd8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-          || (chr == 0xd9 && (sprn1.chr == 0xd9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-          || (chr == 0xda && (sprn1.chr == 0xda || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-          // grass under follower:
-          || (chr == 0xc8 && (sprn1.chr == 0xc8 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-          || (chr == 0xc9 && (sprn1.chr == 0xc9 || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-          || (chr == 0xca && (sprn1.chr == 0xca || sprn1.chr == 0x22 || sprn1.chr == 0x20))
-        ) {
-          // append the sprite to our array:
-          sprites.resize(++numsprites);
-          @sprites[numsprites-1] = spr;
-          continue;
+      // water/sand/grass:
+      if ((chr >= 0xc8 && chr <= 0xca) || (chr >= 0xd8 && chr <= 0xda)) {
+        if (i > 0 && i <= 0x7D) {
+          auto @sprp1 = sprs[i-1];
+          auto @sprn1 = sprs[i+1];
+          auto @sprn2 = sprs[i+2];
+          // must be over follower to sync:
+          if (
+               // first water/sand/grass sprite:
+               (chr == sprn1.chr && (sprn2.chr == 0x22 || sprn2.chr == 0x20))
+               // second water/sand/grass sprite:
+            || (chr == sprp1.chr && (sprn1.chr == 0x22 || sprn1.chr == 0x20))
+          ) {
+            // append the sprite to our array:
+            sprites.resize(++numsprites);
+            @sprites[numsprites-1] = spr;
+            continue;
+          }
         }
+
+        continue;
       }
 
       // ether, bombos, quake:
