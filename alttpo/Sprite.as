@@ -80,14 +80,14 @@ class Sprite {
 
   // assumes tbl is 0x220 bytes, read from 0x7E0800
   void decodeOAMArray(const array<uint8> &in tbl, uint16 i) {
-    uint8 b0, b1, b2, b3, b4;
-    b0 = tbl[0x000 + (i << 2)];
-    b1 = tbl[0x001 + (i << 2)];
-    b2 = tbl[0x002 + (i << 2)];
-    b3 = tbl[0x003 + (i << 2)];
-    b4 = tbl[0x200 + (i >> 2)];
-    b4 = (b4 >> ((i&3)<<1)) & 3;
-    decodeOAMTableBytes(i, b0, b1, b2, b3, b4);
+    auto addr = i << 2;
+    this.b0 = tbl[0x000 + addr];
+    this.b1 = tbl[0x001 + addr];
+    this.b2 = tbl[0x002 + addr];
+    this.b3 = tbl[0x003 + addr];
+    auto b4 = tbl[0x200 + (i >> 2)];
+    this.b4 = (b4 >> ((i&3)<<1)) & 3;
+    index = i;
   }
 
   void serialize(array<uint8> &r) {
