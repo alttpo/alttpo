@@ -344,6 +344,7 @@ class GameState {
       spr.b3 = r[c++];
       auto b4 = r[c++];
       spr.b4 = b4 & 0x7f;
+      spr.decodeOAMTableBytes();
       //message("oam " + fmtHex(spr.index, 2));
 
       // read VRAM for chrs:
