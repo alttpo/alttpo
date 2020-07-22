@@ -218,6 +218,38 @@ class LocalGameState : GameState {
     frame = bus::read_u8(0x7E001A);
 
     // player state:
+    // 0x00 - ground state
+    // 0x01 - falling into a hole
+    // 0x02 - recoil from hitting wall / enemies
+    // 0x03 - spin attacking
+    // 0x04 - swimming
+    // 0x05 - Turtle Rock platforms
+    // 0x06 - recoil again (other movement)
+    // 0x07 - Being electrocuted
+    // 0x08 - using ether medallion
+    // 0x09 - using bombos medallion
+    // 0x0A - using quake medallion
+    // 0x0B - Falling into a hold by jumping off of a ledge.
+    // 0x0C - Falling to the left / right off of a ledge.
+    // 0x0D - Jumping off of a ledge diagonally up and left / right.
+    // 0x0E - Jumping off of a ledge diagonally down and left / right.
+    // 0x0F - More jumping off of a ledge but with dashing maybe + some directions.
+    // 0x10 - Same or similar to 0x0F?
+    // 0x11 - Falling off a ledge
+    // 0x12 - Used when coming out of a dash by pressing a direction other than the
+    //        dash direction.
+    // 0x13 - hookshot
+    // 0x14 - magic mirror
+    // 0x15 - holding up an item
+    // 0x16 - asleep in his bed
+    // 0x17 - permabunny
+    // 0x18 - stuck under a heavy rock
+    // 0x19 - Receiving Ether Medallion
+    // 0x1A - Receiving Bombos Medallion
+    // 0x1B - Opening Desert Palace
+    // 0x1C - temporary bunny
+    // 0x1D - Rolling back from Gargoyle gate or PullForRupees object
+    // 0x1E - The actual spin attack motion.
     state = bus::read_u8(0x7E005D);
 
     // fetch various room indices and flags about where exactly Link currently is:
@@ -451,6 +483,18 @@ class LocalGameState : GameState {
         }
       }
 
+      // hookshot:
+      if (state == 0x13) {
+        if (
+           chr == 0x09 || chr == 0x0a || chr == 0x19
+        ) {
+          // append the sprite to our array:
+          sprites.resize(++numsprites);
+          @sprites[numsprites-1] = spr;
+          continue;
+        }
+      }
+
       if (
         // sparkles around sword spin attack AND magic boomerang:
            chr == 0x80 || chr == 0x83 || chr == 0xb7
@@ -478,6 +522,25 @@ class LocalGameState : GameState {
         || chr == 0x46 || chr == 0x44 || chr == 0x42
         // follower:
         || chr == 0x20 || chr == 0x22
+        // arrow:
+        || chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
+        || chr == 0x2c || chr == 0x2d || chr == 0x3c || chr == 0x3d
+        // fire rod shot:
+        || chr == 0x8d || chr == 0x9c || chr == 0x9d
+        // fire rod shot flame up:
+        || chr == 0x8e || chr == 0xa0 || chr == 0xa2 || chr == 0xa4 || chr == 0xa5
+        // ice rod shot:
+        || chr == 0xb6 || chr == 0xb7 || chr == 0x83 || chr == 0x80 || chr == 0xcf || chr == 0xdf
+        // lantern fire:
+        || chr == 0xe3 || chr == 0xf3 || chr == 0xa4 || chr == 0xa5 || chr == 0xb2 || chr == 0xb3 || chr == 0x9c
+        // somaria block:
+        || chr == 0xe9
+        // somaria block explosion:
+        || chr == 0xc4 || chr == 0xc5 || chr == 0xc6 || chr == 0xd2
+        // somaria block shot:
+        || chr == 0xc2 || chr == 0xc3 || chr == 0xd3 || chr == 0xd4
+        // somaria shot explode:
+        || chr == 0xd5 || chr == 0xd6
       ) {
         // append the sprite to our array:
         sprites.resize(++numsprites);

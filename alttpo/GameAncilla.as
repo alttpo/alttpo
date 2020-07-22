@@ -131,9 +131,9 @@ class GameAncilla {
     if (t == 0x00) return true;
 
     // 0x01 - Somarian Blast; Results from splitting a Somarian Block
-    if (t == 0x01) return true;
+    //if (t == 0x01) return true;
     // 0x02 - Fire Rod Shot
-    if (t == 0x02) return true;
+    //if (t == 0x02) return true;
     // 0x03 - Unused; Instantiating one of these creates an object that does nothing.
     // 0x04 - Beam Hit; Master sword beam or Somarian Blast dispersing after hitting something
     // 0x05 - Boomerang
@@ -145,11 +145,11 @@ class GameAncilla {
     // 0x08 - Door Debris; Rock fall effect from bombing a cracked cave or dungeon wall
     if (t == 0x08) return true;
     // 0x09 - Arrow; Fired from the player's bow
-    if (t == 0x09) return true;
+    //if (t == 0x09) return true;
     // 0x0A - Halted Arrow; Player's arrow that is stuck in something (wall or sprite)
-    if (t == 0x0A) return true;
+    //if (t == 0x0A) return true;
     // 0x0B - Ice Rod Shot
-    if (t == 0x0B) return true;
+    //if (t == 0x0B) return true;
     // 0x0C - Sword Beam
     //if (t == 0x0C) return true;
     // 0x0D - Sword Full Charge Spark; The sparkle that briefly appears at the tip of the player's sword when their spin attack fully charges up.
@@ -159,10 +159,10 @@ class GameAncilla {
 
     // 0x10 - Unused; Duplicate of the Blast Wall
     // 0x11 - Ice Shot Spread; Ice shot dispersing after hitting something.
-    if (t == 0x11) return true;
+    //if (t == 0x11) return true;
     // 0x12 - Unused; Duplicate of the Blast Wall
     // 0x13 - Ice Shot Sparkle; The only actually visible parts of the ice shot.
-    if (t == 0x13) return true;
+    //if (t == 0x13) return true;
     // 0x14 - Unused; Don't use as it will crash the game.
     // 0x15 - Jump Splash; Splash from the player jumping into or out of deep water
     // NOTE: disabled; causes soft lock for fake flippering!
@@ -211,11 +211,11 @@ class GameAncilla {
     // 0x2A - Start of spin attack sparkle
     // 0x2B - During Spin attack sparkles
     // 0x2C - Cane of Somaria blocks
-    if (t == 0x2C) return true;
+    //if (t == 0x2C) return true;
     // 0x2D -
     // 0x2E - ????
     // 0x2F - Torch's flame
-    if (t == 0x2F) return true;
+    //if (t == 0x2F) return true;
 
     // 0x30 - Initial spark for the Cane of Byrna activating
     // 0x31 - Cane of Byrna spinning sparkle
@@ -226,11 +226,11 @@ class GameAncilla {
     // 0x34 - Burning effect used to open up the entrance to skull woods.
     // 0x35 - Master Sword ceremony.... not sure if it's the whole thing or a part of it
     // 0x36 - Flute that pops out of the ground in the haunted grove.
-    if (t == 0x36) return true;
+    //if (t == 0x36) return true;
     // 0x37 - Appears to trigger the weathervane explosion.
     // 0x38 - Appears to give Link the bird enabled flute.
     // 0x39 - Cane of Somaria blast which creates platforms (sprite 0xED)
-    if (t == 0x39) return true;
+    //if (t == 0x39) return true;
     // 0x3A - super bomb explosion (also does things normal bombs can)
     if (t == 0x3A) return true;
     // 0x3B - Unused hit effect. Looks similar to Somaria block being nulled out.
