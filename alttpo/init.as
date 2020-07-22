@@ -29,6 +29,11 @@ void init() {
   settings.PlayerColor = ppu::rgb(28, 2, 2);
   settings.load();
 
+  @bridge = Bridge(
+    @StateUpdated(settings.bridgeStateUpdated),
+    @MessageUpdated(settings.bridgeMessageUpdated)
+  );
+
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
     //settings.Group = "debug";
