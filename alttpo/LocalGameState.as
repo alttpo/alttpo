@@ -565,10 +565,12 @@ class LocalGameState : GameState {
   bool is_safe_to_sample_tilemap() {
     if (module == 0x09) {
       // overworld:
-      // don't sample tilemap during screen transition:
+      // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
-      // don't sample tilemap during lost woods transition:
+      // during lost woods transition:
       if (sub_module >= 0x0d && sub_module < 0x16) return false;
+      // when coming out of map screen:
+      if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // or during LW/DW transition:
       if (sub_module >= 0x23) return false;
     } else if (module == 0x07) {
@@ -1383,6 +1385,8 @@ class LocalGameState : GameState {
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
       // during lost woods transition:
       if (sub_module >= 0x0d && sub_module < 0x16) return false;
+      // when coming out of map screen:
+      if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // during LW/DW transition:
       if (sub_module >= 0x23) return false;
     } else if (module == 0x07) {
