@@ -74,6 +74,10 @@ void pre_frame() {
     discord::pre_frame();
   }
 
+  if (settings.Bridge) {
+    bridge.main();
+  }
+
   if (enableRenderToExtra) {
     ppu::extra.count = 0;
     ppu::extra.text_outline = true;

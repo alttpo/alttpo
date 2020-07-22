@@ -14,6 +14,8 @@ class SettingsWindow {
   private GUI::CheckLabel @chkShowLabels;
   private GUI::CheckLabel @chkShowMyLabel;
   private GUI::CheckLabel @chkRaceMode;
+  private GUI::CheckLabel @chkBridge;
+  private GUI::Label @lblBridgeMessage;
   private GUI::CheckLabel @chkDiscordEnable;
   private GUI::CheckLabel @chkDiscordPrivate;
   private GUI::ComboButton @ddlFont;
@@ -80,6 +82,23 @@ class SettingsWindow {
       @font = ppu::fonts[value];
       font_set = false; // global
     }
+  }
+
+  private int bridgeState;
+  bool Bridge {
+    get { return bridgeState != 0; }
+  }
+
+  void bridgeStateUpdated(int state) {
+    bridgeState = state;
+    bool enabled = (state != 0);
+    chkBridge.checked = enabled;
+    raceMode = enabled;
+    chkRaceMode.checked = enabled;
+  }
+
+  void bridgeMessageUpdated(const string &in msg) {
+    lblBridgeMessage.text = msg;
   }
 
   private bool raceMode;
@@ -419,7 +438,7 @@ class SettingsWindow {
         vl.append(hz, GUI::Size(-1, 0));
 
         @chkRaceMode = GUI::CheckLabel();
-        chkRaceMode.text = "Race Mode (disable sync)";
+        chkRaceMode.text = "Disable sync";
         chkRaceMode.toolTip =
           "Enable this feature to disable synchronization with other players in the group. This can be used to have "
           "one or more players race one player who does not share the others' items, progress, or world state.\n\n"
@@ -428,6 +447,26 @@ class SettingsWindow {
         chkRaceMode.checked = false;
         chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
         hz.append(chkRaceMode, GUI::Size(-1, 0));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        @chkBridge = GUI::CheckLabel();
+        chkBridge.text = "QUsb2Snes Bridge";
+        chkBridge.toolTip =
+          "Enable this feature to connect to QUsb2Snes application to play multi-world games with ALttPO enabled for "
+          "the visual aspect to see other players live in the same world.";
+        chkBridge.checked = false;
+        chkBridge.onToggle(@GUI::Callback(chkBridgeChanged));
+        hz.append(chkBridge, GUI::Size(-1, 0));
+
+        @lblBridgeMessage = GUI::Label();
+        lblBridgeMessage.text = "";
+        lblBridgeMessage.toolTip =
+          "Current status of QUsb2Snes connection";
+        hz.append(lblBridgeMessage, GUI::Size(-1, 0));
       }
 
       {
@@ -475,6 +514,17 @@ class SettingsWindow {
 
     // set effects of color sliders but don't persist to disk:
     colorWasChanged(false);
+  }
+
+  // callback:
+  private void chkBridgeChanged() {
+    auto enabled = chkBridge.checked;
+    if (enabled) {
+      bridge.start();
+    } else {
+      bridge.stop();
+      bridgeMessageUpdated("");
+    }
   }
 
   // callback:
