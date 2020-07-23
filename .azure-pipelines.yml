@@ -132,7 +132,7 @@ jobs:
         publishLocation: 'pipeline'
       displayName: 'Publish alttp-server'
 
-  - job: "Success"
+  - job: "Discord"
     dependsOn: "Build"
     condition: succeeded()
 
@@ -171,5 +171,5 @@ jobs:
               "Content-Type": "application/json"
             }
           waitForCompletion: 'false'
-        condition: ne(variables['Build.SourceBranchName'], 'stable')
+        condition: eq(variables['Build.SourceBranchName'], 'unstable')
         displayName: "Discord: post link to #unstable channel"
