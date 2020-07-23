@@ -8,7 +8,6 @@ class WorldMapWindow {
   GUI::SNESCanvas @lightWorld;
   GUI::SNESCanvas @darkWorld;
 
-  GUI::SNESCanvas @localDot;
   array<GUI::SNESCanvas@> dots;
   array<uint16> colors;
 
@@ -22,7 +21,8 @@ class WorldMapWindow {
   int left = mleft*8;
   int width = mwidth*8;
   int height = mheight*8;
-  int mapscale = 2;
+  //int mapscale = 2;
+  int mapscale = 1;
 
   // showing light world (false) or dark world (true):
   bool isDark = false;
@@ -31,31 +31,36 @@ class WorldMapWindow {
     // relative position to bsnes window:
     @window = GUI::Window(256*3*8/7, 0, true);
     window.title = "World Map";
-    window.size = GUI::Size(width*mapscale, height*mapscale + 32);
-    window.resizable = false;
+    window.size = GUI::Size(width*mapscale, height*mapscale + 48);
+    window.resizable = true;
     window.dismissable = false;
+    window.onSize(@GUI::Callback(onSize));
 
     @vl = GUI::VerticalLayout();
     window.append(vl);
 
     @lightWorld = GUI::SNESCanvas();
-    vl.append(lightWorld, GUI::Size(width*mapscale, height*mapscale));
+    //lightWorld.layoutExcluded = true;
+    //vl.append(lightWorld, GUI::Size(width*mapscale, height*mapscale));
+    vl.append(lightWorld, GUI::Size(-1, -1));
     lightWorld.size = GUI::Size(width*mapscale, height*mapscale);
+    lightWorld.setPosition(0, 0);
     lightWorld.setAlignment(0.0, 0.0);
     lightWorld.setCollapsible(true);
-    lightWorld.setPosition(0, 0);
     lightWorld.visible = true;
 
     @darkWorld = GUI::SNESCanvas();
-    vl.append(darkWorld, GUI::Size(width*mapscale, height*mapscale));
+    //darkWorld.layoutExcluded = true;
+    //vl.append(darkWorld, GUI::Size(width*mapscale, height*mapscale));
+    vl.append(darkWorld, GUI::Size(-1, -1));
     darkWorld.size = GUI::Size(width*mapscale, height*mapscale);
-    darkWorld.setAlignment(0.0, 0.0);
-    darkWorld.setCollapsible(true);
     darkWorld.setPosition(0, 0);
+    darkWorld.setAlignment(0, 0);
+    darkWorld.setCollapsible(true);
     darkWorld.visible = false;
 
     auto @hl = GUI::HorizontalLayout();
-    vl.append(hl, GUI::Size(-1, 32));
+    vl.append(hl, GUI::Size(-1, 24));
 
     @dd = GUI::ComboButton();
     hl.append(dd, GUI::Size(-1, 0));
@@ -78,12 +83,15 @@ class WorldMapWindow {
     chkAuto.checked = true;
     chkAuto.onToggle(@GUI::Callback(toggledAuto));
 
-    @localDot = makeDot();
-    fillDot(localDot, ppu::rgb(0, 0, 0x1f));
-
-    vl.resize();
-
     window.visible = true;
+  }
+
+  // callback:
+  private void onSize() {
+    GUI::Geometry g = window.frameGeometry;
+    GUI::Position p = g.position;
+    GUI::Size s = g.size;
+    message("onSize: pos=" + fmtFloat(p.x) + "," + fmtFloat(p.y) + "; size=" + fmtFloat(s.width) + "," + fmtFloat(s.height));
   }
 
   void toggledAuto() {
@@ -284,6 +292,7 @@ class WorldMapWindow {
     int s = diam/2;
 
     auto @c = GUI::SNESCanvas();
+    c.layoutExcluded = true;
     vl.append(c, GUI::Size(diam, diam));
     c.size = GUI::Size(diam, diam);
     c.setPosition(-128, -128);
@@ -435,6 +444,8 @@ class WorldMapWindow {
       if ((p.ttl <= 0) || (p.is_in_dark_world() != isDark)) {
         // If player disappeared, hide their dot:
         dot.setPosition(-128, -128);
+        dotX[i] = -127;
+        dotY[i] = -127;
         continue;
       }
 
