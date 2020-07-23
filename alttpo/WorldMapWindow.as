@@ -8,8 +8,9 @@ class WorldMapWindow {
   GUI::SNESCanvas @lightWorld;
   GUI::SNESCanvas @darkWorld;
 
-  GUI::SNESCanvas @localDot;
   array<GUI::SNESCanvas@> dots;
+  array<float> dotX(0);
+  array<float> dotY(0);
   array<uint16> colors;
 
   // expressed in map 8x8 tile sizes:
@@ -22,7 +23,11 @@ class WorldMapWindow {
   int left = mleft*8;
   int width = mwidth*8;
   int height = mheight*8;
-  int mapscale = 2;
+  //int mapscale = 2;
+  float mapscale = 2;
+  int dotDiam = 12;
+  float dotTop = 0;
+  float dotLeft = 0;
 
   // showing light world (false) or dark world (true):
   bool isDark = false;
@@ -32,30 +37,30 @@ class WorldMapWindow {
     @window = GUI::Window(256*3*8/7, 0, true);
     window.title = "World Map";
     window.size = GUI::Size(width*mapscale, height*mapscale + 32);
-    window.resizable = false;
+    window.resizable = true;
     window.dismissable = false;
 
     @vl = GUI::VerticalLayout();
     window.append(vl);
 
     @lightWorld = GUI::SNESCanvas();
-    vl.append(lightWorld, GUI::Size(width*mapscale, height*mapscale));
-    lightWorld.size = GUI::Size(width*mapscale, height*mapscale);
-    lightWorld.setAlignment(0.0, 0.0);
-    lightWorld.setCollapsible(true);
+    vl.append(lightWorld, GUI::Size(-1, -1));
+    lightWorld.size = GUI::Size(width, height);
     lightWorld.setPosition(0, 0);
+    lightWorld.setAlignment(0, 0);
+    lightWorld.setCollapsible(true);
     lightWorld.visible = true;
 
     @darkWorld = GUI::SNESCanvas();
-    vl.append(darkWorld, GUI::Size(width*mapscale, height*mapscale));
-    darkWorld.size = GUI::Size(width*mapscale, height*mapscale);
-    darkWorld.setAlignment(0.0, 0.0);
-    darkWorld.setCollapsible(true);
+    vl.append(darkWorld, GUI::Size(-1, -1));
+    darkWorld.size = GUI::Size(width, height);
     darkWorld.setPosition(0, 0);
+    darkWorld.setAlignment(0, 0);
+    darkWorld.setCollapsible(true);
     darkWorld.visible = false;
 
     auto @hl = GUI::HorizontalLayout();
-    vl.append(hl, GUI::Size(-1, 32));
+    vl.append(hl, GUI::Size(-1, 24));
 
     @dd = GUI::ComboButton();
     hl.append(dd, GUI::Size(-1, 0));
@@ -78,12 +83,49 @@ class WorldMapWindow {
     chkAuto.checked = true;
     chkAuto.onToggle(@GUI::Callback(toggledAuto));
 
-    @localDot = makeDot();
-    fillDot(localDot, ppu::rgb(0, 0, 0x1f));
+    lightWorld.onSize(@GUI::Callback(onSize));
+    darkWorld.onSize(@GUI::Callback(onSize));
 
-    vl.resize();
+    lightWorld.doSize();
 
     window.visible = true;
+  }
+
+  // callback:
+  private void onSize() {
+    GUI::Size s;
+    if (isDark) {
+      s = darkWorld.geometry.size;
+    } else {
+      s = lightWorld.geometry.size;
+    }
+    //message("onSize: " + fmtFloat(s.width) + "," + fmtFloat(s.height));
+
+    // assume map image is scaling proportionally up or down, so take minimum dimension:
+    if (s.width <= s.height) {
+      mapscale = s.width / float(width);
+    } else {
+      mapscale = s.height / float(height);
+    }
+
+    dotLeft = 0;
+    dotTop = 0;
+    redrawDots();
+  }
+
+  void redrawDots() {
+    // reset dots:
+    uint len = dots.length();
+    for (uint i = 0; i < len; i++) {
+      if (dots[i] is null) continue;
+
+      dotX[i] = -127;
+      dotY[i] = -127;
+      colors[i] = 0xffff;
+    }
+
+    // redraw dots:
+    renderPlayers();
   }
 
   void toggledAuto() {
@@ -96,9 +138,15 @@ class WorldMapWindow {
     showWorld();
   }
 
+  bool lastDark = true;
   void showWorld() {
-    darkWorld.visible = isDark;
-    lightWorld.visible = !isDark;
+    if (isDark != lastDark) {
+      darkWorld.visible = isDark;
+      lightWorld.visible = !isDark;
+      vl.resize();
+      redrawDots();
+      lastDark = isDark;
+    }
   }
 
   void update(const GameState &in local) {
@@ -219,15 +267,7 @@ class WorldMapWindow {
             int px = (mx-mleft)*8+x;
             int py = (my-mtop)*8+y;
 
-            // nearest-neighbor scaling:
-            px *= mapscale;
-            py *= mapscale;
-            for (int sy = 0; sy < mapscale; sy++) {
-              for (int sx = 0; sx < mapscale; sx++) {
-                canvas.pixel(px+sx, py+sy, color);
-              }
-            }
-
+            canvas.pixel(px, py, color);
           }
         }
       }
@@ -279,22 +319,23 @@ class WorldMapWindow {
     }
   }
 
-  GUI::SNESCanvas @makeDot(int diam = 12) {
-    int max = diam-1;
-    int s = diam/2;
+  GUI::SNESCanvas @makeDot() {
+    int max = dotDiam-1;
+    int s = dotDiam/2;
 
     auto @c = GUI::SNESCanvas();
-    vl.append(c, GUI::Size(diam, diam));
-    c.size = GUI::Size(diam, diam);
+    c.layoutExcluded = true;
+    vl.append(c, GUI::Size(dotDiam, dotDiam));
+    c.size = GUI::Size(dotDiam, dotDiam);
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
 
     return c;
   }
 
-  void fillDot(GUI::SNESCanvas @c, uint16 color, int diam = 12) {
-    int max = diam-1;
-    int s = diam/2;
+  void fillDot(GUI::SNESCanvas @c, uint16 color) {
+    int max = dotDiam-1;
+    int s = dotDiam/2;
 
     uint16 outline = ppu::rgb(0x1f, 0x1f, 0x1f) | 0x8000;
     color |= 0x8000;
@@ -326,8 +367,9 @@ class WorldMapWindow {
     c.update();
   }
 
-  int mapsprleft = 126;
-  int mapsprtop = 130;
+  int mapsprleft = 2048;
+  int mapsprtop = 2132;
+  //int mapsprtop = 2096;
   void mapCoord(const GameState &in p, float &out x, float &out y) {
     int px = p.x;
     int py = p.y;
@@ -392,13 +434,11 @@ class WorldMapWindow {
       py = 0x213;
     }
 
-    x = float((px / 16) + mapsprleft - left) * mapscale;
-    y = float((py / 16) + mapsprtop - top) * mapscale;
+    x = (float(px + mapsprleft) / 16.0 - left) * mapscale + dotLeft;
+    y = (float(py + mapsprtop) / 16.0 - top) * mapscale + dotTop;
   }
 
-  array<float> dotX(0);
-  array<float> dotY(0);
-  void renderPlayers() {
+  private const array<GameState@>@ playersArray() {
     const array<GameState@> @ps;
 
     if (sock is null) {
@@ -406,6 +446,12 @@ class WorldMapWindow {
     } else {
       @ps = players;
     }
+
+    return ps;
+  }
+
+  void renderPlayers() {
+    const array<GameState@> @ps = playersArray();
 
     // grow dots array and create new Canvas instances:
     uint psLen = ps.length();
@@ -435,6 +481,8 @@ class WorldMapWindow {
       if ((p.ttl <= 0) || (p.is_in_dark_world() != isDark)) {
         // If player disappeared, hide their dot:
         dot.setPosition(-128, -128);
+        dotX[i] = -127;
+        dotY[i] = -127;
         continue;
       }
 
@@ -447,7 +495,7 @@ class WorldMapWindow {
       // position the dot:
       mapCoord(p, x, y);
       if (x != dotX[i] || y != dotY[i]) {
-        dot.setPosition(x, y);
+        dot.setPosition(x - dotDiam / 2.0, y - dotDiam / 2.0);
         dotX[i] = x;
         dotY[i] = y;
       }

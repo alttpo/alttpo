@@ -1,18 +1,14 @@
 GameSpriteWindow @gameSpriteWindow;
 
 class GameSpriteWindow {
-  GUI::Color clrYellow;
-  GUI::Color clrDisabled;
-  GUI::Color clrBlack;
+  GUI::Color clrYellow   = GUI::Color(240, 240,   0);
+  GUI::Color clrDisabled = GUI::Color( 80,  80,  80);
+  GUI::Color clrBlack    = GUI::Color(  0,   0,   0);
 
   GUI::Window @window;
   array<GUI::Label@> col(16);
 
   GameSpriteWindow() {
-    clrYellow   = GUI::Color(240, 240,   0);
-    clrDisabled = GUI::Color( 80,  80,  80);
-    clrBlack    = GUI::Color(0,0,0);
-
     int charCount = 34+84;
 
     @window = GUI::Window(0, 240*3, true);
@@ -73,7 +69,7 @@ class GameSpriteWindow {
         ((i & 2) >> 1) * 12 + ((i & 8) >> 3) * 12 + 7,
         ((i & 1)     ) * 12 + ((i & 8) >> 3) * 12 + 7
       );
-      auto rgbColor = GUI::Color(
+      GUI::Color rgbColor = GUI::Color(
         ((i & 4) >> 2) * 98 + ((i & 8) >> 3) * 98 + 58,  // red
         ((i & 2) >> 1) * 98 + ((i & 8) >> 3) * 98 + 58,  // green
         ((i & 1)     ) * 98 + ((i & 8) >> 3) * 98 + 58   // blue
