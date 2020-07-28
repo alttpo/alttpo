@@ -34,9 +34,9 @@ class WorldMapWindow {
 
   WorldMapWindow() {
     // relative position to bsnes window:
-    @window = GUI::Window(256*3*8/7, 0, true);
+    @window = GUI::Window(sx(256*3*8/7.0), 0, true);
     window.title = "World Map";
-    window.size = GUI::Size(width*mapscale, height*mapscale + 32);
+    window.size = GUI::Size(sx(width*mapscale), sy(height*mapscale + 32));
     window.resizable = true;
     window.dismissable = false;
 
@@ -60,7 +60,7 @@ class WorldMapWindow {
     darkWorld.visible = false;
 
     auto @hl = GUI::HorizontalLayout();
-    vl.append(hl, GUI::Size(-1, 24));
+    vl.append(hl, GUI::Size(-1, sy(24)));
 
     @dd = GUI::ComboButton();
     hl.append(dd, GUI::Size(-1, 0));
@@ -325,7 +325,7 @@ class WorldMapWindow {
 
     auto @c = GUI::SNESCanvas();
     c.layoutExcluded = true;
-    vl.append(c, GUI::Size(dotDiam, dotDiam));
+    vl.append(c, GUI::Size(sx(dotDiam), sy(dotDiam)));
     c.size = GUI::Size(dotDiam, dotDiam);
     c.setPosition(-128, -128);
     c.setAlignment(0.5, 0.5);
@@ -495,7 +495,7 @@ class WorldMapWindow {
       // position the dot:
       mapCoord(p, x, y);
       if (x != dotX[i] || y != dotY[i]) {
-        dot.setPosition(x - dotDiam / 2.0, y - dotDiam / 2.0);
+        dot.setPosition(sx(x - dotDiam / 2.0), sy(y - dotDiam / 2.0));
         dotX[i] = x;
         dotY[i] = y;
       }

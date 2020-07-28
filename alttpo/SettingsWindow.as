@@ -1,5 +1,13 @@
 SettingsWindow @settings;
 
+float sx(float x) {
+  return x * GUI::dpiX;
+}
+
+float sy(float y) {
+  return y * GUI::dpiY;
+}
+
 class SettingsWindow {
   private GUI::Window @window;
   private GUI::LineEdit @txtServerAddress;
@@ -227,14 +235,23 @@ class SettingsWindow {
   }
 
   SettingsWindow() {
-    @window = GUI::Window(120, 32, true);
+    //message(fmtFloat(sx(1.0)));
+    @window = GUI::Window(sx(120), sy(32), true);
     window.title = "Join a Game";
-    window.size = GUI::Size(280, 15*25);
+    window.size = GUI::Size(sx(280), sy(15*25));
     window.dismissable = false;
+
+    auto sx100 = sx(100);
+    auto sx40 = sx(40);
+    auto sy20 = sy(20);
+    auto sx5 = sx(5);
+    auto sy5 = sy(5);
+    auto sx64 = sx(64);
+    auto sy64 = sy(64);
 
     auto vl = GUI::VerticalLayout();
     vl.setSpacing();
-    vl.setPadding(5, 5);
+    vl.setPadding(sy5, sy5);
     window.append(vl);
     {
       {
@@ -247,11 +264,11 @@ class SettingsWindow {
           "Server address (hostname or IP address) to connect to. If unsure, use the default `alttpo.online`.\n\n"
           "If running your own server, enter its hostname or IP address here. Note that alttpo.online is hosted in "
           "New Jersey, USA on a Linode VPS.";
-        hz.append(lbl, GUI::Size(100, 0));
+        hz.append(lbl, GUI::Size(sx100, 0));
 
         @txtServerAddress = GUI::LineEdit();
         txtServerAddress.onChange(@GUI::Callback(save));
-        hz.append(txtServerAddress, GUI::Size(-1, 20));
+        hz.append(txtServerAddress, GUI::Size(-1, sy20));
       }
 
       {
@@ -265,11 +282,11 @@ class SettingsWindow {
           "Private groups are not available yet so try to make your group name unique and hard to guess if you don't "
           "want other players joining. Also be sure to enable Hide Group Name if using Discord integration.\n\n"
           "Group name is updated in real time so if you change this while connected, you will move between groups.";
-        hz.append(lbl, GUI::Size(100, 0));
+        hz.append(lbl, GUI::Size(sx100, 0));
 
         @txtGroup = GUI::LineEdit();
         txtGroup.onChange(@GUI::Callback(save));
-        hz.append(txtGroup, GUI::Size(-1, 20));
+        hz.append(txtGroup, GUI::Size(-1, sy20));
       }
 
       {
@@ -282,11 +299,11 @@ class SettingsWindow {
           "Your player's name which will show up on other players' screens if they have the `Show Player Labels` "
           "feature enabled (max 20 chars). Enable `Show My Label` to see your own player name on your own screen.\n\n"
           "Your player name is updated in real time so players will see changes as you make them in this text box.";
-        hz.append(lbl, GUI::Size(100, 0));
+        hz.append(lbl, GUI::Size(sx100, 0));
 
         @txtName = GUI::LineEdit();
         txtName.onChange(@GUI::Callback(txtNameChanged));
-        hz.append(txtName, GUI::Size(-1, 20));
+        hz.append(txtName, GUI::Size(-1, sy20));
       }
 
       // player color:
@@ -303,12 +320,12 @@ class SettingsWindow {
             "tunic color if you enable that feature below.\n\n"
             "If you're a turbo nerd you can enter a 15-bit BGR hex color here. Note that it is NOT a 24-bit RGB hex "
             "colors.";
-          hz.append(lbl, GUI::Size(100, 20));
+          hz.append(lbl, GUI::Size(sx100, sy20));
 
           @txtColor = GUI::LineEdit();
           txtColor.text = "7fff";
           txtColor.onChange(@GUI::Callback(colorTextChanged));
-          hz.append(txtColor, GUI::Size(-1, 20));
+          hz.append(txtColor, GUI::Size(-1, sy20));
         }
 
         @chkTunic = GUI::CheckLabel();
@@ -334,7 +351,7 @@ class SettingsWindow {
           auto @lbl = GUI::Label();
           lbl.text = "Red";
           lbl.toolTip = "Adjust the red component of your player color (0..31)";
-          hz.append(lbl, GUI::Size(40, 20));
+          hz.append(lbl, GUI::Size(sx40, sy20));
 
           @slRed = GUI::HorizontalSlider();
           slRed.toolTip = "Adjust the red component of your player color (0..31)";
@@ -350,7 +367,7 @@ class SettingsWindow {
           auto @lbl = GUI::Label();
           lbl.text = "Green";
           lbl.toolTip = "Adjust the green component of your player color (0..31)";
-          hz.append(lbl, GUI::Size(40, 20));
+          hz.append(lbl, GUI::Size(sx40, sy20));
 
           @slGreen = GUI::HorizontalSlider();
           slGreen.toolTip = "Adjust the green component of your player color (0..31)";
@@ -366,7 +383,7 @@ class SettingsWindow {
           auto @lbl = GUI::Label();
           lbl.text = "Blue";
           lbl.toolTip = "Adjust the blue component of your player color (0..31)";
-          hz.append(lbl, GUI::Size(40, 20));
+          hz.append(lbl, GUI::Size(sx40, sy20));
 
           @slBlue = GUI::HorizontalSlider();
           slBlue.toolTip = "Adjust the blue component of your player color (0..31)";
@@ -381,7 +398,7 @@ class SettingsWindow {
         colorCanvas.setAlignment(0.5, 0.5);
         colorCanvas.fill(0x7FFF | 0x8000);
         colorCanvas.update();
-        chl.append(colorCanvas, GUI::Size(64, 64));
+        chl.append(colorCanvas, GUI::Size(sx64, sy64));
       }
 
       {
@@ -413,7 +430,7 @@ class SettingsWindow {
         lbl.text = "Label Font:";
         lbl.toolTip =
           "Choose the on-screen font to render player labels with.";
-        hz.append(lbl, GUI::Size(100, 0));
+        hz.append(lbl, GUI::Size(sx100, 0));
 
         @ddlFont = GUI::ComboButton();
         ddlFont.toolTip =
