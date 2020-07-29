@@ -1,9 +1,20 @@
 # A Link to the Past Online - ALttPO
-ALttPO script integration for [bsnes-angelscript](//github.com/JamesDunne/bsnes-angelscript).
+ALttPO script integration for [bsnes-as](//github.com/alttpo/bsnes-as).
 
 See a demo video: https://www.youtube.com/watch?v=_MTfXCUXawg
 
 Join us on discord! https://discord.gg/AVQ2yKd - this is where the community is and you get access to latest updates and be able to suggest and vote on new features.
+
+Donate, if you like, to support ALttPO development!
+
+<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+<input type="hidden" name="cmd" value="_donations" />
+<input type="hidden" name="business" value="WC53V2L3ZX4DC" />
+<input type="hidden" name="item_name" value="ALttPO Development" />
+<input type="hidden" name="currency_code" value="USD" />
+<input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
+<img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+</form>
 
 # Play with a friend over the Internet
 
@@ -11,11 +22,11 @@ Join us on discord! https://discord.gg/AVQ2yKd - this is where the community is 
 
 Download latest _stable_ client here (preferred for new/casual players):
 
-[![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/JamesDunne.alttp-multiplayer?branchName=master)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=2&branchName=master)
+[![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/alttpo.alttpo?branchName=stable)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=4&branchName=master)
 
 OR download the latest _unstable_ client here (for testing experimental features and work-in-progress):
 
-[![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/JamesDunne.alttp-multiplayer?branchName=unstable)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=2&branchName=unstable)
+[![Build Status](https://dev.azure.com/ALttPO/alttpo/_apis/build/status/alttpo.alttpo?branchName=unstable)](https://dev.azure.com/ALttPO/alttpo/_build/latest?definitionId=4&branchName=unstable)
 
 Click the "8 published" link under the "Related" section to go to the Artifacts page:
 
@@ -27,7 +38,6 @@ You do not need to download a server build unless you plan to run your own serve
 
 Everything you need is contained in the client build. There should be nothing extra to download.
 
-1. Download the latest pre-built stable client for your system [here](https://dev.azure.com/ALttPO/alttpo/_build?definitionId=2&_a=summary&view=runs&statusFilter=succeeded&repositoryFilter=2&branchFilter=7).
 1. **IMPORTANT**: If you cloned the github repository then stop, go back to step 1, and download the pre-built image for your system instead.
 1. Launch `bsnes.exe` (Windows) or `bsnes.app` (macOS), depending on your system.
 1. In bsnes, System > Load Game... and find your ALTTP ROM.
@@ -37,7 +47,7 @@ Everything you need is contained in the client build. There should be nothing ex
 1. Leave the "Address" field alone unless you intend on running your own ALTTP multiplayer server instance. [See below](#running-your-own-server) if you wish to do so.
 1. Agree with your friend on a unique group name and enter it into the "Group" field. This group name can be anything but make sure it's unique enough for others not to guess otherwise they might be able to join your game. The group name field is limited to 20 characters and is not case sensitive.
 1. Click "Connect" button.
-1. Play through the game together and report bugs and/or feature requests back to me at https://github.com/JamesDunne/alttp-multiplayer/issues .
+1. Play through the game together and report bugs and/or feature requests back to me at https://github.com/alttpo/alttpo/issues .
 
 Thanks for testing!
 
@@ -97,7 +107,7 @@ Log in to your server (I'll assume it's Linux or at least has a bash-like shell)
 
 1. `mkdir -p /srv/go`
 1. `export GOPATH=/srv/go`
-1. `go get github.com/JamesDunne/alttp-multiplayer/alttp-server`
+1. `go get github.com/JamesDunne/alttpo/alttpo`
 
 Create this systemd service unit file at `/etc/systemd/system/alttp-server.service`:
 
