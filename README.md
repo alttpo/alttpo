@@ -7,14 +7,7 @@ Join us on discord! https://discord.gg/AVQ2yKd - this is where the community is 
 
 Donate, if you like, to support ALttPO development!
 
-<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-<input type="hidden" name="cmd" value="_donations" />
-<input type="hidden" name="business" value="WC53V2L3ZX4DC" />
-<input type="hidden" name="item_name" value="ALttPO Development" />
-<input type="hidden" name="currency_code" value="USD" />
-<input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
-<img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
-</form>
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=WC53V2L3ZX4DC&item_name=ALttPO+Development&currency_code=USD&source=url)
 
 # Play with a friend over the Internet
 
