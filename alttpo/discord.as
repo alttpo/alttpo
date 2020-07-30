@@ -61,26 +61,30 @@ namespace discord {
       auto activity = Activity();
       activity.Type = 1;  // Playing
       activity.Details = rom.title;
-      if (settings.started) {
-        if (settings.DiscordPrivate) {
-          activity.State = "In Private Group";
-        } else {
-          activity.State = "Group '" + settings.GroupTrimmed + "'";
-        }
-      }
 
       activity.Assets.LargeImage = "logo";
       activity.Assets.LargeText = "ALttPO";
       //activity.Assets.SmallImage = "logo";
       //activity.Assets.SmallText = "small text";
 
-      activity.Party.Id = settings.GroupTrimmed;
-      activity.Party.Size.CurrentSize = playerCount;
-      int max = 4;
-      while (playerCount > max) {
-        max += 4;
+      if (settings.started) {
+        if (settings.DiscordPrivate) {
+          activity.State = "In Private Group";
+        } else {
+          activity.State = "Group '" + settings.GroupTrimmed + "'";
+        }
+
+        // party size:
+        if (playerCount > 0) {
+          activity.Party.Id = settings.GroupTrimmed;
+          int max = 4;
+          while (playerCount > max) {
+            max += 4;
+          }
+          activity.Party.Size.MaxSize = max;
+          activity.Party.Size.CurrentSize = playerCount;
+        }
       }
-      activity.Party.Size.MaxSize = max;
 
       // Nothing to do with timeEnd since Timestamps.End creates a countdown timer.
       if (timeEnd == 0) {
