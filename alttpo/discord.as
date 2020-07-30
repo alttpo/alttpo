@@ -74,6 +74,14 @@ namespace discord {
       //activity.Assets.SmallImage = "logo";
       //activity.Assets.SmallText = "small text";
 
+      activity.Party.Id = settings.GroupTrimmed;
+      activity.Party.Size.CurrentSize = playerCount;
+      int max = 4;
+      while (playerCount > max) {
+        max += 4;
+      }
+      activity.Party.Size.MaxSize = max;
+
       // Nothing to do with timeEnd since Timestamps.End creates a countdown timer.
       if (timeEnd == 0) {
         activity.Timestamps.Start = timeStart;
