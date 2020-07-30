@@ -492,10 +492,17 @@ class SettingsWindow {
 
         @chkDiscordEnable = GUI::CheckLabel();
         chkDiscordEnable.text = "Discord Integration";
-        chkDiscordEnable.toolTip =
+        if (discord::enabled) {
+          chkDiscordEnable.toolTip =
           "Enable to integrate ALttPO with Discord so that others can see that you're playing ALttPO, which ROM version, "
           "and which randomizer seed if applicable. By default, your group name will be shown unless you disable that "
           "with `Hide Group Name`.";
+        } else {
+          chkDiscordEnable.toolTip =
+          "Discord integration is not supported by this build of bsnes because is was either manually disabled during "
+          "build or because your processor architecture is not supported by the official Discord Game SDK.";
+        }
+        chkDiscordEnable.enabled = discord::enabled;
         chkDiscordEnable.checked = false;
         chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
         hz.append(chkDiscordEnable, GUI::Size(-1, 0));
@@ -504,6 +511,7 @@ class SettingsWindow {
         chkDiscordPrivate.text = "Hide Group Name";
         chkDiscordPrivate.toolTip =
           "Enable this to hide your group name from Discord if you're playing a private game.";
+        chkDiscordPrivate.enabled = discord::enabled;
         chkDiscordPrivate.checked = false;
         chkDiscordPrivate.onToggle(@GUI::Callback(chkDiscordPrivateChanged));
         hz.append(chkDiscordPrivate, GUI::Size(-1, 0));

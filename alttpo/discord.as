@@ -4,6 +4,8 @@ namespace discord {
   int presenceCount = 1;
   uint64 timeStart = 0;
   uint64 timeEnd = 0;
+  bool enabled_cache;
+  bool enabled_is_cached = false;
 
   void cartridge_loaded() {
     timeStart = 0;
@@ -11,6 +13,14 @@ namespace discord {
   }
 
   void pre_frame() {
+    // check if discord integration is enabled by host:
+    if (!enabled_is_cached) {
+      enabled_cache = enabled;
+      enabled_is_cached = true;
+    }
+
+    if (!enabled_cache) return;
+
     auto module = bus::read_u8(0x7E0010);
     // measure when game starts:
     if (timeStart == 0) {
