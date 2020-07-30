@@ -138,5 +138,6 @@ string fmtBool(bool value) {
 LocalGameState local;
 array<GameState@> players(0);
 array<GameState@> onlyLocalPlayer(1);
+int playerCount = 0;
 
 bool font_set = false;

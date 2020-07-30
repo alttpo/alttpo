@@ -39,12 +39,15 @@ void pre_nmi() {
     if (!local.is_it_a_bad_time()) {
       // play remote sfx:
       uint len = players.length();
+      playerCount = 0;
       for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
         if (remote is null) continue;
+        playerCount++;
         if (remote is local) continue;
         if (remote.ttl <= 0) {
           remote.ttl = 0;
+          playerCount--;
           continue;
         }
         remote.ttl_count();
