@@ -213,7 +213,11 @@ class LocalGameState : GameState {
     sub_sub_module = bus::read_u8(0x7E00B0);
   }
 
+  bool sprites_need_vram = false;
+
   void fetch() {
+    sprites_need_vram = false;
+
     // read frame counter (increments from 00 to FF and wraps around):
     frame = bus::read_u8(0x7E001A);
 
@@ -388,6 +392,8 @@ class LocalGameState : GameState {
       return;
     }
 
+    sprites_need_vram = true;
+
     // read OAM offset where link's sprites start at:
     int link_oam_start = bus::read_u16(0x7E0352) >> 2;
     //message(fmtInt(link_oam_start));
@@ -547,15 +553,20 @@ class LocalGameState : GameState {
         @sprites[numsprites-1] = spr;
         continue;
       }
-
     }
   }
 
   void capture_sprites_vram() {
+    if (!sprites_need_vram) {
+      return;
+    }
+
     for (int i = 0; i < numsprites; i++) {
       auto @spr = @sprites[i];
       capture_sprite(spr);
     }
+
+    sprites_need_vram = false;
   }
 
   void capture_sprite(Sprite &sprite) {
@@ -564,26 +575,26 @@ class LocalGameState : GameState {
     if (sprite.size == 0) {
       // 8x8 sprite:
       //message("capture  x8 CHR=" + fmtHex(sprite.chr, 3));
-      if (chrs[sprite.chr].length() == 0) {
+      /*if (chrs[sprite.chr].length() == 0)*/ {
         chrs[sprite.chr].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, chrs[sprite.chr]);
       }
     } else {
       // 16x16 sprite:
       //message("capture x16 CHR=" + fmtHex(sprite.chr, 3));
-      if (chrs[sprite.chr + 0x00].length() == 0) {
+      /*if (chrs[sprite.chr + 0x00].length() == 0)*/ {
         chrs[sprite.chr + 0x00].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x00), 0, 16, chrs[sprite.chr + 0x00]);
       }
-      if (chrs[sprite.chr + 0x01].length() == 0) {
+      /*if (chrs[sprite.chr + 0x01].length() == 0)*/ {
         chrs[sprite.chr + 0x01].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, chrs[sprite.chr + 0x01]);
       }
-      if (chrs[sprite.chr + 0x10].length() == 0) {
+      /*if (chrs[sprite.chr + 0x10].length() == 0)*/ {
         chrs[sprite.chr + 0x10].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, chrs[sprite.chr + 0x10]);
       }
-      if (chrs[sprite.chr + 0x11].length() == 0) {
+      /*if (chrs[sprite.chr + 0x11].length() == 0)*/ {
         chrs[sprite.chr + 0x11].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
       }
@@ -1002,14 +1013,14 @@ class LocalGameState : GameState {
           // mark data as sent:
           if ((index & 0x80) != 0) {
             chrSent[chr+0x00] = true;
-            chrs[chr+0x00].resize(0);
+            //chrs[chr+0x00].resize(0);
             if (spr.size != 0) {
               chrSent[chr+0x01] = true;
               chrSent[chr+0x10] = true;
               chrSent[chr+0x11] = true;
-              chrs[chr+0x01].resize(0);
-              chrs[chr+0x10].resize(0);
-              chrs[chr+0x11].resize(0);
+              //chrs[chr+0x01].resize(0);
+              //chrs[chr+0x10].resize(0);
+              //chrs[chr+0x11].resize(0);
             }
           }
           if ((b4 & 0x80) != 0) {
