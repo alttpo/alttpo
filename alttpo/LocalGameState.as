@@ -82,7 +82,7 @@ class LocalGameState : GameState {
     bus::add_write_interceptor("7e:2000-5fff", bus::WriteInterceptCallback(this.tilemap_written));
     bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
 
-    crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
+    crystal.register(@SyncableByteShouldCapture(this.crystal_switch_capture));
 
     registered = true;
   }
@@ -877,9 +877,10 @@ class LocalGameState : GameState {
   void serialize_wram(array<uint8> &r) {
     r.write_u8(uint8(0x05));
 
-    uint words_count = 1;
-    r.write_u8(words_count);
+    uint bytes_count = 1;
+    r.write_u8(bytes_count);
     {
+      r.write_u16(crystal.offs);
       crystal.serialize(r);
     }
   }
@@ -1198,6 +1199,7 @@ class LocalGameState : GameState {
       if (!settings.RaceMode) {
         serialize_ancillae(envelope);
         serialize_objects(envelope);
+        serialize_wram(envelope);
       }
 
       p = send_packet(envelope, p);
