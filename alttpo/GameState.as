@@ -104,6 +104,8 @@ class GameState {
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
 
+  SyncableByte@ crystal = @SyncableByte(0xC172);
+
   int numsprites;
 
   TilemapChanges tilemap;

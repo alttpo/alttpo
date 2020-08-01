@@ -82,7 +82,20 @@ class LocalGameState : GameState {
     bus::add_write_interceptor("7e:2000-5fff", bus::WriteInterceptCallback(this.tilemap_written));
     bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
 
+    crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
+
     registered = true;
+  }
+
+  bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
+
+    // don't pay attention to crystal switch changes unless in dungeon:
+    if (module != 0x07) {
+      return false;
+    }
+
+    return true;
   }
 
   bool can_sample_location() const {
@@ -858,6 +871,16 @@ class LocalGameState : GameState {
     r.write_u16(count);
     for (uint i = 0; i < count; i++) {
       r.write_u8(sram[start + i]);
+    }
+  }
+
+  void serialize_wram(array<uint8> &r) {
+    r.write_u8(uint8(0x05));
+
+    uint words_count = 1;
+    r.write_u8(words_count);
+    {
+      crystal.serialize(r);
     }
   }
 
