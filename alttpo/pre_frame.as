@@ -87,8 +87,7 @@ void pre_frame() {
     }
   }
 
-  // don't render players or labels in pre-game modules:
-  if (local.module < 0x05) return;
+  local.ttl = 255;
 
   // render remote players:
   int ei = 0;
@@ -96,12 +95,17 @@ void pre_frame() {
   for (uint i = 0; i < len; i++) {
     auto @remote = players[i];
     if (remote is null) continue;
+    playerCount++;
     if (remote is local) continue;
     if (remote.ttl <= 0) {
       remote.ttl = 0;
+      playerCount--;
       continue;
     }
     remote.ttl_count();
+
+    // don't render players or labels in pre-game modules:
+    if (local.module < 0x05) continue;
 
     // don't render on in-game map:
     if (local.module == 0x0e && local.sub_module == 0x07) continue;

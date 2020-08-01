@@ -28,8 +28,6 @@ void pre_nmi() {
     localFrameState.restore();
   }
 
-  local.ttl = 255;
-
   // fetch next frame's game state from WRAM:
   local.fetch_module();
 
@@ -43,14 +41,11 @@ void pre_nmi() {
       for (uint i = 0; i < len; i++) {
         auto @remote = players[i];
         if (remote is null) continue;
-        playerCount++;
         if (remote is local) continue;
         if (remote.ttl <= 0) {
           remote.ttl = 0;
-          playerCount--;
           continue;
         }
-        remote.ttl_count();
 
         // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
         if (local.can_see(remote.location)) {
