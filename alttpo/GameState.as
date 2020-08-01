@@ -266,7 +266,7 @@ class GameState {
         case 0x02: c = deserialize_sfx(r, c); break;
         case 0x03: c = deserialize_sprites(r, c); break;
         case 0x04: c = deserialize_sprites(r, c, true); break;
-        //case 0x05: c = deserialize_chr1(r, c); break;
+        case 0x05: c = deserialize_wram(r, c); break;
         case 0x06: c = deserialize_sram(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
         case 0x08: c = deserialize_objects(r, c); break;
@@ -412,17 +412,13 @@ class GameState {
     return c;
   }
 
-  int deserialize_chr1(array<uint8> r, int c) {
-    // read in chr1 data:
-    auto chr_count = r[c++];
-    for (uint i = 0; i < chr_count; i++) {
-      // read chr1 number:
-      auto h = uint16(r[c++]) + 0x100;
+  int deserialize_wram(array<uint8> r, int c) {
+    auto count = r[c++];
+    for (uint i = 0; i < count; i++) {
+      auto offs = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
-      // read chr tile data:
-      chrs[h].resize(16);
-      for (int k = 0; k < 16; k++) {
-        chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      if (offs == crystal.offs) {
+        c = crystal.deserialize(r, c);
       }
     }
 
