@@ -68,7 +68,7 @@ class TilemapChanges {
     wram_left    = int32(0);
   }
 
-  void write_tilemap(uint i, int32 c, bool include_vram) {
+  void write_tilemap(uint i, int32 c) {
     int32 oldstate = state[i];
 
     // record state change:
@@ -81,33 +81,36 @@ class TilemapChanges {
     uint16 tile = uint16(c & 0x00ffff);
     uint8  attr = uint8 ((c & 0xff0000) >> 16);
 
-    if (oldstate != c) {
-      // write to WRAM:
-      bus::write_u16(0x7E2000 + (i << 1), tile);
-      //if (debugRTDSapply) {
-      //  message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
-      //}
-      if (!overworld) {
-        bus::write_u8 (0x7F2000 + i, attr);
-        //if (debugRTDSapply) {
-        //  message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
-        //}
-      }
-    }
-
-    // write to VRAM:
-    if (!include_vram) {
+    if (oldstate == c) {
       return;
     }
 
+    // write to WRAM:
+    bus::write_u16(0x7E2000 + (i << 1), tile);
+    //if (debugRTDSapply) {
+    //  message("wram[0x" + fmtHex(0x7E2000 + (i << 1), 6) + "] <- 0x" + fmtHex(tile, 4));
+    //}
+
+    if (!overworld) {
+      bus::write_u8 (0x7F2000 + i, attr);
+      //if (debugRTDSapply) {
+      //  message("wram[0x" + fmtHex(0x7F2000 + i, 6) + "] <- 0x" + fmtHex(attr, 2));
+      //}
+    }
+  }
+
+  void write_vram(uint i, int32 c) {
+    uint16 tile = uint16(c & 0x00ffff);
+
+    // write to VRAM:
     if (overworld) {
       // make sure tilemap offset is within VRAM screen range:
       auto top  = int32((i & 0x0FFF) >> 6);
       auto left = int32(i & 0x3f);
-      if (top  < wram_top - 2) return;
-      if (top  > wram_top + 0xE+2) return;
-      if (left < wram_left - 2) return;
-      if (left > wram_left + 0x10+2) return;
+      if (top  < wram_top) return;
+      if (top  > wram_top + 16) return;
+      if (left < wram_left) return;
+      if (left > wram_left + 16) return;
 
       // convert tilemap address to VRAM address for BG0 or BG1 layer:
       uint16 vaddr = ow_tilemap_to_vram_address(i << 1);
@@ -125,31 +128,29 @@ class TilemapChanges {
       ppu::vram.write_block(vaddr + 0x0020, 2, 2, t);
     } else {
       // underworld:
-      if (oldstate != c) {
-        auto vram = 0;
-        auto addr = (i & 0x0FFF) << 1;
+      auto vram = 0;
+      auto addr = (i & 0x0FFF) << 1;
 
-        if ((addr & 0x1000) != 0) { // Is this tile in the lower two quadrants?
-            vram += 0x1000;
-            addr ^= 0x1000;
-        }
-        if ((addr & 0x40) != 0) {   // Is this tile in a right hand quadrant?
-            vram += 0x800;
-            addr ^= 0x040;
-        }
-
-        vram += (addr - ((addr & 0xFF80) >> 1));
-        vram = (vram >> 1) | (i & 0x1000);
-
-        //if (debugRTDS) {
-        //  message("vram[0x" + fmtHex(vram, 4) + "] <- 0x" + fmtHex(tile, 4));
-        //}
-        ppu::vram[vram] = tile;
+      if ((addr & 0x1000) != 0) { // Is this tile in the lower two quadrants?
+          vram += 0x1000;
+          addr ^= 0x1000;
       }
+      if ((addr & 0x40) != 0) {   // Is this tile in a right hand quadrant?
+          vram += 0x800;
+          addr ^= 0x040;
+      }
+
+      vram += (addr - ((addr & 0xFF80) >> 1));
+      vram = (vram >> 1) | (i & 0x1000);
+
+      //if (debugRTDS) {
+      //  message("vram[0x" + fmtHex(vram, 4) + "] <- 0x" + fmtHex(tile, 4));
+      //}
+      ppu::vram[vram] = tile;
     }
   }
 
-  void apply(TilemapRun @run, bool include_vram) {
+  void apply_wram(TilemapRun @run) {
     // apply the run to the tilemap, overwriting any existing values:
     uint32 addr = run.offs;
     uint32 stride = run.vertical ? 0x40 : 1;
@@ -161,7 +162,7 @@ class TilemapChanges {
         if (state[addr] != tile) {
           serialized = false;
         }
-        write_tilemap(addr, tile, include_vram);
+        write_tilemap(addr, tile);
       }
     } else {
       // use individual tile values at each step:
@@ -170,8 +171,20 @@ class TilemapChanges {
         if (state[addr] != tile) {
           serialized = false;
         }
-        write_tilemap(addr, tile, include_vram);
+        write_tilemap(addr, tile);
       }
+    }
+  }
+
+  void apply_vram(TilemapRun @run) {
+    // apply the run to the tilemap, overwriting any existing values:
+    uint32 addr = run.offs;
+    uint32 stride = run.vertical ? 0x40 : 1;
+
+    // use the tilemap run to know where to apply the latest state to VRAM:
+    for (uint n = 0; n < run.count; n++, addr += stride) {
+      if (state[addr] == -1) continue;
+      write_vram(addr, state[addr]);
     }
   }
 
