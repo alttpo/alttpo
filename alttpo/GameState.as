@@ -154,13 +154,12 @@ class GameState {
 
   bool is_it_a_bad_time() const {
     if (module <= 0x05) return true;
-    if (module >= 0x14 && module <= 0x18) return true;
+    if (module == 0x14) return true;
     if (module >= 0x1B) return true;
 
     if (module == 0x0e) {
-      if ( sub_module == 0x07 // mode-7 map
-           || sub_module == 0x0b // player select
-        ) {
+      if (sub_module == 0x07) {
+        // mode-7 map
         return true;
       }
     }
