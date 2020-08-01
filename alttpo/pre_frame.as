@@ -70,6 +70,10 @@ void on_main_loop(uint32 pc) {
 void pre_frame() {
   //message("pre_frame");
 
+  // capture current timestamp:
+  // TODO(jsd): replace this with current server time
+  timestamp_now = uint32(chrono::realtime::millisecond);
+
   if (settings.DiscordEnable) {
     discord::pre_frame();
   }
