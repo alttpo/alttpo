@@ -602,7 +602,7 @@ class LocalGameState : GameState {
   }
 
   uint8 get_area_size() property {
-    if (module == 0x06 || module == 0x07) {
+    if (module == 0x06 || is_in_dungeon()) {
       // underworld is always 64x64 tiles:
       return 0x40;
     }
@@ -637,7 +637,7 @@ class LocalGameState : GameState {
   }
 
   bool is_safe_to_sample_tilemap() {
-    if (module == 0x09) {
+    if (is_in_overworld()) {
       // overworld:
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
@@ -647,7 +647,7 @@ class LocalGameState : GameState {
       if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // or during LW/DW transition:
       if (sub_module >= 0x23) return false;
-    } else if (module == 0x07) {
+    } else if (is_in_dungeon()) {
       // underworld:
       // scrolling between rooms in same supertile:
       if (sub_module == 0x01) return false;
@@ -1256,6 +1256,7 @@ class LocalGameState : GameState {
         if (remote is null) continue;
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
+        if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
         syncable.apply(remote);
@@ -1453,7 +1454,7 @@ class LocalGameState : GameState {
   }
 
   bool is_safe_to_write_tilemap() {
-    if (module == 0x09) {
+    if (module == 0x09 || module == 0x0B) {
       // overworld:
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
@@ -1488,6 +1489,12 @@ class LocalGameState : GameState {
 
       // in Ganon's room:
       if (dungeon_room == 0x0000) return false;
+    } else if (module == 0x0F) {
+      // closing spotlight:
+      return true;
+    } else if (module == 0x10) {
+      // opening spotlight:
+      return true;
     } else {
       // don't write tilemap changes:
       return false;
@@ -1503,7 +1510,7 @@ class LocalGameState : GameState {
       return;
     }
 
-    if (module == 0x09) {
+    if (is_in_overworld()) {
       // overworld:
 
       // don't write to VRAM when...
@@ -1511,7 +1518,7 @@ class LocalGameState : GameState {
       if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
-    } else if (module == 0x07) {
+    } else if (is_in_dungeon()) {
       // underworld:
 
       // don't write to VRAM when...
@@ -1789,7 +1796,7 @@ class LocalGameState : GameState {
     if (notifications.length() == 0) return ei;
 
     // pop off the first notification if its timer is expired:
-    if (notificationFrameTimer++ >= 160) {
+    if (notificationFrameTimer++ >= 140) {
       notifications.removeAt(0);
       notificationFrameTimer = 0;
     }
