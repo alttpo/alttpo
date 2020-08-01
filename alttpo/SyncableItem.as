@@ -329,6 +329,7 @@ void nameForBow        (uint16 old, uint16 new, NotifyItemReceived @notify) {
   // 0x04 - silver bow with silver arrows
   if (old == 1 && new == 2) return;
   if (old == 2 && new == 1) return;
+  if (old == 3 && new == 4) return;
   if (old == 4 && new == 3) return;
   notifySingleItem(bowNames, notify, new);
 }
