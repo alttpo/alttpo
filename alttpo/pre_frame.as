@@ -105,13 +105,13 @@ void pre_frame() {
     remote.ttl_count();
 
     // don't render players or labels in pre-game modules:
-    if (local.module < 0x05) continue;
-
-    // don't render on in-game map:
-    if (local.module == 0x0e && local.sub_module == 0x07) continue;
+    if (local.is_it_a_bad_time()) continue;
 
     // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
     if (local.can_see(remote.location)) {
+      // don't render player if remote player is in pre-game modules:
+      if (remote.is_it_a_bad_time()) continue;
+
       // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
       int rx = int(remote.xoffs - local.xoffs);
       int ry = int(remote.yoffs - local.yoffs);
