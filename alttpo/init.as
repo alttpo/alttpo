@@ -141,3 +141,5 @@ array<GameState@> onlyLocalPlayer(1);
 int playerCount = 0;
 
 bool font_set = false;
+
+uint32 timestamp_now = 0;
