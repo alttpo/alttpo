@@ -148,7 +148,13 @@ class GameState {
     return (actual_location & 0x020000) == 0x020000;
   }
 
+  bool is_in_overworld() const {
+    if (module == 0x09 || module == 0x0B) return true;
+    return (actual_location & 0x010000) == 0x000000;
+  }
+
   bool is_in_dungeon() const {
+    if (module == 0x07) return true;
     return (actual_location & 0x010000) == 0x010000;
   }
 
