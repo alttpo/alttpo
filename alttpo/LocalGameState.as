@@ -637,7 +637,7 @@ class LocalGameState : GameState {
   }
 
   bool is_safe_to_sample_tilemap() {
-    if (is_in_overworld()) {
+    if (module == 0x09 || module == 0x0B) {
       // overworld:
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
@@ -647,7 +647,7 @@ class LocalGameState : GameState {
       if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // or during LW/DW transition:
       if (sub_module >= 0x23) return false;
-    } else if (is_in_dungeon()) {
+    } else if (module == 0x07) {
       // underworld:
       // scrolling between rooms in same supertile:
       if (sub_module == 0x01) return false;
