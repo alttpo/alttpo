@@ -1558,11 +1558,6 @@ class LocalGameState : GameState {
         continue;
       }
 
-      // don't make older updates:
-      if (remote.tilemapTimestamp <= tilemapTimestamp) {
-        continue;
-      }
-
       if (!locations_equal(actual_location, remote.tilemapLocation)) {
         if (debugRTDSapply) {
           message("rtds: apply from player " + fmtInt(remote.index) + "; skipping as locations do not match: local " + fmtHex(actual_location, 6) + " != " + fmtHex(remote.tilemapLocation, 6));
@@ -1574,14 +1569,26 @@ class LocalGameState : GameState {
         message("rtds: apply from player " + fmtInt(remote.index) + "; " + fmtInt(remote.tilemapRuns.length()) + " runs with VRAM write " + fmtBool(write_to_vram));
       }
 
-      for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
-        auto @run = remote.tilemapRuns[j];
-        // apply the run to the local tilemap state and update VRAM if applicable on screen:
-        tilemap.apply(run, write_to_vram);
+      // only apply newer updates:
+      if (remote.tilemapTimestamp > tilemapTimestamp) {
+        for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
+          auto @run = remote.tilemapRuns[j];
+          // apply the run to the local tilemap state and update VRAM if applicable on screen:
+          tilemap.apply_wram(run);
+        }
+
+        // accept this new timestamp as latest:
+        tilemapTimestamp = remote.tilemapTimestamp;
       }
 
-      // accept this new timestamp as latest:
-      tilemapTimestamp = remote.tilemapTimestamp;
+      // update VRAM with latest state:
+      if (write_to_vram) {
+        for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
+          auto @run = remote.tilemapRuns[j];
+          // apply the run to the local tilemap state and update VRAM if applicable on screen:
+          tilemap.apply_vram(run);
+        }
+      }
     }
   }
 
