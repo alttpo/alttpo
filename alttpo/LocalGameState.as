@@ -1249,6 +1249,9 @@ class LocalGameState : GameState {
 
   void update_wram() {
     // apply remote values from all other active players:
+    crystal.playerIndex = -2;
+    crystal.timestampCompare = crystal.timestamp;
+
     uint len = players.length();
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1259,21 +1262,31 @@ class LocalGameState : GameState {
 
       // update crystal switches to latest state among all players in same dungeon:
       if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
-        if (remote.crystal.timestamp > crystal.timestamp) {
-          // update local:
-          crystal.value = remote.crystal.value;
-          crystal.timestamp = remote.crystal.timestamp;
-
-          // update switch state:
-          bus::write_u8(0x7EC172, remote.crystal.value);
-
-          // go to switch transition module:
-          //LDA.b #$16 : STA $11
-          bus::write_u8(0x7E0011, 0x16);
-
-          // trigger sound effect:
-          //LDA.b #$25 : JSL Sound_SetSfx3PanLong
+        if (remote.crystal.timestamp > crystal.timestampCompare) {
+          crystal.playerIndex = i;
+          crystal.timestampCompare = remote.crystal.timestamp;
         }
+      }
+    }
+
+    if (crystal.playerIndex != -2) {
+      auto @remote = players[crystal.playerIndex];
+      if (crystal.value != remote.crystal.value) {
+        message("crystal update " + fmtHex(crystal.value,2) + " -> " + fmtHex(remote.crystal.value,2));
+
+        // update local:
+        crystal.value = remote.crystal.value;
+        crystal.timestamp = remote.crystal.timestamp;
+
+        // update switch state:
+        bus::write_u8(0x7EC172, remote.crystal.value);
+
+        // go to switch transition module:
+        //LDA.b #$16 : STA $11
+        bus::write_u8(0x7E0011, 0x16);
+
+        // trigger sound effect:
+        //LDA.b #$25 : JSL Sound_SetSfx3PanLong
       }
     }
   }
