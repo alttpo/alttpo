@@ -155,6 +155,26 @@ uint16 mutateWorldState(uint16 oldValue, uint16 newValue) {
   // if local player is in the intro sequence, keep them there:
   //if (oldValue < 2) return oldValue;
 
+  // moving from rain state to non-rain state:
+  if (newValue >= 2 && oldValue < 2) {
+    // this game function loads sprite graphics:
+    pb.jsl(rom.fn_sprite_load_gfx_properties);
+
+    // if in overworld:
+    if (local.module == 0x09 && local.sub_module == 0x00) {
+      // disable subscreen:
+      bus::write_u8(0x7E001D, 0x00);
+      // remove rain overlay:
+      bus::write_u8(0x7E008C, 0x00);
+      // this game function loads the new song list
+      pb.jsl(rom.fn_overworld_finish_mirror_warp);
+
+      // set ambient sfx to silence:
+      pb.lda_immed(0x05);
+      pb.sta_bank(0x012D);
+    }
+  }
+
   // sync the bigger value:
   if (newValue > oldValue) return newValue;
   return oldValue;
