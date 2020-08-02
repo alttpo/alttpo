@@ -114,7 +114,7 @@ abstract class ROMMapping {
     //@SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
 
     // progress event flags 2/2
-    @SyncableItem(0x3C9, 1, 2, @nameForProgress2),
+    @SyncableItem(0x3C9, 1, @mutateProgress2, @nameForProgress2),
 
     // sentinel null value as last item in array to work around bug where last array item is always nulled out.
     null
