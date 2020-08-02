@@ -73,9 +73,16 @@ Uncheck the `Auto` checkbox to allow manual switching between Light World and Da
 
 # Linux Support
 
-On Ubuntu 18.04, install these required packages:
+If running Ubuntu 18.04, install these required packages:
+
 ```
 $ sudo apt install libgtksourceview2.0-0 libao4
+```
+
+If running Arch Linux, install these required packages:
+
+```
+$ sudo pacman -S gtksourceview2 libao
 ```
 
 Also be sure to make the `bsnes` file executable:
