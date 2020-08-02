@@ -207,6 +207,14 @@ uint16 mutateProgress2(uint16 oldValue, uint16 newValue) {
     }
   }
 
+  // remove purple chest follower if purple chest opened:
+  if ((newValue & 0x10) == 0x10) {
+    auto follower = bus::read_u8(0x7EF3CC);
+    if (follower == 0x0C) {
+      bus::write_u8(0x7EF3CC, 0x00);
+    }
+  }
+
   return newValue | oldValue;
 }
 
