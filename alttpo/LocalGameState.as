@@ -91,8 +91,13 @@ class LocalGameState : GameState {
     message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
 
     // don't pay attention to crystal switch changes unless in dungeon:
-    if (module != 0x07) {
-      return false;
+    if (module == 0x06) {
+      // loading dungeon resets crystal state:
+      return true;
+    }
+    if (module == 0x07) {
+      // hitting switch in dungeon:
+      return true;
     }
 
     return true;
