@@ -150,29 +150,28 @@ class SyncableHealthCapacity : SyncableItem {
   }
 }
 
+// 0x3C5
 uint16 mutateWorldState(uint16 oldValue, uint16 newValue) {
   // if local player is in the intro sequence, keep them there:
-  if (oldValue < 2) return oldValue;
+  //if (oldValue < 2) return oldValue;
 
   // sync the bigger value:
   if (newValue > oldValue) return newValue;
   return oldValue;
 }
 
+// 0x3C6
 uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
-  // don't sync progress bits unless we're past the escape sequence; too many opportunities for soft-locks:
-  auto worldState = bus::read_u8(0x7EF000 + 0x3C5);
-  if (worldState < 2) {
-    return oldValue;
+  // uncle leaving link's house for the first time will add the telepathic follower.
+  // if receiving uncle's gear, remove zelda telepathic follower:
+  if ((newValue & 0x01) == 0x01) {
+    auto follower = bus::read_u8(0x7EF3CC);
+    if (follower == 0x05) {
+      bus::write_u8(0x7EF3CC, 0x00);
+    }
   }
-
-  // if local player has not grabbed gear from uncle, then keep uncle alive in the secret passage otherwise Zelda's
-  // telepathic prompts will get rather annoying.
-  if (oldValue & 0x01 == 0) {
-    newValue &= ~uint8(0x01);
-  }
-  // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up.
-  if (oldValue & 0x10 == 0) {
+  // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up:
+  if ((oldValue & 0x10) == 0) {
     newValue &= ~uint8(0x10);
   }
   return newValue | oldValue;
