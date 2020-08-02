@@ -48,6 +48,9 @@ abstract class ROMMapping {
   uint32 get_fn_shield_palette() property      { return 0; }
   uint32 get_fn_armor_glove_palette() property { return 0; }
 
+  uint32 get_fn_overworld_finish_mirror_warp() property { return 0; }
+  uint32 get_fn_sprite_load_gfx_properties() property { return 0; }
+
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
     @SyncableItem(0x340, 1, 1, @nameForBow),         // bow
@@ -154,6 +157,9 @@ class USAROMMapping : ROMMapping {
   uint32 get_fn_sword_palette() property       { return 0x1BED03; }
   uint32 get_fn_shield_palette() property      { return 0x1BED29; }
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
+
+  uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B260; }  // $13260
+  uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
 };
 
 class EURROMMapping : ROMMapping {
@@ -218,6 +224,9 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_sword_palette() property       { return 0x1BED03; }
   uint32 get_fn_shield_palette() property      { return 0x1BED29; }
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
+
+  uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B186; }  // $13186
+  uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
 };
 
 class RandomizerMapping : JPROMMapping {
