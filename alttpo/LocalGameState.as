@@ -1921,8 +1921,8 @@ class LocalGameState : GameState {
       auto @label = ppu::extra[ei++];
       label.reset();
       label.index = 127;
-      label.source = 5;
-      label.priority = 3;
+      label.source = 4;       // OBJ1 layer
+      label.priority = 0x110; // force priority to 0x10 (higher than any other priority normally used)
       label.x = 2;
       label.y = 222 - (height * row);
       auto width = ppu::extra.font.measureText(msg);
