@@ -38,6 +38,8 @@ void on_main_loop(uint32 pc) {
   if (!settings.RaceMode) {
     local.update_tilemap();
 
+    local.update_wram();
+
     local.update_ancillae();
 
     if ((local.frame & 15) == 0) {
