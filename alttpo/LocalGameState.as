@@ -88,7 +88,7 @@ class LocalGameState : GameState {
   }
 
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
+    //message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
 
     // don't pay attention to crystal switch changes unless in dungeon:
     if (module == 0x06) {
@@ -1277,7 +1277,7 @@ class LocalGameState : GameState {
     if (crystal.playerIndex != -2) {
       auto @remote = players[crystal.playerIndex];
       if (crystal.value != remote.crystal.value) {
-        message("crystal update " + fmtHex(crystal.value,2) + " -> " + fmtHex(remote.crystal.value,2));
+        //message("crystal update " + fmtHex(crystal.value,2) + " -> " + fmtHex(remote.crystal.value,2));
 
         // update local:
         crystal.value = remote.crystal.value;
