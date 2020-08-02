@@ -7,8 +7,8 @@ class Sprite {
 
   // computed properties:
   uint16 chr;
-  int16 x;
-  int16 y;
+  int32 x;
+  int32 y;
   uint8 palette;
   uint8 priority;
   bool hflip;
@@ -43,10 +43,10 @@ class Sprite {
     // decode the bytes into actual fields:
     chr = uint16(b2) | (uint16(b3 & 1) << 8);
 
-    x = int16(uint16(b0) | (uint16(b4 & 1) << 8));
+    x = int32(uint16(b0) | (uint16(b4 & 1) << 8));
     if (x >= 256) x -= 512;
 
-    y = b1;
+    y = int32(b1);
 
     palette = (b3 >> 1) & 7;
     priority = (b3 >> 4) & 3;
@@ -54,8 +54,9 @@ class Sprite {
     vflip = ((b3 >> 7) & 1) != 0 ? true : false;
 
     size = (b4 >> 1) & 1;
+    int px = size == 0 ? 8 : 16;
 
-    is_enabled = (b1 != 0xF0);
+    is_enabled = (b1 != 0xF0) && (x > -px && x < 256);
   }
 
   void decodeOAMTable(uint16 i) {
