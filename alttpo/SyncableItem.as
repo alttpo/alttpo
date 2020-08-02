@@ -197,6 +197,19 @@ uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
   return newValue | oldValue;
 }
 
+// 0x3C9
+uint16 mutateProgress2(uint16 oldValue, uint16 newValue) {
+  // lose smithy follower if already rescued:
+  if ((newValue & 0x20) == 0x20) {
+    auto follower = bus::read_u8(0x7EF3CC);
+    if (follower == 0x07 || follower == 0x08) {
+      bus::write_u8(0x7EF3CC, 0x00);
+    }
+  }
+
+  return newValue | oldValue;
+}
+
 uint16 mutateSword(uint16 oldValue, uint16 newValue) {
   // during the dwarven swordsmith quest, sword goes to 0xFF when taken away, so avoid that trap:
   if (newValue >= 1 && newValue <= 4 && newValue > oldValue) {
