@@ -642,11 +642,9 @@ class GameState {
     for (uint i = 0; i < len; i++) {
       auto @sprite = sprites[i];
       if (sprite is null) continue;
+      if (!sprite.is_enabled) continue;
 
-      auto px = sprite.size == 0 ? 8 : 16;
-
-      auto k = sprite.chr;
-      auto p = sprite.palette;
+      int32 px = sprite.size == 0 ? 8 : 16;
 
       // bounds check for OAM sprites:
       if (sprite.x + dx <= -px) continue;
@@ -664,9 +662,12 @@ class GameState {
       tile.hflip = sprite.hflip;
       tile.vflip = sprite.vflip;
       tile.priority = sprite.priority;
-      tile.width = sprite.size != 0 ? 16 : 8;
-      tile.height = sprite.size != 0 ? 16 : 8;
+      tile.width = px;
+      tile.height = px;
       tile.pixels_clear();
+
+      auto k = sprite.chr;
+      auto p = sprite.palette;
 
       // draw sprite:
       if (chrs[k + 0x00].length() == 0) {
