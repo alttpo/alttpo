@@ -708,6 +708,13 @@ class LocalGameState : GameState {
       return;
     }
 
+    // don't capture barrier tiles since crystal switch sync now takes care of that:
+    if (module == 0x07 && sub_module == 0x16) {
+      if (newValue == 0x66 || newValue == 0x67) {
+        return;
+      }
+    }
+
     if (debugRTDScapture) {
       message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ") at cpu.r.pc = " + fmtHex(cpu::r.pc, 6));
     }
@@ -1236,6 +1243,37 @@ class LocalGameState : GameState {
         array<uint8> envelope = create_envelope();
         serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
         p = send_packet(envelope, p);
+      }
+    }
+  }
+
+  void update_wram() {
+    // apply remote values from all other active players:
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
+      if (remote.is_it_a_bad_time()) continue;
+
+      // update crystal switches to latest state among all players in same dungeon:
+      if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
+        if (remote.crystal.timestamp > crystal.timestamp) {
+          // update local:
+          crystal.value = remote.crystal.value;
+          crystal.timestamp = remote.crystal.timestamp;
+
+          // update switch state:
+          bus::write_u8(0x7EC172, remote.crystal.value);
+
+          // go to switch transition module:
+          //LDA.b #$16 : STA $11
+          bus::write_u8(0x7E0011, 0x16);
+
+          // trigger sound effect:
+          //LDA.b #$25 : JSL Sound_SetSfx3PanLong
+        }
       }
     }
   }
