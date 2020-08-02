@@ -4,6 +4,7 @@ net::Address@ address;
 bool debug = false;
 
 bool debugData = false;
+bool debugSRAM = false;
 bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;

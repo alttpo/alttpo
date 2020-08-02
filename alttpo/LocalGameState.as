@@ -84,7 +84,19 @@ class LocalGameState : GameState {
 
     crystal.register(@SyncableByteShouldCapture(this.crystal_switch_capture));
 
+    if (debugSRAM) {
+      bus::add_write_interceptor("7e:f000-f4fd", bus::WriteInterceptCallback(this.sram_written));
+    }
+
     registered = true;
+  }
+
+  void sram_written(uint32 addr, uint8 oldValue, uint8 newValue) {
+    if (newValue == oldValue) {
+      return;
+    }
+
+    message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
   }
 
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
