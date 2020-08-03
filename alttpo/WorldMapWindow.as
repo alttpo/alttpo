@@ -376,6 +376,13 @@ class WorldMapWindow {
     int px = p.last_map_x;
     int py = p.last_map_y;
 
+    // if no cached map coords, use last overworld x,y from game WRAM:
+    if (px == 0 && py == 0) {
+      // these might be 0 too after mirroring or wallmaster grabs you in dungeon:
+      px = p.last_overworld_x;
+      py = p.last_overworld_y;
+    }
+
     if (rom !is null) {
       if (p.is_in_overworld_module() || p.module == 0x10) {
         // in overworld:
@@ -403,36 +410,43 @@ class WorldMapWindow {
         }
       } else if (p.is_in_dungeon_module()) {
         // in a dungeon:
+        if (false) {
+          bool found = false;
 
-        // get last entrance:
-        auto entrance = (p.dungeon_entrance & 0xFF) << 1;
-        // get room for entrance:
-        auto room = bus::read_u16(rom.entrance_table_room + entrance);
-        //auto room = p.location & 0xffff;
+          // get last entrance:
+          auto entrance = (p.dungeon_entrance & 0xFF) << 1;
 
-        // room 0x104 is Link's house
-        if (room != 0x104 && room >= 0x100 && room < 0x180) {
-          // simple exit:
-          px = p.last_overworld_x;
-          py = p.last_overworld_y;
-        } else {
-          // has exit data:
-          uint i;
-          for (i = 0; i < 0x9E; i += 2) {
-            auto exit_room = bus::read_u16(rom.exit_table_room + i);
-            if (room == exit_room) {
-              // use link X,Y coords for exit:
-              px = bus::read_u16(rom.exit_table_link_x + i);
-              py = bus::read_u16(rom.exit_table_link_y + i);
-              break;
+          if (!found) {
+            // get room for entrance:
+            auto room = bus::read_u16(rom.entrance_table_room + entrance);
+            // room 0x104 is Link's house
+            if (room != 0x104 && room >= 0x100 && room < 0x180) {
+              // simple exit:
+              px = p.last_overworld_x;
+              py = p.last_overworld_y;
+              found = true;
+            } else {
+              // has exit data:
+              uint i;
+              for (i = 0; i < 0x9E; i += 2) {
+                auto exit_room = bus::read_u16(rom.exit_table_room + i);
+                if (room == exit_room) {
+                  // use link X,Y coords for exit:
+                  px = bus::read_u16(rom.exit_table_link_x + i);
+                  py = bus::read_u16(rom.exit_table_link_y + i);
+                  found = true;
+                  break;
+                }
+              }
+
+              if (!found) {
+                // if no exit, use last coords:
+                px = p.last_overworld_x;
+                py = p.last_overworld_y;
+                found = true;
+              }
             }
           }
-
-          //if (i == 0x9E) {
-          //  // if no exit, use last coords:
-          //  px = p.last_overworld_x;
-          //  py = p.last_overworld_y;
-          //}
         }
       }
     }
