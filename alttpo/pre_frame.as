@@ -98,6 +98,7 @@ void pre_frame() {
   // render remote players:
   int ei = 0;
   uint len = players.length();
+  playerCount = 0;
   for (uint i = 0; i < len; i++) {
     auto @remote = players[i];
     if (remote is null) continue;
