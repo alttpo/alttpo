@@ -373,15 +373,8 @@ class WorldMapWindow {
   int mapsprtop = 2132;
   //int mapsprtop = 2096;
   void mapCoord(GameState@ p, float &out x, float &out y) {
-    int px = p.last_map_x;
-    int py = p.last_map_y;
-
-    // if no cached map coords, use last overworld x,y from game WRAM:
-    if (px == 0 && py == 0) {
-      // these might be 0 too after mirroring or wallmaster grabs you in dungeon:
-      px = p.last_overworld_x;
-      py = p.last_overworld_y;
-    }
+    int px = p.last_overworld_x;
+    int py = p.last_overworld_y;
 
     if (rom !is null) {
       if (p.is_in_overworld_module() || p.module == 0x10) {
@@ -450,9 +443,6 @@ class WorldMapWindow {
         }
       }
     }
-
-    p.last_map_x = px;
-    p.last_map_y = py;
 
     x = (float(px + mapsprleft) / 16.0 - left) * mapscale + dotLeft;
     y = (float(py + mapsprtop) / 16.0 - top) * mapscale + dotTop;
