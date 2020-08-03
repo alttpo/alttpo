@@ -41,7 +41,7 @@ void on_torch_extinguish(uint32 pc) {
 
 void update_torches() {
   // MUST be in a dungeon and not in room transition:
-  if (!local.is_in_dungeon()) return;
+  if (!local.is_in_dungeon_module()) return;
   if (local.sub_module != 0) return;
 
   // don't mess with torches in ganon's room:

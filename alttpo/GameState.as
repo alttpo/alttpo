@@ -80,6 +80,9 @@ class GameState {
   uint16 last_overworld_x;
   uint16 last_overworld_y;
 
+  uint16 last_map_x;
+  uint16 last_map_y;
+
   private uint16 _player_color;
   uint16 player_color {
     get { return _player_color; }
@@ -150,14 +153,14 @@ class GameState {
     return (actual_location & 0x020000) == 0x020000;
   }
 
-  bool is_in_overworld() const {
+  bool is_in_overworld_module() const {
     if (module == 0x09 || module == 0x0B) return true;
-    return (actual_location & 0x010000) == 0x000000;
+    return false;
   }
 
-  bool is_in_dungeon() const {
+  bool is_in_dungeon_module() const {
     if (module == 0x07) return true;
-    return (actual_location & 0x010000) == 0x010000;
+    return false;
   }
 
   bool is_it_a_bad_time() const {
