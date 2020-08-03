@@ -55,11 +55,11 @@ class SyncableByte {
   // bus::WriteInterceptCallback
   void wram_written(uint32 addr, uint8 oldValue, uint8 newValue) {
     if (shouldCapture !is null) {
-      //message("calling shouldCapture()");
       bool capture = shouldCapture(addr, oldValue, newValue);
-      //message("called  shouldCapture(); " + fmtBool(capture));
+      if (debugData) {
+        message("called  shouldCapture(); " + fmtBool(capture));
+      }
       if (!capture) {
-        //message("skipping write");
         return;
       }
     }
