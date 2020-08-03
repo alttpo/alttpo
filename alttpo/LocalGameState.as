@@ -640,7 +640,7 @@ class LocalGameState : GameState {
   }
 
   uint8 get_area_size() property {
-    if (module == 0x06 || is_in_dungeon()) {
+    if (module == 0x06 || is_in_dungeon_module()) {
       // underworld is always 64x64 tiles:
       return 0x40;
     }
@@ -848,7 +848,7 @@ class LocalGameState : GameState {
   }
 
   void fetch_torches() {
-    if (!is_in_dungeon()) return;
+    if (!is_in_dungeon_module()) return;
     if (is_dead()) return;
 
     torchTimers.resize(0x10);
@@ -856,7 +856,7 @@ class LocalGameState : GameState {
   }
 
   bool is_torch_lit(uint8 t) {
-    if (!is_in_dungeon()) return false;
+    if (!is_in_dungeon_module()) return false;
     if (t >= 0x10) return false;
 
     auto idx = (t << 1) + bus::read_u16(0x7E0478);
@@ -1615,7 +1615,7 @@ class LocalGameState : GameState {
       return;
     }
 
-    if (is_in_overworld()) {
+    if (is_in_overworld_module()) {
       // overworld:
 
       // don't write to VRAM when...
@@ -1623,7 +1623,7 @@ class LocalGameState : GameState {
       if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
-    } else if (is_in_dungeon()) {
+    } else if (is_in_dungeon_module()) {
       // underworld:
 
       // don't write to VRAM when...

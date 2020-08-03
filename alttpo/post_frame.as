@@ -24,8 +24,12 @@ void post_frame() {
     //ppu::frame.text(76, 0, fmtHex(local.overworld_room, 2));
     //ppu::frame.text(92, 0, fmtHex(local.dungeon_room, 2));
 
-    ppu::frame.text(112, 0, fmtHex(local.x, 4));
-    ppu::frame.text(152, 0, fmtHex(local.y, 4));
+    ppu::frame.text(112, 0, fmtHex(local.dungeon, 4));
+    ppu::frame.text(148, 0, fmtHex(local.dungeon_entrance, 4));
+    ppu::frame.text(184, 0, fmtHex(bus::read_u16(0x7E0696), 4));
+
+    //ppu::frame.text(112, 0, fmtHex(local.x, 4));
+    //ppu::frame.text(152, 0, fmtHex(local.y, 4));
 
     //ppu::frame.text(188, 0, fmtHex(bus::read_u16(0x7E0708), 4));
     //ppu::frame.text(188, 8, fmtHex(bus::read_u16(0x7E070C), 4));
