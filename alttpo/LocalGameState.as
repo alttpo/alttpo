@@ -100,15 +100,22 @@ class LocalGameState : GameState {
   }
 
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    //message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
+    if (debugData) {
+      message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
+    }
 
-    // don't pay attention to crystal switch changes unless in dungeon:
+    // hitting crystal switch in dungeon:
     if (module == 0x07) {
-      // hitting switch in dungeon:
       return true;
     }
+
+    // pre-dungeon, so we need to forget our last state:
     if (module == 0x06) {
-      // pre-dungeon, so we need to forget our last state:
+      crystal.resetTo(newValue);
+      return false;
+    }
+    // load-dungeon when mirroring, so we need to forget our last state:
+    if (module == 0x05) {
       crystal.resetTo(newValue);
       return false;
     }
@@ -1289,12 +1296,16 @@ class LocalGameState : GameState {
 
     if (crystal.playerIndex != -2) {
       auto @remote = players[crystal.playerIndex];
+      // record timestamp so if we just joined we should keep that:
+      crystal.timestamp = remote.crystal.timestamp;
+
       if (crystal.value != remote.crystal.value) {
-        //message("crystal update " + fmtHex(crystal.value,2) + " -> " + fmtHex(remote.crystal.value,2));
+        if (debugData) {
+          message("crystal update " + fmtHex(crystal.value,2) + " -> " + fmtHex(remote.crystal.value,2));
+        }
 
         // update local:
         crystal.value = remote.crystal.value;
-        crystal.timestamp = remote.crystal.timestamp;
 
         // update switch state:
         bus::write_u8(0x7EC172, remote.crystal.value);
