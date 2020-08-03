@@ -9,6 +9,10 @@ class GameSpriteWindow {
   array<GUI::Label@> col(16);
 
   GameSpriteWindow() {
+    clrYellow   = GUI::Color(240, 240,   0);
+    clrDisabled = GUI::Color( 80,  80,  80);
+    clrBlack    = GUI::Color(  0,   0,   0);
+
     int charCount = 34+84;
 
     @window = GUI::Window(0, 240*3, true);
@@ -57,11 +61,15 @@ class GameSpriteWindow {
 
   // must be run from post_frame():
   void update() {
-    if (@local.objects == null) return;
+    if (local.objects is null) {
+      return;
+    }
 
     for (int i = 0; i < 0x10; i++) {
-      auto @en = @local.objects[i];
-      if (@en is null) continue;
+      auto @en = local.objects[i];
+      if (en is null) {
+        continue;
+      }
 
       // generate a color:
       auto color = ppu::rgb(

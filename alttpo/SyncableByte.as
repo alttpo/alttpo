@@ -23,6 +23,20 @@ class SyncableByte {
   void register(SyncableByteShouldCapture@ shouldCapture) {
     @this.shouldCapture = shouldCapture;
     bus::add_write_interceptor("7e:" + fmtHex(offs, 4), bus::WriteInterceptCallback(this.wram_written));
+
+    reset();
+  }
+
+  // initialize value to current WRAM value:
+  void reset() {
+    timestamp = 0;
+    value = bus::read_u8(0x7E0000 + offs);
+  }
+
+  // initialize value to specific WRAM value:
+  void resetTo(uint8 newValue) {
+    timestamp = 0;
+    value = newValue;
   }
 
   void serialize(array<uint8> &r) {
@@ -40,8 +54,14 @@ class SyncableByte {
 
   // bus::WriteInterceptCallback
   void wram_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    if ((shouldCapture !is null) && !shouldCapture(addr, oldValue, newValue)) {
-      return;
+    if (shouldCapture !is null) {
+      //message("calling shouldCapture()");
+      bool capture = shouldCapture(addr, oldValue, newValue);
+      //message("called  shouldCapture(); " + fmtBool(capture));
+      if (!capture) {
+        //message("skipping write");
+        return;
+      }
     }
 
     this.value = newValue;

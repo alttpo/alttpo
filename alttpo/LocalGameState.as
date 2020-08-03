@@ -82,7 +82,7 @@ class LocalGameState : GameState {
     bus::add_write_interceptor("7e:2000-5fff", bus::WriteInterceptCallback(this.tilemap_written));
     bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
 
-    crystal.register(@SyncableByteShouldCapture(this.crystal_switch_capture));
+    crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
 
     if (debugSRAM) {
       bus::add_write_interceptor("7e:f000-f4fd", bus::WriteInterceptCallback(this.sram_written));
@@ -103,16 +103,17 @@ class LocalGameState : GameState {
     //message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
 
     // don't pay attention to crystal switch changes unless in dungeon:
-    if (module == 0x06) {
-      // loading dungeon resets crystal state:
-      return true;
-    }
     if (module == 0x07) {
       // hitting switch in dungeon:
       return true;
     }
+    if (module == 0x06) {
+      // pre-dungeon, so we need to forget our last state:
+      crystal.resetTo(newValue);
+      return false;
+    }
 
-    return true;
+    return false;
   }
 
   bool can_sample_location() const {
@@ -397,7 +398,7 @@ class LocalGameState : GameState {
   }
 
   void fetch_objects() {
-    if (!enableObjectSync) return;
+    if (!enableObjectSync && !debugGameObjects) return;
     if (is_dead()) return;
 
     // $7E0D00 - $7E0FA0
@@ -406,8 +407,8 @@ class LocalGameState : GameState {
     bus::read_block_u8(0x7E0D00, 0, 0x2A0, objectsBlock);
     for (i = 0; i < 0x10; i++) {
       auto @en = objects[i];
-      if (@en is null) {
-        @en = @objects[i] = GameSprite();
+      if (en is null) {
+        @en = @objects[i] = @GameSprite();
       }
       // copy in facts about each enemy from the large block of WRAM:
       objects[i].readFromBlock(objectsBlock, i);
