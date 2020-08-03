@@ -138,9 +138,11 @@ class WorldMapWindow {
     showWorld();
   }
 
+  bool forceSwitch = true;
   bool lastDark = true;
   void showWorld() {
-    if (isDark != lastDark) {
+    if (isDark != lastDark || forceSwitch) {
+      forceSwitch = false;
       darkWorld.visible = isDark;
       lightWorld.visible = !isDark;
       vl.resize();
