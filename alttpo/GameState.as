@@ -80,9 +80,6 @@ class GameState {
   uint16 last_overworld_x;
   uint16 last_overworld_y;
 
-  uint16 last_map_x;
-  uint16 last_map_y;
-
   private uint16 _player_color;
   uint16 player_color {
     get { return _player_color; }

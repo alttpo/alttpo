@@ -310,9 +310,12 @@ class LocalGameState : GameState {
       uint32(in_dungeon & 1) << 16 |
       uint32(in_dungeon != 0 ? dungeon_room : overworld_room);
 
-    // last overworld x,y coords are cached in WRAM; only used for "simple" exits from caves:
-    last_overworld_x = bus::read_u16(0x7EC14A);
-    last_overworld_y = bus::read_u16(0x7EC148);
+    if (is_in_overworld_module()) {
+      last_overworld_x = x;
+      last_overworld_y = y;
+      //last_overworld_x = bus::read_u16(0x7EC14A);
+      //last_overworld_y = bus::read_u16(0x7EC148);
+    }
 
     if (is_it_a_bad_time()) {
       //if (!can_sample_location()) {
