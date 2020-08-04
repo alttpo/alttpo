@@ -7,6 +7,7 @@ class WorldMapWindow {
   private GUI::CheckLabel @chkAuto;
   GUI::SNESCanvas @lightWorld;
   GUI::SNESCanvas @darkWorld;
+  GUI::Canvas @underworld;
 
   array<GUI::SNESCanvas@> dots;
   array<float> dotX(0);
@@ -30,7 +31,7 @@ class WorldMapWindow {
   float dotLeft = 0;
 
   // showing light world (false) or dark world (true):
-  bool isDark = false;
+  int screen = -1;
 
   WorldMapWindow() {
     // relative position to bsnes window:
@@ -59,6 +60,25 @@ class WorldMapWindow {
     darkWorld.setCollapsible(true);
     darkWorld.visible = false;
 
+    {
+      @underworld = GUI::Canvas();
+      vl.append(underworld, GUI::Size(-1, -1));
+
+      //float w = 8192 / 16.0;
+      //float h = 9728 / 16.0;
+      underworld.setPosition(0, 0);
+      underworld.setAlignment(0, 0);
+      underworld.collapsible = true;
+      underworld.visible = false;
+
+      // NOTE(jsd): this takes about 4 seconds to load on my MacBook Pro. yuck.
+      if (!underworld.loadPNG("map-underworld.png")) {
+        message("failed to load map-underworld.png");
+        // fill the canvas with red to denote failure:
+        underworld.color = GUI::Color(192, 0, 0);
+      }
+    }
+
     auto @hl = GUI::HorizontalLayout();
     vl.append(hl, GUI::Size(-1, sy(24)));
 
@@ -67,6 +87,7 @@ class WorldMapWindow {
     @chkAuto = GUI::CheckLabel();
     hl.append(chkAuto, GUI::Size(0, 0));
 
+    // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld
     auto @di = GUI::ComboButtonItem();
     di.text = "Light World";
     di.setSelected();
@@ -74,6 +95,10 @@ class WorldMapWindow {
 
     @di = GUI::ComboButtonItem();
     di.text = "Dark World";
+    dd.append(di);
+
+    @di = GUI::ComboButtonItem();
+    di.text = "Underworld";
     dd.append(di);
 
     dd.onChange(@GUI::Callback(toggledLightDarkWorld));
@@ -85,6 +110,7 @@ class WorldMapWindow {
 
     lightWorld.onSize(@GUI::Callback(onSize));
     darkWorld.onSize(@GUI::Callback(onSize));
+    underworld.onSize(@GUI::Callback(onSize));
 
     lightWorld.doSize();
 
@@ -93,21 +119,30 @@ class WorldMapWindow {
 
   // callback:
   private void onSize() {
+    float screenWidth = width;
+    float screenHeight = height;
+
     GUI::Size s;
-    if (isDark) {
-      s = darkWorld.geometry.size;
-    } else {
+    if (screen == 0) {
       s = lightWorld.geometry.size;
+    } else if (screen == 1) {
+      s = darkWorld.geometry.size;
+    } else if (screen == 2) {
+      s = underworld.geometry.size;
+      screenWidth = 8192;
+      screenHeight = 9728;
+      message("underworld size!");
     }
-    //message("onSize: " + fmtFloat(s.width) + "," + fmtFloat(s.height));
+    message("onSize: " + fmtFloat(s.width) + "," + fmtFloat(s.height));
 
     // assume map image is scaling proportionally up or down, so take minimum dimension:
-    if (s.width <= s.height) {
-      mapscale = s.width / float(width);
+    if (s.width / screenWidth <= s.height / screenHeight) {
+      mapscale = s.width / screenWidth;
     } else {
-      mapscale = s.height / float(height);
+      mapscale = s.height / screenHeight;
     }
 
+    message(fmtFloat(mapscale));
     dotLeft = 0;
     dotTop = 0;
     redrawDots();
@@ -133,22 +168,50 @@ class WorldMapWindow {
   }
 
   void toggledLightDarkWorld() {
-    // show light or dark world depending on dropdown selection offset (0 = light, 1 = dark):
-    isDark = (dd.selected.offset == 1);
+    // show light or dark world depending on dropdown selection offset (0 = light, 1 = dark, 2 = underworld):
+    screen = dd.selected.offset;
     showWorld();
   }
 
   bool forceSwitch = true;
-  bool lastDark = true;
+  int lastScreen = -2;
   void showWorld() {
-    if (isDark != lastDark || forceSwitch) {
+    if (screen != lastScreen || forceSwitch) {
       forceSwitch = false;
-      darkWorld.visible = isDark;
-      lightWorld.visible = !isDark;
+      lightWorld.visible = (screen == 0);
+      darkWorld.visible = (screen == 1);
+      underworld.visible = (screen == 2);
       vl.resize();
       redrawDots();
-      lastDark = isDark;
+      lastScreen = screen;
     }
+  }
+
+  int screenFor(const GameState &in p) {
+    // cave = (actual_location & 0x010000) == 0x010000
+    // dark = (actual_location & 0x020000) == 0x020000
+
+    if ((p.actual_location & 0x010000) == 0x010000) {
+      // 2 = underworld:
+      return 2;
+    } else {
+      // 0 = light overworld, 1 = dark overworld:
+      return (p.actual_location & 0x020000) >> 17;
+    }
+  }
+
+  bool showsOnScreen(const GameState &in p, int screen) {
+    if (screen == 0) {
+      // must be in light world:
+      return (p.actual_location & 0x020000) == 0;
+    } else if (screen == 1) {
+      // must be in dark world:
+      return (p.actual_location & 0x020000) == 0x020000;
+    } else if (screen == 2) {
+      // must be in dungeon:
+      return (p.actual_location & 0x010000) == 0x010000;
+    }
+    return false;
   }
 
   void update(const GameState &in local) {
@@ -158,11 +221,11 @@ class WorldMapWindow {
     }
 
     // show the appropriate map:
-    isDark = local.is_in_dark_world();
+    screen = screenFor(local);
     showWorld();
 
     // update dropdown selection if changed:
-    auto selectedOffset = isDark ? 1 : 0;
+    auto selectedOffset = screen;
     if (dd.selected.offset != selectedOffset) {
       dd[selectedOffset].setSelected();
     }
@@ -373,10 +436,17 @@ class WorldMapWindow {
   int mapsprtop = 2132;
   //int mapsprtop = 2096;
   void mapCoord(GameState@ p, float &out x, float &out y) {
-    int px = p.last_overworld_x;
-    int py = p.last_overworld_y;
+    if (rom is null) {
+      x = 0;
+      y = 0;
+      return;
+    }
 
-    if (rom !is null) {
+    if (screen == 0 || screen == 1) {
+      // overworld map screen:
+      int px = p.last_overworld_x;
+      int py = p.last_overworld_y;
+
       if (p.is_in_overworld_module() || p.module == 0x10) {
         // in overworld:
         px = p.x;
@@ -403,49 +473,17 @@ class WorldMapWindow {
         }
       } else if (p.is_in_dungeon_module()) {
         // in a dungeon:
-        if (false) {
-          bool found = false;
-
-          // get last entrance:
-          auto entrance = (p.dungeon_entrance & 0xFF) << 1;
-
-          if (!found) {
-            // get room for entrance:
-            auto room = bus::read_u16(rom.entrance_table_room + entrance);
-            // room 0x104 is Link's house
-            if (room != 0x104 && room >= 0x100 && room < 0x180) {
-              // simple exit:
-              px = p.last_overworld_x;
-              py = p.last_overworld_y;
-              found = true;
-            } else {
-              // has exit data:
-              uint i;
-              for (i = 0; i < 0x9E; i += 2) {
-                auto exit_room = bus::read_u16(rom.exit_table_room + i);
-                if (room == exit_room) {
-                  // use link X,Y coords for exit:
-                  px = bus::read_u16(rom.exit_table_link_x + i);
-                  py = bus::read_u16(rom.exit_table_link_y + i);
-                  found = true;
-                  break;
-                }
-              }
-
-              if (!found) {
-                // if no exit, use last coords:
-                px = p.last_overworld_x;
-                py = p.last_overworld_y;
-                found = true;
-              }
-            }
-          }
-        }
       }
-    }
 
-    x = (float(px + mapsprleft) / 16.0 - left) * mapscale + dotLeft;
-    y = (float(py + mapsprtop) / 16.0 - top) * mapscale + dotTop;
+      x = (float(px + mapsprleft) / 16.0 - left) * mapscale + dotLeft;
+      y = (float(py + mapsprtop) / 16.0 - top) * mapscale + dotTop;
+    } else if (screen == 2) {
+      int px = p.x;
+      int py = p.y;
+
+      x = float(px) * mapscale + dotLeft;
+      y = float(py) * mapscale + dotTop;
+    }
   }
 
   private array<GameState@>@ playersArray() {
@@ -488,7 +526,7 @@ class WorldMapWindow {
       auto @p = ps[i];
       auto @dot = dots[i];
 
-      if ((p.ttl <= 0) || (p.is_in_dark_world() != isDark)) {
+      if ((p.ttl <= 0) || (!showsOnScreen(p, screen))) {
         // If player disappeared, hide their dot:
         dot.setPosition(-128, -128);
         dotX[i] = -127;
