@@ -131,9 +131,8 @@ class WorldMapWindow {
       s = underworld.geometry.size;
       screenWidth = 8192;
       screenHeight = 9728;
-      message("underworld size!");
     }
-    message("onSize: " + fmtFloat(s.width) + "," + fmtFloat(s.height));
+    //message("onSize: " + fmtFloat(s.width) + "," + fmtFloat(s.height));
 
     // assume map image is scaling proportionally up or down, so take minimum dimension:
     if (s.width / screenWidth <= s.height / screenHeight) {
@@ -142,7 +141,6 @@ class WorldMapWindow {
       mapscale = s.height / screenHeight;
     }
 
-    message(fmtFloat(mapscale));
     dotLeft = 0;
     dotTop = 0;
     redrawDots();
