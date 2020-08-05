@@ -34,7 +34,7 @@ class WorldMapWindow {
 
   WorldMapWindow() {
     // relative position to bsnes window:
-    @window = GUI::Window(sx(256*3*8/7.0), 0, true);
+    @window = GUI::Window(256*2*8/7.0, 0, true);
     window.title = "World Map";
     window.size = GUI::Size(sx(width*mapscale), sy(height*mapscale + 32));
     window.resizable = true;

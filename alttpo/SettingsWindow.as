@@ -1,5 +1,6 @@
 SettingsWindow @settings;
 
+// NOTE: these functions must only be used to scale Size and never Position.
 float sx(float x) {
   return x * GUI::dpiX;
 }
@@ -235,8 +236,7 @@ class SettingsWindow {
   }
 
   SettingsWindow() {
-    //message(fmtFloat(sx(1.0)));
-    @window = GUI::Window(sx(120), sy(32), true);
+    @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
     window.size = GUI::Size(sx(280), sy(15*25));
     window.dismissable = false;
