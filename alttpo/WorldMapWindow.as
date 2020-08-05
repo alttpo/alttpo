@@ -505,7 +505,7 @@ class WorldMapWindow {
       // position the dot:
       mapCoord(p, x, y);
       if (x != dotX[i] || y != dotY[i]) {
-        dot.setPosition(sx(x - dotDiam / 2.0), sy(y - dotDiam / 2.0));
+        dot.setPosition(x - dotDiam / 2.0, y - dotDiam / 2.0);
         dotX[i] = x;
         dotY[i] = y;
       }
