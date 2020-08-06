@@ -189,8 +189,8 @@ class WorldMapWindow {
     // cave = (actual_location & 0x010000) == 0x010000
     // dark = (actual_location & 0x020000) == 0x020000
 
-    if ((p.actual_location & 0x010000) == 0x010000) {
-      // 2 = underworld:
+    if (((p.actual_location & 0x010000) == 0x010000) && (p.dungeon != 0xFF)) {
+      // 2 = underworld, only for dungeons:
       return 2;
     } else {
       // 0 = light overworld, 1 = dark overworld:
@@ -206,7 +206,7 @@ class WorldMapWindow {
       // must be in dark world:
       return (p.actual_location & 0x020000) == 0x020000;
     } else if (screen == 2) {
-      // must be in dungeon:
+      // must be in underworld in light or dark world:
       return (p.actual_location & 0x010000) == 0x010000;
     }
     return false;
