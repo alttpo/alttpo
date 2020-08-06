@@ -77,11 +77,7 @@ namespace discord {
         // party size:
         if (playerCount > 0) {
           activity.Party.Id = settings.GroupTrimmed;
-          int max = 4;
-          while (playerCount > max) {
-            max += 4;
-          }
-          activity.Party.Size.MaxSize = max;
+          activity.Party.Size.MaxSize = 64;
           activity.Party.Size.CurrentSize = playerCount;
         }
       }
