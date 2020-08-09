@@ -344,47 +344,30 @@ class DoorRandomizerMapping : RandomizerMapping {
     syncShops();
     syncFlags();
     syncStats();
-    // extra data for door randomizer:
-    syncKeys();
-    syncChests();
+    // extra data for door randomizer (unstable, 2aa2266):
+    syncChestKeys();
   }
 
-  void syncKeys() {
-    syncables.insertLast(@SyncableItem(0x4b0, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b1, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b2, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b3, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b4, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b5, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b6, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b7, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b8, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4b9, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4ba, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4bb, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4bc, 1, 1));
-  }
-
-  void syncChests() {
-    syncables.insertLast(@SyncableItem(0x4c0, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c1, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c2, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c3, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c4, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c5, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c6, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c7, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c8, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4c9, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4ca, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4cb, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4cc, 1, 1));
+  void syncChestKeys() {
+    syncables.insertLast(@SyncableItem(0x4e0, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e1, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e2, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e3, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e4, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e5, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e6, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e7, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e8, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4e9, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4ea, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4eb, 1, 1));
+    syncables.insertLast(@SyncableItem(0x4ec, 1, 1));
   }
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
     serialize(r, 0x3C5, 0x43A); // progress made
-    serialize(r, 0x4B0, 0x4CD); // keys and chests
+    serialize(r, 0x4E0, 0x4ED); // chest-keys
   }
 };
 
