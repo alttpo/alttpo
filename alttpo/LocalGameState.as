@@ -678,7 +678,7 @@ class LocalGameState : GameState {
   }
 
   bool is_safe_to_sample_tilemap() {
-    if (module == 0x09 || module == 0x0B) {
+    if (module == 0x09) {
       // overworld:
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
@@ -688,6 +688,13 @@ class LocalGameState : GameState {
       if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // or during LW/DW transition:
       if (sub_module >= 0x23) return false;
+    } else if (module == 0x0B) {
+      // master sword or zora:
+      // safety measure here:
+      if (sub_module >= 0x01) return false;
+      // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
+      // sub_module == 0x1C mosaic in
+      // sub_module == 0x24 mosaic out
     } else if (module == 0x07) {
       // underworld:
       // scrolling between rooms in same supertile:
@@ -1562,7 +1569,7 @@ class LocalGameState : GameState {
   }
 
   bool is_safe_to_write_tilemap() {
-    if (module == 0x09 || module == 0x0B) {
+    if (module == 0x09) {
       // overworld:
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) return false;
@@ -1572,6 +1579,13 @@ class LocalGameState : GameState {
       if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // during LW/DW transition:
       if (sub_module >= 0x23) return false;
+    } else if (module == 0x0B) {
+      // master sword or zora:
+      // safety measure here:
+      if (sub_module >= 0x01) return false;
+      // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
+      // sub_module == 0x1C mosaic in
+      // sub_module == 0x24 mosaic out
     } else if (module == 0x07) {
       // underworld:
       // scrolling between rooms in same supertile:
