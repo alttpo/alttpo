@@ -15,16 +15,15 @@ class WorldMapWindow {
   array<uint16> colors;
 
   // expressed in map 8x8 tile sizes:
-  int mtop = 14;
-  int mleft = 14;
-  int mwidth = 35;
-  int mheight = 35;
+  int mtop = 4;
+  int mleft = 8;
+  int mwidth = 48;
+  int mheight = 57;
 
   int top = mtop*8;
   int left = mleft*8;
   int width = mwidth*8;
   int height = mheight*8;
-  //int mapscale = 2;
   float mapscale = 2;
   int dotDiam = 12;
   float dotTop = 0;
@@ -64,8 +63,6 @@ class WorldMapWindow {
       @underworld = GUI::Canvas();
       vl.append(underworld, GUI::Size(-1, -1));
 
-      //float w = 8192 / 16.0;
-      //float h = 9728 / 16.0;
       underworld.setPosition(0, 0);
       underworld.setAlignment(0, 0);
       underworld.collapsible = true;
