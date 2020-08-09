@@ -412,19 +412,21 @@ ROMMapping@ detect() {
   } else if (title == "LOZ: PARALLEL WORLDS ") {
     message("Recognized Parallel Worlds ROM hack. Most functionality will not work due to the extreme customization of this hack.");
     return USAROMMapping();
-  } else if (sig.toString(0, 3) == "VT ") {
+  } else if (title.slice(0, 3) == "VT ") {
     // ALTTPR VT randomizer.
-    auto seed = sig.toString(3, 10);
+    auto seed = title.slice(3, 10);
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + seed);
     return RandomizerMapping(seed);
-  } else if (sig.toString(0, 2) == "ER") {
+  } else if ( (title.slice(0, 2) == "ER" || title.slice(0, 2) == "BM") && (title[5] == '_') ) {
+    //  0123456789
+    // "BM250_1_1_16070690178"
     // ALTTPR VT-based Entrance Randomizer.
     // e.g. "ER002_1_1_164246190  "
     // "002" represents the __version__ string with '.'s removed.
     // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
     // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
-    auto seed = sig.toString(6, 13);
-    message("Recognized ALTTPR VT-based Entrance Randomized JP ROM version. Seed: " + seed);
+    auto seed = title.slice(6, 13);
+    message("Recognized Entrance Randomized JP ROM version. Seed: " + seed);
     // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
     return DoorRandomizerMapping(seed);
   } else {
