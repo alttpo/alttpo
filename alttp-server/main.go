@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/influxdata/influxdb-client-go"
@@ -251,7 +252,6 @@ func expireClients(seconds time.Time) {
 				c.IsAlive = false
 				clientGroup.ActiveCount--
 				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, c, clientGroup.ActiveCount)
-				reportGroupClients(clientGroup)
 				reportTotalClients()
 			}
 		}
@@ -262,5 +262,88 @@ func expireClients(seconds time.Time) {
 			log.Printf("[group %s] forget group\n", groupKey)
 			reportTotalGroups()
 		}
+
+		reportGroupClients(clientGroup)
 	}
+}
+
+func calcGroupKey(group string) string {
+	groupKey := strings.Trim(group, " \t\r\n+='\",.<>[]{}()*&^%$#@!~`?|\\;:/")
+	groupKey = strings.ToLower(groupKey)
+	return groupKey
+}
+
+func findGroupOrCreate(groupKey string) *ClientGroup {
+	clientGroup, ok := clientGroups[groupKey]
+	if !ok {
+		clientGroup = &ClientGroup{
+			Group:   groupKey,
+			Clients: make([]Client, 0, 8),
+		}
+		clientGroups[groupKey] = clientGroup
+		log.Printf("[group %s] new group\n", groupKey)
+		reportGroupClients(clientGroup)
+		reportTotalGroups()
+	}
+	return clientGroup
+}
+
+func findClientOrCreate(clientGroup *ClientGroup, clientKey ClientKey, addr *net.UDPAddr, group string, groupKey string) (client *Client, ci int) {
+	// Find client in Clients array by ClientKey
+	// Find first free slot to reuse
+	// Find total count of active clients
+	ci = -1
+	free := -1
+	var i int
+	activeCount := 0
+	for i = range clientGroup.Clients {
+		c := &clientGroup.Clients[i]
+		if !c.IsAlive {
+			if free == -1 {
+				free = i
+			}
+			continue
+		}
+
+		activeCount++
+		if c.ClientKey == clientKey {
+			client = c
+			ci = i
+		}
+	}
+
+	// update ActiveCount:
+	clientGroup.ActiveCount = activeCount
+
+	if client != nil {
+		// update time last seen:
+		client.LastSeen = time.Now()
+		return
+	}
+
+	// No free slot?
+	if free == -1 {
+		// Extend Clients array:
+		clientGroup.Clients = append(clientGroup.Clients, Client{})
+		free = len(clientGroup.Clients) - 1
+	}
+	ci = free
+	client = &clientGroup.Clients[free]
+
+	// add this client to set of clients:
+	*client = Client{
+		UDPAddr:   *addr,
+		IsAlive:   true,
+		Group:     group,
+		ClientKey: clientKey,
+		Index:     uint16(free),
+		LastSeen:  time.Now(),
+	}
+
+	clientGroup.ActiveCount++
+	log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
+	reportGroupClients(clientGroup)
+	reportTotalClients()
+
+	return
 }
