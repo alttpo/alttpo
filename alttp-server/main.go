@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -116,7 +117,9 @@ func main() {
 
 	log.Printf("listening on %s %s", network, udpAddr)
 	udpMessages := make(chan UDPMessage)
-	go getPackets(conn, udpMessages)
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go getPackets(conn, udpMessages)
+	}
 
 	clientGroups = make(map[string]*ClientGroup)
 
