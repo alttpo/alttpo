@@ -1,3 +1,3 @@
-module github.com/JamesDunne/alttp-multiplayer/alttp-server
+module github.com/alttpo/alttpo/alttp-server
 
-go 1.13
+go 1.14

@@ -11,8 +11,9 @@ import (
 type P02Kind byte
 
 const (
-	RequestIndex = P02Kind(0x00)
-	Broadcast    = P02Kind(0x01)
+	RequestIndex      = P02Kind(0x00)
+	Broadcast         = P02Kind(0x01)
+	BroadcastToSector = P02Kind(0x02)
 )
 
 func make02Packet(groupBuf []byte, kind P02Kind) (buf *bytes.Buffer) {
@@ -56,10 +57,6 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		log.Print(err)
 		return
 	}
-
-	payload := buf.Bytes()
-
-	buf = nil
 
 	// trim whitespace and convert to lowercase for key lookup:
 	groupKey := strings.Trim(group, " \t\r\n+='\",.<>[]{}()*&^%$#@!~`?|\\;:/")
@@ -142,50 +139,89 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		// client requests its own client index, no need to broadcast to other clients:
 
 		// construct message:
-		buf = make02Packet(groupBuf, kind)
+		rsp := make02Packet(groupBuf, kind)
 
 		// emit client index:
 		index := uint16(ci)
-		binary.Write(buf, binary.LittleEndian, &index)
+		binary.Write(rsp, binary.LittleEndian, &index)
 
 		// send message back to client:
-		_, fatalErr = conn.WriteToUDP(buf.Bytes(), &client.UDPAddr)
+		_, fatalErr = conn.WriteToUDP(rsp.Bytes(), &client.UDPAddr)
 		if fatalErr != nil {
 			return
 		}
-		buf = nil
+		rsp = nil
 
 		break
 	case Broadcast:
 		// broadcast message received to all other clients:
+		payload := buf.Bytes()
 		for i = range clientGroup.Clients {
 			c := &clientGroup.Clients[i]
 			if !c.IsAlive {
 				continue
 			}
+			if c == client {
+				continue
+			}
 
 			responseKind := kind
-			if c == client {
-				// inform the client about its index as a response:
-				responseKind = RequestIndex
-			}
 
 			// construct message:
-			buf = make02Packet(groupBuf, responseKind)
+			rsp := make02Packet(groupBuf, responseKind)
 			index := uint16(ci)
-			binary.Write(buf, binary.LittleEndian, &index)
-
-			if c != client {
-				// write the payload to other clients:
-				buf.Write(payload)
-			}
+			binary.Write(rsp, binary.LittleEndian, &index)
+			// write the payload:
+			rsp.Write(payload)
 
 			// send message to this client:
-			_, fatalErr = conn.WriteToUDP(buf.Bytes(), &c.UDPAddr)
+			_, fatalErr = conn.WriteToUDP(rsp.Bytes(), &c.UDPAddr)
 			if fatalErr != nil {
 				return
 			}
-			buf = nil
+			rsp = nil
+			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
+		}
+		break
+	case BroadcastToSector:
+		// broadcast message received to all other clients in the same sector:
+		var sector uint32
+		if err := binary.Read(buf, binary.LittleEndian, &sector); err != nil {
+			log.Print(err)
+			return
+		}
+
+		// join this client to the sector they're broadcasting to:
+		client.Sector = sector
+
+		// broadcast message:
+		payload := buf.Bytes()
+		for i = range clientGroup.Clients {
+			c := &clientGroup.Clients[i]
+			if !c.IsAlive {
+				continue
+			}
+			if c.Sector != sector {
+				continue
+			}
+			if c == client {
+				continue
+			}
+
+			// construct message:
+			rsp := make02Packet(groupBuf, Broadcast)
+			index := uint16(ci)
+			binary.Write(rsp, binary.LittleEndian, &index)
+
+			// write the payload:
+			rsp.Write(payload)
+
+			// send message to this client:
+			_, fatalErr = conn.WriteToUDP(rsp.Bytes(), &c.UDPAddr)
+			if fatalErr != nil {
+				return
+			}
+			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}
 		break

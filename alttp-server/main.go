@@ -32,6 +32,7 @@ type Client struct {
 	Group     string
 	ClientKey ClientKey
 	Index     uint16
+	Sector    uint32
 
 	LastSeen time.Time
 }
