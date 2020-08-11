@@ -83,7 +83,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	client, ci := findClientOrCreate(clientGroup, clientKey, addr, group, groupKey)
 
 	// record number of bytes received:
-	networkMetrics.ReceivedBytes(len(message.Envelope), groupKey, client.String(), kind.String())
+	networkMetrics.ReceivedBytes(len(message.Envelope), kind.String(), clientGroup, client)
 
 	switch kind {
 	case RequestIndex:
@@ -102,7 +102,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		if fatalErr != nil {
 			return
 		}
-		networkMetrics.SentBytes(len(rspBytes), groupKey, client.String(), RequestIndex.String())
+		networkMetrics.SentBytes(len(rspBytes), kind.String(), clientGroup, client)
 		rsp = nil
 
 		break
@@ -133,7 +133,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			if fatalErr != nil {
 				return
 			}
-			networkMetrics.SentBytes(len(rspBytes), groupKey, c.String(), Broadcast.String())
+			networkMetrics.SentBytes(len(rspBytes), kind.String(), clientGroup, client)
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}
@@ -177,7 +177,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			if fatalErr != nil {
 				return
 			}
-			networkMetrics.SentBytes(len(rspBytes), groupKey, c.String(), BroadcastToSector.String())
+			networkMetrics.SentBytes(len(rspBytes), kind.String(), clientGroup, client)
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}

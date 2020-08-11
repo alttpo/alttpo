@@ -48,7 +48,7 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 	client, ci := findClientOrCreate(clientGroup, clientKey, addr, group, groupKey)
 
 	// record number of bytes received:
-	networkMetrics.ReceivedBytes(len(message.Envelope), groupKey, client.String(), "broadcast")
+	networkMetrics.ReceivedBytes(len(message.Envelope), "broadcast", clientGroup, client)
 
 	// broadcast message received to all other clients:
 	for i := range clientGroup.Clients {
@@ -85,7 +85,7 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		if fatalErr != nil {
 			return
 		}
-		networkMetrics.SentBytes(len(bufBytes), groupKey, client.String(), "broadcast")
+		networkMetrics.SentBytes(len(bufBytes), "broadcast", clientGroup, client)
 		buf = nil
 		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 	}

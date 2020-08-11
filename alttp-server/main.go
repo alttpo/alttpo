@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"flag"
 	"log"
+	"math/big"
 	"net"
 	"os"
 	"runtime"
@@ -43,7 +45,8 @@ type Client struct {
 
 //type ClientGroup map[ClientKey]*Client
 type ClientGroup struct {
-	Group string
+	Group          string
+	AnonymizedName string
 
 	Clients     []Client
 	ActiveCount int
@@ -87,7 +90,7 @@ type UDPMessage struct {
 }
 
 func reportGroupClients(group *ClientGroup) {
-	groupMetrics.GroupClients(group.Group, group.ActiveCount)
+	groupMetrics.GroupClients(group, group.ActiveCount)
 }
 
 func reportTotalGroups() {
@@ -273,12 +276,28 @@ func calcGroupKey(group string) string {
 	return groupKey
 }
 
+func generateAnonymizedName() string {
+	max36 := big.NewInt(36)
+	b := make([]byte, 20)
+	for i := 0; i < 20; i++ {
+		n, _ := rand.Int(rand.Reader, max36)
+		r := n.Int64()
+		if r < 10 {
+			b[i] = byte('0') + byte(r)
+		} else {
+			b[i] = byte('a') + byte(r - 10)
+		}
+	}
+	return string(b)
+}
+
 func findGroupOrCreate(groupKey string) *ClientGroup {
 	clientGroup, ok := clientGroups[groupKey]
 	if !ok {
 		clientGroup = &ClientGroup{
-			Group:   groupKey,
-			Clients: make([]Client, 0, 8),
+			Group:          groupKey,
+			AnonymizedName: generateAnonymizedName(),
+			Clients:        make([]Client, 0, 8),
 		}
 		clientGroups[groupKey] = clientGroup
 		log.Printf("[group %s] new group\n", groupKey)

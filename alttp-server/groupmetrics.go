@@ -8,13 +8,13 @@ import (
 
 type GroupMetrics interface {
 	TotalGroups(n int)
-	GroupClients(group string, clientCount int)
+	GroupClients(group *ClientGroup, clientCount int)
 }
 
 type nullGroupMetrics struct{}
 
 func (m nullGroupMetrics) TotalGroups(n int)                    {}
-func (m nullGroupMetrics) GroupClients(group string, count int) {}
+func (m nullGroupMetrics) GroupClients(group *ClientGroup, count int) {}
 
 type influxGroupMetrics struct {
 	w influxApi.WriteAPI
@@ -26,9 +26,10 @@ func (m influxGroupMetrics) TotalGroups(n int) {
 		AddField("count", n))
 }
 
-func (m influxGroupMetrics) GroupClients(group string, clientCount int) {
+func (m influxGroupMetrics) GroupClients(group *ClientGroup, clientCount int) {
 	m.w.WritePoint(influxdb2.NewPointWithMeasurement("groups").
 		SetTime(time.Now()).
-		AddTag("group", group).
+		AddTag("group", group.Group).
+		AddTag("group_anon", group.AnonymizedName).
 		AddField("clients", clientCount))
 }
