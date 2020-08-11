@@ -1122,6 +1122,22 @@ class LocalGameState : GameState {
     uint start = 0;
     uint end = len;
 
+    // degenerate case to clear out tilemap:
+    if (len == 0) {
+      array<uint8> r = create_envelope();
+
+      r.write_u8(uint8(0x07));
+      // truncating 64-bit timestamp to 32-bit value (in milliseconds):
+      r.write_u32(tilemapTimestamp);
+      r.write_u24(tilemapLocation);
+      r.write_u8(0);
+      r.write_u8(0);
+
+      // send this packet:
+      p = send_packet(r, p);
+      return p;
+    }
+
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
       array<uint8> r = create_envelope();
@@ -1676,6 +1692,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.tilemapLocation == 0) continue;
       if (!is_really_in_same_location(remote.location)) {
         continue;
       }

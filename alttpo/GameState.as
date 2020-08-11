@@ -470,6 +470,11 @@ class GameState {
     uint8 start = r[c++];
     // read number of runs:
     uint8 len = r[c++];
+
+    if (debugRTDSapply) {
+      message("rtds: receive for player " + fmtInt(index) + "; loc=" + fmtHex(tilemapLocation, 6) + ", start=" + fmtInt(start) + ", len=" + fmtInt(len));
+    }
+
     tilemapRuns.resize(start + len);
     for (uint i = start; i < start + len; i++) {
       // deserialize the run's parameters:
