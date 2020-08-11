@@ -1009,7 +1009,7 @@ class LocalGameState : GameState {
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
-      array<uint8> r = create_envelope();
+      array<uint8> r = create_envelope(0x02);
 
       // serialize_sprites:
       if (start == 0) {
@@ -1124,7 +1124,7 @@ class LocalGameState : GameState {
 
     // degenerate case to clear out tilemap:
     if (len == 0) {
-      array<uint8> r = create_envelope();
+      array<uint8> r = create_envelope(0x02);
 
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
@@ -1140,7 +1140,7 @@ class LocalGameState : GameState {
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
-      array<uint8> r = create_envelope();
+      array<uint8> r = create_envelope(0x02);
 
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
@@ -1197,6 +1197,11 @@ class LocalGameState : GameState {
       envelope.write_u8(kind);
       // what we think our index is:
       envelope.write_u16(uint16(index));
+
+      if (kind == 0x02) {
+        // broadcast to sector:
+        envelope.write_u32(actual_location);
+      }
     }
 
     // script protocol:
@@ -1263,7 +1268,7 @@ class LocalGameState : GameState {
       p = send_packet(envelope, p);
     }
 
-    // send posisbly multiple packets for sprites:
+    // send possibly multiple packets for sprites:
     p = send_sprites(p);
 
     if (!settings.RaceMode) {
@@ -1272,7 +1277,7 @@ class LocalGameState : GameState {
 
       // send packet every other frame:
       if ((frame & 1) == 0) {
-        array<uint8> envelope = create_envelope();
+        array<uint8> envelope = create_envelope(0x02);
         serialize_torches(envelope);
         p = send_packet(envelope, p);
       }
