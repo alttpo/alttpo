@@ -8,11 +8,13 @@ import (
 
 type GroupMetrics interface {
 	TotalGroups(n int)
+	GroupClients(group string, clientCount int)
 }
 
 type nullGroupMetrics struct{}
 
-func (m nullGroupMetrics) TotalGroups(n int) {}
+func (m nullGroupMetrics) TotalGroups(n int)                    {}
+func (m nullGroupMetrics) GroupClients(group string, count int) {}
 
 type influxGroupMetrics struct {
 	w influxApi.WriteAPI
@@ -21,5 +23,12 @@ type influxGroupMetrics struct {
 func (m influxGroupMetrics) TotalGroups(n int) {
 	m.w.WritePoint(influxdb2.NewPointWithMeasurement("groups").
 		SetTime(time.Now()).
-		AddField("total", n))
+		AddField("count", n))
+}
+
+func (m influxGroupMetrics) GroupClients(group string, clientCount int) {
+	m.w.WritePoint(influxdb2.NewPointWithMeasurement("groups").
+		SetTime(time.Now()).
+		AddTag("group", group).
+		AddField("clients", clientCount))
 }

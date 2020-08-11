@@ -16,6 +16,18 @@ const (
 	BroadcastToSector = P02Kind(0x02)
 )
 
+func (k P02Kind) String() string {
+	switch k {
+	case RequestIndex:
+		return "request_index"
+	case Broadcast:
+		return "broadcast"
+	case BroadcastToSector:
+		return "broadcast_to_sector"
+	}
+	return "unknown"
+}
+
 func make02Packet(groupBuf []byte, kind P02Kind) (buf *bytes.Buffer) {
 	// construct message:
 	buf = &bytes.Buffer{}
@@ -69,6 +81,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		}
 		clientGroups[groupKey] = clientGroup
 		log.Printf("[group %s] new group\n", groupKey)
+		reportGroupClients(clientGroup)
 		reportTotalGroups()
 	}
 
@@ -130,11 +143,15 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 		clientGroup.ActiveCount++
 		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
+		reportGroupClients(clientGroup)
 		reportTotalClients()
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
 	}
+
+	// record number of bytes received:
+	networkMetrics.ReceivedBytes(len(message.Envelope), groupKey, client.String(), kind.String())
 
 	switch kind {
 	case RequestIndex:
@@ -153,7 +170,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		if fatalErr != nil {
 			return
 		}
-		networkMetrics.WrittenBytes(len(rspBytes))
+		networkMetrics.SentBytes(len(rspBytes), groupKey, client.String(), RequestIndex.String())
 		rsp = nil
 
 		break
@@ -184,7 +201,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			if fatalErr != nil {
 				return
 			}
-			networkMetrics.WrittenBytes(len(rspBytes))
+			networkMetrics.SentBytes(len(rspBytes), groupKey, c.String(), Broadcast.String())
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}
@@ -228,7 +245,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			if fatalErr != nil {
 				return
 			}
-			networkMetrics.WrittenBytes(len(rspBytes))
+			networkMetrics.SentBytes(len(rspBytes), groupKey, c.String(), BroadcastToSector.String())
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}

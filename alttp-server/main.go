@@ -85,6 +85,10 @@ type UDPMessage struct {
 	ReceivedFrom *net.UDPAddr
 }
 
+func reportGroupClients(group *ClientGroup) {
+	groupMetrics.GroupClients(group.Group, group.ActiveCount)
+}
+
 func reportTotalGroups() {
 	groupMetrics.TotalGroups(len(clientGroups))
 }
@@ -109,9 +113,6 @@ func getPackets(conn *net.UDPConn, messages chan<- UDPMessage) {
 			close(messages)
 			return
 		}
-
-		// record number of bytes received:
-		networkMetrics.ReceivedBytes(n)
 
 		// copy the envelope:
 		envelope := make([]byte, n)
@@ -250,6 +251,7 @@ func expireClients(seconds time.Time) {
 				c.IsAlive = false
 				clientGroup.ActiveCount--
 				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, c, clientGroup.ActiveCount)
+				reportGroupClients(clientGroup)
 				reportTotalClients()
 			}
 		}

@@ -7,27 +7,33 @@ import (
 )
 
 type NetworkMetrics interface {
-	ReceivedBytes(n int)
-	WrittenBytes(n int)
+	ReceivedBytes(n int, group string, client string, kind string)
+	SentBytes(n int, group string, client string, kind string)
 }
 
 type nullNetworkMetrics struct{}
 
-func (m nullNetworkMetrics) ReceivedBytes(n int) {}
-func (m nullNetworkMetrics) WrittenBytes(n int)  {}
+func (m nullNetworkMetrics) ReceivedBytes(n int, group string, client string, kind string) {}
+func (m nullNetworkMetrics) SentBytes(n int, group string, client string, kind string)     {}
 
 type influxNetworkMetrics struct {
 	w influxApi.WriteAPI
 }
 
-func (m influxNetworkMetrics) ReceivedBytes(n int) {
-	m.w.WritePoint(influxdb2.NewPointWithMeasurement("net_received").
+func (m influxNetworkMetrics) ReceivedBytes(n int, group string, client string, kind string) {
+	m.w.WritePoint(influxdb2.NewPointWithMeasurement("net").
 		SetTime(time.Now()).
-		AddField("bytes", n))
+		AddTag("group", group).
+		AddTag("client", client).
+		AddTag("kind", kind).
+		AddField("received", n))
 }
 
-func (m influxNetworkMetrics) WrittenBytes(n int) {
-	m.w.WritePoint(influxdb2.NewPointWithMeasurement("net_written").
+func (m influxNetworkMetrics) SentBytes(n int, group string, client string, kind string) {
+	m.w.WritePoint(influxdb2.NewPointWithMeasurement("net").
 		SetTime(time.Now()).
-		AddField("bytes", n))
+		AddTag("group", group).
+		AddTag("client", client).
+		AddTag("kind", kind).
+		AddField("sent", n))
 }

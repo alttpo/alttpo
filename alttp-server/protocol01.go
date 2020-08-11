@@ -46,6 +46,7 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		}
 		clientGroups[groupKey] = clientGroup
 		log.Printf("[group %s] new group\n", groupKey)
+		reportGroupClients(clientGroup)
 		reportTotalGroups()
 	}
 
@@ -107,11 +108,15 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 		clientGroup.ActiveCount++
 		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
+		reportGroupClients(clientGroup)
 		reportTotalClients()
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
 	}
+
+	// record number of bytes received:
+	networkMetrics.ReceivedBytes(len(message.Envelope), groupKey, client.String(), "broadcast")
 
 	// broadcast message received to all other clients:
 	for i = range clientGroup.Clients {
@@ -148,7 +153,7 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		if fatalErr != nil {
 			return
 		}
-		networkMetrics.WrittenBytes(len(bufBytes))
+		networkMetrics.SentBytes(len(bufBytes), groupKey, client.String(), "broadcast")
 		buf = nil
 		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 	}
