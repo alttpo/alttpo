@@ -6,8 +6,11 @@ import (
 	"flag"
 	"log"
 	"net"
+	"os"
 	"runtime"
 	"time"
+
+	"github.com/influxdata/influxdb-client-go"
 )
 
 const (
@@ -45,9 +48,17 @@ type ClientGroup struct {
 	ActiveCount int
 }
 
-var udpAddr *net.UDPAddr
-var conn *net.UDPConn
-var clientGroups map[string]*ClientGroup
+var (
+	udpAddr      *net.UDPAddr
+	conn         *net.UDPConn
+	clientGroups map[string]*ClientGroup
+)
+
+var (
+	networkMetrics NetworkMetrics = &nullNetworkMetrics{}
+	clientMetrics  ClientMetrics  = &nullClientMetrics{}
+	groupMetrics   GroupMetrics   = &nullGroupMetrics{}
+)
 
 func readTinyString(buf *bytes.Buffer) (value string, err error) {
 	var valueLength uint8
@@ -74,6 +85,18 @@ type UDPMessage struct {
 	ReceivedFrom *net.UDPAddr
 }
 
+func reportTotalGroups() {
+	groupMetrics.TotalGroups(len(clientGroups))
+}
+
+func reportTotalClients() {
+	totalClients := 0
+	for _, cg := range clientGroups {
+		totalClients += cg.ActiveCount
+	}
+	clientMetrics.TotalClients(totalClients)
+}
+
 func getPackets(conn *net.UDPConn, messages chan<- UDPMessage) {
 	// we only need a single receive buffer:
 	b := make([]byte, 1500)
@@ -86,6 +109,9 @@ func getPackets(conn *net.UDPConn, messages chan<- UDPMessage) {
 			close(messages)
 			return
 		}
+
+		// record number of bytes received:
+		networkMetrics.ReceivedBytes(n)
 
 		// copy the envelope:
 		envelope := make([]byte, n)
@@ -102,6 +128,32 @@ func main() {
 	flag.Parse()
 
 	var err error
+
+	var ifxClient influxdb2.Client = nil
+	ifxUrl := os.Getenv("INFLUX_URL")
+	if ifxUrl != "" {
+		ifxToken := os.Getenv("INFLUX_TOKEN")
+
+		ifxClient = influxdb2.NewClientWithOptions(
+			ifxUrl,
+			ifxToken,
+			influxdb2.DefaultOptions().
+				SetBatchSize(2400).
+				SetPrecision(time.Nanosecond).
+				SetFlushInterval(1000))
+		defer ifxClient.Close()
+
+		ifxOrg := os.Getenv("INFLUX_ORG")
+		ifxBucket := os.Getenv("INFLUX_BUCKET")
+
+		// create influx metrics reporters:
+		writer := ifxClient.WriteAPI(ifxOrg, ifxBucket)
+		defer writer.Close()
+
+		networkMetrics = &influxNetworkMetrics{w: writer}
+		clientMetrics = &influxClientMetrics{w: writer}
+		groupMetrics = &influxGroupMetrics{w: writer}
+	}
 
 	udpAddr, err = net.ResolveUDPAddr(network, *listen)
 	if err != nil {
@@ -198,6 +250,7 @@ func expireClients(seconds time.Time) {
 				c.IsAlive = false
 				clientGroup.ActiveCount--
 				log.Printf("[group %s] (%v) forget client, clients=%d\n", groupKey, c, clientGroup.ActiveCount)
+				reportTotalClients()
 			}
 		}
 
@@ -205,6 +258,7 @@ func expireClients(seconds time.Time) {
 		if clientGroup.ActiveCount == 0 {
 			delete(clientGroups, groupKey)
 			log.Printf("[group %s] forget group\n", groupKey)
+			reportTotalGroups()
 		}
 	}
 }

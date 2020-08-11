@@ -69,6 +69,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		}
 		clientGroups[groupKey] = clientGroup
 		log.Printf("[group %s] new group\n", groupKey)
+		reportTotalGroups()
 	}
 
 	// create a key that represents the client from the received address:
@@ -129,6 +130,7 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 		clientGroup.ActiveCount++
 		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
+		reportTotalClients()
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
@@ -146,10 +148,12 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		binary.Write(rsp, binary.LittleEndian, &index)
 
 		// send message back to client:
-		_, fatalErr = conn.WriteToUDP(rsp.Bytes(), &client.UDPAddr)
+		rspBytes := rsp.Bytes()
+		_, fatalErr = conn.WriteToUDP(rspBytes, &client.UDPAddr)
 		if fatalErr != nil {
 			return
 		}
+		networkMetrics.WrittenBytes(len(rspBytes))
 		rsp = nil
 
 		break
@@ -175,10 +179,12 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			rsp.Write(payload)
 
 			// send message to this client:
-			_, fatalErr = conn.WriteToUDP(rsp.Bytes(), &c.UDPAddr)
+			rspBytes := rsp.Bytes()
+			_, fatalErr = conn.WriteToUDP(rspBytes, &c.UDPAddr)
 			if fatalErr != nil {
 				return
 			}
+			networkMetrics.WrittenBytes(len(rspBytes))
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}
@@ -217,10 +223,12 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			rsp.Write(payload)
 
 			// send message to this client:
-			_, fatalErr = conn.WriteToUDP(rsp.Bytes(), &c.UDPAddr)
+			rspBytes := rsp.Bytes()
+			_, fatalErr = conn.WriteToUDP(rspBytes, &c.UDPAddr)
 			if fatalErr != nil {
 				return
 			}
+			networkMetrics.WrittenBytes(len(rspBytes))
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}

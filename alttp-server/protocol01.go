@@ -46,6 +46,7 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		}
 		clientGroups[groupKey] = clientGroup
 		log.Printf("[group %s] new group\n", groupKey)
+		reportTotalGroups()
 	}
 
 	// create a key that represents the client from the received address:
@@ -106,6 +107,7 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 
 		clientGroup.ActiveCount++
 		log.Printf("[group %s] (%v) new client, clients=%d\n", groupKey, client, clientGroup.ActiveCount)
+		reportTotalClients()
 	} else {
 		// update time last seen:
 		client.LastSeen = time.Now()
@@ -141,10 +143,12 @@ func processProtocol01(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 		buf.Write(payload)
 
 		// send message to this client:
-		_, fatalErr = conn.WriteToUDP(buf.Bytes(), &c.UDPAddr)
+		bufBytes := buf.Bytes()
+		_, fatalErr = conn.WriteToUDP(bufBytes, &c.UDPAddr)
 		if fatalErr != nil {
 			return
 		}
+		networkMetrics.WrittenBytes(len(bufBytes))
 		buf = nil
 		//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 	}
