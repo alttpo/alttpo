@@ -476,6 +476,20 @@ class WorldMapWindow {
       int px = p.x;
       int py = p.y;
 
+      // during glitched states (e.g. Kiki skip), the Y coord can exceed $2000 and the map marker
+      // would appear in the eg2 area, so we wrap
+      if (p.dungeon_room < 0x100) {
+        py &= 0x1FFF;
+      } else {
+        // in EG2 map, clip to bottom of map in case of crazy:
+        if (py >= 0x2600) {
+          py = 0x2600;
+        }
+      }
+
+      // always wrap X coordinate:
+      px &= 0x1FFF;
+
       x = float(px) * mapscale + dotLeft;
       y = float(py) * mapscale + dotTop;
     }
