@@ -1655,18 +1655,31 @@ class LocalGameState : GameState {
       return;
     }
 
-    if (is_in_overworld_module()) {
-      // overworld:
+    // don't write to VRAM when...
+    if (module == 0x09) {
 
-      // don't write to VRAM when...
-      // area transition:
+      // overworld:
+      // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
+      // during lost woods transition:
+      if (sub_module >= 0x0d && sub_module < 0x16) write_to_vram = false;
+      // when coming out of map screen:
+      if (sub_module >= 0x20 && sub_module <= 0x22) write_to_vram = false;
+      // or during LW/DW transition:
+      if (sub_module >= 0x23) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
-    } else if (is_in_dungeon_module()) {
-      // underworld:
+    } else if (module == 0x0B) {
+      // master sword or zora:
+      // safety measure here:
+      if (sub_module >= 0x01) write_to_vram = false;
+      // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
+      // sub_module == 0x1C mosaic in
+      // sub_module == 0x24 mosaic out
 
-      // don't write to VRAM when...
+      tilemap.determine_vram_bounds_overworld();
+    } else if (module == 0x07) {
+      // underworld:
       // scrolling between rooms in same supertile:
       if (sub_module == 0x01) write_to_vram = false;
       // loading new supertile:
@@ -1687,6 +1700,9 @@ class LocalGameState : GameState {
       if (sub_module == 0x18) write_to_vram = false;
       // using mirror:
       if (sub_module == 0x19) write_to_vram = false;
+
+      // in Ganon's room:
+      if (dungeon_room == 0x00) write_to_vram = false;
 
       tilemap.determine_vram_bounds_underworld();
     }
