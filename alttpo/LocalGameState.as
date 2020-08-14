@@ -1602,6 +1602,8 @@ class LocalGameState : GameState {
       if (sub_module >= 0x20 && sub_module <= 0x22) return false;
       // during LW/DW transition:
       if (sub_module >= 0x23) return false;
+
+      return true;
     } else if (module == 0x0B) {
       // master sword or zora:
       // safety measure here:
@@ -1609,6 +1611,8 @@ class LocalGameState : GameState {
       // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
       // sub_module == 0x1C mosaic in
       // sub_module == 0x24 mosaic out
+
+      return true;
     } else if (module == 0x07) {
       // underworld:
       // scrolling between rooms in same supertile:
@@ -1634,18 +1638,18 @@ class LocalGameState : GameState {
 
       // in Ganon's room:
       if (dungeon_room == 0x0000) return false;
+
+      return true;
     } else if (module == 0x0F) {
       // closing spotlight:
       return true;
     } else if (module == 0x10) {
       // opening spotlight:
       return true;
-    } else {
-      // don't write tilemap changes:
-      return false;
     }
 
-    return true;
+    // don't write tilemap changes:
+    return false;
   }
 
   void update_tilemap() {
