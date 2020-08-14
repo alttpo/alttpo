@@ -1,6 +1,8 @@
 
 const uint MaxPacketSize = 1452;
 
+const uint OverworldAreaCount = 0x82;
+
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
@@ -44,10 +46,10 @@ class LocalGameState : GameState {
 
     // SRAM [$250..$27f] unused
 
-    // SRAM [$280..$2ff] overworld areas:
+    // SRAM [$280..$301] overworld areas:
     // create syncable item for each overworld area (byte; size=1) using bitwise OR operations (type=2) to accumulate latest state:
-    areas.resize(0x80);
-    for (uint a = 0; a < 0x80; a++) {
+    areas.resize(OverworldAreaCount);
+    for (uint a = 0; a < OverworldAreaCount; a++) {
       @areas[a] = @SyncableItem(0x280 + a, 1, 2);
     }
 
@@ -1427,7 +1429,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       // read current state from SRAM:
-      for (uint a = 0; a < 0x80; a++) {
+      for (uint a = 0; a < OverworldAreaCount; a++) {
         areas[a].start(sram);
       }
     }
@@ -1438,7 +1440,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
 
-      for (uint a = 0; a < 0x80; a++) {
+      for (uint a = 0; a < OverworldAreaCount; a++) {
         areas[a].apply(remote);
       }
     }
@@ -1449,7 +1451,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
 
-      for (uint a = 0; a < 0x80; a++) {
+      for (uint a = 0; a < OverworldAreaCount; a++) {
         // write new state to SRAM:
         areas[a].finish();
       }
