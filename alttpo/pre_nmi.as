@@ -28,6 +28,12 @@ void pre_nmi() {
     localFrameState.restore();
   }
 
+  // exit early if game is not ALTTP (for SMZ3):
+  rom.check_game();
+  if (!rom.is_alttp()) {
+    return;
+  }
+
   // fetch next frame's game state from WRAM:
   local.fetch_module();
 

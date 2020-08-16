@@ -2,6 +2,7 @@
 // this function intercepts execution immediately before JSL MainRouting in the reset vector:
 // this function is not called for every frame but is for most frames.
 // when it is called, this function is always called before pre_frame.
+// in SMZ3 this function is only called during ALTTP game.
 void on_main_loop(uint32 pc) {
   //message("main");
 
@@ -13,19 +14,22 @@ void on_main_loop(uint32 pc) {
     localFrameState.reset_owners();
   }
 
-  local.fetch();
+  rom.check_game();
+  if (rom.is_alttp()) {
+    local.fetch();
 
-  if (settings.SyncTunic) {
-    local.update_palette();
+    if (settings.SyncTunic) {
+      local.update_palette();
+    }
+
+    if (!enableRenderToExtra) {
+      // backup VRAM for OAM tiles which are in-use by game:
+      localFrameState.backup();
+    }
+
+    // fetch local VRAM data for sprites:
+    local.capture_sprites_vram();
   }
-
-  if (!enableRenderToExtra) {
-    // backup VRAM for OAM tiles which are in-use by game:
-    localFrameState.backup();
-  }
-
-  // fetch local VRAM data for sprites:
-  local.capture_sprites_vram();
 
   if (settings.started && !(sock is null)) {
     // send updated state for our Link to server:
@@ -35,30 +39,32 @@ void on_main_loop(uint32 pc) {
     receive();
   }
 
-  if (!settings.RaceMode) {
-    local.update_tilemap();
+  if (rom.is_alttp()) {
+    if (!settings.RaceMode) {
+      local.update_tilemap();
 
-    local.update_wram();
+      local.update_wram();
 
-    local.update_ancillae();
+      local.update_ancillae();
 
-    if ((local.frame & 15) == 0) {
-      local.update_items();
+      if ((local.frame & 15) == 0) {
+        local.update_items();
+      }
+
+      if ((local.frame & 31) == 0) {
+        local.update_rooms();
+      }
+      if ((local.frame & 31) == 16) {
+        local.update_overworld();
+      }
+
+      if (enableObjectSync) {
+        local.update_objects();
+      }
+
+      // synchronize torches:
+      update_torches();
     }
-
-    if ((local.frame & 31) == 0) {
-      local.update_rooms();
-    }
-    if ((local.frame & 31) == 16) {
-      local.update_overworld();
-    }
-
-    if (enableObjectSync) {
-      local.update_objects();
-    }
-
-    // synchronize torches:
-    update_torches();
   }
 
   if (pb.offset > 0) {
@@ -93,6 +99,8 @@ void pre_frame() {
     }
   }
 
+  rom.check_game();
+
   local.ttl = 255;
 
   // render remote players:
@@ -110,6 +118,11 @@ void pre_frame() {
       continue;
     }
     remote.ttl_count();
+
+    // exit early if game is not ALTTP (for SMZ3):
+    if (!rom.is_alttp()) {
+      continue;
+    }
 
     // don't render players or labels in pre-game modules:
     if (local.is_it_a_bad_time()) continue;
@@ -137,7 +150,7 @@ void pre_frame() {
   }
 
   if (enableRenderToExtra) {
-    if (settings.ShowMyLabel) {
+    if (settings.ShowMyLabel && rom.is_alttp()) {
       // don't render on in-game map:
       if (!( local.module == 0x0e && local.sub_module == 0x07 )) {
         ei = local.renderLabel(0, 0, ei);

@@ -9,6 +9,9 @@ abstract class ROMMapping {
     return _title;
   }
 
+  void check_game() {}
+  bool is_alttp() { return true; }
+
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
   uint32 get_palette_lightWorldMap() property { return 0; }
@@ -332,6 +335,25 @@ class RandomizerMapping : JPROMMapping {
   }
 };
 
+class SMZ3Mapping : RandomizerMapping {
+  SMZ3Mapping(const string &in seed) {
+    super(seed);
+  }
+
+  void syncAll() {
+    RandomizerMapping::syncAll();
+    _title = "SMZ3 Seed " + _seed;
+  }
+
+  uint8 game = 0;
+  void check_game() override {
+    game = bus::read_u8(0xa173fe);
+  }
+
+  bool is_alttp() override { return game == 0; }
+
+}
+
 class DoorRandomizerMapping : RandomizerMapping {
   DoorRandomizerMapping(const string &in seed) {
     super(seed);
@@ -412,6 +434,11 @@ ROMMapping@ detect() {
     message("Recognized Entrance Randomized JP ROM version. Seed: " + seed);
     // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
     return DoorRandomizerMapping(seed);
+  } else if (title.slice(0, 7) == "ZSM11.0") {
+    // SMZ3 randomized
+    auto seed = fmtInt(title.slice(9, 8).hex());
+    message("Recognized SMZ3 Combo Randomized ROM version. Seed: " + seed);
+    return SMZ3Mapping(seed);
   } else {
     switch (region) {
       case 0x00:
