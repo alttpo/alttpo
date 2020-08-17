@@ -478,12 +478,15 @@ class WorldMapWindow {
 
       // during glitched states (e.g. Kiki skip), the Y coord can exceed $2000 and the map marker
       // would appear in the eg2 area, so we wrap
-      if (p.dungeon_room < 0x100) {
-        py &= 0x1FFF;
-      } else {
-        // in EG2 map, clip to bottom of map in case of crazy:
-        if (py >= 0x2600) {
-          py = 0x2600;
+      if (p.is_in_dungeon_location()) {
+        auto dungeon_room = p.actual_location & 0xFFFF;
+        if (dungeon_room < 0x100) {
+          py &= 0x1FFF;
+        } else {
+          // in EG2 map, clip to bottom of map in case of crazy:
+          if (py >= 0x2600) {
+            py = 0x2600;
+          }
         }
       }
 
