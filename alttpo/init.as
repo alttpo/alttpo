@@ -38,8 +38,7 @@ void init() {
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
     //settings.Group = "debug";
-    settings.start();
-    settings.hide();
+    settings.connect();
   }
 
   if (debugSprites) {

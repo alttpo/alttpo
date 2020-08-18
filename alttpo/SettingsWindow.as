@@ -28,7 +28,8 @@ class SettingsWindow {
   private GUI::CheckLabel @chkDiscordEnable;
   private GUI::CheckLabel @chkDiscordPrivate;
   private GUI::ComboButton @ddlFont;
-  private GUI::Button @ok;
+  private GUI::Button @btnConnect;
+  private GUI::Button @btnDisconnect;
 
   bool started;
 
@@ -238,7 +239,7 @@ class SettingsWindow {
   SettingsWindow() {
     @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(sx(280), sy(15*25));
+    window.size = GUI::Size(sx(280), sy(16*25));
     window.dismissable = false;
 
     auto sx100 = sx(100);
@@ -521,15 +522,28 @@ class SettingsWindow {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
 
-        @ok = GUI::Button();
-        ok.text = "Connect";
-        ok.toolTip =
+        @btnConnect = GUI::Button();
+        btnConnect.text = "Connect";
+        btnConnect.toolTip =
           "Click this button to connect to the server and join your group.\n\n"
           "Make sure everyone in your group is using the same ALTTP ROM version and/or randomizer seed, otherwise "
           "unpredictable effects may occur.\n\n"
           "Also, if resuming a game and cooperating with others, make sure to join with the proper save game file.";
-        ok.onActivate(@GUI::Callback(startClicked));
-        hz.append(ok, GUI::Size(-1, -1));
+        btnConnect.onActivate(@GUI::Callback(btnConnectClicked));
+        hz.append(btnConnect, GUI::Size(-1, -1));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, -1));
+
+        @btnDisconnect = GUI::Button();
+        btnDisconnect.enabled = false;
+        btnDisconnect.text = "Disconnect";
+        btnDisconnect.toolTip =
+          "Click this button to disconnect from the server and join another group.";
+        btnDisconnect.onActivate(@GUI::Callback(btnDisconnectClicked));
+        hz.append(btnDisconnect, GUI::Size(-1, -1));
       }
     }
 
@@ -631,9 +645,40 @@ class SettingsWindow {
   }
 
   // callback:
-  private void startClicked() {
-    start();
-    hide();
+  private void btnConnectClicked() {
+    connect();
+  }
+
+  // callback:
+  private void btnDisconnectClicked() {
+    disconnect();
+  }
+
+  void connect() {
+    save();
+
+    started = true;
+    players.resize(0);
+    local.index = -1;
+    connected();
+  }
+
+  void disconnect() {
+    @sock = null;
+    started = false;
+    players.resize(0);
+    local.index = -1;
+    disconnected();
+  }
+
+  void connected() {
+    btnConnect.enabled = false;
+    btnDisconnect.enabled = true;
+  }
+
+  void disconnected() {
+    btnConnect.enabled = true;
+    btnDisconnect.enabled = false;
   }
 
   // callback:
@@ -673,19 +718,5 @@ class SettingsWindow {
 
     // persist settings to disk:
     save();
-  }
-
-  void start() {
-    save();
-
-    started = true;
-  }
-
-  void show() {
-    ok.enabled = true;
-  }
-
-  void hide() {
-    ok.enabled = false;
   }
 }

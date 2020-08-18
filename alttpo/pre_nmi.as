@@ -16,9 +16,7 @@ void pre_nmi() {
         sock.connect(address);
       } catch {
         // Probably server IP field is invalid; prompt user again:
-        @sock = null;
-        settings.started = false;
-        settings.show();
+        settings.disconnect();
       }
     }
   }
