@@ -131,7 +131,8 @@ class GameState {
   }
 
   void reset() {
-    // values copied from RAM:
+    index = -1;
+
     frame = 0;
     actual_location = 0;
     last_actual_location = 0;
