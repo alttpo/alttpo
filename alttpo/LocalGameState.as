@@ -97,6 +97,9 @@ class LocalGameState : GameState {
     // small key sync:
     small_keys_current.reset();
     small_keys_current.register(SyncableByteShouldCapture(this.small_keys_current_capture));
+    for (uint i = 0; i < 0x10; i++) {
+      small_keys[i].register(SyncableByteShouldCapture(this.small_key_capture));
+    }
 
     if (debugSRAM) {
       bus::add_write_interceptor("7e:f000-f4fd", bus::WriteInterceptCallback(this.sram_written));
@@ -113,13 +116,31 @@ class LocalGameState : GameState {
     message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
   }
 
+  bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    if (module < 0x06) return false;
+
+    if (debugData) {
+      message("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+    }
+
+    return true;
+  }
+
   bool small_keys_current_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
     if (module != 0x07) {
       return false;
     }
 
     // which dungeon are we in:
-    uint i = bus::read_u8(0x7E040C) >> 1;
+    auto dung = bus::read_u8(0x7E040C);
+    if (dung == 0xFF) {
+      return false;
+    }
+    if (dung > 0x10) {
+      return false;
+    }
+
+    uint i = dung >> 1;
 
     if (debugData) {
       message("keys[" + fmtHex(i, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
