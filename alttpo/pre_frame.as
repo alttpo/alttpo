@@ -152,7 +152,7 @@ void pre_frame() {
   if (enableRenderToExtra) {
     if (settings.ShowMyLabel && rom.is_alttp()) {
       // don't render on in-game map:
-      if (!( local.module == 0x0e && local.sub_module == 0x07 )) {
+      if ((local.module >= 0x06) && !( local.module == 0x0e && local.sub_module == 0x07 )) {
         ei = local.renderLabel(0, 0, ei);
       }
     }
