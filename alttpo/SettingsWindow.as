@@ -659,7 +659,11 @@ class SettingsWindow {
 
     started = true;
     players.resize(0);
-    local.index = -1;
+
+    local = LocalGameState();
+    colorWasChanged(false);
+    nameWasChanged(false);
+
     connected();
   }
 
@@ -667,7 +671,11 @@ class SettingsWindow {
     @sock = null;
     started = false;
     players.resize(0);
-    local.index = -1;
+
+    local = LocalGameState();
+    colorWasChanged(false);
+    nameWasChanged(false);
+
     disconnected();
   }
 
