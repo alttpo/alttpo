@@ -126,6 +126,72 @@ class GameState {
     }
   }
 
+  void reset() {
+    // values copied from RAM:
+    frame = 0;
+    actual_location = 0;
+    last_actual_location = 0;
+    location = 0;
+    last_location = 0;
+
+    // screen scroll coordinates relative to top-left of room (BG screen):
+    xoffs = 0;
+    yoffs = 0;
+
+    x = 0;
+    y = 0;
+
+    module = 0;
+    sub_module = 0;
+    sub_sub_module = 0;
+
+    in_dark_world = 0;
+    in_dungeon = 0;
+    overworld_room = 0;
+    dungeon_room = 0;
+
+    dungeon = 0;
+    dungeon_entrance = 0;
+
+    last_overworld_x = 0;
+    last_overworld_y = 0;
+
+    sfx1 = 0;
+    sfx2 = 0;
+
+    sfx1_ttl = 0;
+    sfx2_ttl = 0;
+
+    for (uint i = 0; i < 0x500; i++) {
+      sram[i] = 0;
+    }
+
+    //array<GameSprite@> objects(0x10);
+
+    for (uint i = 0; i < 0x2A0; i++) {
+      objectsBlock[i] = 0;
+    }
+
+    crystal.reset();
+
+    numsprites = 0;
+
+    tilemap.reset(0x40);
+    tilemapRuns.resize(0);
+    tilemapTimestamp = 0;
+    tilemapLocation = 0;
+
+    for (uint i = 0; i < 0x0A; i++) {
+      ancillaeOwner[i] = -1;
+    }
+    //array<GameAncilla@> ancillae;
+
+    for (uint i = 0; i < 0x0A; i++) {
+      torchOwner[i] = -1;
+      torchTimers[i] = 0;
+    }
+  }
+
   void calculate_player_color_dark() {
     // make 75% as bright:
     player_color_dark_75 =

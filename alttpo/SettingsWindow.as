@@ -660,7 +660,7 @@ class SettingsWindow {
     started = true;
     players.resize(0);
 
-    local = LocalGameState();
+    local.reset();
     colorWasChanged(false);
     nameWasChanged(false);
 
@@ -672,7 +672,7 @@ class SettingsWindow {
     started = false;
     players.resize(0);
 
-    local = LocalGameState();
+    local.reset();
     colorWasChanged(false);
     nameWasChanged(false);
 
