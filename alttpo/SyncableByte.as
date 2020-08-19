@@ -6,9 +6,10 @@ class SyncableByte {
 
   uint32 timestamp;
   uint8 value;
+  uint8 oldValue;
 
   uint32 timestampCompare;
-  int32 playerIndex;
+  SyncableByte@ winner;
 
   SyncableByteShouldCapture@ shouldCapture;
 
@@ -29,14 +30,35 @@ class SyncableByte {
 
   // initialize value to current WRAM value:
   void reset() {
-    timestamp = 0;
-    value = bus::read_u8(0x7E0000 + offs);
+    this.timestamp = 0;
+    this.value = bus::read_u8(0x7E0000 + offs);
+    this.oldValue = value;
   }
 
   // initialize value to specific WRAM value:
   void resetTo(uint8 newValue) {
-    timestamp = 0;
-    value = newValue;
+    this.timestamp = 0;
+    this.value = newValue;
+    this.oldValue = newValue;
+  }
+
+  void capture(uint8 newValue) {
+    this.oldValue = this.value;
+    this.value = newValue;
+    this.timestamp = timestamp_now;
+  }
+
+  bool updateTo(SyncableByte@ other) {
+    this.oldValue = this.value;
+    this.value = other.value;
+
+    if (this.value != this.oldValue) {
+      this.timestamp = other.timestamp;
+      bus::write_u8(0x7E0000 + offs, this.value);
+      return true;
+    }
+
+    return false;
   }
 
   void serialize(array<uint8> &r) {
@@ -56,15 +78,24 @@ class SyncableByte {
   void wram_written(uint32 addr, uint8 oldValue, uint8 newValue) {
     if (shouldCapture !is null) {
       bool capture = shouldCapture(addr, oldValue, newValue);
-      if (debugData) {
-        message("called  shouldCapture(); " + fmtBool(capture));
-      }
       if (!capture) {
         return;
       }
     }
 
-    this.value = newValue;
-    this.timestamp = timestamp_now;
+    capture(newValue);
+  }
+
+  void compareStart() {
+    @winner = null;
+    timestampCompare = timestamp;
+  }
+
+  void compareTo(SyncableByte@ other) {
+    auto otherTimestamp = other.timestamp;
+    if (otherTimestamp > timestampCompare) {
+      @winner = @other;
+      timestampCompare = otherTimestamp;
+    }
   }
 };

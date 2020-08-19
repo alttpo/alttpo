@@ -11,6 +11,8 @@ class LocalGameState : GameState {
   NotifyItemReceived@ itemReceivedDelegate;
   SerializeSRAMDelegate@ serializeSramDelegate;
 
+  SyncableByte@ small_keys_current;
+
   uint8 state;
 
   LocalGameState() {
@@ -66,6 +68,12 @@ class LocalGameState : GameState {
     for (uint i = 0; i < 0x80; i++) {
       @sprs[i] = Sprite();
     }
+
+    // small key sync:
+    @small_keys_current = @SyncableByte(0xF36F);
+    for (uint i = 0; i < 0x10; i++) {
+      @small_keys[i] = @SyncableByte(small_keys_min_offs + i);
+    }
   }
 
   bool registered = false;
@@ -86,6 +94,10 @@ class LocalGameState : GameState {
 
     crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
 
+    // small key sync:
+    small_keys_current.reset();
+    small_keys_current.register(SyncableByteShouldCapture(this.small_keys_current_capture));
+
     if (debugSRAM) {
       bus::add_write_interceptor("7e:f000-f4fd", bus::WriteInterceptCallback(this.sram_written));
     }
@@ -98,12 +110,29 @@ class LocalGameState : GameState {
       return;
     }
 
-    message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
+    message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+  }
+
+  bool small_keys_current_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    if (module != 0x07) {
+      return false;
+    }
+
+    // which dungeon are we in:
+    uint i = bus::read_u8(0x7E040C) >> 1;
+
+    if (debugData) {
+      message("keys[" + fmtHex(i, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+    }
+
+    small_keys[i].capture(newValue);
+
+    return true;
   }
 
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
     if (debugData) {
-      message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + ", sub=" + fmtHex(sub_module, 2));
+      message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
     }
 
     // hitting crystal switch in dungeon:
@@ -919,13 +948,19 @@ class LocalGameState : GameState {
   }
 
   void serialize_wram(array<uint8> &r) {
+    // write a table of 1 sync-byte for dungeon crystal switch state:
     r.write_u8(uint8(0x05));
+    r.write_u8(uint8(0x01));
+    r.write_u16(crystal.offs);
+    crystal.serialize(r);
 
-    uint bytes_count = 1;
-    r.write_u8(bytes_count);
-    {
-      r.write_u16(crystal.offs);
-      crystal.serialize(r);
+    // write a table of 16 sync-bytes for dungeon small keys:
+    r.write_u8(uint8(0x05));
+    r.write_u8(uint8(0x10));
+    r.write_u16(small_keys_min_offs);
+    for (uint8 i = 0; i < 0x10; i++) {
+      auto @k = @small_keys[i];
+      k.serialize(r);
     }
   }
 
@@ -1306,10 +1341,13 @@ class LocalGameState : GameState {
   }
 
   void update_wram() {
-    // apply remote values from all other active players:
-    crystal.playerIndex = -2;
-    crystal.timestampCompare = crystal.timestamp;
+    // reset comparison state:
+    crystal.compareStart();
+    for (uint j = 0; j < 0x10; j++) {
+      small_keys[j].compareStart();
+    }
 
+    // compare remote values from all other active players:
     uint len = players.length();
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1320,28 +1358,19 @@ class LocalGameState : GameState {
 
       // update crystal switches to latest state among all players in same dungeon:
       if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
-        if (remote.crystal.timestamp > crystal.timestampCompare) {
-          crystal.playerIndex = i;
-          crystal.timestampCompare = remote.crystal.timestamp;
+        crystal.compareTo(remote.crystal);
+        for (uint j = 0; j < 0x10; j++) {
+          small_keys[j].compareTo(remote.small_keys[j]);
         }
       }
     }
 
-    if (crystal.playerIndex != -2) {
-      auto @remote = players[crystal.playerIndex];
+    if (crystal.winner !is null) {
       // record timestamp so if we just joined we should keep that:
-      crystal.timestamp = remote.crystal.timestamp;
-
-      if (crystal.value != remote.crystal.value) {
+      if (crystal.updateTo(crystal.winner)) {
         if (debugData) {
-          message("crystal update " + fmtHex(crystal.value,2) + " -> " + fmtHex(remote.crystal.value,2));
+          message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
         }
-
-        // update local:
-        crystal.value = remote.crystal.value;
-
-        // update switch state:
-        bus::write_u8(0x7EC172, remote.crystal.value);
 
         // go to switch transition module:
         //LDA.b #$16 : STA $11
@@ -1349,6 +1378,23 @@ class LocalGameState : GameState {
 
         // trigger sound effect:
         //LDA.b #$25 : JSL Sound_SetSfx3PanLong
+      }
+    }
+
+    auto this_dungeon = dungeon >> 1;
+    for (uint j = 0; j < 0x10; j++) {
+      auto @key = small_keys[j];
+      if (key.winner is null) continue;
+
+      if (key.updateTo(key.winner)) {
+        if (debugData) {
+          message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
+        }
+
+        if (this_dungeon == j) {
+          // update current dungeon key counter:
+          small_keys_current.updateTo(key);
+        }
       }
     }
   }

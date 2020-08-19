@@ -14,6 +14,9 @@ bool locations_equal(uint32 a, uint32 b) {
   return false;
 }
 
+const uint16 small_keys_min_offs = 0xF37C;
+const uint16 small_keys_max_offs = 0xF38C;
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -105,6 +108,7 @@ class GameState {
   array<uint8> objectsBlock(0x2A0);
 
   SyncableByte@ crystal = @SyncableByte(0xC172);
+  array<SyncableByte@> small_keys(0x10);
 
   int numsprites;
 
@@ -484,11 +488,18 @@ class GameState {
 
   int deserialize_wram(array<uint8> r, int c) {
     auto count = r[c++];
-    for (uint i = 0; i < count; i++) {
-      auto offs = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    auto offs = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
-      if (offs == crystal.offs) {
-        c = crystal.deserialize(r, c);
+    if (offs == crystal.offs) {
+      // no need for count loop since there's only one byte:
+      c = crystal.deserialize(r, c);
+    } else if (offs == small_keys_min_offs) {
+      // read small key data:
+      for (uint i = 0; i < count; i++) {
+        if (small_keys[i] is null) {
+          @small_keys[i] = @SyncableByte(offs + i);
+        }
+        c = small_keys[i].deserialize(r, c);
       }
     }
 
