@@ -18,6 +18,7 @@ class SyncableByte {
     @this.shouldCapture = null;
 
     this.value = 0;
+    this.oldValue = 0;
     this.timestamp = 0;
   }
 

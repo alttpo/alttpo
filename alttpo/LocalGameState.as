@@ -145,7 +145,7 @@ class LocalGameState : GameState {
     uint i = dung >> 1;
 
     if (debugData) {
-      message("keys[" + fmtHex(i, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      message("keys_current: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
     }
 
     small_keys[i].capture(newValue);
@@ -154,12 +154,11 @@ class LocalGameState : GameState {
   }
 
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    if (debugData) {
-      message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
-    }
-
     // hitting crystal switch in dungeon:
     if (module == 0x07) {
+      if (debugData) {
+        message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      }
       return true;
     }
 
@@ -1416,9 +1415,13 @@ class LocalGameState : GameState {
           message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
         }
 
-        if (this_dungeon == j) {
-          // update current dungeon key counter:
-          small_keys_current.updateTo(key);
+        if (dungeon != 0xFF && module == 0x07) {
+          if (this_dungeon == j) {
+            // update current dungeon key counter:
+            if (small_keys_current.updateTo(key)) {
+              message("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
+            }
+          }
         }
       }
     }
