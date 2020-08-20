@@ -14,6 +14,7 @@ class LocalGameState : GameState {
   SyncableByte@ small_keys_current;
 
   uint8 state;
+  uint32 last_sent = 0;
 
   LocalGameState() {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
@@ -80,6 +81,7 @@ class LocalGameState : GameState {
     GameState::reset();
 
     small_keys_current.reset();
+    last_sent = 0;
   }
 
   bool registered = false;
@@ -1315,6 +1317,12 @@ class LocalGameState : GameState {
       array<uint8> request = create_envelope(0x00);
       p = send_packet(request, p);
     }
+
+    // rate limit outgoing packets to 60fps:
+    if (timestamp_now - last_sent < 16) {
+      return;
+    }
+    last_sent = timestamp_now;
 
     // send main packet:
     {
