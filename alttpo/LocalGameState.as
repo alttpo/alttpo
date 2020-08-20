@@ -98,6 +98,7 @@ class LocalGameState : GameState {
     small_keys_current.reset();
     small_keys_current.register(SyncableByteShouldCapture(this.small_keys_current_capture));
     for (uint i = 0; i < 0x10; i++) {
+      small_keys[i].reset();
       small_keys[i].register(SyncableByteShouldCapture(this.small_key_capture));
     }
 
@@ -118,6 +119,7 @@ class LocalGameState : GameState {
 
   bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
     if (module < 0x06) return false;
+    if (module == 0x17) return false;
 
     if (debugData) {
       message("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
