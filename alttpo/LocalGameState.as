@@ -1380,9 +1380,11 @@ class LocalGameState : GameState {
       // update crystal switches to latest state among all players in same dungeon:
       if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
         crystal.compareTo(remote.crystal);
-        for (uint j = 0; j < 0x10; j++) {
-          small_keys[j].compareTo(remote.small_keys[j]);
-        }
+      }
+
+      // update small keys:
+      for (uint j = 0; j < 0x10; j++) {
+        small_keys[j].compareTo(remote.small_keys[j]);
       }
     }
 
