@@ -76,6 +76,12 @@ class LocalGameState : GameState {
     }
   }
 
+  void reset() override {
+    GameState::reset();
+
+    small_keys_current.reset();
+  }
+
   bool registered = false;
   void register(bool force = false) {
     if (force) {
@@ -118,12 +124,12 @@ class LocalGameState : GameState {
   }
 
   bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    if (module < 0x06) return false;
-    if (module == 0x17) return false;
-
     if (debugData) {
       message("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
     }
+
+    if (module < 0x06) return false;
+    if (module == 0x17) return false;
 
     return true;
   }
@@ -1363,6 +1369,8 @@ class LocalGameState : GameState {
   }
 
   void update_wram() {
+    if (module < 0x06) return;
+
     // reset comparison state:
     crystal.compareStart();
     for (uint j = 0; j < 0x10; j++) {

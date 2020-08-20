@@ -31,9 +31,7 @@ class SyncableByte {
 
   // initialize value to current WRAM value:
   void reset() {
-    this.timestamp = 0;
-    this.value = bus::read_u8(0x7E0000 + offs);
-    this.oldValue = value;
+    resetTo(bus::read_u8(0x7E0000 + offs));
   }
 
   // initialize value to specific WRAM value:
@@ -53,8 +51,8 @@ class SyncableByte {
     this.oldValue = this.value;
     this.value = other.value;
 
+    this.timestamp = other.timestamp;
     if (this.value != this.oldValue) {
-      this.timestamp = other.timestamp;
       bus::write_u8(0x7E0000 + offs, this.value);
       return true;
     }
@@ -80,6 +78,9 @@ class SyncableByte {
     if (shouldCapture !is null) {
       bool capture = shouldCapture(addr, oldValue, newValue);
       if (!capture) {
+        // record the values but not the timestamp:
+        this.oldValue = oldValue;
+        this.value = newValue;
         return;
       }
     }

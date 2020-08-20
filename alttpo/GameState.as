@@ -195,6 +195,10 @@ class GameState {
       torchOwner[i] = -1;
       torchTimers[i] = 0;
     }
+
+    for (uint i = 0; i < 0x0A; i++) {
+      small_keys[i].reset();
+    }
   }
 
   void calculate_player_color_dark() {
