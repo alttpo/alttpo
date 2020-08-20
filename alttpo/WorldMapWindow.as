@@ -466,6 +466,10 @@ class WorldMapWindow {
           px = 0xf50;
           py = 0x213;
         }
+
+        // wrap x,y coords on overworld:
+        px &= 0xfff;
+        py &= 0xfff;
       } else if (p.is_in_dungeon_module()) {
         // in a dungeon:
       }
