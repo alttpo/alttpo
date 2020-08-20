@@ -52,12 +52,9 @@ class SyncableByte {
     this.value = other.value;
 
     this.timestamp = other.timestamp;
-    if (this.value != this.oldValue) {
-      bus::write_u8(0x7E0000 + offs, this.value);
-      return true;
-    }
+    bus::write_u8(0x7E0000 + offs, this.value);
 
-    return false;
+    return (this.value != this.oldValue);
   }
 
   void serialize(array<uint8> &r) {

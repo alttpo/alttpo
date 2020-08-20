@@ -1418,18 +1418,16 @@ class LocalGameState : GameState {
       auto @key = small_keys[j];
       if (key.winner is null) continue;
 
-      if (key.updateTo(key.winner)) {
-        if (debugData) {
-          message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
-        }
+      key.updateTo(key.winner);
+      if (debugData) {
+        message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
+      }
 
-        if (dungeon != 0xFF && module == 0x07) {
-          if (this_dungeon == j) {
-            // update current dungeon key counter:
-            if (small_keys_current.updateTo(key)) {
-              message("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
-            }
-          }
+      if (dungeon != 0xFF && module == 0x07) {
+        if (this_dungeon == j) {
+          // update current dungeon key counter:
+          small_keys_current.updateTo(key);
+          message("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
         }
       }
     }

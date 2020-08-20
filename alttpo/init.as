@@ -108,6 +108,9 @@ void post_power(bool reset) {
     init_torches();
   }
 
+  // clear state:
+  local.reset();
+
   @onlyLocalPlayer[0] = local;
 }
 
