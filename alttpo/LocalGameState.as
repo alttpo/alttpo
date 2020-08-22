@@ -146,7 +146,7 @@ class LocalGameState : GameState {
     if (dung == 0xFF) {
       return false;
     }
-    if (dung > 0x10) {
+    if (dung >= 0x20) {
       return false;
     }
 
