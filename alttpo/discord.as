@@ -21,17 +21,19 @@ namespace discord {
 
     if (!enabled_cache) return;
 
-    auto module = bus::read_u8(0x7E0010);
-    // measure when game starts:
-    if (timeStart == 0) {
-      // when we enter module 5, start the timer:
-      if (module >= 0x05 && module <= 0x19) {
-        timeStart = chrono::realtime::second;
-      }
-    } else {
-      if (timeEnd == 0) {
-        if (module == 0x19) {
-          timeEnd = chrono::realtime::second;
+    if (rom !is null) {
+      auto module = bus::read_u8(0x7E0010);
+      // measure when game starts:
+      if (timeStart == 0) {
+        // when we enter module 5, start the timer:
+        if (module >= 0x05 && module <= 0x19) {
+          timeStart = chrono::realtime::second;
+        }
+      } else {
+        if (timeEnd == 0) {
+          if (module == 0x19) {
+            timeEnd = chrono::realtime::second;
+          }
         }
       }
     }

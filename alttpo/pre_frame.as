@@ -82,6 +82,15 @@ void pre_frame() {
   // TODO(jsd): replace this with current server time
   timestamp_now = uint32(chrono::realtime::millisecond);
 
+  if (enableRenderToExtra) {
+    ppu::extra.count = 0;
+    ppu::extra.text_outline = true;
+    if (!font_set) {
+      @ppu::extra.font = settings.Font;
+      font_set = true;
+    }
+  }
+
   if (settings.DiscordEnable) {
     discord::pre_frame();
   }
@@ -90,13 +99,8 @@ void pre_frame() {
     bridge.main();
   }
 
-  if (enableRenderToExtra) {
-    ppu::extra.count = 0;
-    ppu::extra.text_outline = true;
-    if (!font_set) {
-      @ppu::extra.font = settings.Font;
-      font_set = true;
-    }
+  if (rom is null) {
+    return;
   }
 
   rom.check_game();
