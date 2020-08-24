@@ -4,6 +4,37 @@ funcdef uint16 ItemMutate(uint16 oldValue, uint16 newValue);
 funcdef void NotifyItemReceived(const string &in name);
 funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
 
+interface SRAM {
+  uint8  read_u8 (uint16 offs);
+  uint16 read_u16(uint16 offs);
+
+  void write_u8 (uint16 offs, uint8 value);
+  void write_u16(uint16 offs, uint16 value);
+}
+
+class SRAMArray : SRAM {
+  array<uint8> sram;
+
+  SRAMArray(const array<uint8> &in sram) {
+    this.sram = sram;
+  }
+
+  uint8  read_u8 (uint16 offs) {
+    return sram[offs];
+  }
+  uint16 read_u16(uint16 offs) {
+    return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
+  }
+
+  void write_u8 (uint16 offs, uint8 value) {
+    sram[offs] = uint8(value);
+  }
+  void write_u16(uint16 offs, uint16 value) {
+    sram[offs+0] = uint8(value);
+    sram[offs+1] = uint8(value >> 8);
+  }
+}
+
 // list of SRAM values to sync as items:
 class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
@@ -29,23 +60,27 @@ class SyncableItem {
 
   uint16 oldValue;
   uint16 newValue;
-  void start(const array<uint8> &in sram) {
+  void start(SRAM@ sram) {
     oldValue = read(sram);
     newValue = oldValue;
   }
 
   void apply(GameState @remote) {
-    auto remoteValue = read(remote.sram);
+    auto remoteValue = read(@SRAMArray(remote.sram));
     newValue = modify(newValue, remoteValue);
   }
 
-  void finish(NotifyItemReceived @notifyItemReceived = null) {
-    if (newValue != oldValue) {
-      if (!(notifyNewItems is null) && !(notifyItemReceived is null)) {
-        notifyNewItems(oldValue, newValue, notifyItemReceived);
-      }
-      write(newValue);
+  bool finish(SRAM@ sram, NotifyItemReceived @notifyItemReceived = null) {
+    if (newValue == oldValue) {
+      return false;
     }
+
+    if ((notifyNewItems !is null) && (notifyItemReceived !is null)) {
+      notifyNewItems(oldValue, newValue, notifyItemReceived);
+    }
+
+    write(sram, newValue);
+    return true;
   }
 
   uint16 modify(uint16 oldValue, uint16 newValue) {
@@ -68,19 +103,19 @@ class SyncableItem {
     return oldValue;
   }
 
-  uint16 read(const array<uint8> &in sram) {
+  uint16 read(SRAM@ sram) {
     if (size == 1) {
-      return sram[offs];
+      return sram.read_u8(offs);
     } else {
-      return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
+      return sram.read_u16(offs);
     }
   }
 
-  void write(uint16 newValue) {
+  void write(SRAM@ sram, uint16 newValue) {
     if (size == 1) {
-      bus::write_u8(0x7EF000 + offs, uint8(newValue));
+      sram.write_u8(offs, uint8(newValue));
     } else if (size == 2) {
-      bus::write_u16(0x7EF000 + offs, newValue);
+      sram.write_u16(offs, newValue);
     }
   }
 };
@@ -102,51 +137,55 @@ class SyncableHealthCapacity : SyncableItem {
     return oldValue;
   }
 
-  void finish(NotifyItemReceived @notifyItemReceived = null) override {
-    if (newValue != oldValue) {
-      if (!(notifyItemReceived is null)) {
-        auto oldHearts = uint8(oldValue) & ~uint8(7);
-        auto oldPieces = uint8(oldValue) & uint8(3);
-        auto newHearts = uint8(newValue) & ~uint8(7);
-        auto newPieces = uint8(newValue) & uint8(3);
-
-        auto diffHearts = (newHearts + (newPieces << 1)) - (oldHearts + (oldPieces << 1));
-        auto fullHearts = diffHearts >> 3;
-        auto pieces = (diffHearts & 7) >> 1;
-
-        string hc;
-        if (fullHearts == 1) {
-          hc = "1 new heart";
-        } else if (fullHearts > 1) {
-          hc = fmtInt(fullHearts) + " new hearts";
-        }
-        if (fullHearts >= 1 && pieces >= 1) hc += ", ";
-
-        if (pieces == 1) {
-          hc += "1 new heart piece";
-        } else if (pieces > 0) {
-          hc += fmtInt(pieces) + " new heart pieces";
-        }
-
-        notifyItemReceived(hc);
-      }
-      write(newValue);
+  bool finish(SRAM@ sram, NotifyItemReceived @notifyItemReceived = null) override {
+    if (newValue == oldValue) {
+      return false;
     }
+
+    if (notifyItemReceived !is null) {
+      auto oldHearts = uint8(oldValue) & ~uint8(7);
+      auto oldPieces = uint8(oldValue) & uint8(3);
+      auto newHearts = uint8(newValue) & ~uint8(7);
+      auto newPieces = uint8(newValue) & uint8(3);
+
+      auto diffHearts = (newHearts + (newPieces << 1)) - (oldHearts + (oldPieces << 1));
+      auto fullHearts = diffHearts >> 3;
+      auto pieces = (diffHearts & 7) >> 1;
+
+      string hc;
+      if (fullHearts == 1) {
+        hc = "1 new heart";
+      } else if (fullHearts > 1) {
+        hc = fmtInt(fullHearts) + " new hearts";
+      }
+      if (fullHearts >= 1 && pieces >= 1) hc += ", ";
+
+      if (pieces == 1) {
+        hc += "1 new heart piece";
+      } else if (pieces > 0) {
+        hc += fmtInt(pieces) + " new heart pieces";
+      }
+
+      notifyItemReceived(hc);
+    }
+    write(sram, newValue);
+
+    return true;
   }
 
-  uint16 read(const array<uint8> &in sram) override {
+  uint16 read(SRAM@ sram) override {
     // this works because [0x36C] is always a multiple of 8 and the lower 3 bits are always zero
     // and [0x36B] is in the range [0..3] aka 2 bits:
-    return (sram[0x36C] & ~7) | (sram[0x36B] & 3);
+    return (sram.read_u8(0x36C) & ~7) | (sram.read_u8(0x36B) & 3);
   }
 
-  void write(uint16 newValue) override {
+  void write(SRAM@ sram, uint16 newValue) override {
     // split out the full hearts from the heart pieces:
     auto hearts = uint8(newValue) & ~uint8(7);
     auto pieces = uint8(newValue) & uint8(3);
     //message("heart write! " + fmtHex(uint8(oldValue),2) + " -> " + fmtHex(uint8(newValue),2) + " = " + fmtInt(hearts) + ", " + fmtInt(pieces));
-    bus::write_u8(0x7EF36C, hearts);
-    bus::write_u8(0x7EF36B, pieces);
+    sram.write_u8(0x36C, hearts);
+    sram.write_u8(0x36B, pieces);
   }
 }
 
