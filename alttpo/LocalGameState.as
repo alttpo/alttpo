@@ -1463,15 +1463,18 @@ class LocalGameState : GameState {
     received_quests.reserve(16);
     received_quests.resize(0);
 
+    SRAMArray@ d = @SRAMArray(sram);
+
     uint len = players.length();
     uint slen = syncables.length();
+    bool dirty = false;
     for (uint k = 0; k < slen; k++) {
       auto @syncable = syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
 
       // start the sync process for each syncable item in SRAM:
-      syncable.start(sram);
+      syncable.start(d);
 
       // apply remote values from all other active players:
       for (uint i = 0; i < len; i++) {
@@ -1486,7 +1489,7 @@ class LocalGameState : GameState {
       }
 
       // write back any new updates:
-      syncable.finish(itemReceivedDelegate);
+      dirty = dirty || syncable.finish(d, itemReceivedDelegate);
     }
 
     // Generate notification messages:
@@ -1500,12 +1503,18 @@ class LocalGameState : GameState {
         notify("Quest " + received_quests[i]);
       }
     }
+
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
+    }
   }
 
   void update_overworld() {
     if (is_it_a_bad_time()) return;
 
     uint len = players.length();
+
+    SRAMArray@ d = SRAMArray(sram);
 
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1515,7 +1524,7 @@ class LocalGameState : GameState {
 
       // read current state from SRAM:
       for (uint a = 0; a < OverworldAreaCount; a++) {
-        areas[a].start(sram);
+        areas[a].start(d);
       }
     }
 
@@ -1530,6 +1539,7 @@ class LocalGameState : GameState {
       }
     }
 
+    bool dirty = false;
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1538,8 +1548,12 @@ class LocalGameState : GameState {
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
         // write new state to SRAM:
-        areas[a].finish();
+        dirty = dirty || areas[a].finish(d);
       }
+    }
+
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
     }
   }
 
@@ -1560,6 +1574,8 @@ class LocalGameState : GameState {
     //
     // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
 
+    SRAMArray@ d = SRAMArray(sram);
+
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1568,7 +1584,7 @@ class LocalGameState : GameState {
 
       // read current state from SRAM:
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].start(sram);
+        rooms[a].start(d);
       }
     }
 
@@ -1583,6 +1599,7 @@ class LocalGameState : GameState {
       }
     }
 
+    bool dirty = false;
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1591,8 +1608,12 @@ class LocalGameState : GameState {
 
       // write new state to SRAM:
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].finish();
+        dirty = dirty || rooms[a].finish(d);
       }
+    }
+
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
     }
   }
 
