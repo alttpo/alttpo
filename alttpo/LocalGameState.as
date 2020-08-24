@@ -37,10 +37,10 @@ class LocalGameState : GameState {
     // desync the indoor flags for the swamp palace and the watergate:
     // LDA $7EF216 : AND.b #$7F : STA $7EF216
     // LDA $7EF051 : AND.b #$FE : STA $7EF051
-    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(uint16 oldValue, uint16 newValue) {
+    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xFF7F);
     });
-    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(uint16 oldValue, uint16 newValue) {
+    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xFEFF);
     });
 
@@ -56,10 +56,10 @@ class LocalGameState : GameState {
     // desync the overlay flags for the swamp palace and its light world counterpart:
     // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
     // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
-    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(uint16 oldValue, uint16 newValue) {
+    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xDF);
     });
-    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(uint16 oldValue, uint16 newValue) {
+    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xDF);
     });
 
@@ -1513,7 +1513,7 @@ class LocalGameState : GameState {
         if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
-        syncable.apply(remote);
+        syncable.apply(d, remote);
       }
 
       // write back any new updates:
@@ -1563,7 +1563,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
-        areas[a].apply(remote);
+        areas[a].apply(d, remote);
       }
     }
 
@@ -1623,7 +1623,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].apply(remote);
+        rooms[a].apply(d, remote);
       }
     }
 
