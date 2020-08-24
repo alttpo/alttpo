@@ -3,6 +3,7 @@ net::Address@ address;
 
 bool debug = false;
 
+bool debugReadout = false;
 bool debugData = false;
 bool debugSRAM = false;
 bool debugNet = false;

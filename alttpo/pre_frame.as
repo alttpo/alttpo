@@ -74,9 +74,25 @@ void on_main_alttp(uint32 pc) {
   }
 }
 
+uint8 sm_state = 0;
+
+bool sm_is_safe_state() {
+  // on SM reset: 00, 01, 04, 02, 1f, 07, 08 (in game)
+  // on SM transition: 0b
+
+  if (sm_state < 0x07) return false;
+  if (sm_state >= 0x1f) return false;
+
+  return true;
+}
+
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
+
+  rom.check_game();
+
+  sm_state = bus::read_u8(0x7E0998);
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -86,8 +102,10 @@ void on_main_sm(uint32 pc) {
   local.sprites.resize(0);
   local.actual_location = 0;
 
-  // read ALTTP temporary item buffer from SM SRAM:
-  bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
+  if (sm_is_safe_state()) {
+    // read ALTTP temporary item buffer from SM SRAM:
+    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
+  }
 
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
@@ -100,12 +118,14 @@ void on_main_sm(uint32 pc) {
   if (!settings.RaceMode) {
     // all we can do is update items:
     if ((local.frame & 15) == 0) {
-      // use SMSRAMArray so that commit() updates SM SRAM:
-      SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
+      if (sm_is_safe_state()) {
+        // use SMSRAMArray so that commit() updates SM SRAM:
+        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
 
-      local.update_items(sram);
+        local.update_items(sram);
 
-      sram.commit();
+        sram.commit();
+      }
     }
   }
 }
@@ -208,7 +228,11 @@ void pre_frame() {
         }
       }
     } else {
-      ei = local.renderNotifications(ei);
+      // SM:
+      sm_state = bus::read_u8(0x7E0998);
+      if (sm_is_safe_state()) {
+        ei = local.renderNotifications(ei);
+      }
     }
 
     if (ei > 0) {
