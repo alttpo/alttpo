@@ -3,6 +3,33 @@ const uint MaxPacketSize = 1452;
 
 const uint OverworldAreaCount = 0x82;
 
+class ALTTPSRAMArray : SRAMArray {
+  ALTTPSRAMArray(array<uint8>@ sram) {
+    super(sram);
+  }
+
+  void commit() override {
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
+    }
+    dirty = false;
+  }
+}
+
+class SMSRAMArray : SRAMArray {
+  SMSRAMArray(array<uint8>@ sram) {
+    super(sram);
+  }
+
+  void commit() override {
+    if (dirty) {
+      // commit back to SM's SRAM temporary item buffer for ALTTP:
+      bus::write_block_u8(0xA17B00, 0x300, 0x100, sram);
+    }
+    dirty = false;
+  }
+}
+
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
@@ -1450,10 +1477,12 @@ class LocalGameState : GameState {
     received_items.insertLast(name);
   }
 
-  void update_items() {
-    if (is_it_a_bad_time()) return;
-    // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
-    if (is_frozen()) return;
+  void update_items(SRAM@ d) {
+    if (rom.is_alttp()) {
+      if (is_it_a_bad_time()) return;
+      // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
+      if (is_frozen()) return;
+    }
 
     auto @syncables = rom.syncables;
 
@@ -1463,11 +1492,8 @@ class LocalGameState : GameState {
     received_quests.reserve(16);
     received_quests.resize(0);
 
-    SRAMArray@ d = @SRAMArray(sram);
-
     uint len = players.length();
     uint slen = syncables.length();
-    bool dirty = false;
     for (uint k = 0; k < slen; k++) {
       auto @syncable = syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
@@ -1489,7 +1515,7 @@ class LocalGameState : GameState {
       }
 
       // write back any new updates:
-      dirty = dirty || syncable.finish(d, itemReceivedDelegate);
+      syncable.finish(d, itemReceivedDelegate);
     }
 
     // Generate notification messages:
@@ -1503,18 +1529,12 @@ class LocalGameState : GameState {
         notify("Quest " + received_quests[i]);
       }
     }
-
-    if (dirty) {
-      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
-    }
   }
 
-  void update_overworld() {
+  void update_overworld(SRAM@ d) {
     if (is_it_a_bad_time()) return;
 
     uint len = players.length();
-
-    SRAMArray@ d = SRAMArray(sram);
 
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1539,7 +1559,6 @@ class LocalGameState : GameState {
       }
     }
 
-    bool dirty = false;
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1548,16 +1567,12 @@ class LocalGameState : GameState {
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
         // write new state to SRAM:
-        dirty = dirty || areas[a].finish(d);
+        areas[a].finish(d);
       }
-    }
-
-    if (dirty) {
-      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
     }
   }
 
-  void update_rooms() {
+  void update_rooms(SRAM@ d) {
     uint len = players.length();
 
     // $000 - $24F : Data for Rooms (two bytes per room)
@@ -1573,8 +1588,6 @@ class LocalGameState : GameState {
     // b - boss battle won
     //
     // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
-
-    SRAMArray@ d = SRAMArray(sram);
 
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1599,7 +1612,6 @@ class LocalGameState : GameState {
       }
     }
 
-    bool dirty = false;
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1608,12 +1620,8 @@ class LocalGameState : GameState {
 
       // write new state to SRAM:
       for (uint a = 0; a < 0x128; a++) {
-        dirty = dirty || rooms[a].finish(d);
+        rooms[a].finish(d);
       }
-    }
-
-    if (dirty) {
-      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
     }
   }
 

@@ -37,6 +37,8 @@ void on_main_alttp(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
+    ALTTPSRAMArray @sram = @ALTTPSRAMArray(local.sram);
+
     local.update_tilemap();
 
     local.update_wram();
@@ -44,15 +46,18 @@ void on_main_alttp(uint32 pc) {
     local.update_ancillae();
 
     if ((local.frame & 15) == 0) {
-      local.update_items();
+      local.update_items(sram);
     }
 
     if ((local.frame & 31) == 0) {
-      local.update_rooms();
+      local.update_rooms(sram);
     }
     if ((local.frame & 31) == 16) {
-      local.update_overworld();
+      local.update_overworld(sram);
     }
+
+    // write back any changes to SRAM:
+    sram.commit();
 
     if (enableObjectSync) {
       local.update_objects();
@@ -86,10 +91,12 @@ void on_main_sm(uint32 pc) {
 
   if (!settings.RaceMode) {
     // all we can update is items:
-    // TODO: fix me to write to local SM SRAM instead of ALTTP SRAM copy in WRAM!
-    //if ((local.frame & 15) == 0) {
-    //  local.update_items();
-    //}
+    if ((local.frame & 15) == 0) {
+      // use SMSRAMArray so that commit() updates SM SRAM:
+      SMSRAMArray@ sram = @SMSRAMArray(local.sram);
+      local.update_items(sram);
+      sram.commit();
+    }
   }
 }
 

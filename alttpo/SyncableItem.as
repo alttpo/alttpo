@@ -5,6 +5,8 @@ interface SRAM {
 
   void write_u8 (uint16 offs, uint8 value);
   void write_u16(uint16 offs, uint16 value);
+
+  void commit();
 }
 
 funcdef uint16 ItemMutate(SRAM@ sram, uint16 oldValue, uint16 newValue);
@@ -13,10 +15,11 @@ funcdef void NotifyItemReceived(const string &in name);
 funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
 
 class SRAMArray : SRAM {
-  array<uint8> sram;
+  array<uint8>@ sram;
+  bool dirty = false;
 
-  SRAMArray(const array<uint8> &in sram) {
-    this.sram = sram;
+  SRAMArray(array<uint8>@ sram) {
+    @this.sram = @sram;
   }
 
   uint8  read_u8 (uint16 offs) {
@@ -27,11 +30,18 @@ class SRAMArray : SRAM {
   }
 
   void write_u8 (uint16 offs, uint8 value) {
-    sram[offs] = uint8(value);
+    if (sram[offs] != value) {
+      dirty = true;
+    }
+    sram[offs] = value;
   }
   void write_u16(uint16 offs, uint16 value) {
-    sram[offs+0] = uint8(value);
-    sram[offs+1] = uint8(value >> 8);
+    write_u8(offs+0, uint8(value));
+    write_u8(offs+1, uint8(value >> 8));
+  }
+
+  void commit() {
+    dirty = false;
   }
 }
 
@@ -194,23 +204,25 @@ uint16 mutateWorldState(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   // if local player is in the intro sequence, keep them there:
   //if (oldValue < 2) return oldValue;
 
-  // moving from rain state to non-rain state:
-  if (newValue >= 2 && oldValue < 2) {
-    // this game function loads sprite graphics:
-    pb.jsl(rom.fn_sprite_load_gfx_properties);
+  if (rom.is_alttp()) {
+    // moving from rain state to non-rain state:
+    if (newValue >= 2 && oldValue < 2) {
+      // this game function loads sprite graphics:
+      pb.jsl(rom.fn_sprite_load_gfx_properties);
 
-    // if in overworld:
-    if (local.module == 0x09 && local.sub_module == 0x00) {
-      // disable subscreen:
-      bus::write_u8(0x7E001D, 0x00);
-      // remove rain overlay:
-      bus::write_u8(0x7E008C, 0x00);
-      // this game function loads the new song list
-      pb.jsl(rom.fn_overworld_finish_mirror_warp);
+      // if in overworld:
+      if (local.module == 0x09 && local.sub_module == 0x00) {
+        // disable subscreen:
+        bus::write_u8(0x7E001D, 0x00);
+        // remove rain overlay:
+        bus::write_u8(0x7E008C, 0x00);
+        // this game function loads the new song list
+        pb.jsl(rom.fn_overworld_finish_mirror_warp);
 
-      // set ambient sfx to silence:
-      pb.lda_immed(0x05);
-      pb.sta_bank(0x012D);
+        // set ambient sfx to silence:
+        pb.lda_immed(0x05);
+        pb.sta_bank(0x012D);
+      }
     }
   }
 
@@ -221,14 +233,17 @@ uint16 mutateWorldState(SRAM@ sram, uint16 oldValue, uint16 newValue) {
 
 // 0x3C6
 uint16 mutateProgress1(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-  // uncle leaving link's house for the first time will add the telepathic follower.
-  // if receiving uncle's gear, remove zelda telepathic follower:
-  if ((newValue & 0x01) == 0x01) {
-    auto follower = bus::read_u8(0x7EF3CC);
-    if (follower == 0x05) {
-      bus::write_u8(0x7EF3CC, 0x00);
+  if (rom.is_alttp()) {
+    // uncle leaving link's house for the first time will add the telepathic follower.
+    // if receiving uncle's gear, remove zelda telepathic follower:
+    if ((newValue & 0x01) == 0x01) {
+      auto follower = sram.read_u8(0x3CC);
+      if (follower == 0x05) {
+        sram.write_u8(0x3CC, 0x00);
+      }
     }
   }
+
   // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up:
   if ((oldValue & 0x10) == 0) {
     newValue &= ~uint8(0x10);
@@ -240,17 +255,17 @@ uint16 mutateProgress1(SRAM@ sram, uint16 oldValue, uint16 newValue) {
 uint16 mutateProgress2(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   // lose smithy follower if already rescued:
   if ((newValue & 0x20) == 0x20) {
-    auto follower = bus::read_u8(0x7EF3CC);
+    auto follower = sram.read_u8(0x3CC);
     if (follower == 0x07 || follower == 0x08) {
-      bus::write_u8(0x7EF3CC, 0x00);
+      sram.write_u8(0x3CC, 0x00);
     }
   }
 
   // remove purple chest follower if purple chest opened:
   if ((newValue & 0x10) == 0x10) {
-    auto follower = bus::read_u8(0x7EF3CC);
+    auto follower = sram.read_u8(0x3CC);
     if (follower == 0x0C) {
-      bus::write_u8(0x7EF3CC, 0x00);
+      sram.write_u8(0x3CC, 0x00);
     }
   }
 
@@ -260,9 +275,11 @@ uint16 mutateProgress2(SRAM@ sram, uint16 oldValue, uint16 newValue) {
 uint16 mutateSword(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   // during the dwarven swordsmith quest, sword goes to 0xFF when taken away, so avoid that trap:
   if (newValue >= 1 && newValue <= 4 && newValue > oldValue) {
-    // JSL DecompSwordGfx
-    pb.jsl(rom.fn_decomp_sword_gfx);
-    pb.jsl(rom.fn_sword_palette);
+    if (rom.is_alttp()) {
+      // JSL DecompSwordGfx
+      pb.jsl(rom.fn_decomp_sword_gfx);
+      pb.jsl(rom.fn_sword_palette);
+    }
     return newValue;
   }
   return oldValue;
@@ -270,9 +287,11 @@ uint16 mutateSword(SRAM@ sram, uint16 oldValue, uint16 newValue) {
 
 uint16 mutateShield(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {
-    // JSL DecompShieldGfx
-    pb.jsl(rom.fn_decomp_shield_gfx);
-    pb.jsl(rom.fn_shield_palette);
+    if (rom.is_alttp()) {
+      // JSL DecompShieldGfx
+      pb.jsl(rom.fn_decomp_shield_gfx);
+      pb.jsl(rom.fn_shield_palette);
+    }
     return newValue;
   }
   return oldValue;
@@ -281,8 +300,10 @@ uint16 mutateShield(SRAM@ sram, uint16 oldValue, uint16 newValue) {
 // NOTE: this is called for both gloves and armor separately so could JSL twice in succession for one frame.
 uint16 mutateArmorGloves(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {
-    // JSL Palette_ChangeGloveColor
-    pb.jsl(rom.fn_armor_glove_palette);
+    if (rom.is_alttp()) {
+      // JSL Palette_ChangeGloveColor
+      pb.jsl(rom.fn_armor_glove_palette);
+    }
     return newValue;
   }
   return oldValue;
@@ -324,7 +345,7 @@ uint16 mutateRandomizerItems(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   // k = fake flute
   // f = working flute
 
-  uint8 mushroom = bus::read_u8(0x7EF344);
+  uint8 mushroom = sram.read_u8(0x344);
   // if gaining powder and have no inventory:
   if (
     ((oldValue & bitPowder) == 0) &&
@@ -332,7 +353,7 @@ uint16 mutateRandomizerItems(SRAM@ sram, uint16 oldValue, uint16 newValue) {
     mushroom == 0
   ) {
     // set powder in inventory:
-    bus::write_u8(0x7EF344, 2);
+    sram.write_u8(0x344, 2);
   }
 
   // if gaining mushroom and have no inventory:
@@ -342,7 +363,7 @@ uint16 mutateRandomizerItems(SRAM@ sram, uint16 oldValue, uint16 newValue) {
     mushroom == 0
   ) {
     // set mushroom in inventory:
-    bus::write_u8(0x7EF344, 1);
+    sram.write_u8(0x344, 1);
   }
 
   //// if had mushroom and lost mushroom:
@@ -353,10 +374,10 @@ uint16 mutateRandomizerItems(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   //) {
   //  // if don't have powder, set to empty:
   //  if ((oldValue & bitPowder) == 0) {
-  //    bus::write_u8(0x7EF344, 0);
+  //    sram.write_u8(0x344, 0);
   //  } else {
   //    // else set powder in inventory:
-  //    bus::write_u8(0x7EF344, 2);
+  //    sram.write_u8(0x344, 2);
   //  }
   //}
 
