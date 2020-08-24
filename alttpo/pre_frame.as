@@ -4,7 +4,7 @@
 // when it is called, this function is always called before pre_frame.
 // in SMZ3 this function is only called during ALTTP game.
 void on_main_alttp(uint32 pc) {
-  message("main_alttp");
+  //message("main_alttp");
 
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
@@ -14,22 +14,19 @@ void on_main_alttp(uint32 pc) {
     localFrameState.reset_owners();
   }
 
-  rom.check_game();
-  if (rom.is_alttp()) {
-    local.fetch();
+  local.fetch();
 
-    if (settings.SyncTunic) {
-      local.update_palette();
-    }
-
-    if (!enableRenderToExtra) {
-      // backup VRAM for OAM tiles which are in-use by game:
-      localFrameState.backup();
-    }
-
-    // fetch local VRAM data for sprites:
-    local.capture_sprites_vram();
+  if (settings.SyncTunic) {
+    local.update_palette();
   }
+
+  if (!enableRenderToExtra) {
+    // backup VRAM for OAM tiles which are in-use by game:
+    localFrameState.backup();
+  }
+
+  // fetch local VRAM data for sprites:
+  local.capture_sprites_vram();
 
   if (settings.started && !(sock is null)) {
     // send updated state for our Link to server:
@@ -39,32 +36,30 @@ void on_main_alttp(uint32 pc) {
     receive();
   }
 
-  if (rom.is_alttp()) {
-    if (!settings.RaceMode) {
-      local.update_tilemap();
+  if (!settings.RaceMode) {
+    local.update_tilemap();
 
-      local.update_wram();
+    local.update_wram();
 
-      local.update_ancillae();
+    local.update_ancillae();
 
-      if ((local.frame & 15) == 0) {
-        local.update_items();
-      }
-
-      if ((local.frame & 31) == 0) {
-        local.update_rooms();
-      }
-      if ((local.frame & 31) == 16) {
-        local.update_overworld();
-      }
-
-      if (enableObjectSync) {
-        local.update_objects();
-      }
-
-      // synchronize torches:
-      update_torches();
+    if ((local.frame & 15) == 0) {
+      local.update_items();
     }
+
+    if ((local.frame & 31) == 0) {
+      local.update_rooms();
+    }
+    if ((local.frame & 31) == 16) {
+      local.update_overworld();
+    }
+
+    if (enableObjectSync) {
+      local.update_objects();
+    }
+
+    // synchronize torches:
+    update_torches();
   }
 
   if (pb.offset > 0) {
@@ -74,13 +69,33 @@ void on_main_alttp(uint32 pc) {
   }
 }
 
-void on_sm_main(uint32 pc) {
-  message("main_sm");
+// Super Metroid main loop intercept:
+void on_main_sm(uint32 pc) {
+  //message("main_sm");
+
+  // read ALTTP temporary item buffer from SM SRAM:
+  bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
+
+  if (settings.started && (sock !is null)) {
+    // send updated state for our Link to server:
+    local.send();
+
+    // receive network updates from remote players:
+    receive();
+  }
+
+  if (!settings.RaceMode) {
+    // all we can update is items:
+    // TODO: fix me to write to local SM SRAM instead of ALTTP SRAM copy in WRAM!
+    //if ((local.frame & 15) == 0) {
+    //  local.update_items();
+    //}
+  }
 }
 
 // pre_frame always happens
 void pre_frame() {
-  message("pre_frame");
+  //message("pre_frame");
 
   // capture current timestamp:
   // TODO(jsd): replace this with current server time

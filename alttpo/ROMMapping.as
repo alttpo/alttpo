@@ -360,7 +360,7 @@ class SMZ3Mapping : RandomizerMapping {
 
     // SM main is at 0x82893D (PHK; PLB)
     // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
-    cpu::register_pc_interceptor(0x828948, @on_sm_main);
+    cpu::register_pc_interceptor(0x828948, @on_main_sm);
   }
 }
 

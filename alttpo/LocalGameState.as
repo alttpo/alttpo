@@ -317,9 +317,6 @@ class LocalGameState : GameState {
   void fetch() {
     sprites_need_vram = false;
 
-    // read frame counter (increments from 00 to FF and wraps around):
-    frame = bus::read_u8(0x7E001A);
-
     // player state:
     // 0x00 - ground state
     // 0x01 - falling into a hole
