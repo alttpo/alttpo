@@ -1,6 +1,6 @@
 
 void post_frame() {
-  message("post_frame");
+  //message("post_frame");
 
   if (oamWindow !is null) {
     oamWindow.update();
@@ -62,18 +62,6 @@ void post_frame() {
       //ppu::frame.text(224,  8, fmtHex(bus::read_u8(0x7E0424), 2));
       //ppu::frame.text(224, 16, fmtHex(bus::read_u8(0x7E045C), 2));
       //ppu::frame.text(224, 24, fmtHex(bus::read_u8(0x7E0642), 2));
-
-      // item limits for alttpr:
-      //for (uint i = 0; i < 0x10; i++) {
-      //  ppu::frame.text(224, i<<3, fmtHex(bus::read_u8(0x7EF390 + i), 2));
-      //}
-
-      // chest counters:
-      //for (uint i = 0; i < 0x10; i++) {
-      //  ppu::frame.text(224, (5+i)<<3, fmtHex(bus::read_u8(0x7EF4C0 + i), 2));
-      //  //ppu::frame.text(224, (7+i)<<3, fmtHex(bus::read_u8(0x7EF434 + i), 2));
-      //  //ppu::frame.text(224, (7+i)<<3, fmtHex(local.sram[0x434 + i], 2));
-      //}
     } else {
       // SM game state:
       ppu::frame.text(  0,  0, fmtHex(bus::read_u8(0x7E0998), 2));

@@ -1508,7 +1508,7 @@ class LocalGameState : GameState {
         if (remote is null) continue;
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
-        if (remote.is_it_a_bad_time()) continue;
+        //if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
         syncable.apply(remote);

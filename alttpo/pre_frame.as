@@ -37,7 +37,7 @@ void on_main_alttp(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    ALTTPSRAMArray @sram = @ALTTPSRAMArray(local.sram);
+    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
 
     local.update_tilemap();
 
@@ -74,12 +74,38 @@ void on_main_alttp(uint32 pc) {
   }
 }
 
+uint8 sm_state = 0;
+
+bool sm_is_safe_state() {
+  // on SM reset: 00, 01, 04, 02, 1f, 07, 08 (in game)
+  // on SM transition: 0b
+
+  if (sm_state < 0x07) return false;
+  if (sm_state >= 0x1f) return false;
+
+  return true;
+}
+
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
 
-  // read ALTTP temporary item buffer from SM SRAM:
-  bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
+  rom.check_game();
+
+  sm_state = bus::read_u8(0x7E0998);
+
+  local.module = 0x00;
+  local.sub_module = 0x00;
+  local.sub_sub_module = 0x00;
+  local.sprites_need_vram = false;
+  local.numsprites = 0;
+  local.sprites.resize(0);
+  local.actual_location = 0;
+
+  if (sm_is_safe_state()) {
+    // read ALTTP temporary item buffer from SM SRAM:
+    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
+  }
 
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
@@ -90,12 +116,16 @@ void on_main_sm(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    // all we can update is items:
+    // all we can do is update items:
     if ((local.frame & 15) == 0) {
-      // use SMSRAMArray so that commit() updates SM SRAM:
-      SMSRAMArray@ sram = @SMSRAMArray(local.sram);
-      local.update_items(sram);
-      sram.commit();
+      if (sm_is_safe_state()) {
+        // use SMSRAMArray so that commit() updates SM SRAM:
+        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
+
+        local.update_items(sram);
+
+        sram.commit();
+      }
     }
   }
 }
@@ -187,12 +217,20 @@ void pre_frame() {
       }
     }
 
-    // don't render notifications during spotlight open/close:
-    if (local.module >= 0x07 && local.module <= 0x18) {
-      if (local.module != 0x08 && local.module != 0x0a
-       && local.module != 0x0d && local.module != 0x0e
-       && local.module != 0x0f && local.module != 0x10) {
-        // TODO: checkbox to enable/disable
+    if (rom.is_alttp()) {
+      // don't render notifications during spotlight open/close:
+      if (local.module >= 0x07 && local.module <= 0x18) {
+        if (local.module != 0x08 && local.module != 0x0a
+         && local.module != 0x0d && local.module != 0x0e
+         && local.module != 0x0f && local.module != 0x10) {
+          // TODO: checkbox to enable/disable
+          ei = local.renderNotifications(ei);
+        }
+      }
+    } else {
+      // SM:
+      sm_state = bus::read_u8(0x7E0998);
+      if (sm_is_safe_state()) {
         ei = local.renderNotifications(ei);
       }
     }

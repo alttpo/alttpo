@@ -350,7 +350,7 @@ class SMZ3Mapping : RandomizerMapping {
 
   uint8 game = 0;
   void check_game() override {
-    game = bus::read_u8(0xa173fe);
+    game = bus::read_u8(0xA173FE);
   }
 
   bool is_alttp() override { return game == 0; }
