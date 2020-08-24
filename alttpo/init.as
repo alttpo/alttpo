@@ -103,7 +103,6 @@ void post_power(bool reset) {
   //message("post_power()");
 
   if (!reset) {
-    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     rom.register_pc_intercepts();
 
     //cpu::register_pc_interceptor(0x008D13, @debug_pc);  // in NMI - scrolling OW tilemap update on every 16x16 change

@@ -12,6 +12,7 @@ abstract class ROMMapping {
   void check_game() {}
   bool is_alttp() { return true; }
   void register_pc_intercepts() {
+    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
   }
 
