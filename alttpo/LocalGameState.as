@@ -3,33 +3,6 @@ const uint MaxPacketSize = 1452;
 
 const uint OverworldAreaCount = 0x82;
 
-class ALTTPSRAMArray : SRAMArray {
-  ALTTPSRAMArray(array<uint8>@ sram) {
-    super(sram);
-  }
-
-  void commit() override {
-    if (dirty) {
-      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
-    }
-    dirty = false;
-  }
-}
-
-class SMSRAMArray : SRAMArray {
-  SMSRAMArray(array<uint8>@ sram) {
-    super(sram);
-  }
-
-  void commit() override {
-    if (dirty) {
-      // commit back to SM's SRAM temporary item buffer for ALTTP:
-      bus::write_block_u8(0xA17B00, 0x300, 0x100, sram);
-    }
-    dirty = false;
-  }
-}
-
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
@@ -48,9 +21,12 @@ class LocalGameState : GameState {
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
 
     ancillaeOwner.resize(0x0A);
-    ancillae.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
       ancillaeOwner[i] = -1;
+    }
+
+    ancillae.resize(0x0A);
+    for (uint i = 0; i < 0x0A; i++) {
       @ancillae[i] = @GameAncilla();
     }
 
@@ -64,10 +40,10 @@ class LocalGameState : GameState {
     // desync the indoor flags for the swamp palace and the watergate:
     // LDA $7EF216 : AND.b #$7F : STA $7EF216
     // LDA $7EF051 : AND.b #$FE : STA $7EF051
-    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xFF7F);
     });
-    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xFEFF);
     });
 
@@ -83,10 +59,10 @@ class LocalGameState : GameState {
     // desync the overlay flags for the swamp palace and its light world counterpart:
     // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
     // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
-    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xDF);
     });
-    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xDF);
     });
 
@@ -146,52 +122,38 @@ class LocalGameState : GameState {
       return;
     }
 
-    dbgData("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+    message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
   }
 
   bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    bool allow = true;
-    if (module <= 0x06) allow = false;
-    else if (module == 0x17) allow = false;
-
     if (debugData) {
-      dbgData("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " +
-        (allow ? "Y " : "N ") +
-        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" +
-        fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
-      );
+      message("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
     }
 
-    return allow;
+    if (module < 0x06) return false;
+    if (module == 0x17) return false;
+
+    return true;
   }
 
   bool small_keys_current_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    bool allow = true;
     if (module != 0x07) {
-      allow = false;
+      return false;
     }
 
     // which dungeon are we in:
     auto dung = bus::read_u8(0x7E040C);
-    uint i = 0xFF;
     if (dung == 0xFF) {
-      allow = false;
-    } else if (dung >= 0x20) {
-      allow = false;
-    } else {
-      i = dung >> 1;
+      return false;
     }
+    if (dung >= 0x20) {
+      return false;
+    }
+
+    uint i = dung >> 1;
 
     if (debugData) {
-      dbgData("keys_current: " +
-        (allow ? "Y " : "N ") +
-        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) +
-        "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
-      );
-    }
-
-    if (!allow) {
-      return false;
+      message("keys_current: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
     }
 
     small_keys[i].capture(newValue);
@@ -202,9 +164,9 @@ class LocalGameState : GameState {
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
     // hitting crystal switch in dungeon:
     if (module == 0x07) {
-      //if (debugData) {
-      //  dbgData("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
-      //}
+      if (debugData) {
+        message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      }
       return true;
     }
 
@@ -665,19 +627,8 @@ class LocalGameState : GameState {
         || chr == 0x46 || chr == 0x44 || chr == 0x42
         // follower:
         || chr == 0x20 || chr == 0x22
-      ) {
-        // append the sprite to our array:
-        sprites.resize(++numsprites);
-        @sprites[numsprites-1] = spr;
-        continue;
-      }
-
-      // don't sync the following sprites in ganon's room as it gets too busy:
-      if (module == 0x07 && dungeon_room == 0x00) continue;
-
-      if (
         // arrow:
-           chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
+        || chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
         || chr == 0x2c || chr == 0x2d || chr == 0x3c || chr == 0x3d
         // fire rod shot:
         || chr == 0x8d || chr == 0x9c || chr == 0x9d
@@ -943,7 +894,7 @@ class LocalGameState : GameState {
     bus::read_block_u8(0x7E0380, 0, 0x4F, u380);
     bus::read_block_u8(0x7E0BF0, 0, 0xAA, uBF0);
     for (uint i = 0; i < 0x0A; i++) {
-      auto @anc = @ancillae[i];
+      auto @anc = ancillae[i];
       anc.readRAM(i, u280, u380, uBF0);
 
       // Update ownership:
@@ -1019,9 +970,7 @@ class LocalGameState : GameState {
     uint16 count = uint16(endExclusive - start);
     r.write_u16(count);
     for (uint i = 0; i < count; i++) {
-      auto offs = start + i;
-      auto b = sram[offs];
-      r.write_u8(b);
+      r.write_u8(sram[start + i]);
     }
   }
 
@@ -1448,19 +1397,17 @@ class LocalGameState : GameState {
       }
 
       // update small keys:
-      if (remote.small_keys !is null) {
-        for (uint j = 0; j < 0x10; j++) {
-          small_keys[j].compareTo(remote.small_keys[j]);
-        }
+      for (uint j = 0; j < 0x10; j++) {
+        small_keys[j].compareTo(remote.small_keys[j]);
       }
     }
 
     if (crystal.winner !is null) {
       // record timestamp so if we just joined we should keep that:
       if (crystal.updateTo(crystal.winner)) {
-        //if (debugData) {
-        //  message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
-        //}
+        if (debugData) {
+          message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
+        }
 
         // go to switch transition module:
         //LDA.b #$16 : STA $11
@@ -1474,20 +1421,18 @@ class LocalGameState : GameState {
     auto this_dungeon = dungeon >> 1;
     for (uint j = 0; j < 0x10; j++) {
       auto @key = small_keys[j];
-      if (key.winner is null) {
-        continue;
-      }
+      if (key.winner is null) continue;
 
       key.updateTo(key.winner);
       if (debugData) {
-        dbgData("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+        message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
       }
 
       if (dungeon != 0xFF && module == 0x07) {
         if (this_dungeon == j) {
           // update current dungeon key counter:
           small_keys_current.updateTo(key);
-          dbgData("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+          message("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
         }
       }
     }
@@ -1505,14 +1450,12 @@ class LocalGameState : GameState {
     received_items.insertLast(name);
   }
 
-  void update_items(SRAM@ d) {
-    if (rom.is_alttp()) {
-      if (is_it_a_bad_time()) return;
-      // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
-      if (is_frozen()) return;
-    }
+  void update_items() {
+    if (is_it_a_bad_time()) return;
+    // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
+    if (is_frozen()) return;
 
-    auto @syncables = @rom.syncables;
+    auto @syncables = rom.syncables;
 
     // track names of items received:
     received_items.reserve(syncables.length());
@@ -1520,10 +1463,13 @@ class LocalGameState : GameState {
     received_quests.reserve(16);
     received_quests.resize(0);
 
+    SRAMArray@ d = @SRAMArray(sram);
+
     uint len = players.length();
     uint slen = syncables.length();
+    bool dirty = false;
     for (uint k = 0; k < slen; k++) {
-      auto @syncable = @syncables[k];
+      auto @syncable = syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
 
@@ -1536,14 +1482,14 @@ class LocalGameState : GameState {
         if (remote is null) continue;
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
-        //if (remote.is_it_a_bad_time()) continue;
+        if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
-        syncable.apply(d, remote);
+        syncable.apply(remote);
       }
 
       // write back any new updates:
-      syncable.finish(d, itemReceivedDelegate);
+      dirty = dirty || syncable.finish(d, itemReceivedDelegate);
     }
 
     // Generate notification messages:
@@ -1557,12 +1503,18 @@ class LocalGameState : GameState {
         notify("Quest " + received_quests[i]);
       }
     }
+
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
+    }
   }
 
-  void update_overworld(SRAM@ d) {
+  void update_overworld() {
     if (is_it_a_bad_time()) return;
 
     uint len = players.length();
+
+    SRAMArray@ d = SRAMArray(sram);
 
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1583,10 +1535,11 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
-        areas[a].apply(d, remote);
+        areas[a].apply(remote);
       }
     }
 
+    bool dirty = false;
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1595,12 +1548,16 @@ class LocalGameState : GameState {
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
         // write new state to SRAM:
-        areas[a].finish(d);
+        dirty = dirty || areas[a].finish(d);
       }
+    }
+
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
     }
   }
 
-  void update_rooms(SRAM@ d) {
+  void update_rooms() {
     uint len = players.length();
 
     // $000 - $24F : Data for Rooms (two bytes per room)
@@ -1616,6 +1573,8 @@ class LocalGameState : GameState {
     // b - boss battle won
     //
     // qqqq corresponds to 4321, so if quadrants 4 and 1 have been "seen" by Link, then qqqq will look like 1001. The quadrants are laid out like so in each room:
+
+    SRAMArray@ d = SRAMArray(sram);
 
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -1636,10 +1595,11 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].apply(d, remote);
+        rooms[a].apply(remote);
       }
     }
 
+    bool dirty = false;
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -1648,8 +1608,12 @@ class LocalGameState : GameState {
 
       // write new state to SRAM:
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].finish(d);
+        dirty = dirty || rooms[a].finish(d);
       }
+    }
+
+    if (dirty) {
+      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
     }
   }
 
