@@ -100,7 +100,7 @@ void post_power(bool reset) {
 
   if (!reset) {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
-    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_loop);
+    rom.register_pc_intercepts();
 
     //cpu::register_pc_interceptor(0x008D13, @debug_pc);  // in NMI - scrolling OW tilemap update on every 16x16 change
     //cpu::register_pc_interceptor(0x02F273, @debug_pc);  // in main loop - scrolling OW tilemap update on every 16x16 change

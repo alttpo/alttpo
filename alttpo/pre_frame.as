@@ -3,8 +3,8 @@
 // this function is not called for every frame but is for most frames.
 // when it is called, this function is always called before pre_frame.
 // in SMZ3 this function is only called during ALTTP game.
-void on_main_loop(uint32 pc) {
-  //message("main");
+void on_main_alttp(uint32 pc) {
+  message("main_alttp");
 
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
@@ -74,9 +74,13 @@ void on_main_loop(uint32 pc) {
   }
 }
 
+void on_sm_main(uint32 pc) {
+  message("main_sm");
+}
+
 // pre_frame always happens
 void pre_frame() {
-  //message("pre_frame");
+  message("pre_frame");
 
   // capture current timestamp:
   // TODO(jsd): replace this with current server time

@@ -11,6 +11,9 @@ abstract class ROMMapping {
 
   void check_game() {}
   bool is_alttp() { return true; }
+  void register_pc_intercepts() {
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+  }
 
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
@@ -352,6 +355,13 @@ class SMZ3Mapping : RandomizerMapping {
 
   bool is_alttp() override { return game == 0; }
 
+  void register_pc_intercepts() override {
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+
+    // SM main is at 0x82893D (PHK; PLB)
+    // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
+    cpu::register_pc_interceptor(0x828948, @on_sm_main);
+  }
 }
 
 class DoorRandomizerMapping : RandomizerMapping {
