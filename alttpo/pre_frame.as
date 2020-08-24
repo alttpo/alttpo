@@ -37,7 +37,7 @@ void on_main_alttp(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    ALTTPSRAMArray @sram = @ALTTPSRAMArray(local.sram);
+    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
 
     local.update_tilemap();
 
@@ -78,6 +78,14 @@ void on_main_alttp(uint32 pc) {
 void on_main_sm(uint32 pc) {
   //message("main_sm");
 
+  local.module = 0x00;
+  local.sub_module = 0x00;
+  local.sub_sub_module = 0x00;
+  local.sprites_need_vram = false;
+  local.numsprites = 0;
+  local.sprites.resize(0);
+  local.actual_location = 0;
+
   // read ALTTP temporary item buffer from SM SRAM:
   bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
 
@@ -90,11 +98,13 @@ void on_main_sm(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    // all we can update is items:
+    // all we can do is update items:
     if ((local.frame & 15) == 0) {
       // use SMSRAMArray so that commit() updates SM SRAM:
-      SMSRAMArray@ sram = @SMSRAMArray(local.sram);
+      SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
+
       local.update_items(sram);
+
       sram.commit();
     }
   }
