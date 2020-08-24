@@ -1,9 +1,6 @@
 
 void pre_nmi() {
-  //message("pre_nmi");
-
-  // increment our own frame counter since in SMZ3 there is no single frame counter:
-  local.frame = (local.frame + 1) & 0xff;
+  message("pre_nmi");
 
   if (!enableBgMusic) {
     disable_bg_music();

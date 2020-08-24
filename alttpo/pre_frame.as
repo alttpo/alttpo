@@ -4,7 +4,7 @@
 // when it is called, this function is always called before pre_frame.
 // in SMZ3 this function is only called during ALTTP game.
 void on_main_alttp(uint32 pc) {
-  //message("main_alttp");
+  message("main_alttp");
 
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
@@ -14,19 +14,22 @@ void on_main_alttp(uint32 pc) {
     localFrameState.reset_owners();
   }
 
-  local.fetch();
+  rom.check_game();
+  if (rom.is_alttp()) {
+    local.fetch();
 
-  if (settings.SyncTunic) {
-    local.update_palette();
+    if (settings.SyncTunic) {
+      local.update_palette();
+    }
+
+    if (!enableRenderToExtra) {
+      // backup VRAM for OAM tiles which are in-use by game:
+      localFrameState.backup();
+    }
+
+    // fetch local VRAM data for sprites:
+    local.capture_sprites_vram();
   }
-
-  if (!enableRenderToExtra) {
-    // backup VRAM for OAM tiles which are in-use by game:
-    localFrameState.backup();
-  }
-
-  // fetch local VRAM data for sprites:
-  local.capture_sprites_vram();
 
   if (settings.started && !(sock is null)) {
     // send updated state for our Link to server:
@@ -36,35 +39,32 @@ void on_main_alttp(uint32 pc) {
     receive();
   }
 
-  if (!settings.RaceMode) {
-    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
+  if (rom.is_alttp()) {
+    if (!settings.RaceMode) {
+      local.update_tilemap();
 
-    local.update_tilemap();
+      local.update_wram();
 
-    local.update_wram();
+      local.update_ancillae();
 
-    local.update_ancillae();
+      if ((local.frame & 15) == 0) {
+        local.update_items();
+      }
 
-    if ((local.frame & 15) == 0) {
-      local.update_items(sram);
+      if ((local.frame & 31) == 0) {
+        local.update_rooms();
+      }
+      if ((local.frame & 31) == 16) {
+        local.update_overworld();
+      }
+
+      if (enableObjectSync) {
+        local.update_objects();
+      }
+
+      // synchronize torches:
+      update_torches();
     }
-
-    if ((local.frame & 31) == 0) {
-      local.update_rooms(sram);
-    }
-    if ((local.frame & 31) == 16) {
-      local.update_overworld(sram);
-    }
-
-    // write back any changes to SRAM:
-    sram.commit();
-
-    if (enableObjectSync) {
-      local.update_objects();
-    }
-
-    // synchronize torches:
-    update_torches();
   }
 
   if (pb.offset > 0) {
@@ -74,65 +74,13 @@ void on_main_alttp(uint32 pc) {
   }
 }
 
-uint8 sm_state = 0;
-
-bool sm_is_safe_state() {
-  // on SM reset: 00, 01, 04, 02, 1f, 07, 08 (in game)
-  // on SM transition: 0b
-
-  if (sm_state < 0x07) return false;
-  if (sm_state >= 0x1f) return false;
-
-  return true;
-}
-
-// Super Metroid main loop intercept:
-void on_main_sm(uint32 pc) {
-  //message("main_sm");
-
-  rom.check_game();
-
-  sm_state = bus::read_u8(0x7E0998);
-
-  local.module = 0x00;
-  local.sub_module = 0x00;
-  local.sub_sub_module = 0x00;
-  local.sprites_need_vram = false;
-  local.numsprites = 0;
-  local.sprites.resize(0);
-  local.actual_location = 0;
-
-  if (sm_is_safe_state()) {
-    // read ALTTP temporary item buffer from SM SRAM:
-    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
-  }
-
-  if (settings.started && (sock !is null)) {
-    // send updated state for our Link to server:
-    local.send();
-
-    // receive network updates from remote players:
-    receive();
-  }
-
-  if (!settings.RaceMode) {
-    // all we can do is update items:
-    if ((local.frame & 15) == 0) {
-      if (sm_is_safe_state()) {
-        // use SMSRAMArray so that commit() updates SM SRAM:
-        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
-
-        local.update_items(sram);
-
-        sram.commit();
-      }
-    }
-  }
+void on_sm_main(uint32 pc) {
+  message("main_sm");
 }
 
 // pre_frame always happens
 void pre_frame() {
-  //message("pre_frame");
+  message("pre_frame");
 
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
@@ -217,20 +165,12 @@ void pre_frame() {
       }
     }
 
-    if (rom.is_alttp()) {
-      // don't render notifications during spotlight open/close:
-      if (local.module >= 0x07 && local.module <= 0x18) {
-        if (local.module != 0x08 && local.module != 0x0a
-         && local.module != 0x0d && local.module != 0x0e
-         && local.module != 0x0f && local.module != 0x10) {
-          // TODO: checkbox to enable/disable
-          ei = local.renderNotifications(ei);
-        }
-      }
-    } else {
-      // SM:
-      sm_state = bus::read_u8(0x7E0998);
-      if (sm_is_safe_state()) {
+    // don't render notifications during spotlight open/close:
+    if (local.module >= 0x07 && local.module <= 0x18) {
+      if (local.module != 0x08 && local.module != 0x0a
+       && local.module != 0x0d && local.module != 0x0e
+       && local.module != 0x0f && local.module != 0x10) {
+        // TODO: checkbox to enable/disable
         ei = local.renderNotifications(ei);
       }
     }
