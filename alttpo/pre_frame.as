@@ -197,14 +197,18 @@ void pre_frame() {
       }
     }
 
-    // don't render notifications during spotlight open/close:
-    if (local.module >= 0x07 && local.module <= 0x18) {
-      if (local.module != 0x08 && local.module != 0x0a
-       && local.module != 0x0d && local.module != 0x0e
-       && local.module != 0x0f && local.module != 0x10) {
-        // TODO: checkbox to enable/disable
-        ei = local.renderNotifications(ei);
+    if (rom.is_alttp()) {
+      // don't render notifications during spotlight open/close:
+      if (local.module >= 0x07 && local.module <= 0x18) {
+        if (local.module != 0x08 && local.module != 0x0a
+         && local.module != 0x0d && local.module != 0x0e
+         && local.module != 0x0f && local.module != 0x10) {
+          // TODO: checkbox to enable/disable
+          ei = local.renderNotifications(ei);
+        }
       }
+    } else {
+      ei = local.renderNotifications(ei);
     }
 
     if (ei > 0) {
