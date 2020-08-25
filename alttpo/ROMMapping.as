@@ -320,7 +320,13 @@ class RandomizerMapping : JPROMMapping {
   }
 
   void syncStats() {
+    // item limit counters:
+    for (uint i = 0x390; i < 0x3C5; i++) {
+      syncables.insertLast(@SyncableItem(i, 1, 1));
+    }
+
     syncables.insertLast(@SyncableItem(0x418, 1, 1, @nameForTriforcePieces)); // Current Triforce Count
+
     syncables.insertLast(@SyncableItem(0x434, 1, 1));                         // hhhhdddd - item locations checked h - HC d - PoD
     syncables.insertLast(@SyncableItem(0x435, 1, 1));                         // dddhhhaa - item locations checked d - DP h - ToH a - AT
     syncables.insertLast(@SyncableItem(0x436, 1, 1));                         // gggggeee - item locations checked g - GT e - EP
@@ -331,6 +337,7 @@ class RandomizerMapping : JPROMMapping {
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x390, 0x3C5); // item limit counters
     serialize(r, 0x3C5, 0x43A); // progress made
   }
 };
@@ -388,6 +395,7 @@ class DoorRandomizerMapping : RandomizerMapping {
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x390, 0x3C5); // item limit counters
     serialize(r, 0x3C5, 0x43A); // progress made
     serialize(r, 0x4E0, 0x4ED); // chest-keys
   }
