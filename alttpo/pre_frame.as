@@ -15,6 +15,7 @@ void on_main_alttp(uint32 pc) {
   }
 
   local.fetch();
+  local.is_in_sm(!rom.is_alttp());
 
   if (settings.SyncTunic) {
     local.update_palette();
@@ -86,12 +87,16 @@ bool sm_is_safe_state() {
   return true;
 }
 
+bool sm_loading_room(){
+	return sm_state == 0x0b;
+}
+
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
 
   rom.check_game();
-  local.is_in_sm();
+  local.is_in_sm(!rom.is_alttp());
   
   sm_state = bus::read_u8(0x7E0998);
 
@@ -109,7 +114,6 @@ void on_main_sm(uint32 pc) {
   }
   
   local.get_sm_coords();
-  local.not_in_sm();
 
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
