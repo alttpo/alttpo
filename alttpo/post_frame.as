@@ -61,6 +61,10 @@ void post_frame() {
     //ppu::frame.text(224, 16, fmtHex(bus::read_u8(0x7E045C), 2));
     //ppu::frame.text(224, 24, fmtHex(bus::read_u8(0x7E0642), 2));
 
+    // item limits for alttpr:
+    //for (uint i = 0; i < 0x10; i++) {
+    //  ppu::frame.text(224, i<<3, fmtHex(bus::read_u8(0x7EF390 + i), 2));
+    //}
   }
 
   if (sprites !is null) {

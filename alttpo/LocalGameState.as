@@ -630,8 +630,19 @@ class LocalGameState : GameState {
         || chr == 0x46 || chr == 0x44 || chr == 0x42
         // follower:
         || chr == 0x20 || chr == 0x22
+      ) {
+        // append the sprite to our array:
+        sprites.resize(++numsprites);
+        @sprites[numsprites-1] = spr;
+        continue;
+      }
+
+      // don't sync the following sprites in ganon's room as it gets too busy:
+      if (module == 0x07 && dungeon_room == 0x00) continue;
+
+      if (
         // arrow:
-        || chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
+           chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
         || chr == 0x2c || chr == 0x2d || chr == 0x3c || chr == 0x3d
         // fire rod shot:
         || chr == 0x8d || chr == 0x9c || chr == 0x9d
