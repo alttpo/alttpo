@@ -79,4 +79,11 @@ void post_frame() {
   if (gameSpriteWindow !is null) {
     gameSpriteWindow.update();
   }
+  //0x7E079c
+  //0x07E079b
+  ppu::frame.text(  0,  0, "Room:" + fmtHex(bus::read_u8(0x7E07A1), 2));
+  ppu::frame.text(  57,  0, fmtHex(bus::read_u8(0x7E07A3), 2));
+  ppu::frame.text(  90,  0, "SX:" + fmtHex(bus::read_u8(0x7E0af7), 2));
+  ppu::frame.text(  140,  0, "SY:" + fmtHex(bus::read_u8(0x7E0afb), 2));
+  ppu::frame.text(  190,  0, "A:" + fmtHex(bus::read_u8(0x7E079f), 2));
 }

@@ -1,0 +1,25 @@
+cheat
+  name: aREA fuckery
+  code: 7e0950=01+730951=01
+
+cheat
+  name: full kit
+  code: 7e09a4=2f+7e09a5=f3+7e09a8=0f+7e09a9=10+7e09c8=fa+7e09cc=32+7e09d0=32
+  enable
+
+cheat
+  name: health weirdness
+  code: 7e09c4=06+7e09c5=a3
+
+cheat
+  name: map fuckery2
+  code: 7e07a3=00+7e07a4=00
+
+cheat
+  name: samus position fuck
+  code: 7e0af6=00+7e0af7=00
+
+cheat
+  name: samus sprite fuckery
+  code: 7e0a96=00+7e0a97=00
+
