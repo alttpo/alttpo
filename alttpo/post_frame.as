@@ -79,8 +79,4 @@ void post_frame() {
   if (gameSpriteWindow !is null) {
     gameSpriteWindow.update();
   }
-  //0x7E079c
-  //0x07E079b
-  ppu::frame.text(  0,  0, "State:" + fmtHex(bus::read_u8(0x7E0998), 2));
-
  }
