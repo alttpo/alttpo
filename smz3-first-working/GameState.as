@@ -67,7 +67,7 @@ class GameState {
   int16 yoffs;
 
   uint16 x, y;
-
+  
   uint8 module;
   uint8 sub_module;
   uint8 sub_sub_module;
@@ -875,5 +875,4 @@ class GameState {
       }
     }
   }
-
 };

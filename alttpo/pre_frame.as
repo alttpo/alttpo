@@ -91,7 +91,8 @@ void on_main_sm(uint32 pc) {
   //message("main_sm");
 
   rom.check_game();
-
+  local.is_in_sm();
+  
   sm_state = bus::read_u8(0x7E0998);
 
   local.module = 0x00;
@@ -106,6 +107,9 @@ void on_main_sm(uint32 pc) {
     // read ALTTP temporary item buffer from SM SRAM:
     bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
   }
+  
+  local.get_sm_coords();
+  local.not_in_sm();
 
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:

@@ -68,6 +68,10 @@ class GameState {
 
   uint16 x, y;
 
+  //HIDECHANGE coordinates for super metroid game
+  uint8 sm_area, sm_room_x, sm_room_y, sm_x, sm_y;
+  bool in_sm;
+
   uint8 module;
   uint8 sub_module;
   uint8 sub_sub_module;
@@ -233,6 +237,7 @@ class GameState {
   }
 
   bool is_in_overworld_module() const {
+	if (in_sm) return false;
     if (module == 0x09 || module == 0x0B) return true;
     return false;
   }
@@ -877,6 +882,23 @@ class GameState {
         sfx2 = 0;
       }
     }
+  }
+  
+  void not_in_sm(){
+	in_sm = false;
+  }
+  
+  void is_in_sm(){
+	in_sm = true;
+  }
+   
+  void get_sm_coords(){
+	sm_area = bus::read_u8(0x7E079f);
+	sm_room_x = bus::read_u8(0x7E07A1);
+	sm_room_y = bus::read_u8(0x07A3);
+	sm_x = bus::read_u8(0x7E0AF7);
+	sm_y = bus::read_u8(0x7E0AFB);
+	in_sm = true;
   }
 
 };
