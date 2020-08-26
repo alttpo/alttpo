@@ -227,18 +227,18 @@ class WorldMapWindow {
 
   bool showsOnScreen(const GameState &in p, int screen) {
     if(screen == 3){
-	  return (bus::read_u8(0xA173FE) != 0);
+	  return p.in_sm;
 	} else if (screen == 0) {
       // must be in light world:
-	  if ((bus::read_u8(0xA173FE) != 0)) return false;
+	  if (p.in_sm) return false;
       return (p.actual_location & 0x020000) == 0;
     } else if (screen == 1) {
       // must be in dark world:
-	  if ((bus::read_u8(0xA173FE) != 0)) return false;
+	  if (p.in_sm) return false;
       return (p.actual_location & 0x020000) == 0x020000;
     } else if (screen == 2) {
       // must be in underworld in light or dark world:
-	  if ((bus::read_u8(0xA173FE) != 0)) return false;
+	  if (p.in_sm) return false;
       return (p.actual_location & 0x010000) == 0x010000;
     }
     return false;

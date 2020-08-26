@@ -884,15 +884,12 @@ class GameState {
     }
   }
   
-  void not_in_sm(){
-	in_sm = false;
-  }
-  
-  void is_in_sm(){
-	in_sm = true;
+  void is_in_sm(bool b = true){
+	in_sm = b;
   }
    
   void get_sm_coords(){
+	if (sm_loading_room()) return;
 	sm_area = bus::read_u8(0x7E079f);
 	sm_room_x = bus::read_u8(0x7E07A1);
 	sm_room_y = bus::read_u8(0x07A3);
