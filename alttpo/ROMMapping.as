@@ -430,7 +430,7 @@ ROMMapping@ detect() {
     auto seed = title.slice(3, 10);
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + seed);
     return RandomizerMapping(seed);
-  } else if ( (title.slice(0, 2) == "ER" || title.slice(0, 2) == "BM") && (title[5] == '_') ) {
+  } else if ( (title.slice(0, 2) == "ER" || title.slice(0, 2) == "BM" || title.slice(0, 2) == "BD") && (title[5] == '_') ) {
     //  0123456789
     // "BM250_1_1_16070690178"
     // ALTTPR VT-based Entrance Randomizer.
