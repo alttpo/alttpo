@@ -22,6 +22,7 @@ bool enableRenderToExtra = true;
 
 void init() {
   //message("init()");
+  timestamp_now = chrono::realtime::millisecond;
 
   @settings = SettingsWindow();
   settings.ServerAddress = "alttp.online";
@@ -69,10 +70,10 @@ void cartridge_loaded() {
     for (uint i = 0; i < len; i++) {
       auto @s = rom.syncables[i];
       if (s is null) {
-        message("[" + fmtInt(i) + "] = null");
+        dbgData("[" + fmtInt(i) + "] = null");
         continue;
       }
-      message("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
+      dbgData("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
     }
   }
 
@@ -148,3 +149,11 @@ int playerCount = 0;
 bool font_set = false;
 
 uint32 timestamp_now = 0;
+
+void dbgData(const string &in msg) {
+  if (!debugData) {
+    return;
+  }
+  // e.g. " 830621282) debug log message"
+  message(pad(timestamp_now, 10) + ") " + msg);
+}

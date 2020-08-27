@@ -119,38 +119,52 @@ class LocalGameState : GameState {
       return;
     }
 
-    message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+    dbgData("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
   }
 
   bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    bool allow = true;
+    if (module <= 0x06) allow = false;
+    else if (module == 0x17) allow = false;
+
     if (debugData) {
-      message("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      dbgData("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " +
+        (allow ? "Y " : "N ") +
+        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" +
+        fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
+      );
     }
 
-    if (module < 0x06) return false;
-    if (module == 0x17) return false;
-
-    return true;
+    return allow;
   }
 
   bool small_keys_current_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    bool allow = true;
     if (module != 0x07) {
-      return false;
+      allow = false;
     }
 
     // which dungeon are we in:
     auto dung = bus::read_u8(0x7E040C);
+    uint i = 0xFF;
     if (dung == 0xFF) {
-      return false;
+      allow = false;
+    } else if (dung >= 0x20) {
+      allow = false;
+    } else {
+      i = dung >> 1;
     }
-    if (dung >= 0x20) {
-      return false;
-    }
-
-    uint i = dung >> 1;
 
     if (debugData) {
-      message("keys_current: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      dbgData("keys_current: " +
+        (allow ? "Y " : "N ") +
+        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) +
+        "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
+      );
+    }
+
+    if (!allow) {
+      return false;
     }
 
     small_keys[i].capture(newValue);
@@ -161,9 +175,9 @@ class LocalGameState : GameState {
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
     // hitting crystal switch in dungeon:
     if (module == 0x07) {
-      if (debugData) {
-        message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
-      }
+      //if (debugData) {
+      //  dbgData("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      //}
       return true;
     }
 
@@ -1420,9 +1434,9 @@ class LocalGameState : GameState {
     if (crystal.winner !is null) {
       // record timestamp so if we just joined we should keep that:
       if (crystal.updateTo(crystal.winner)) {
-        if (debugData) {
-          message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
-        }
+        //if (debugData) {
+        //  message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
+        //}
 
         // go to switch transition module:
         //LDA.b #$16 : STA $11
@@ -1436,18 +1450,20 @@ class LocalGameState : GameState {
     auto this_dungeon = dungeon >> 1;
     for (uint j = 0; j < 0x10; j++) {
       auto @key = small_keys[j];
-      if (key.winner is null) continue;
+      if (key.winner is null) {
+        continue;
+      }
 
       key.updateTo(key.winner);
       if (debugData) {
-        message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
+        dbgData("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
       }
 
       if (dungeon != 0xFF && module == 0x07) {
         if (this_dungeon == j) {
           // update current dungeon key counter:
           small_keys_current.updateTo(key);
-          message("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
+          dbgData("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
         }
       }
     }
