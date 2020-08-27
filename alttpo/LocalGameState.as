@@ -974,6 +974,8 @@ class LocalGameState : GameState {
 	r.write_u8(sm_area);
 	r.write_u8(sm_x);
 	r.write_u8(sm_y);
+	r.write_u8(sm_sub_x);
+	r.write_u8(sm_sub_y);
 	r.write_u8(in_sm);
 	
 

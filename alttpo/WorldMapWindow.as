@@ -545,11 +545,13 @@ class WorldMapWindow {
 		//67 squares wide
 		//57 squares tall
 		
-		px = px + offsx;
-		py = py + offsy;
+		px += offsx;
+		py += offsy;
 		
-		x = float(px+.37) * squareSize;
-		y = float(py+.35) * squareSize;
+		// +.37 in the x direction to center 
+		// +.35 in the y direction
+		x = float(px) * squareSize + p.sm_sub_x/float(32) * mapscale;
+		y = float(py) * squareSize + p.sm_sub_y/float(32) * mapscale;
 	}
   }
 

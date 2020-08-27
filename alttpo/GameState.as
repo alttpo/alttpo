@@ -69,7 +69,7 @@ class GameState {
   uint16 x, y;
 
   //HIDECHANGE coordinates for super metroid game
-  uint8 sm_area, sm_room_x, sm_room_y, sm_x, sm_y;
+  uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 in_sm;
 
   uint8 module;
@@ -383,6 +383,8 @@ class GameState {
 	sm_area = r[c++];
 	sm_x = r[c++];
 	sm_y = r[c++];
+	sm_sub_x = r[c++];
+	sm_sub_y = r[c++];
 	in_sm = r[c++];
 
     dungeon = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -893,6 +895,8 @@ class GameState {
 	sm_area = bus::read_u8(0x7E079f);
 	sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
 	sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+	sm_sub_x = bus::read_u8(0x7E0AF6);
+	sm_sub_y = bus::read_u8(0x7E0AFA);
 	in_sm = 1;
   }
 
