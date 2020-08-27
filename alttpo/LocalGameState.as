@@ -21,12 +21,9 @@ class LocalGameState : GameState {
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
 
     ancillaeOwner.resize(0x0A);
-    for (uint i = 0; i < 0x0A; i++) {
-      ancillaeOwner[i] = -1;
-    }
-
     ancillae.resize(0x0A);
     for (uint i = 0; i < 0x0A; i++) {
+      ancillaeOwner[i] = -1;
       @ancillae[i] = @GameAncilla();
     }
 
@@ -908,7 +905,7 @@ class LocalGameState : GameState {
     bus::read_block_u8(0x7E0380, 0, 0x4F, u380);
     bus::read_block_u8(0x7E0BF0, 0, 0xAA, uBF0);
     for (uint i = 0; i < 0x0A; i++) {
-      auto @anc = ancillae[i];
+      auto @anc = @ancillae[i];
       anc.readRAM(i, u280, u380, uBF0);
 
       // Update ownership:

@@ -186,8 +186,11 @@ class GameState {
     tilemapTimestamp = 0;
     tilemapLocation = 0;
 
+    ancillaeOwner.resize(0xA);
+    ancillae.resize(0xA);
     for (uint i = 0; i < 0x0A; i++) {
       ancillaeOwner[i] = -1;
+      @ancillae[i] = @GameAncilla();
     }
     //array<GameAncilla@> ancillae;
 
