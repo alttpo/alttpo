@@ -96,7 +96,7 @@ void on_main_sm(uint32 pc) {
   //message("main_sm");
 
   rom.check_game();
-  local.is_in_sm(!rom.is_alttp());
+  
   
   sm_state = bus::read_u8(0x7E0998);
 
@@ -114,7 +114,9 @@ void on_main_sm(uint32 pc) {
   }
   
   local.get_sm_coords();
-
+  local.is_in_sm(!rom.is_alttp());
+  local.get_sm_coords();
+	
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
     local.send();

@@ -70,7 +70,7 @@ class GameState {
 
   //HIDECHANGE coordinates for super metroid game
   uint8 sm_area, sm_room_x, sm_room_y, sm_x, sm_y;
-  bool in_sm;
+  uint8 in_sm;
 
   uint8 module;
   uint8 sub_module;
@@ -234,7 +234,7 @@ class GameState {
   }
 
   bool is_in_overworld_module() const {
-	if (in_sm) return false;
+	if (in_sm == 1) return false;
     if (module == 0x09 || module == 0x0B) return true;
     return false;
   }
@@ -379,6 +379,11 @@ class GameState {
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+	
+	sm_area = r[c++];
+	sm_x = r[c++];
+	sm_y = r[c++];
+	in_sm = r[c++];
 
     dungeon = uint16(r[c++]) | (uint16(r[c++]) << 8);
     dungeon_entrance = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -880,17 +885,15 @@ class GameState {
   }
   
   void is_in_sm(bool b = true){
-	in_sm = b;
+	in_sm = (b ? 1 : 0);
   }
    
   void get_sm_coords(){
 	if (sm_loading_room()) return;
 	sm_area = bus::read_u8(0x7E079f);
-	sm_room_x = bus::read_u8(0x7E07A1);
-	sm_room_y = bus::read_u8(0x07A3);
-	sm_x = bus::read_u8(0x7E0AF7);
-	sm_y = bus::read_u8(0x7E0AFB);
-	in_sm = true;
+	sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
+	sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+	in_sm = 1;
   }
 
 };
