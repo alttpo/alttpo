@@ -459,7 +459,7 @@ ROMMapping@ detect() {
     auto seed = title.slice(6, 13);
     string kind;
     bool isDoor = false;
-    if (bus::read_u16(0x270000) != 0) {
+    if (bus::read_u16(0x278000) != 0) {
       // door randomizer
       isDoor = true;
       kind = title.slice(0, 2) + " (door) v" + title.slice(2, 3);
