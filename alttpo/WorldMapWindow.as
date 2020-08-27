@@ -227,18 +227,18 @@ class WorldMapWindow {
 
   bool showsOnScreen(const GameState &in p, int screen) {
     if(screen == 3){
-	  return p.in_sm;
+	  return p.in_sm == 1;
 	} else if (screen == 0) {
       // must be in light world:
-	  if (p.in_sm) return false;
+	  if (p.in_sm == 1) return false;
       return (p.actual_location & 0x020000) == 0;
     } else if (screen == 1) {
       // must be in dark world:
-	  if (p.in_sm) return false;
+	  if (p.in_sm == 1) return false;
       return (p.actual_location & 0x020000) == 0x020000;
     } else if (screen == 2) {
       // must be in underworld in light or dark world:
-	  if (p.in_sm) return false;
+	  if (p.in_sm == 1) return false;
       return (p.actual_location & 0x010000) == 0x010000;
     }
     return false;
@@ -535,11 +535,8 @@ class WorldMapWindow {
       x = float(px) * mapscale + dotLeft;
       y = float(py) * mapscale + dotTop;
     } else if (screen == 3){
-		p.get_sm_coords();
 		uint px = p.sm_x;
 		uint py = p.sm_y;
-		uint rx = p.sm_room_x;
-		uint ry = p.sm_room_y;
 		uint offsx = metroid_area_base_x(p.sm_area);
 		uint offsy = metroid_area_base_Y(p.sm_area);
 		
@@ -548,8 +545,8 @@ class WorldMapWindow {
 		//67 squares wide
 		//57 squares tall
 		
-		px = px + rx + offsx;
-		py = py + ry + offsy;
+		px = px + offsx;
+		py = py + offsy;
 		
 		x = float(px+.37) * squareSize;
 		y = float(py+.35) * squareSize;
