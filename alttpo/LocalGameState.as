@@ -1413,8 +1413,10 @@ class LocalGameState : GameState {
       }
 
       // update small keys:
-      for (uint j = 0; j < 0x10; j++) {
-        small_keys[j].compareTo(remote.small_keys[j]);
+      if (remote.small_keys !is null) {
+        for (uint j = 0; j < 0x10; j++) {
+          small_keys[j].compareTo(remote.small_keys[j]);
+        }
       }
     }
 
