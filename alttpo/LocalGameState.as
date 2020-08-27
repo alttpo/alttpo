@@ -984,7 +984,9 @@ class LocalGameState : GameState {
     uint16 count = uint16(endExclusive - start);
     r.write_u16(count);
     for (uint i = 0; i < count; i++) {
-      r.write_u8(sram[start + i]);
+      auto offs = start + i;
+      auto b = sram[offs];
+      r.write_u8(b);
     }
   }
 
@@ -1469,7 +1471,7 @@ class LocalGameState : GameState {
     // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
     if (is_frozen()) return;
 
-    auto @syncables = rom.syncables;
+    auto @syncables = @rom.syncables;
 
     // track names of items received:
     received_items.reserve(syncables.length());
@@ -1480,7 +1482,7 @@ class LocalGameState : GameState {
     uint len = players.length();
     uint slen = syncables.length();
     for (uint k = 0; k < slen; k++) {
-      auto @syncable = syncables[k];
+      auto @syncable = @syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
 

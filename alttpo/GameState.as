@@ -539,7 +539,9 @@ class GameState {
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
-      sram[start + i] = r[c++];
+      auto offs = start + i;
+      auto b = r[c++];
+      sram[offs] = b;
     }
 
     return c;

@@ -65,6 +65,13 @@ void post_frame() {
     //for (uint i = 0; i < 0x10; i++) {
     //  ppu::frame.text(224, i<<3, fmtHex(bus::read_u8(0x7EF390 + i), 2));
     //}
+
+    // chest counters:
+    //for (uint i = 0; i < 0x10; i++) {
+    //  ppu::frame.text(224, (5+i)<<3, fmtHex(bus::read_u8(0x7EF4C0 + i), 2));
+    //  //ppu::frame.text(224, (7+i)<<3, fmtHex(bus::read_u8(0x7EF434 + i), 2));
+    //  //ppu::frame.text(224, (7+i)<<3, fmtHex(local.sram[0x434 + i], 2));
+    //}
   }
 
   if (sprites !is null) {
