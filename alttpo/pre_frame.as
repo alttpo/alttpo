@@ -37,13 +37,13 @@ void on_main_alttp(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
-
     local.update_tilemap();
 
     local.update_wram();
 
     local.update_ancillae();
+
+    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
 
     if ((local.frame & 15) == 0) {
       local.update_items(sram);
@@ -55,9 +55,6 @@ void on_main_alttp(uint32 pc) {
     if ((local.frame & 31) == 16) {
       local.update_overworld(sram);
     }
-
-    // write back any changes to SRAM:
-    sram.commit();
 
     if (enableObjectSync) {
       local.update_objects();
@@ -123,8 +120,6 @@ void on_main_sm(uint32 pc) {
         SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
 
         local.update_items(sram);
-
-        sram.commit();
       }
     }
   }

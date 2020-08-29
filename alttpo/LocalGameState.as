@@ -8,11 +8,13 @@ class ALTTPSRAMArray : SRAMArray {
     super(sram);
   }
 
-  void commit() override {
-    if (dirty) {
-      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
+  void write_u8 (uint16 offs, uint8 value) override {
+    if (sram[offs] == value) {
+      return;
     }
-    dirty = false;
+
+    bus::write_u8(0x7EF000 + offs, value);
+    sram[offs] = value;
   }
 }
 
@@ -21,12 +23,15 @@ class SMSRAMArray : SRAMArray {
     super(sram);
   }
 
-  void commit() override {
-    if (dirty) {
-      // commit back to SM's SRAM temporary item buffer for ALTTP:
-      bus::write_block_u8(0xA17B00, 0x300, 0x100, sram);
+  void write_u8 (uint16 offs, uint8 value) override {
+    if (sram[offs] == value) {
+      return;
     }
-    dirty = false;
+
+    if (offs >= 0x300 && offs < 0x400) {
+      bus::write_u8(0xA17B00 + offs - 0x300, value);
+    }
+    sram[offs] = value;
   }
 }
 
@@ -355,6 +360,8 @@ class LocalGameState : GameState {
   void fetch() {
     sprites_need_vram = false;
 
+    fetch_sram();
+
     // player state:
     // 0x00 - ground state
     // 0x01 - falling into a hole
@@ -448,8 +455,6 @@ class LocalGameState : GameState {
     yoffs = int16(bus::read_u16(0x7E00E8)) - int16(bus::read_u16(0x7E011C));
 
     fetch_sprites();
-
-    fetch_sram();
 
     fetch_objects();
 
@@ -1539,7 +1544,7 @@ class LocalGameState : GameState {
         //if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
-        syncable.apply(d, remote);
+        syncable.apply(d, @SRAMArray(remote.sram));
       }
 
       // write back any new updates:
@@ -1583,7 +1588,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
-        areas[a].apply(d, remote);
+        areas[a].apply(d, @SRAMArray(remote.sram));
       }
     }
 
@@ -1636,7 +1641,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].apply(d, remote);
+        rooms[a].apply(d, @SRAMArray(remote.sram));
       }
     }
 
