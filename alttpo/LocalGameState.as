@@ -1787,9 +1787,6 @@ class LocalGameState : GameState {
       if (dungeon_room == 0x0000) return false;
 
       return true;
-    } else if (module == 0x0F) {
-      // closing spotlight:
-      return true;
     } else if (module == 0x10) {
       // opening spotlight:
       return true;
@@ -1800,7 +1797,7 @@ class LocalGameState : GameState {
   }
 
   void update_tilemap() {
-    bool write_to_vram = true;
+    bool write_to_vram = false;
 
     if (!is_safe_to_write_tilemap()) {
       return;
@@ -1808,8 +1805,9 @@ class LocalGameState : GameState {
 
     // don't write to VRAM when...
     if (module == 0x09) {
-
       // overworld:
+      write_to_vram = true;
+
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
       // during lost woods transition:
@@ -1822,6 +1820,8 @@ class LocalGameState : GameState {
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x0B) {
       // master sword or zora:
+      write_to_vram = true;
+
       // safety measure here:
       if (sub_module >= 0x01) write_to_vram = false;
       // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
@@ -1831,6 +1831,8 @@ class LocalGameState : GameState {
       tilemap.determine_vram_bounds_overworld();
     } else if (module == 0x07) {
       // underworld:
+      write_to_vram = true;
+
       // scrolling between rooms in same supertile:
       if (sub_module == 0x01) write_to_vram = false;
       // loading new supertile:
