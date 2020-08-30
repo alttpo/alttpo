@@ -107,6 +107,7 @@ class GameState {
   uint8 sfx2_ttl = 0;
 
   array<uint8> sram(0x500);
+  array<uint8> sram_buffer(0x500);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -173,6 +174,7 @@ class GameState {
 
     for (uint i = 0; i < 0x500; i++) {
       sram[i] = 0;
+	  sram_buffer[i] = 0;
     }
 
     //array<GameSprite@> objects(0x10);
@@ -190,11 +192,8 @@ class GameState {
     tilemapTimestamp = 0;
     tilemapLocation = 0;
 
-    ancillaeOwner.resize(0xA);
-    ancillae.resize(0xA);
     for (uint i = 0; i < 0x0A; i++) {
       ancillaeOwner[i] = -1;
-      @ancillae[i] = @GameAncilla();
     }
     //array<GameAncilla@> ancillae;
 
@@ -299,6 +298,11 @@ class GameState {
       return locations_equal(last_location, other_location);
     }
     return false;
+  }
+  
+  bool can_see_sm(uint32 other_location) const{
+	
+	return false;
   }
 
   bool is_really_in_same_location(uint32 other_location) const {
@@ -554,11 +558,10 @@ class GameState {
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
-      auto offs = start + i;
-      auto b = r[c++];
-      sram[offs] = b;
+      sram[start + i] = r[c++];
+	  sram_buffer[start + i] = r[c++];
     }
-
+	
     return c;
   }
 

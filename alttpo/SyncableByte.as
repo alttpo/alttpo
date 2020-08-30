@@ -91,13 +91,10 @@ class SyncableByte {
   }
 
   void compareTo(SyncableByte@ other) {
-    auto otherTimestamp = other.timestamp;
-    if (otherTimestamp > timestampCompare) {
-      @winner = @other;
-      timestampCompare = otherTimestamp;
-    } else if (otherTimestamp == this.timestamp && other.value > this.value) {
-      // fallback case to update our value if somebody has a larger one but maybe we overwrote it:
-      @winner = @other;
-    }
+    //auto otherTimestamp = other.timestamp;
+    //if (otherTimestamp > timestampCompare) {
+    //  @winner = @other;
+    //  timestampCompare = otherTimestamp;
+    //}
   }
 };

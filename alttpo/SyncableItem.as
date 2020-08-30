@@ -1,10 +1,14 @@
 
 interface SRAM {
   uint8  read_u8 (uint16 offs);
+  uint8  read_u8_buffer (uint16 offs);
   uint16 read_u16(uint16 offs);
+  uint16  read_u16_buffer (uint16 offs);
 
   void write_u8 (uint16 offs, uint8 value);
-  void write_u16(uint16 offs, uint16 value);
+  void write_u8_buffer (uint16 offs, uint8 value);
+  void write_u16 (uint16 offs, uint16 value);
+  void write_u16_buffer (uint16 offs, uint16 value);
 
   void commit();
 }
@@ -16,17 +20,25 @@ funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived
 
 class SRAMArray : SRAM {
   array<uint8>@ sram;
+  array<uint8>@ sram_buffer;
   bool dirty = false;
 
-  SRAMArray(array<uint8>@ sram) {
+  SRAMArray(array<uint8>@ sram,array<uint8>@ sram_buffer) {
     @this.sram = @sram;
+	@this.sram_buffer = @sram_buffer;
   }
 
   uint8  read_u8 (uint16 offs) {
     return sram[offs];
   }
+  uint8  read_u8_buffer (uint16 offs) {
+    return sram_buffer[offs];
+  }
   uint16 read_u16(uint16 offs) {
     return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
+  }
+  uint16 read_u16_buffer(uint16 offs) {
+    return uint16(sram_buffer[offs]) | (uint16(sram_buffer[offs+1]) << 8);
   }
 
   void write_u8 (uint16 offs, uint8 value) {
@@ -35,9 +47,19 @@ class SRAMArray : SRAM {
     }
     sram[offs] = value;
   }
+  void write_u8_buffer (uint16 offs, uint8 value) {
+    if (sram_buffer[offs] != value) {
+      dirty = true;
+    }
+    sram_buffer[offs] = value;
+  }
   void write_u16(uint16 offs, uint16 value) {
     write_u8(offs+0, uint8(value));
     write_u8(offs+1, uint8(value >> 8));
+  }
+  void write_u16_buffer(uint16 offs, uint16 value) {
+    write_u8_buffer(offs+0, uint8(value));
+    write_u8_buffer(offs+1, uint8(value >> 8));
   }
 
   void commit() {
@@ -52,20 +74,23 @@ class SyncableItem {
   uint8   type;   // 0 - custom mutate, 1 - highest wins, 2 - bitfield, 3+ TBD...
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
+  uint8 is_sm;
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null) {
+  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null, uint8 is_sm = 0) {
     this.offs = offs;
     this.size = size;
     this.type = type;
     @this.notifyNewItems = notifyNewItems;
+	this.is_sm = is_sm;
   }
 
-  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null) {
+  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null, uint8 is_sm = 0) {
     this.offs = offs;
     this.size = size;
     this.type = 0;
     @this.mutate = mutate;
     @this.notifyNewItems = notifyNewItems;
+	this.is_sm = is_sm;
   }
 
   uint16 oldValue;
@@ -74,9 +99,18 @@ class SyncableItem {
     oldValue = read(sram);
     newValue = oldValue;
   }
+  
+  void start_buffer(SRAM@ sram) {
+    oldValue = read_buffer(sram);
+    newValue = oldValue;
+  }
 
   void apply(SRAM@ sram, GameState @remote) {
-    auto remoteValue = read(@SRAMArray(remote.sram));
+    auto @ram_array = @SRAMArray(remote.sram, remote.sram_buffer);
+	auto remoteValue = read(@ram_array);
+	if(is_sm != remote.in_sm){
+		remoteValue = read_buffer(@ram_array);
+	}
     newValue = modify(sram, newValue, remoteValue);
   }
 
@@ -90,6 +124,19 @@ class SyncableItem {
     }
 
     write(sram, newValue);
+    return true;
+  }
+  
+  bool finish_buffer(SRAM@ sram, NotifyItemReceived @notifyItemReceived = null) {
+    if (newValue == oldValue) {
+      return false;
+    }
+
+    if ((notifyNewItems !is null) && (notifyItemReceived !is null)) {
+      notifyNewItems(oldValue, newValue, notifyItemReceived);
+    }
+
+    write_buffer(sram, newValue);
     return true;
   }
 
@@ -120,12 +167,28 @@ class SyncableItem {
       return sram.read_u16(offs);
     }
   }
+  
+  uint16 read_buffer(SRAM@ sram) {
+    if (size == 1) {
+      return sram.read_u8_buffer(offs);
+    } else {
+      return sram.read_u16_buffer(offs);
+    }
+  }
 
   void write(SRAM@ sram, uint16 newValue) {
     if (size == 1) {
       sram.write_u8(offs, uint8(newValue));
     } else if (size == 2) {
       sram.write_u16(offs, newValue);
+    }
+  }
+  
+  void write_buffer(SRAM@ sram, uint16 newValue) {
+    if (size == 1) {
+      sram.write_u8_buffer(offs, uint8(newValue));
+    } else if (size == 2) {
+      sram.write_u16_buffer(offs, newValue);
     }
   }
 };
@@ -242,6 +305,8 @@ uint16 mutateProgress1(SRAM@ sram, uint16 oldValue, uint16 newValue) {
         sram.write_u8(0x3CC, 0x00);
       }
     }
+  } else{
+	return oldValue;
   }
 
   // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up:
@@ -254,6 +319,7 @@ uint16 mutateProgress1(SRAM@ sram, uint16 oldValue, uint16 newValue) {
 // 0x3C9
 uint16 mutateProgress2(SRAM@ sram, uint16 oldValue, uint16 newValue) {
   // lose smithy follower if already rescued:
+  if (!rom.is_alttp()) return oldValue;
   if ((newValue & 0x20) == 0x20) {
     auto follower = sram.read_u8(0x3CC);
     if (follower == 0x07 || follower == 0x08) {
@@ -569,6 +635,32 @@ const array<string> @progress2Names = { "Q#Hobo check completed",
                                         "Q#Smithy Rescue completed",
                                         "",
                                         "Q#Sword Tempering started" };
+const array<string> @variable1Names = { "Varia Suit",
+										"Spring Ball",
+										"Morph Ball",
+										"Screw Attack",
+										"",
+										"Gravity Suit",
+										"",
+										"" };
+											  
+const array<string> @variable2Names = { "High Jump Boots",
+										"Space Jump",
+										"",
+										"",
+										"Bombs",
+										"",
+										"",
+										"" };
+
+const array<string> @variable3Names = { "Wave Beam",
+										"Ice Beam",
+										"Spazer",
+										"Plasma",
+										"",
+										"",
+										"",
+										"" };
 
 void nameForCompass1 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass1Names, notify, old, new); }
 void nameForCompass2 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass2Names, notify, old, new); }
@@ -580,6 +672,10 @@ void nameForPendants (uint16 old, uint16 new, NotifyItemReceived @notify) { noti
 void nameForCrystals (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(crystalsNames, notify, old, new); }
 void nameForProgress1(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(progress1Names, notify, old, new); }
 void nameForProgress2(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(progress2Names, notify, old, new); }
+
+void nameForMetroidSuits (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable1Names, notify, old, new); }
+void nameForMetroidBoots (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable2Names, notify, old, new); }
+void nameForMetroidBeams (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable3Names, notify, old, new); }
 
 const array<string> @randomizerItems1Names = { "Flute (activated)",
                                                "Flute",
