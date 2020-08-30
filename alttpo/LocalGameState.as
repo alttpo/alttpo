@@ -4,27 +4,31 @@ const uint MaxPacketSize = 1452;
 const uint OverworldAreaCount = 0x82;
 
 class ALTTPSRAMArray : SRAMArray {
-  ALTTPSRAMArray(array<uint8>@ sram) {
-    super(sram);
+  ALTTPSRAMArray(array<uint8>@ sram, array<uint8>@ sram_buffer) {
+    super(sram, sram_buffer);
   }
 
   void commit() override {
     if (dirty) {
-      bus::write_block_u8(0x7EF000, 0, 0x500, sram);
+	//commit to main LTTP memory and SM buffer
+    bus::write_block_u8(0x7EF000, 0, 0x500, sram);
+	bus::write_block_u8(0xA17900, 0, 0x36, sram_buffer);
     }
     dirty = false;
   }
 }
 
 class SMSRAMArray : SRAMArray {
-  SMSRAMArray(array<uint8>@ sram) {
-    super(sram);
+  SMSRAMArray(array<uint8>@ sram,array<uint8>@ sram_buffer) {
+    super(sram, sram_buffer);
   }
 
   void commit() override {
     if (dirty) {
-      // commit back to SM's SRAM temporary item buffer for ALTTP:
-      bus::write_block_u8(0xA17B00, 0x300, 0x100, sram);
+      // commit back to main SM memory and LTTP buffer
+      bus::write_block_u8(0x7E09A2, 0, 0x500, sram);
+	  bus::write_block_u8(0xA17B00, 0x300, 0x200, sram_buffer);
+	  
     }
     dirty = false;
   }
@@ -488,8 +492,8 @@ class LocalGameState : GameState {
   void fetch_sram() {
     // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
     if (is_frozen()) return;
-
-    bus::read_block_u8(0x7EF000, 0, 0x500, sram);
+	bus::read_block_u8(0x7EF000, 0, 0x500, sram);
+	bus::read_block_u8(0xA17900, 0, 0x36, sram_buffer);
   }
 
   void fetch_objects() {
@@ -1006,9 +1010,10 @@ class LocalGameState : GameState {
     r.write_u16(count);
     for (uint i = 0; i < count; i++) {
       r.write_u8(sram[start + i]);
+	  r.write_u8(sram_buffer[start + i]);
     }
   }
-
+  
   void serialize_wram(array<uint8> &r) {
     // write a table of 1 sync-byte for dungeon crystal switch state:
     r.write_u8(uint8(0x05));
@@ -1393,6 +1398,7 @@ class LocalGameState : GameState {
         rom.serialize_sram_ranges(envelope, serializeSramDelegate);
         p = send_packet(envelope, p);
       }
+	  
 
       // send dungeon and overworld SRAM alternating every 16 frames:
       if ((frame & 31) == 0) {
@@ -1490,7 +1496,7 @@ class LocalGameState : GameState {
       if (is_it_a_bad_time()) return;
       // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
       if (is_frozen()) return;
-    }
+    } else if (sm_loading_room()) return;
 
     auto @syncables = rom.syncables;
 
@@ -1507,8 +1513,12 @@ class LocalGameState : GameState {
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
 
-      // start the sync process for each syncable item in SRAM:
-      syncable.start(d);
+    // start the sync process for each syncable item in SRAM:
+	if (syncable.is_sm == in_sm){
+		syncable.start(d);
+	} else {
+		syncable.start_buffer(d);
+	}
 
       // apply remote values from all other active players:
       for (uint i = 0; i < len; i++) {
@@ -1523,7 +1533,11 @@ class LocalGameState : GameState {
       }
 
       // write back any new updates:
-      syncable.finish(d, itemReceivedDelegate);
+	  if (syncable.is_sm == in_sm){
+		syncable.finish(d, itemReceivedDelegate);
+	  } else {
+		syncable.finish_buffer(d, itemReceivedDelegate);
+	  }
     }
 
     // Generate notification messages:

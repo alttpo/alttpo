@@ -38,7 +38,7 @@ void on_main_alttp(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
+    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram, @local.sram_buffer);
 
     local.update_tilemap();
 
@@ -107,15 +107,15 @@ void on_main_sm(uint32 pc) {
   local.numsprites = 0;
   local.sprites.resize(0);
   local.actual_location = 0;
-
-  if (sm_is_safe_state()) {
-    // read ALTTP temporary item buffer from SM SRAM:
-    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
-  }
   
-  local.get_sm_coords();
   local.is_in_sm(!rom.is_alttp());
   local.get_sm_coords();
+  
+  if (sm_is_safe_state()) {
+    // read ALTTP temporary item buffer from SM SRAM:
+	bus::read_block_u8(0x7E09A2, 0, 0x500, local.sram);
+    bus::read_block_u8(0xA17B00, 0x300, 0x200, local.sram_buffer);
+  }
 	
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
@@ -128,9 +128,9 @@ void on_main_sm(uint32 pc) {
   if (!settings.RaceMode) {
     // all we can do is update items:
     if ((local.frame & 15) == 0) {
-      if (sm_is_safe_state()) {
+      if (sm_is_safe_state() && !sm_loading_room()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
-        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
+        SMSRAMArray@ sram = @SMSRAMArray(@local.sram, @local.sram_buffer);
 
         local.update_items(sram);
 

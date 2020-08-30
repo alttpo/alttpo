@@ -91,10 +91,10 @@ class SyncableByte {
   }
 
   void compareTo(SyncableByte@ other) {
-    auto otherTimestamp = other.timestamp;
-    if (otherTimestamp > timestampCompare) {
-      @winner = @other;
-      timestampCompare = otherTimestamp;
-    }
+    //auto otherTimestamp = other.timestamp;
+    //if (otherTimestamp > timestampCompare) {
+    //  @winner = @other;
+    //  timestampCompare = otherTimestamp;
+    //}
   }
 };
