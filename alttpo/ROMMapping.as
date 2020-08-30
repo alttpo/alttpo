@@ -313,6 +313,9 @@ class RandomizerMapping : JPROMMapping {
         syncables.insertAt(i, @SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1));
       }
     }
+
+    // track progressive shield:
+    syncables.insertLast(@SyncableItem(0x416, 1, @mutateProgressiveShield));
   }
 
   void syncShops() {

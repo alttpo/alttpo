@@ -292,6 +292,13 @@ uint16 mutateShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   return oldValue;
 }
 
+uint16 mutateProgressiveShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+  if (newValue > oldValue) {
+    return newValue;
+  }
+  return oldValue;
+}
+
 // NOTE: this is called for both gloves and armor separately so could JSL twice in succession for one frame.
 uint16 mutateArmorGloves(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {
@@ -428,31 +435,31 @@ void nameForBow        (uint16 old, uint16 new, NotifyItemReceived @notify) {
   if (old == 4 && new == 3) return;
   notifySingleItem(bowNames, notify, new);
 }
-void nameForBoomerang  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(boomerangNames, notify, new); }
-void nameForHookshot   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hookshotNames, notify, new); }
-void nameForMushroom   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(mushroomNames, notify, new); }
-void nameForFirerod    (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(firerodNames, notify, new); }
-void nameForIcerod     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(icerodNames, notify, new); }
-void nameForBombos     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bombosNames, notify, new); }
-void nameForEther      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(etherNames, notify, new); }
-void nameForQuake      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(quakeNames, notify, new); }
-void nameForLamp       (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(lampNames, notify, new); }
-void nameForHammer     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hammerNames, notify, new); }
-void nameForFlute      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(fluteNames, notify, new); }
-void nameForBugnet     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bugnetNames, notify, new); }
-void nameForBook       (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bookNames, notify, new); }
-void nameForCanesomaria(uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canesomariaNames, notify, new); }
-void nameForCanebyrna  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canebyrnaNames, notify, new); }
-void nameForMagiccape  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magiccapeNames, notify, new); }
-void nameForMagicmirror(uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicmirrorNames, notify, new); }
-void nameForGloves     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(glovesNames, notify, new); }
-void nameForBoots      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bootsNames, notify, new); }
-void nameForFlippers   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(flippersNames, notify, new); }
-void nameForMoonpearl  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(moonpearlNames, notify, new); }
-void nameForSword      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(swordNames, notify, new); }
-void nameForShield     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(shieldNames, notify, new); }
-void nameForArmor      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(armorNames, notify, new); }
-void nameForBottle     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bottleNames, notify, new); }
+void nameForBoomerang        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(boomerangNames, notify, new); }
+void nameForHookshot         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hookshotNames, notify, new); }
+void nameForMushroom         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(mushroomNames, notify, new); }
+void nameForFirerod          (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(firerodNames, notify, new); }
+void nameForIcerod           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(icerodNames, notify, new); }
+void nameForBombos           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bombosNames, notify, new); }
+void nameForEther            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(etherNames, notify, new); }
+void nameForQuake            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(quakeNames, notify, new); }
+void nameForLamp             (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(lampNames, notify, new); }
+void nameForHammer           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hammerNames, notify, new); }
+void nameForFlute            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(fluteNames, notify, new); }
+void nameForBugnet           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bugnetNames, notify, new); }
+void nameForBook             (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bookNames, notify, new); }
+void nameForCanesomaria      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canesomariaNames, notify, new); }
+void nameForCanebyrna        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canebyrnaNames, notify, new); }
+void nameForMagiccape        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magiccapeNames, notify, new); }
+void nameForMagicmirror      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicmirrorNames, notify, new); }
+void nameForGloves           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(glovesNames, notify, new); }
+void nameForBoots            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bootsNames, notify, new); }
+void nameForFlippers         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(flippersNames, notify, new); }
+void nameForMoonpearl        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(moonpearlNames, notify, new); }
+void nameForSword            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(swordNames, notify, new); }
+void nameForShield           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(shieldNames, notify, new); }
+void nameForArmor            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(armorNames, notify, new); }
+void nameForBottle           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bottleNames, notify, new); }
 
 void nameForMagic         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicNames, notify, new); }
 void nameForWorldState    (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(worldStateNames, notify, new); }
