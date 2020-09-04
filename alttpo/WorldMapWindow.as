@@ -9,7 +9,7 @@ class WorldMapWindow {
   GUI::SNESCanvas @darkWorld;
   GUI::Canvas @underworld;
   GUI::Canvas @metroid;
-  
+
   array<GUI::SNESCanvas@> dots;
   array<float> dotX(0);
   array<float> dotY(0);
@@ -93,7 +93,7 @@ class WorldMapWindow {
         metroid.color = GUI::Color(192, 0, 0);
       }
 	}
-	
+
     auto @hl = GUI::HorizontalLayout();
     vl.append(hl, GUI::Size(-1, sy(24)));
 
@@ -102,7 +102,7 @@ class WorldMapWindow {
     @chkAuto = GUI::CheckLabel();
     hl.append(chkAuto, GUI::Size(0, 0));
 
-    // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld, 3 = metroid
+    // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld 3 == metroid
     auto @di = GUI::ComboButtonItem();
     di.text = "Light World";
     di.setSelected();
@@ -119,7 +119,7 @@ class WorldMapWindow {
 	@di = GUI::ComboButtonItem();
 	di.text = "Super Metroid";
 	dd.append(di);
-	
+
     dd.onChange(@GUI::Callback(toggledLightDarkWorld));
     dd.enabled = false;
 
@@ -151,8 +151,7 @@ class WorldMapWindow {
       s = underworld.geometry.size;
       screenWidth = 8192;
       screenHeight = 9728;
-    }
-	else if (screen == 3){
+    } else if (screen == 3){
 	  s = metroid.geometry.size;
 	  screenWidth = 542;
       screenHeight = 455;
@@ -216,10 +215,10 @@ class WorldMapWindow {
     // dark = (actual_location & 0x020000) == 0x020000
 	if (bus::read_u8(0xA173FE) != 0){
 		return 3;
-	}else if (((p.actual_location & 0x010000) == 0x010000) && (p.dungeon != 0xFF)) {
+	} else if (((p.actual_location & 0x010000) == 0x010000) && (p.dungeon != 0xFF)) {
       // 2 = underworld, only for dungeons:
       return 2;
-    }else {
+    } else {
       // 0 = light overworld, 1 = dark overworld:
       return (p.actual_location & 0x020000) >> 17;
     }
@@ -228,17 +227,16 @@ class WorldMapWindow {
   bool showsOnScreen(const GameState &in p, int screen) {
     if(screen == 3){
 	  return p.in_sm == 1;
+	} else if(p.in_sm == 1){
+	  return false;
 	} else if (screen == 0) {
       // must be in light world:
-	  if (p.in_sm == 1) return false;
       return (p.actual_location & 0x020000) == 0;
     } else if (screen == 1) {
       // must be in dark world:
-	  if (p.in_sm == 1) return false;
       return (p.actual_location & 0x020000) == 0x020000;
     } else if (screen == 2) {
       // must be in underworld in light or dark world:
-	  if (p.in_sm == 1) return false;
       return (p.actual_location & 0x010000) == 0x010000;
     }
     return false;
@@ -551,7 +549,7 @@ class WorldMapWindow {
 		// +.37 in the x direction to center 
 		// +.35 in the y direction
 		x = float(px) * squareSize + p.sm_sub_x/float(32) * mapscale;
-		y = float(py) * squareSize + p.sm_sub_y/float(32) * mapscale - .35;
+		y = float(py) * squareSize + p.sm_sub_y/float(32) * mapscale - .4;
 	}
   }
 
@@ -594,7 +592,7 @@ class WorldMapWindow {
     for (uint i = 0; i < psLen; i++) {
       auto @p = ps[i];
       auto @dot = dots[i];
-	  if (p is null) continue;
+
       if ((p.ttl <= 0) || (!showsOnScreen(p, screen))) {
         // If player disappeared, hide their dot:
         dot.setPosition(-128, -128);
@@ -618,8 +616,7 @@ class WorldMapWindow {
       }
     }
   }
-  
-   int8 metroid_area_base_x(uint8 area){
+  int8 metroid_area_base_x(uint8 area){
 	switch(area){
 		case 0x00: return -1;
 		case 0x01: return -4;
@@ -641,5 +638,4 @@ class WorldMapWindow {
 	}
 	return 0;
  }
-
 };

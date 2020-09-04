@@ -15,7 +15,7 @@ void on_main_alttp(uint32 pc) {
   }
 
   local.fetch();
-  local.is_in_sm(!rom.is_alttp());
+  local.set_in_sm(!rom.is_alttp());
 
   if (settings.SyncTunic) {
     local.update_palette();
@@ -38,16 +38,18 @@ void on_main_alttp(uint32 pc) {
   }
 
   if (!settings.RaceMode) {
-    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram, @local.sram_buffer);
-
     local.update_tilemap();
 
     local.update_wram();
 
     local.update_ancillae();
 
+    ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
+	ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
+
     if ((local.frame & 15) == 0) {
       local.update_items(sram);
+	  local.update_items(sram_buffer, true);
     }
 
     if ((local.frame & 31) == 0) {
@@ -56,9 +58,6 @@ void on_main_alttp(uint32 pc) {
     if ((local.frame & 31) == 16) {
       local.update_overworld(sram);
     }
-
-    // write back any changes to SRAM:
-    sram.commit();
 
     if (enableObjectSync) {
       local.update_objects();
@@ -87,17 +86,13 @@ bool sm_is_safe_state() {
   return true;
 }
 
-bool sm_loading_room(){
-	return sm_state == 0x0b;
-}
-
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
 
   rom.check_game();
-  
-  
+  local.set_in_sm(!rom.is_alttp());
+
   sm_state = bus::read_u8(0x7E0998);
 
   local.module = 0x00;
@@ -107,16 +102,13 @@ void on_main_sm(uint32 pc) {
   local.numsprites = 0;
   local.sprites.resize(0);
   local.actual_location = 0;
-  
-  local.is_in_sm(!rom.is_alttp());
-  local.get_sm_coords();
-  
+
   if (sm_is_safe_state()) {
     // read ALTTP temporary item buffer from SM SRAM:
-	bus::read_block_u8(0x7E09A2, 0, 0x500, local.sram);
-    bus::read_block_u8(0xA17B00, 0x300, 0x200, local.sram_buffer);
+	bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram_buffer);
+    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
   }
-	
+
   if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
     local.send();
@@ -128,13 +120,13 @@ void on_main_sm(uint32 pc) {
   if (!settings.RaceMode) {
     // all we can do is update items:
     if ((local.frame & 15) == 0) {
-      if (sm_is_safe_state() && !sm_loading_room()) {
+      if (sm_is_safe_state()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
-        SMSRAMArray@ sram = @SMSRAMArray(@local.sram, @local.sram_buffer);
+        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
+		SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
 
         local.update_items(sram);
-
-        sram.commit();
+		local.update_items(sram_buffer, true);
       }
     }
   }

@@ -67,8 +67,8 @@ class GameState {
   int16 yoffs;
 
   uint16 x, y;
-
-  //HIDECHANGE coordinates for super metroid game
+  
+  //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 in_sm;
 
@@ -192,8 +192,11 @@ class GameState {
     tilemapTimestamp = 0;
     tilemapLocation = 0;
 
+    ancillaeOwner.resize(0xA);
+    ancillae.resize(0xA);
     for (uint i = 0; i < 0x0A; i++) {
       ancillaeOwner[i] = -1;
+      @ancillae[i] = @GameAncilla();
     }
     //array<GameAncilla@> ancillae;
 
@@ -236,7 +239,6 @@ class GameState {
   }
 
   bool is_in_overworld_module() const {
-	if (in_sm == 1) return false;
     if (module == 0x09 || module == 0x0B) return true;
     return false;
   }
@@ -298,11 +300,6 @@ class GameState {
       return locations_equal(last_location, other_location);
     }
     return false;
-  }
-  
-  bool can_see_sm(uint32 other_location) const{
-	
-	return false;
   }
 
   bool is_really_in_same_location(uint32 other_location) const {
@@ -558,10 +555,13 @@ class GameState {
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
-      sram[start + i] = r[c++];
-	  sram_buffer[start + i] = r[c++];
+      auto offs = start + i;
+      auto b = r[c++];
+	  auto b2 = r[c++];
+      sram[offs] = b;
+	  sram_buffer[offs] = b2;
     }
-	
+
     return c;
   }
 
@@ -892,20 +892,6 @@ class GameState {
         sfx2 = 0;
       }
     }
-  }
-  
-  void is_in_sm(bool b = true){
-	in_sm = (b ? 1 : 0);
-  }
-   
-  void get_sm_coords(){
-	if (sm_loading_room()) return;
-	sm_area = bus::read_u8(0x7E079f);
-	sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
-	sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
-	sm_sub_x = bus::read_u8(0x7E0AF6);
-	sm_sub_y = bus::read_u8(0x7E0AFA);
-	in_sm = 1;
   }
 
 };

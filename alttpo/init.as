@@ -23,6 +23,7 @@ bool enableRenderToExtra = true;
 
 void init() {
   //message("init()");
+  timestamp_now = chrono::realtime::millisecond;
 
   @settings = SettingsWindow();
   settings.ServerAddress = "alttp.online";
@@ -65,15 +66,17 @@ void cartridge_loaded() {
   // Auto-detect ROM version:
   @rom = detect();
 
-  //auto len = rom.syncables.length();
-  //for (uint i = 0; i < len; i++) {
-  //  auto @s = rom.syncables[i];
-  //  if (s is null) {
-  //    message("[" + fmtInt(i) + "] = null");
-  //    continue;
-  //  }
-  //  message("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
-  //}
+  if (debugData) {
+    auto len = rom.syncables.length();
+    for (uint i = 0; i < len; i++) {
+      auto @s = rom.syncables[i];
+      if (s is null) {
+        dbgData("[" + fmtInt(i) + "] = null");
+        continue;
+      }
+      dbgData("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
+    }
+  }
 
   // read the JSL target address from the RESET vector code:
   rom.read_main_routing();
@@ -100,7 +103,6 @@ void post_power(bool reset) {
   //message("post_power()");
 
   if (!reset) {
-    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     rom.register_pc_intercepts();
 
     //cpu::register_pc_interceptor(0x008D13, @debug_pc);  // in NMI - scrolling OW tilemap update on every 16x16 change
@@ -147,3 +149,11 @@ int playerCount = 0;
 bool font_set = false;
 
 uint32 timestamp_now = 0;
+
+void dbgData(const string &in msg) {
+  if (!debugData) {
+    return;
+  }
+  // e.g. " 830621282) debug log message"
+  message(pad(timestamp_now, 10) + ") " + msg);
+}
