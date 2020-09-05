@@ -1456,10 +1456,12 @@ class LocalGameState : GameState {
         crystal.compareTo(remote.crystal);
       }
 
-      // update small keys:
-      if (remote.small_keys !is null) {
-        for (uint j = 0; j < 0x10; j++) {
-          small_keys[j].compareTo(remote.small_keys[j]);
+      if (enableSmallKeySync) {
+        // update small keys:
+        if (remote.small_keys !is null) {
+          for (uint j = 0; j < 0x10; j++) {
+            small_keys[j].compareTo(remote.small_keys[j]);
+          }
         }
       }
     }
