@@ -1037,13 +1037,15 @@ class LocalGameState : GameState {
     r.write_u16(crystal.offs);
     crystal.serialize(r);
 
-    // write a table of 16 sync-bytes for dungeon small keys:
-    r.write_u8(uint8(0x05));
-    r.write_u8(uint8(0x10));
-    r.write_u16(small_keys_min_offs);
-    for (uint8 i = 0; i < 0x10; i++) {
-      auto @k = @small_keys[i];
-      k.serialize(r);
+    if (enableSmallKeySync) {
+      // write a table of 16 sync-bytes for dungeon small keys:
+      r.write_u8(uint8(0x05));
+      r.write_u8(uint8(0x10));
+      r.write_u16(small_keys_min_offs);
+      for (uint8 i = 0; i < 0x10; i++) {
+        auto @k = @small_keys[i];
+        k.serialize(r);
+      }
     }
   }
 
@@ -1434,8 +1436,10 @@ class LocalGameState : GameState {
 
     // reset comparison state:
     crystal.compareStart();
-    for (uint j = 0; j < 0x10; j++) {
-      small_keys[j].compareStart();
+    if (enableSmallKeySync) {
+      for (uint j = 0; j < 0x10; j++) {
+        small_keys[j].compareStart();
+      }
     }
 
     // compare remote values from all other active players:
@@ -1476,23 +1480,25 @@ class LocalGameState : GameState {
       }
     }
 
-    auto this_dungeon = dungeon >> 1;
-    for (uint j = 0; j < 0x10; j++) {
-      auto @key = small_keys[j];
-      if (key.winner is null) {
-        continue;
-      }
+    if (enableSmallKeySync) {
+      auto this_dungeon = dungeon >> 1;
+      for (uint j = 0; j < 0x10; j++) {
+        auto @key = small_keys[j];
+        if (key.winner is null) {
+          continue;
+        }
 
-      key.updateTo(key.winner);
-      if (debugData) {
-        dbgData("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
-      }
+        key.updateTo(key.winner);
+        if (debugData) {
+          dbgData("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+        }
 
-      if (dungeon != 0xFF && module == 0x07) {
-        if (this_dungeon == j) {
-          // update current dungeon key counter:
-          small_keys_current.updateTo(key);
-          dbgData("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+        if (dungeon != 0xFF && module == 0x07) {
+          if (this_dungeon == j) {
+            // update current dungeon key counter:
+            small_keys_current.updateTo(key);
+            dbgData("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+          }
         }
       }
     }

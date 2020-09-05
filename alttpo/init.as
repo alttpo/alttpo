@@ -18,8 +18,11 @@ bool debugRTDSapply = false;
 bool enableMap = true;
 bool enableBgMusic = true;
 
-bool enableObjectSync = false;
 bool enableRenderToExtra = true;
+
+// sync control:
+bool enableObjectSync = false;
+bool enableSmallKeySync = false;
 
 void init() {
   //message("init()");
