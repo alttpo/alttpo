@@ -76,6 +76,11 @@ class LocalGameState : GameState {
       return oldValue | (newValue & 0xFEFF);
     });
 
+    // desync swamp inner watergate at $7EF06A (supertile $35)
+    @rooms[0x035] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+      return oldValue | (newValue & 0xFF7F);
+    });
+
     // SRAM [$250..$27f] unused
 
     // SRAM [$280..$301] overworld areas:
