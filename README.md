@@ -78,6 +78,16 @@ Press the `Connect` button to go online and join your group. This window will st
     1. Make sure you're all using the same server Address. Use "alttp.online" as the default unless you're hosting your own server.
     1. Be sure you have UDP port 4590 open for bidirectional communication to the public internet.
 
+### MacOS Catalina
+
+#### Help! I cannot open bsnes-as on MacOS Catalina (10.15)!
+
+![MacOS Catalina Error](static/macos-catalina.png)
+
+If you see this window, delete your extracted folder and instead extract the downloaded archive using https://www.keka.io/en/ file archiver, or any other archive software besides the built-in "Archive Utility.app". In other words, DO NOT use the built-in "Archive Utility.app" to extract the download or MacOS Catalina will refuse to open the app.
+
+### Other issues
+
 For any other issues, please feel free to use the Github Issues feature and make a report, or go to our discord and use the #bug-reports channel.
 
 ## Map window
