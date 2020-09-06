@@ -66,16 +66,6 @@ class LocalGameState : GameState {
       @rooms[a] = @SyncableItem(a << 1, 2, 2);
     }
 
-    // desync the indoor flags for the swamp palace and the watergate:
-    // LDA $7EF216 : AND.b #$7F : STA $7EF216
-    // LDA $7EF051 : AND.b #$FE : STA $7EF051
-    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xFF7F);
-    });
-    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xFEFF);
-    });
-
     // desync swamp inner watergate at $7EF06A (supertile $35)
     @rooms[0x035] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xFF7F);
@@ -90,15 +80,30 @@ class LocalGameState : GameState {
       @areas[a] = @SyncableItem(0x280 + a, 1, 2);
     }
 
-    // desync the overlay flags for the swamp palace and its light world counterpart:
-    // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
-    // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
-    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xDF);
-    });
-    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xDF);
-    });
+    // org $30803D ; PC 0x18003D
+    // PersistentFloodgate:
+    // db #$00 ; #$00 = Off (default) - #$01 = On
+    if (bus::read_u8(0x30803D) == 0x00) {
+      // desync the indoor flags for the swamp palace and the watergate:
+      // LDA $7EF216 : AND.b #$7F : STA $7EF216
+      // LDA $7EF051 : AND.b #$FE : STA $7EF051
+      @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xFF7F);
+      });
+      @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xFEFF);
+      });
+
+      // desync the overlay flags for the swamp palace and its light world counterpart:
+      // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
+      // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
+      @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xDF);
+      });
+      @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xDF);
+      });
+    }
 
     for (uint i = 0; i < 0x80; i++) {
       @sprs[i] = Sprite();
