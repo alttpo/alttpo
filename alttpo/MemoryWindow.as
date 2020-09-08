@@ -4,19 +4,25 @@ class MemoryWindow {
   private GUI::Window @window;
   private GUI::VerticalLayout @vl;
   private GUI::LineEdit @txtAddr;
+  private GUI::Button @btnCapture;
 
   uint32 addr;
+  uint32 addrCapture;
   array<uint8> page(0x100);
+  array<uint8> base(0x100);
 
   array<GUI::Label@> lblAddr(0x10);
-  array<GUI::Label@> lblData(0x10);
+  array<GUI::Label@> lblData(0x100);
 
   GUI::Color gridColor = GUI::Color( 80,  80,  80);
   GUI::Color addrColor = GUI::Color(220, 220,   0);
-  GUI::Color dataColor = GUI::Color(180, 180, 180);
+  GUI::Color dataColor = GUI::Color(160, 160, 160);
+  GUI::Color diffColor = GUI::Color(255,  20,  20);
 
   MemoryWindow() {
     addr = 0x7E0000;
+
+    auto fontWidth = 7.225; // looks nice on my mac with 8pt font
 
     // relative position to bsnes window:
     @window = GUI::Window(128, 128, true);
@@ -28,17 +34,32 @@ class MemoryWindow {
     @vl = GUI::VerticalLayout();
     window.append(vl);
 
-    @txtAddr = GUI::LineEdit();
-    txtAddr.text = fmtHex(addr, 6);
-    txtAddr.onChange(@GUI::Callback(txtAddrChanged));
-    vl.append(txtAddr, GUI::Size(-1, 0));
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0), 5);
+
+      auto @lbl = GUI::Label();
+      lbl.text = "address: ";
+      //lbl.foregroundColor = addrColor;
+      hz.append(lbl, GUI::Size(0, 0), 5);
+
+      @txtAddr = GUI::LineEdit();
+      txtAddr.text = fmtHex(addr, 6);
+      txtAddr.onChange(@GUI::Callback(txtAddrChanged));
+      hz.append(txtAddr, GUI::Size(-1, 0), 5);
+
+      @btnCapture = GUI::Button();
+      btnCapture.text = "Capture";
+      btnCapture.onActivate(@GUI::Callback(btnCaptureClicked));
+      hz.append(btnCapture, GUI::Size(0, 0), 5);
+    }
 
     {
       auto @hz = GUI::HorizontalLayout();
       vl.append(hz, GUI::Size(-1, 0), 0);
 
       auto @lbl = GUI::Label();
-      lbl.text = "address";
+      lbl.text = "       ";
       lbl.foregroundColor = addrColor;
       hz.append(lbl, GUI::Size(0, 0), 0);
 
@@ -72,15 +93,26 @@ class MemoryWindow {
       lbl.foregroundColor = gridColor;
       hz.append(lbl, GUI::Size(0, 0), 0);
 
-      @lblData[i] = GUI::Label();
-      lblData[i].text = "";
-      lblData[i].foregroundColor = dataColor;
-      hz.append(lblData[i], GUI::Size(-1, 0), 0);
+      for (uint x = 0; x < 16; x++) {
+        auto j = (i << 4) + x;
+        @lblData[j] = GUI::Label();
+        lblData[j].text = "00 ";
+        lblData[j].foregroundColor = dataColor;
+        hz.append(lblData[j], GUI::Size(fontWidth*3, 0), 0);
+      }
     }
 
     vl.resize();
-    update();
+    btnCaptureClicked();
     window.visible = true;
+  }
+
+  void btnCaptureClicked() {
+    // capture current page:
+    addrCapture = addr & 0xFFFFF0;
+    bus::read_block_u8(addrCapture, 0, 0x100, base);
+
+    update();
   }
 
   void txtAddrChanged() {
@@ -96,26 +128,29 @@ class MemoryWindow {
 
     // update display:
     for (uint i = 0; i < 16; i++) {
-      string_format fa = {
-        fmtHex(page[(i << 4) + 0x0], 2),
-        fmtHex(page[(i << 4) + 0x1], 2),
-        fmtHex(page[(i << 4) + 0x2], 2),
-        fmtHex(page[(i << 4) + 0x3], 2),
-        fmtHex(page[(i << 4) + 0x4], 2),
-        fmtHex(page[(i << 4) + 0x5], 2),
-        fmtHex(page[(i << 4) + 0x6], 2),
-        fmtHex(page[(i << 4) + 0x7], 2),
-        fmtHex(page[(i << 4) + 0x8], 2),
-        fmtHex(page[(i << 4) + 0x9], 2),
-        fmtHex(page[(i << 4) + 0xA], 2),
-        fmtHex(page[(i << 4) + 0xB], 2),
-        fmtHex(page[(i << 4) + 0xC], 2),
-        fmtHex(page[(i << 4) + 0xD], 2),
-        fmtHex(page[(i << 4) + 0xE], 2),
-        fmtHex(page[(i << 4) + 0xF], 2)
-      };
-      lblData[i].text = "{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11} {12} {13} {14} {15}".format(fa);
-      lblAddr[i].text = "$" + fmtHex(addr + (i << 4), 6);
+      auto row = i << 4;
+      lblAddr[i].text = "$" + fmtHex(addr + row, 6);
+
+      auto absAddr = (addr + row);
+      if ((absAddr >= addrCapture) && (absAddr < addrCapture + 0x100)) {
+        // compare current to snapshot:
+        int32 offs = addr - addrCapture;
+        for (uint x = 0; x < 16; x++) {
+          auto j = row + x;
+          lblData[j].text = fmtHex(page[j], 2);
+          if (page[j] != base[j+offs]) {
+            lblData[j].foregroundColor = diffColor;
+          } else {
+            lblData[j].foregroundColor = dataColor;
+          }
+        }
+      } else {
+        for (uint x = 0; x < 16; x++) {
+          auto j = row + x;
+          lblData[j].text = fmtHex(page[j], 2);
+          lblData[j].foregroundColor = dataColor;
+        }
+      }
     }
   }
 };
