@@ -22,7 +22,7 @@ class MemoryWindow {
     @window = GUI::Window(128, 128, true);
     window.title = "Memory";
     window.font = GUI::Font("{mono}", 8);
-    window.size = GUI::Size((16*3 + 6 + 4) * 8, (16 + 2) * 16);
+    window.size = GUI::Size((16*3 + 6 + 2) * 8, (16 + 2) * 16);
     window.backgroundColor = GUI::Color( 20,  20,  20);
 
     @vl = GUI::VerticalLayout();
@@ -79,12 +79,15 @@ class MemoryWindow {
     }
 
     vl.resize();
+    update();
     window.visible = true;
   }
 
   void txtAddrChanged() {
     // mask off last 4 bits to align base address to 16 bytes:
     addr = txtAddr.text.hex() & 0xFFFFF0;
+
+    update();
   }
 
   void update() {
