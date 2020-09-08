@@ -91,4 +91,8 @@ void post_frame() {
   if (gameSpriteWindow !is null) {
     gameSpriteWindow.update();
   }
+
+  if (memoryWindow !is null) {
+    memoryWindow.update();
+  }
 }
