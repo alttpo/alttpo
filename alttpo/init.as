@@ -10,6 +10,7 @@ bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
+bool debugMemory = false;
 
 bool debugRTDScapture = false;
 bool debugRTDScompress = false;
@@ -57,6 +58,10 @@ void init() {
 
   if (debugGameObjects) {
     @gameSpriteWindow = GameSpriteWindow();
+  }
+  
+  if (debugMemory) {
+    @memoryWindow = MemoryWindow();
   }
 }
 

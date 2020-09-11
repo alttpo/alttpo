@@ -108,6 +108,7 @@ class GameState {
 
   array<uint8> sram(0x500);
   array<uint8> sram_buffer(0x500);
+  bool in_sm_for_items;
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -551,7 +552,16 @@ class GameState {
   }
 
   int deserialize_sram(array<uint8> r, int c) {
-    uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
+	
+	bool temp = r[c++] == 1 ? true : false;
+	if (temp){
+		in_sm_for_items = r[c++] == 1 ? true : false;
+	} else {
+		c++;
+	}
+	
+	
+	uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
@@ -561,7 +571,7 @@ class GameState {
       sram[offs] = b;
 	  sram_buffer[offs] = b2;
     }
-
+	
     return c;
   }
 
@@ -892,6 +902,15 @@ class GameState {
         sfx2 = 0;
       }
     }
+  }
+
+  void get_sm_coords(){
+	if (sm_loading_room()) return;
+	sm_area = bus::read_u8(0x7E079f);
+	sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
+	sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+	sm_sub_x = bus::read_u8(0x7E0AF6);
+	sm_sub_y = bus::read_u8(0x7E0AFA);
   }
 
 };

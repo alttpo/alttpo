@@ -1,7 +1,8 @@
 
 void post_frame() {
   //message("post_frame");
-
+  
+  
   if (oamWindow !is null) {
     oamWindow.update();
   }
@@ -91,4 +92,10 @@ void post_frame() {
   if (gameSpriteWindow !is null) {
     gameSpriteWindow.update();
   }
+  
+  if (memoryWindow !is null) {
+    memoryWindow.update();
+  }
+  
+  local.temp_game_1 = bus::read_u8(0xA173FE);
 }

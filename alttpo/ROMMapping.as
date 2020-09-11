@@ -407,8 +407,8 @@ class SMZ3Mapping : RandomizerMapping {
 	syncables.insertLast(@SyncableItem(0x26, 1, 1, null, true)); // missile capacity
 	syncables.insertLast(@SyncableItem(0x2a, 1, 1, null, true)); // super missile capacity
 	syncables.insertLast(@SyncableItem(0x2e, 1, 1, null, true)); // power bomb capacity
-	syncables.insertLast(@SyncableItem(0x32, 2, 1, null, true));
-	syncables.insertLast(@SyncableItem(0x22, 2, 1, null, true));
+	syncables.insertLast(@SyncableItem(0x32, 2, 1, null, true)); // reserve tanks
+	syncables.insertLast(@SyncableItem(0x22, 2, 1, null, true)); // energy tanks
   }
 
   void syncAll() override {
