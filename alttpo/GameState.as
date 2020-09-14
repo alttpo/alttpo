@@ -109,6 +109,8 @@ class GameState {
   array<uint8> sram(0x500);
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
+  
+  array<uint8> sm_events(0x50);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -177,6 +179,10 @@ class GameState {
       sram[i] = 0;
 	  sram_buffer[i] = 0;
     }
+	
+	for (uint i = 0; i < 0x50; i++){
+		sm_events[i] = 0;
+	}
 
     //array<GameSprite@> objects(0x10);
 
@@ -363,6 +369,9 @@ class GameState {
         case 0x0A: c = deserialize_torches(r, c); break;
         //case 0x0B: c = deserialize_palettes(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
+		case 0x0D: c = deserialize_sm_events(r, c); break;
+		case 0x0E: c = deserialize_sram_buffer(r, c); break;
+		case 0x0F: c = deserialize_sm_location(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -384,13 +393,6 @@ class GameState {
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
-	
-	sm_area = r[c++];
-	sm_x = r[c++];
-	sm_y = r[c++];
-	sm_sub_x = r[c++];
-	sm_sub_y = r[c++];
-	in_sm = r[c++];
 
     dungeon = uint16(r[c++]) | (uint16(r[c++]) << 8);
     dungeon_entrance = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -405,6 +407,17 @@ class GameState {
     player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     return c;
+  }
+  
+  int deserialize_sm_location(array<uint8> r, int c){
+	sm_area = r[c++];
+	sm_x = r[c++];
+	sm_y = r[c++];
+	sm_sub_x = r[c++];
+	sm_sub_y = r[c++];
+	in_sm = r[c++];
+	
+	return c;
   }
 
   int deserialize_sfx(array<uint8> r, int c) {
@@ -567,9 +580,25 @@ class GameState {
     for (uint i = 0; i < count; i++) {
       auto offs = start + i;
       auto b = r[c++];
-	  auto b2 = r[c++];
+	  
       sram[offs] = b;
-	  sram_buffer[offs] = b2;
+	  
+    }
+	
+    return c;
+  }
+  
+  int deserialize_sram_buffer(array<uint8> r, int c){
+	
+	uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    for (uint i = 0; i < count; i++) {
+      auto offs = start + i;
+      auto b = r[c++];
+	  
+      sram_buffer[offs] = b;
+	  
     }
 	
     return c;
@@ -628,6 +657,13 @@ class GameState {
     namePadded = r.toString(c, 20);
     c += 20;
     return c;
+  }
+  
+  int deserialize_sm_events(array<uint8> r, int c){
+	for (int i = 0; i < 0x50; i++){
+		sm_events[i] = r[c++];
+	}
+	return c;
   }
 
   void renderToPPU(int dx, int dy) {
@@ -757,6 +793,7 @@ class GameState {
       @ppu::oam[j] = oam;
     }
   }
+  
 
   int renderToExtra(int dx, int dy, int ei) {
     uint len = sprites.length();

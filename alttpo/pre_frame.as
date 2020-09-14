@@ -15,6 +15,7 @@ void on_main_alttp(uint32 pc) {
   }
   
   rom.check_game();
+  local.set_in_sm(!rom.is_alttp());
   if (local.temp_game_2 != local.temp_game_1) local.frame = 0;
   
   //rom.check_game();
@@ -105,12 +106,15 @@ void on_main_sm(uint32 pc) {
   //message("main_sm");
 
   rom.check_game();
+  local.set_in_sm(!rom.is_alttp());
+  
   if (local.temp_game_2 != local.temp_game_1) local.frame = 0;
   
 
   sm_state = bus::read_u8(0x7E0998);
   
   local.get_sm_coords();
+  local.fetch_sm_events();
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -147,10 +151,12 @@ void on_main_sm(uint32 pc) {
       if (sm_is_safe_state()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
         SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
-		local.update_items(sram);
-		
 		SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
+		
+		local.update_items(sram);
 		local.update_items(sram_buffer, true);
+		
+		local.update_sm_events();
       }
     }
   }

@@ -11,6 +11,7 @@ abstract class ROMMapping {
 
   void check_game() {}
   bool is_alttp() { return true; }
+  bool is_smz3()  { return false;}
   void register_pc_intercepts() {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
@@ -421,6 +422,7 @@ class SMZ3Mapping : RandomizerMapping {
   }
 
   bool is_alttp() override { return game == 0; }
+  bool is_smz3() override { return true;}
 
   void register_pc_intercepts() override {
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);

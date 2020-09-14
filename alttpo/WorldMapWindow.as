@@ -618,11 +618,12 @@ class WorldMapWindow {
   }
   int8 metroid_area_base_x(uint8 area){
 	switch(area){
-		case 0x00: return -1;
-		case 0x01: return -4;
-		case 0x02: return 27;
-		case 0x03: return 33;
-		case 0x04: return 24;
+		case 0x00: return -1; //crateria
+		case 0x01: return -4; //brinstar
+		case 0x02: return 27; //wrecked ship
+		case 0x03: return 33; //norfair
+		case 0x04: return 24; //maridia
+		case 0x05: return -4; //tourian
 	}
 	
 	return 0;
@@ -630,11 +631,12 @@ class WorldMapWindow {
  
  int8 metroid_area_base_Y(uint8 area){
 	switch(area){
-		case 0x00: return 0;
-		case 0x01: return 19;
-		case 0x02: return 38;
-		case 0x03: return -10;
-		case 0x04: return 19;
+		case 0x00: return 0;  //crateria
+		case 0x01: return 19; //brinstar
+		case 0x02: return 38; //norfair
+		case 0x03: return -10; //wrecked ship
+		case 0x04: return 19; //maridia
+		case 0x05: return 1; //tourian
 	}
 	return 0;
  }

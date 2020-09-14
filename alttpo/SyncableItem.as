@@ -239,6 +239,7 @@ class SyncableHealthCapacity : SyncableItem {
   }
 }
 
+
 // 0x3C5
 uint16 mutateWorldState(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   // if local player is in the intro sequence, keep them there:
