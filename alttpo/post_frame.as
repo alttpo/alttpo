@@ -96,5 +96,4 @@ void post_frame() {
     memoryWindow.update();
   }
   
-  local.temp_game_1 = bus::read_u8(0xA173FE);
 }

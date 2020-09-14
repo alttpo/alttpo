@@ -16,7 +16,6 @@ void on_main_alttp(uint32 pc) {
   
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
-  if (local.temp_game_2 != local.temp_game_1) local.frame = 0;
   
   //rom.check_game();
   //local.set_in_sm(!rom.is_alttp());
@@ -60,7 +59,9 @@ void on_main_alttp(uint32 pc) {
 
     if ((local.frame & 15) == 0) {
       local.update_items(sram);
-	  local.update_items(sram_buffer, true);
+	  if (rom.is_smz3()){
+		local.update_items(sram_buffer, true);
+	  }
     }
 
     if ((local.frame & 31) == 0) {
@@ -107,9 +108,6 @@ void on_main_sm(uint32 pc) {
 
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
-  
-  if (local.temp_game_2 != local.temp_game_1) local.frame = 0;
-  
 
   sm_state = bus::read_u8(0x7E0998);
   
@@ -169,8 +167,6 @@ void pre_frame() {
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
   timestamp_now = uint32(chrono::realtime::millisecond);
-  
-  local.temp_game_2 = bus::read_u8(0xA173FE);
 
   if (enableRenderToExtra) {
     ppu::extra.count = 0;

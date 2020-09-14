@@ -80,8 +80,6 @@ class LocalGameState : GameState {
 
   uint8 state;
   uint32 last_sent = 0;
-  uint8 temp_game_1;
-  uint8 temp_game_2;
 
   LocalGameState() {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
