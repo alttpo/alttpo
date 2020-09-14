@@ -115,10 +115,6 @@ class WorldMapWindow {
     @di = GUI::ComboButtonItem();
     di.text = "Underworld";
     dd.append(di);
-	
-	@di = GUI::ComboButtonItem();
-	di.text = "Super Metroid";
-	dd.append(di);
 
     dd.onChange(@GUI::Callback(toggledLightDarkWorld));
     dd.enabled = false;
@@ -135,6 +131,12 @@ class WorldMapWindow {
     lightWorld.doSize();
 
     window.visible = true;
+  }
+  
+  void add_sm_button(){
+	auto @di = GUI::ComboButtonItem();
+	di.text = "Super Metroid";
+	this.dd.append(di);
   }
 
   // callback:
