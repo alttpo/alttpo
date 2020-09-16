@@ -3,12 +3,12 @@ net::Address@ address;
 
 bool debug = false;
 
-bool debugReadout = false;
+bool debugReadout = true;
 bool debugData = false;
 bool debugSRAM = false;
 bool debugNet = false;
 bool debugOAM = false;
-bool debugSprites = false;
+bool debugSprites = true;
 bool debugGameObjects = false;
 bool debugMemory = false;
 
