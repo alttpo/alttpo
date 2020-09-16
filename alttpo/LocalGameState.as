@@ -1056,10 +1056,12 @@ class LocalGameState : GameState {
     r.write_u16(yoffs);
 
     r.write_u16(player_color);
+	
+	r.write_u8(in_sm);
   }
   
   void serialize_sm_location(array<uint8> &r){
-	r.write_u8(0x0F);
+	r.write_u8(uint8(0x0F));
 	
 	r.write_u8(sm_area);
 	r.write_u8(sm_x);
@@ -1094,7 +1096,7 @@ class LocalGameState : GameState {
   }
   
   void serialize_sram_buffer(array<uint8> &r, uint16 start, uint16 endExclusive){
-	r.write_u8(0x0E);
+	r.write_u8(uint8(0x0E));
 	
 	r.write_u16(start);
 	uint16 count = uint16(endExclusive - start);
@@ -1512,22 +1514,22 @@ class LocalGameState : GameState {
       }
 	  
 	  if (rom.is_smz3()){
-			if ((frame & 15) == 0){
-				array<uint8> envelope2 = create_envelope();
-				serialize_sm_events(envelope2); // item checks, bosses killed, and doors opened
-				p = send_packet(envelope2, p);
+			if ((frame & 31) == 0){
+				array<uint8> envelope = create_envelope();
+				serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
+				p = send_packet(envelope, p);
 			}
 			
 			if ((frame & 31) == 0){
-				array<uint8> envelope3 = create_envelope();
-				serialize_sram_buffer(envelope3, 0x0, 0x250); // sram buffer, only sent if the rom is an smz3
-				p = send_packet(envelope3, p);
+				array<uint8> envelope = create_envelope();
+				serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
+				p = send_packet(envelope, p);
 			}
 			
 			if ((frame & 31) == 16){
-				array<uint8> envelope3 = create_envelope();
-				serialize_sram_buffer(envelope3, 0x280, 0x340); // sram buffer, only sent if the rom is an smz3
-				p = send_packet(envelope3, p);
+				array<uint8> envelope = create_envelope();
+				serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
+				p = send_packet(envelope, p);
 			}
 			
 			if (!rom.is_alttp()){

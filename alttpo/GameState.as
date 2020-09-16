@@ -405,6 +405,8 @@ class GameState {
     yoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
+	
+	in_sm = r[c++];
 
     return c;
   }

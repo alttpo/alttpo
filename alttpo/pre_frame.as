@@ -127,7 +127,7 @@ void on_main_sm(uint32 pc) {
 	//message("read SM");
 	local.in_sm_for_items = true;
 	bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
-    bus::read_block_u8(0xA17B00, 0x300, 0xff, local.sram_buffer);
+    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
   } else {
 	return;
   }
