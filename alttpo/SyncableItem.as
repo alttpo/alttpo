@@ -5,7 +5,7 @@ interface SRAMReader {
 }
 
 interface SRAMWriter {
-  void write_u8 (uint16 offs, uint8 value);
+  void write_u8(uint16 offs, uint8 value);
   void write_u16(uint16 offs, uint16 value);
 }
 
@@ -24,7 +24,6 @@ class SRAMArray : SRAM {
   uint16 read_u16(uint16 offs) {
     return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
   }
-
   void write_u8 (uint16 offs, uint8 value) {
     sram[offs] = value;
   }
@@ -44,20 +43,23 @@ class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
   uint8   size;   // 1 - byte, 2 - word
   uint8   type;   // 0 - custom mutate, 1 - highest wins, 2 - bitfield, 3+ TBD...
+  bool is_sm;       // whether the syncable is a super metroid item
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null) {
+  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null, bool is_sm = false) {
     this.offs = offs;
     this.size = size;
     this.type = type;
+    this.is_sm = is_sm;
     @this.notifyNewItems = notifyNewItems;
   }
 
-  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null) {
+  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null, bool is_sm = false) {
     this.offs = offs;
     this.size = size;
     this.type = 0;
+    this.is_sm = is_sm;
     @this.mutate = mutate;
     @this.notifyNewItems = notifyNewItems;
   }
@@ -84,6 +86,7 @@ class SyncableItem {
     }
 
     write(localSRAM, newValue);
+    if (is_sm) update_sm_counts();
     return true;
   }
 
@@ -120,6 +123,48 @@ class SyncableItem {
       localSRAM.write_u8(offs, uint8(newValue));
     } else if (size == 2) {
       localSRAM.write_u16(offs, newValue);
+    }
+  }
+
+  void update_sm_counts() {
+    int base = 0;
+    if (local.in_sm_for_items) {
+      base = 0x7E09A2;
+    } else {
+      base = 0xA17900;
+    }
+    uint8 eold;
+    uint8 enew;
+    uint8 old_count;
+    uint8 diff;
+    switch (offs) {
+      case 0x02:
+      case 0x03:
+        eold = bus::read_u8(base + offs - 2);
+        bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
+        break;
+      case 0x06:
+        // special crap here to avoid the murder beam
+        //uint8 eold = bus::read_u8(base + offs - 1);
+        //uint8 enew = (newValue ^ oldValue) | eold;
+        //bus::write_u8( base + offs - 1, enew) ;
+        break;
+      case 0x07:
+        eold = bus::read_u8(base + offs - 2);
+        enew = (newValue ^ oldValue) | eold;
+        bus::write_u8(base + offs - 2, enew);
+        break;
+      case 0x26:
+      case 0x2a:
+      case 0x2e:
+        old_count = bus::read_u8(base + offs - 2);
+        diff = newValue - oldValue;
+        bus::write_u8(base + offs - 2, old_count + diff);
+        break;
+      case 0x22:
+        bus::write_u16(base + offs - 2, bus::read_u16(base + offs));
+        break;
+      default: return;
     }
   }
 };
@@ -193,6 +238,7 @@ class SyncableHealthCapacity : SyncableItem {
     localSRAM.write_u8(0x36B, pieces);
   }
 }
+
 
 // 0x3C5
 uint16 mutateWorldState(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
@@ -572,6 +618,34 @@ const array<string> @progress2Names = { "Q#Hobo check completed",
                                         "",
                                         "Q#Sword Tempering started" };
 
+const array<string> @variable1Names = { "Varia Suit",
+                                        "Spring Ball",
+                                        "Morph Ball",
+                                        "Screw Attack",
+                                        "",
+                                        "Gravity Suit",
+                                        "",
+                                        "" };
+
+const array<string> @variable2Names = { "High Jump Boots",
+                                        "Space Jump",
+                                        "",
+                                        "",
+                                        "Bombs",
+                                        "",
+                                        "",
+                                        "" };
+
+const array<string> @variable3Names = { "Wave Beam",
+                                        "Ice Beam",
+                                        "Spazer",
+                                        "Plasma",
+                                        "",
+                                        "",
+                                        "",
+                                        "" };
+
+
 void nameForCompass1 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass1Names, notify, old, new); }
 void nameForCompass2 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass2Names, notify, old, new); }
 void nameForBigkey1  (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(bigkey1Names, notify, old, new); }
@@ -582,6 +656,10 @@ void nameForPendants (uint16 old, uint16 new, NotifyItemReceived @notify) { noti
 void nameForCrystals (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(crystalsNames, notify, old, new); }
 void nameForProgress1(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(progress1Names, notify, old, new); }
 void nameForProgress2(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(progress2Names, notify, old, new); }
+
+void nameForMetroidSuits (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable1Names, notify, old, new); }
+void nameForMetroidBoots (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable2Names, notify, old, new); }
+void nameForMetroidBeams (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable3Names, notify, old, new); }
 
 const array<string> @randomizerItems1Names = { "Flute (activated)",
                                                "Flute",

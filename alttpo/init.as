@@ -99,6 +99,9 @@ void cartridge_loaded() {
   if (@worldMapWindow != null) {
     worldMapWindow.loadMap(true);
     worldMapWindow.drawMap();
+    if (rom.is_smz3()) {
+      worldMapWindow.add_sm_button();
+    }
   }
 
   if (settings.DiscordEnable) {

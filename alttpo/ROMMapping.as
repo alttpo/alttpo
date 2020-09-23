@@ -11,6 +11,7 @@ abstract class ROMMapping {
 
   void check_game() {}
   bool is_alttp() { return true; }
+  bool is_smz3()  { return false;}
   void register_pc_intercepts() {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
@@ -395,6 +396,20 @@ class DoorRandomizerMapping : RandomizerMapping {
 class SMZ3Mapping : RandomizerMapping {
   SMZ3Mapping(const string &in kind, const string &in seed) {
     super(kind, seed);
+    update_syncables();
+  }
+
+  void update_syncables() {
+    //metroid items
+    syncables.insertLast(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true));
+    syncables.insertLast(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true));
+    syncables.insertLast(@SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true));
+    syncables.insertLast(@SyncableItem(0x07, 1, 1, null, true)); // charge beam
+    syncables.insertLast(@SyncableItem(0x26, 1, 1, null, true)); // missile capacity
+    syncables.insertLast(@SyncableItem(0x2a, 1, 1, null, true)); // super missile capacity
+    syncables.insertLast(@SyncableItem(0x2e, 1, 1, null, true)); // power bomb capacity
+    syncables.insertLast(@SyncableItem(0x32, 2, 1, null, true)); // reserve tanks
+    syncables.insertLast(@SyncableItem(0x22, 2, 1, null, true)); // energy tanks
   }
 
   void syncAll() override {
@@ -407,6 +422,7 @@ class SMZ3Mapping : RandomizerMapping {
   }
 
   bool is_alttp() override { return game == 0; }
+  bool is_smz3() override { return true;}
 
   void register_pc_intercepts() override {
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);

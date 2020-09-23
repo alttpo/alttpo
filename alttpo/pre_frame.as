@@ -14,7 +14,15 @@ void on_main_alttp(uint32 pc) {
     localFrameState.reset_owners();
   }
 
+  rom.check_game();
+  local.set_in_sm(!rom.is_alttp());
+
+  //rom.check_game();
+  //local.set_in_sm(!rom.is_alttp());
+  //if (local.in_sm == 1) return;
+
   local.fetch();
+  if (local.is_frozen()) return;
 
   if (settings.SyncTunic) {
     local.update_palette();
@@ -30,10 +38,13 @@ void on_main_alttp(uint32 pc) {
 
   if (settings.started && !(sock is null)) {
     // send updated state for our Link to server:
+    //message("send");
     local.send();
 
     // receive network updates from remote players:
     receive();
+  } else {
+    return;
   }
 
   if (!settings.RaceMode) {
@@ -44,9 +55,13 @@ void on_main_alttp(uint32 pc) {
     local.update_ancillae();
 
     ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
+    ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
 
     if ((local.frame & 15) == 0) {
       local.update_items(sram);
+      if (rom.is_smz3()) {
+        local.update_items(sram_buffer, true);
+      }
     }
 
     if ((local.frame & 31) == 0) {
@@ -77,10 +92,14 @@ bool sm_is_safe_state() {
   // on SM reset: 00, 01, 04, 02, 1f, 07, 08 (in game)
   // on SM transition: 0b
 
-  if (sm_state < 0x07) return false;
-  if (sm_state >= 0x1f) return false;
+  if (sm_state <= 0x07) return false;
+  if (sm_state >= 0x15) return false;
 
   return true;
+}
+
+bool sm_loading_room() {
+  return sm_state == 0x0b;
 }
 
 // Super Metroid main loop intercept:
@@ -88,8 +107,12 @@ void on_main_sm(uint32 pc) {
   //message("main_sm");
 
   rom.check_game();
+  local.set_in_sm(!rom.is_alttp());
 
   sm_state = bus::read_u8(0x7E0998);
+
+  local.get_sm_coords();
+  local.fetch_sm_events();
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -100,16 +123,24 @@ void on_main_sm(uint32 pc) {
   local.actual_location = 0;
 
   if (sm_is_safe_state()) {
-    // read ALTTP temporary item buffer from SM SRAM:
-    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);
+    // read ALTTP temporary item buffer from SM SRAM
+    //message("read SM");
+    local.in_sm_for_items = true;
+    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
+    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
+  } else {
+    return;
   }
 
   if (settings.started && (sock !is null)) {
+    //message("SM send&recieve");
     // send updated state for our Link to server:
     local.send();
 
     // receive network updates from remote players:
     receive();
+  } else {
+    return;
   }
 
   if (!settings.RaceMode) {
@@ -118,8 +149,12 @@ void on_main_sm(uint32 pc) {
       if (sm_is_safe_state()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
         SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
+        SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
 
         local.update_items(sram);
+        local.update_items(sram_buffer, true);
+
+        local.update_sm_events();
       }
     }
   }
@@ -154,9 +189,7 @@ void pre_frame() {
     return;
   }
 
-  rom.check_game();
-
-  local.ttl = 255;
+  local.ttl = 225;
 
   // render remote players:
   int ei = 0;

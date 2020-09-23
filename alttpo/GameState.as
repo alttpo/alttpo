@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0D;
+const uint8 script_protocol = 0x0E;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -67,6 +67,10 @@ class GameState {
   int16 yoffs;
 
   uint16 x, y;
+  
+  //coordinates for super metroid game
+  uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
+  uint8 in_sm;
 
   uint8 module;
   uint8 sub_module;
@@ -103,6 +107,10 @@ class GameState {
   uint8 sfx2_ttl = 0;
 
   array<uint8> sram(0x500);
+  array<uint8> sram_buffer(0x500);
+  bool in_sm_for_items;
+
+  array<uint8> sm_events(0x50);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -169,6 +177,11 @@ class GameState {
 
     for (uint i = 0; i < 0x500; i++) {
       sram[i] = 0;
+      sram_buffer[i] = 0;
+    }
+
+    for (uint i = 0; i < 0x50; i++) {
+      sm_events[i] = 0;
     }
 
     //array<GameSprite@> objects(0x10);
@@ -356,6 +369,9 @@ class GameState {
         case 0x0A: c = deserialize_torches(r, c); break;
         //case 0x0B: c = deserialize_palettes(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
+        case 0x0D: c = deserialize_sm_events(r, c); break;
+        case 0x0E: c = deserialize_sram_buffer(r, c); break;
+        case 0x0F: c = deserialize_sm_location(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -389,6 +405,19 @@ class GameState {
     yoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    in_sm = r[c++];
+
+    return c;
+  }
+
+  int deserialize_sm_location(array<uint8> r, int c) {
+    sm_area = r[c++];
+    sm_x = r[c++];
+    sm_y = r[c++];
+    sm_sub_x = r[c++];
+    sm_sub_y = r[c++];
+    in_sm = r[c++];
 
     return c;
   }
@@ -538,13 +567,35 @@ class GameState {
   }
 
   int deserialize_sram(array<uint8> r, int c) {
+    bool temp = r[c++] == 1 ? true : false;
+    if (temp) {
+      in_sm_for_items = r[c++] == 1 ? true : false;
+    } else {
+      c++;
+    }
+
     uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
       auto offs = start + i;
       auto b = r[c++];
+
       sram[offs] = b;
+    }
+
+    return c;
+  }
+  
+  int deserialize_sram_buffer(array<uint8> r, int c) {
+    uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    for (uint i = 0; i < count; i++) {
+      auto offs = start + i;
+      auto b = r[c++];
+
+      sram_buffer[offs] = b;
     }
 
     return c;
@@ -602,6 +653,13 @@ class GameState {
   int deserialize_name(array<uint8> r, int c) {
     namePadded = r.toString(c, 20);
     c += 20;
+    return c;
+  }
+  
+  int deserialize_sm_events(array<uint8> r, int c) {
+    for (int i = 0; i < 0x50; i++) {
+        sm_events[i] = r[c++];
+    }
     return c;
   }
 
@@ -879,4 +937,12 @@ class GameState {
     }
   }
 
+  void get_sm_coords() {
+    if (sm_loading_room()) return;
+    sm_area = bus::read_u8(0x7E079f);
+    sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
+    sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+    sm_sub_x = bus::read_u8(0x7E0AF6);
+    sm_sub_y = bus::read_u8(0x7E0AFA);
+  }
 };
