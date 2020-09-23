@@ -60,6 +60,11 @@ class SMSRAMArray : SRAMArray {
     if (sram[offs] == value) {
       return;
     }
+
+    if (offs >= 0x300 && offs < 0x400) {
+      bus::write_u8(0xA17B00 + offs - 0x300, value);
+    }
+    sram[offs] = value;
   }
 }
 
