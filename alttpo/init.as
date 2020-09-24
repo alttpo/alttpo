@@ -71,8 +71,16 @@ void init() {
 void cartridge_loaded() {
   //message("cartridge_loaded()");
 
+  @local = @LocalGameState();
+
   // Auto-detect ROM version:
   @rom = detect();
+
+  // apply player name change:
+  settings.nameWasChanged(false);
+
+  // apply color changes without persisting back to disk:
+  settings.colorWasChanged(false);
 
   if (debugData) {
     auto len = rom.syncables.length();
@@ -152,7 +160,7 @@ string fmtBool(bool value) {
   return value ? "true" : "false";
 }
 
-LocalGameState local;
+LocalGameState@ local = null;
 array<GameState@> players(0);
 array<GameState@> onlyLocalPlayer(1);
 int playerCount = 0;

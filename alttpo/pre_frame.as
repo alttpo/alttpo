@@ -189,7 +189,7 @@ void pre_frame() {
     return;
   }
 
-  local.ttl = 225;
+  local.ttl = 255;
 
   // render remote players:
   int ei = 0;

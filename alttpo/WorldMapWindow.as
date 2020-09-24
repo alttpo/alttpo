@@ -594,7 +594,10 @@ class WorldMapWindow {
     float x, y;
     for (uint i = 0; i < psLen; i++) {
       auto @p = ps[i];
+      if (p is null) continue;
+
       auto @dot = dots[i];
+      if (dot is null) continue;
 
       if ((p.ttl <= 0) || (!showsOnScreen(p, screen))) {
         // If player disappeared, hide their dot:

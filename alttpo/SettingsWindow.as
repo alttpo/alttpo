@@ -550,9 +550,6 @@ class SettingsWindow {
     vl.resize();
     window.visible = true;
     window.setFocused();
-
-    // set effects of color sliders but don't persist to disk:
-    colorWasChanged(false);
   }
 
   // callback:
@@ -619,8 +616,10 @@ class SettingsWindow {
     nameWasChanged();
   }
 
-  private void nameWasChanged(bool persist = true) {
-    local.name = txtName.text.strip();
+  void nameWasChanged(bool persist = true) {
+    if (local !is null) {
+      local.name = txtName.text.strip();
+    }
 
     if (!persist) return;
     save();
@@ -660,7 +659,9 @@ class SettingsWindow {
     started = true;
     players.resize(0);
 
-    local.reset();
+    if (local !is null) {
+      local.reset();
+    }
     colorWasChanged(false);
     nameWasChanged(false);
 
@@ -672,7 +673,9 @@ class SettingsWindow {
     started = false;
     players.resize(0);
 
-    local.reset();
+    if (local !is null) {
+      local.reset();
+    }
     colorWasChanged(false);
     nameWasChanged(false);
 
@@ -709,11 +712,13 @@ class SettingsWindow {
     colorWasChanged();
   }
 
-  private void colorWasChanged(bool persist = true) {
-    if (local.player_color == player_color) return;
+  void colorWasChanged(bool persist = true) {
+    if (local !is null) {
+      if (local.player_color == player_color) return;
 
-    // assign to player:
-    local.player_color = player_color;
+      // assign to player:
+      local.player_color = player_color;
+    }
 
     colorCanvas.fill(player_color | 0x8000);
     colorCanvas.update();
