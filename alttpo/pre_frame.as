@@ -20,12 +20,11 @@ void on_main_alttp(uint32 pc) {
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
 
-  //rom.check_game();
-  //local.set_in_sm(!rom.is_alttp());
-  //if (local.in_sm == 1) return;
-
   local.fetch();
-  if (local.is_frozen()) return;
+
+  // NOTE: commented this line out because it causes "X left" "X joined" messages for the local player when in dialogs
+  // or cut-scenes.
+  //if (local.is_frozen()) return;
 
   if (settings.SyncTunic) {
     local.update_palette();
@@ -168,17 +167,6 @@ void on_main_sm(uint32 pc) {
 void pre_frame() {
   //message("pre_frame");
 
-  if (!main_called) {
-    if (settings.started && (sock !is null)) {
-      // send updated state for our Link to server:
-      //message("send");
-      local.send();
-
-      // receive network updates from remote players:
-      receive();
-    }
-  }
-
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
   timestamp_now = uint32(chrono::realtime::millisecond);
@@ -205,6 +193,21 @@ void pre_frame() {
   }
 
   local.ttl = 255;
+
+  if (!main_called) {
+    dbgData("pre_frame send/recv");
+    if (settings.started && (sock !is null)) {
+      // send updated state for our Link to server:
+      //message("send");
+      local.send();
+
+      // receive network updates from remote players:
+      receive();
+    }
+  }
+
+  // reset main loop called state:
+  main_called = false;
 
   // render remote players:
   int ei = 0;

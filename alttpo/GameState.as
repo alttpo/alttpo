@@ -20,7 +20,7 @@ const uint16 small_keys_max_offs = 0xF38C;
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
-  uint8 team = 0; // team number to sync with
+  uint8 _team = 0; // team number to sync with
 
   // graphics data for current frame:
   array<Sprite@> sprites;
@@ -50,6 +50,14 @@ class GameState {
       } else {
         _namePadded = padTo(value, 20);
       }
+    }
+  }
+
+  uint8 team {
+    get { return _team; }
+    set {
+      _team = value;
+      dbgData("[{0}] team = {1}".format({index, _team}));
     }
   }
 
@@ -140,6 +148,8 @@ class GameState {
   }
 
   void reset() {
+    dbgData("local.reset()");
+
     index = -1;
     team = 0;
 
@@ -344,7 +354,10 @@ class GameState {
     }
 
     // read team number:
-    team = r[c++];
+    uint8 t = r[c++];
+    if (team != t) {
+      team = t;
+    }
 
     auto frame = r[c++];
     //message("frame = " + fmtHex(frame, 2));

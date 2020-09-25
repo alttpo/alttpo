@@ -2,9 +2,6 @@
 void post_frame() {
   //message("post_frame");
 
-  // reset main loop called state:
-  main_called = false;
-
   if (oamWindow !is null) {
     oamWindow.update();
   }
