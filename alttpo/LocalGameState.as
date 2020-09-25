@@ -85,13 +85,6 @@ class LocalGameState : GameState {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
 
-    ancillaeOwner.resize(0x0A);
-    ancillae.resize(0x0A);
-    for (uint i = 0; i < 0x0A; i++) {
-      ancillaeOwner[i] = -1;
-      @ancillae[i] = @GameAncilla();
-    }
-
     // SRAM [$000..$24f] underworld rooms:
     // create syncable item for each underworld room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
     rooms.resize(0x128);

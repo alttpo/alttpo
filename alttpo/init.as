@@ -94,8 +94,10 @@ void cartridge_loaded() {
   pb.power(true);
 
   // create local player:
+  players.resize(0);
   @local = @LocalGameState();
   @onlyLocalPlayer[0] = @local;
+  playerCount = 0;
 
   // apply player settings:
   settings.playerSettingsChanged();
@@ -104,7 +106,7 @@ void cartridge_loaded() {
   local.register(true);
 
   // draw map window when cartridge loaded:
-  if (@worldMapWindow != null) {
+  if (worldMapWindow !is null) {
     worldMapWindow.loadMap(true);
     worldMapWindow.drawMap();
     if (rom.is_smz3()) {
@@ -129,16 +131,11 @@ void post_power(bool reset) {
 
     init_torches();
   }
-
-  if (local !is null) {
-    // clear state:
-    local.reset();
-  }
 }
 
 // called when script itself is unloaded:
 void unload() {
-  if (@rom != null) {
+  if (rom !is null) {
     // restore patched JSL:
     pb.unload();
   }

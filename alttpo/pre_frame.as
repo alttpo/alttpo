@@ -1,10 +1,13 @@
 
+bool main_called = false;
+
 // this function intercepts execution immediately before JSL MainRouting in the reset vector:
 // this function is not called for every frame but is for most frames.
 // when it is called, this function is always called before pre_frame.
 // in SMZ3 this function is only called during ALTTP game.
 void on_main_alttp(uint32 pc) {
   //message("main_alttp");
+  main_called = true;
 
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
@@ -36,7 +39,7 @@ void on_main_alttp(uint32 pc) {
   // fetch local VRAM data for sprites:
   local.capture_sprites_vram();
 
-  if (settings.started && !(sock is null)) {
+  if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
     //message("send");
     local.send();
@@ -105,6 +108,7 @@ bool sm_loading_room() {
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
+  main_called = true;
 
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
@@ -163,6 +167,17 @@ void on_main_sm(uint32 pc) {
 // pre_frame always happens
 void pre_frame() {
   //message("pre_frame");
+
+  if (!main_called) {
+    if (settings.started && (sock !is null)) {
+      // send updated state for our Link to server:
+      //message("send");
+      local.send();
+
+      // receive network updates from remote players:
+      receive();
+    }
+  }
 
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
