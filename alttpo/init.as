@@ -33,6 +33,7 @@ void init() {
   settings.ServerAddress = "alttp.online";
   settings.GroupTrimmed = "group1";
   settings.Name = "player1";
+  settings.Team = 0;
   settings.PlayerColor = ppu::rgb(28, 2, 2);
   settings.load();
 
@@ -71,16 +72,8 @@ void init() {
 void cartridge_loaded() {
   //message("cartridge_loaded()");
 
-  @local = @LocalGameState();
-
   // Auto-detect ROM version:
   @rom = detect();
-
-  // apply player name change:
-  settings.nameWasChanged(false);
-
-  // apply color changes without persisting back to disk:
-  settings.colorWasChanged(false);
 
   if (debugData) {
     auto len = rom.syncables.length();
@@ -99,6 +92,13 @@ void cartridge_loaded() {
 
   // patch the ROM code to inject our control routine:
   pb.power(true);
+
+  // create local player:
+  @local = @LocalGameState();
+  @onlyLocalPlayer[0] = @local;
+
+  // apply player settings:
+  settings.playerSettingsChanged();
 
   // register ROM intercepts for local player:
   local.register(true);
@@ -130,10 +130,10 @@ void post_power(bool reset) {
     init_torches();
   }
 
-  // clear state:
-  local.reset();
-
-  @onlyLocalPlayer[0] = local;
+  if (local !is null) {
+    // clear state:
+    local.reset();
+  }
 }
 
 // called when script itself is unloaded:

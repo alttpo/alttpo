@@ -1424,7 +1424,9 @@ class LocalGameState : GameState {
     // script protocol:
     envelope.write_u8(uint8(script_protocol));
 
-    // protocol starts with frame number to correlate them together:
+    // protocol starts with team number:
+    envelope.write_u8(team);
+    // frame number to correlate separate packets together:
     envelope.write_u8(frame);
 
     return envelope;
@@ -1570,6 +1572,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.is_it_a_bad_time()) continue;
       if (remote.in_sm_for_items) continue;
 
@@ -1672,6 +1675,7 @@ class LocalGameState : GameState {
         if (remote is null) continue;
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
+        if (remote.team != team) continue;
         //if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
@@ -1709,6 +1713,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.in_sm_for_items) continue;
 
       // read current state from SRAM:
@@ -1722,6 +1727,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.in_sm_for_items) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
@@ -1734,6 +1740,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.in_sm_for_items) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
@@ -1765,6 +1772,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.in_sm_for_items) continue;
 
       // read current state from SRAM:
@@ -1778,6 +1786,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.in_sm_for_items) continue;
 
       for (uint a = 0; a < 0x128; a++) {
@@ -1790,6 +1799,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.in_sm_for_items) continue;
 
       // write new state to SRAM:
@@ -1939,6 +1949,7 @@ class LocalGameState : GameState {
 
   void update_tilemap() {
     bool write_to_vram = false;
+    bool team_check = true;
 
     if (!is_safe_to_write_tilemap()) {
       return;
@@ -1959,6 +1970,9 @@ class LocalGameState : GameState {
       if (sub_module >= 0x23) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
+
+      // allow overworld tilemap changes to sync across teams:
+      team_check = false;
     } else if (module == 0x0B) {
       // master sword or zora:
       write_to_vram = true;
@@ -1970,6 +1984,9 @@ class LocalGameState : GameState {
       // sub_module == 0x24 mosaic out
 
       tilemap.determine_vram_bounds_overworld();
+
+      // allow overworld tilemap changes to sync across teams:
+      team_check = false;
     } else if (module == 0x07) {
       // underworld:
       write_to_vram = true;
@@ -2009,6 +2026,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (team_check && (remote.team != team)) continue;
       if (remote.tilemapLocation == 0) continue;
       if (!is_really_in_same_location(remote.location)) {
         continue;
@@ -2058,6 +2076,8 @@ class LocalGameState : GameState {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
+      // NOTE: allow bombs to sync across team boundaries for teh lulz
+      //if (remote.team != team) continue;
       if (!is_really_in_same_location(remote.location)) continue;
       if (remote.in_sm_for_items) continue;
 
@@ -2258,6 +2278,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl < 0) continue;
+      if (remote.team != team) continue;
       if (!remote.in_sm_for_items) continue;
 
       for (int j = 0; j < 0x50; j++) {

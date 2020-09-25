@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0E;
+const uint8 script_protocol = 0x0F;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -20,6 +20,7 @@ const uint16 small_keys_max_offs = 0xF38C;
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
+  uint8 team = 0; // team number to sync with
 
   // graphics data for current frame:
   array<Sprite@> sprites;
@@ -140,6 +141,7 @@ class GameState {
 
   void reset() {
     index = -1;
+    team = 0;
 
     frame = 0;
     actual_location = 0;
@@ -340,6 +342,9 @@ class GameState {
       }
       return false;
     }
+
+    // read team number:
+    team = r[c++];
 
     auto frame = r[c++];
     //message("frame = " + fmtHex(frame, 2));

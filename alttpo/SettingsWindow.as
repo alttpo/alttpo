@@ -14,6 +14,7 @@ class SettingsWindow {
   private GUI::LineEdit @txtServerAddress;
   private GUI::LineEdit @txtGroup;
   private GUI::LineEdit @txtName;
+  private GUI::LineEdit @txtTeam;
   private GUI::LineEdit @txtColor;
   private GUI::CheckLabel @chkTunic;
   private GUI::HorizontalSlider @slRed;
@@ -51,6 +52,12 @@ class SettingsWindow {
       groupTrimmed = value;
       groupPadded = padTo(value, 20);
     }
+  }
+
+  private uint8 team;
+  uint8 Team {
+    get { return team; }
+    set { team = value; }
   }
 
   private string name;
@@ -145,6 +152,7 @@ class SettingsWindow {
 
   private void setPlayerSettingsGUI() {
     txtName.text = name;
+    txtTeam.text = fmtInt(team);
     chkTunic.checked = syncTunic;
     setColorSliders();
     setColorText();
@@ -178,6 +186,7 @@ class SettingsWindow {
     }
     groupTrimmed = doc["server/group"].textOr(GroupTrimmed);
     name = doc["player/name"].textOr(Name);
+    team = doc["player/team"].naturalOr(Team);
     player_color = parse_player_color(doc["player/color"].textOr("0x" + fmtHex(player_color, 4)));
     syncTunic = doc["player/syncTunic"].booleanOr(true);
     syncTunicLightColors = doc["player/syncTunic/lightColors"].naturalOr(0x1400);
@@ -199,11 +208,8 @@ class SettingsWindow {
     setPlayerSettingsGUI();
     setFeaturesGUI();
 
-    // apply player name change:
-    nameWasChanged(false);
-
-    // apply color changes without persisting back to disk:
-    colorWasChanged(false);
+    // apply player changes:
+    playerSettingsChanged();
   }
 
   void save() {
@@ -211,6 +217,7 @@ class SettingsWindow {
     ServerAddress = txtServerAddress.text;
     GroupTrimmed = txtGroup.text;
     Name = txtName.text;
+    Team = uint8(txtTeam.text.natural());
     PlayerColor = parse_player_color(txtColor.text);
 
     syncTunic = chkTunic.checked;
@@ -223,6 +230,7 @@ class SettingsWindow {
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
     doc.create("player/name").value = Name;
+    doc.create("player/team").value = fmtInt(Team);
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
     doc.create("player/syncTunic").value = fmtBool(syncTunic);
     doc.create("player/syncTunic/lightColors").value = "0b" + fmtBinary(syncTunicLightColors, 16);
@@ -305,6 +313,22 @@ class SettingsWindow {
         @txtName = GUI::LineEdit();
         txtName.onChange(@GUI::Callback(txtNameChanged));
         hz.append(txtName, GUI::Size(-1, sy20));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        auto @lbl = GUI::Label();
+        lbl.text = "Team Number:";
+        lbl.toolTip =
+          "Your player's team number which will determine which items and state get synced to you. Only players in the "
+          "same team get the same items and progress synced among themselves. Each team is independent of one another.";
+        hz.append(lbl, GUI::Size(sx100, 0));
+
+        @txtTeam = GUI::LineEdit();
+        txtTeam.onChange(@GUI::Callback(txtTeamChanged));
+        hz.append(txtTeam, GUI::Size(-1, sy20));
       }
 
       // player color:
@@ -626,6 +650,26 @@ class SettingsWindow {
   }
 
   // callback:
+  private void txtTeamChanged() {
+    teamWasChanged();
+  }
+
+  void teamWasChanged(bool persist = true) {
+    if (local !is null) {
+      local.team = uint8(txtTeam.text.natural());
+    }
+
+    if (!persist) return;
+    save();
+  }
+
+  void playerSettingsChanged() {
+    nameWasChanged(false);
+    teamWasChanged(false);
+    colorWasChanged(false);
+  }
+
+  // callback:
   private void chkTunicChanged() {
     syncTunic = chkTunic.checked;
     save();
@@ -662,8 +706,7 @@ class SettingsWindow {
     if (local !is null) {
       local.reset();
     }
-    colorWasChanged(false);
-    nameWasChanged(false);
+    playerSettingsChanged();
 
     connected();
   }
@@ -676,8 +719,7 @@ class SettingsWindow {
     if (local !is null) {
       local.reset();
     }
-    colorWasChanged(false);
-    nameWasChanged(false);
+    playerSettingsChanged();
 
     disconnected();
   }
@@ -723,7 +765,7 @@ class SettingsWindow {
     colorCanvas.fill(player_color | 0x8000);
     colorCanvas.update();
 
-    if (@worldMapWindow != null) {
+    if (worldMapWindow !is null) {
       worldMapWindow.renderPlayers();
     }
 
