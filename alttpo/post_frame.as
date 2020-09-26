@@ -95,4 +95,12 @@ void post_frame() {
   if (memoryWindow !is null) {
     memoryWindow.update();
   }
+
+  if (rom !is null) {
+    rom.calc_action_hitbox();
+    int rx = int(rom.action_hitbox_x - local.xoffs);
+    int ry = int(rom.action_hitbox_y - local.yoffs);
+
+    ppu::frame.rect(rx, ry, rom.action_hitbox_width, rom.action_hitbox_height);
+  }
 }
