@@ -152,9 +152,8 @@ abstract class ROMMapping {
       y--;
 
     //       ADD $22 : STA $00
-    action_hitbox_x = uint16(a + bus::read_u8(0x7E0022));
-
     // TYA : ADC $23 : STA $08
+    action_hitbox_x  = uint16(a + bus::read_u8(0x7E0022));
     a = y;
     action_hitbox_x |= uint16(a + bus::read_u8(0x7E0023)) << 8;
 
@@ -168,19 +167,15 @@ abstract class ROMMapping {
       y--;
 
     //       ADC $20 : STA $01
-    action_hitbox_y = a + bus::read_u8(0x7E0020);
-
     // TYA : ADC $21 : STA $09
+    action_hitbox_y  = uint16(a + bus::read_u8(0x7E0020));
     a = y;
     action_hitbox_y |= uint16(a + bus::read_u8(0x7E0021)) << 8;
 
     // LDA $F4AE, X : STA $02
-    a = bus::read_u8(0x06F4AE + x);
-    action_hitbox_width = a;
-
     // LDA $F530, X : STA $03
-    a = bus::read_u8(0x06F530 + x);
-    action_hitbox_height = a;
+    action_hitbox_width  = bus::read_u8(0x06F4AE + x);
+    action_hitbox_height = bus::read_u8(0x06F530 + x);
   }
 
   void calc_action_hitbox() {
@@ -191,16 +186,16 @@ abstract class ROMMapping {
       uint8 y = bus::read_u8(0x7E002F) >> 1;
 
       // LDA $22 : ADD $F588, Y : STA $00
-      action_hitbox_x  = (bus::read_u8(0x7E0022) + bus::read_u8(0x7EF588 + y));
-
       // LDA $23 : ADC $F58C, Y : STA $08
-      action_hitbox_x |= (bus::read_u8(0x7E0023) + bus::read_u8(0x7EF58C + y)) << 8;
+      action_hitbox_x  =
+        (bus::read_u16(0x7E0022) + uint16(bus::read_u8(0x7EF588 + y))) +
+        (uint16(bus::read_u8(0x7EF58C + y)) << 8);
 
       // LDA $20 : ADD $F590, Y : STA $01
-      action_hitbox_y  = (bus::read_u8(0x7E0020) + bus::read_u8(0x7EF590 + y));
-
       // LDA $21 : ADC $F586, Y : STA $09
-      action_hitbox_y |= (bus::read_u8(0x7E0021) + bus::read_u8(0x7EF586 + y)) << 8;
+      action_hitbox_y  =
+        (bus::read_u16(0x7E0020) + uint16(bus::read_u8(0x7EF590 + y))) +
+        (uint16(bus::read_u8(0x7EF586 + y)) << 8);
 
       // LDA.b #$10 : STA $02 : STA $03
       action_hitbox_width  = 0x10;
@@ -209,20 +204,23 @@ abstract class ROMMapping {
       return;
     }
 
+    // LDX.b #$00
     uint8 x = 0;
 
+    // LDA $0301 : AND.b #$0A : BNE .special_pose
     if ((bus::read_u8(0x7E0301) & 0x0A) != 0) {
       calc_action_hitbox_special_pose(0);
       return;
     }
+
+    // LDA $037A : AND.b #$10 : BNE .special_pose
     if ((bus::read_u8(0x7E037A) & 0x10) != 0) {
       calc_action_hitbox_special_pose(0);
       return;
     }
 
-    // TBD: spin attack frames?
+    // LDY $3C : BMI .spin_attack_hit_box
     uint8 m3c = bus::read_u8(0x7E003C);
-
     if (int8(m3c) < 0) {
       // spin attack hit box:
 
@@ -242,13 +240,16 @@ abstract class ROMMapping {
       return;
     }
 
+    // LDA $F571, Y : BNE .return
     if (bus::read_u8(0x06F571 + m3c) != 0) {
+      // LDA.b #$80 : STA $08
       action_hitbox_x = 0x8000;
       return;
     }
 
-    x = (bus::read_u8(0x7E002F) << 3) + m3c;
-    x++;
+    // ; Adding $3C seems to be for the pokey player hit box with the swordy.
+    // LDA $2F : ASL #3 : ADD $3C : TAX : INX
+    x = (bus::read_u8(0x7E002F) << 3) + m3c + 1;
     calc_action_hitbox_special_pose(x);
     return;
   }
