@@ -133,6 +133,125 @@ abstract class ROMMapping {
     serialize(r, 0x340, 0x37C); // items earned
     serialize(r, 0x3C5, 0x3CA); // progress made
   }
+
+  uint16 action_hitbox_x;       // $00,$08
+  uint16 action_hitbox_y;       // $01,$09
+  uint8  action_hitbox_width;   // $02
+  uint8  action_hitbox_height;  // $03
+
+  void calc_action_hitbox_special_pose(uint8 x) {
+    int8 y;
+
+    // LDY.b #$00
+    y = 0;
+
+    // LDA $45 : ADD $F46D, X : BPL .positive
+    int8 a = bus::read_u8(0x7E0045) + bus::read_u8(0x06F46D + x);
+    if (a < 0)
+      // DEY
+      y--;
+
+    //       ADD $22 : STA $00
+    action_hitbox_x = uint16(a + bus::read_u8(0x7E0022));
+
+    // TYA : ADC $23 : STA $08
+    a = y;
+    action_hitbox_x |= uint16(a + bus::read_u8(0x7E0023)) << 8;
+
+    // LDY.b #$00
+    y = 0;
+
+    // LDA $44 : ADD $F4EF, X : BPL .positive_2
+    a = bus::read_u8(0x7E0044) + bus::read_u8(0x06F4EF + x);
+    if (a < 0)
+      // DEY
+      y--;
+
+    //       ADC $20 : STA $01
+    action_hitbox_y = a + bus::read_u8(0x7E0020);
+
+    // TYA : ADC $21 : STA $09
+    a = y;
+    action_hitbox_y |= uint16(a + bus::read_u8(0x7E0021)) << 8;
+
+    // LDA $F4AE, X : STA $02
+    a = bus::read_u8(0x06F4AE + x);
+    action_hitbox_width = a;
+
+    // LDA $F530, X : STA $03
+    a = bus::read_u8(0x06F530 + x);
+    action_hitbox_height = a;
+  }
+
+  void calc_action_hitbox() {
+    if (bus::read_u8(0x7E0372) != 0) {
+      // dash hit box:
+
+      // LDA $2F : LSR A : TAY
+      uint8 y = bus::read_u8(0x7E002F) >> 1;
+
+      // LDA $22 : ADD $F588, Y : STA $00
+      action_hitbox_x  = (bus::read_u8(0x7E0022) + bus::read_u8(0x7EF588 + y));
+
+      // LDA $23 : ADC $F58C, Y : STA $08
+      action_hitbox_x |= (bus::read_u8(0x7E0023) + bus::read_u8(0x7EF58C + y)) << 8;
+
+      // LDA $20 : ADD $F590, Y : STA $01
+      action_hitbox_y  = (bus::read_u8(0x7E0020) + bus::read_u8(0x7EF590 + y));
+
+      // LDA $21 : ADC $F586, Y : STA $09
+      action_hitbox_y |= (bus::read_u8(0x7E0021) + bus::read_u8(0x7EF586 + y)) << 8;
+
+      // LDA.b #$10 : STA $02 : STA $03
+      action_hitbox_width  = 0x10;
+      action_hitbox_height = 0x10;
+
+      return;
+    }
+
+    uint8 x = 0;
+
+    if ((bus::read_u8(0x7E0301) & 0x0A) != 0) {
+      calc_action_hitbox_special_pose(0);
+      return;
+    }
+    if ((bus::read_u8(0x7E037A) & 0x10) != 0) {
+      calc_action_hitbox_special_pose(0);
+      return;
+    }
+
+    // TBD: spin attack frames?
+    uint8 m3c = bus::read_u8(0x7E003C);
+
+    if (int8(m3c) < 0) {
+      // spin attack hit box:
+
+      //LDA $22 : SUB.b #$0E : STA $00
+      //LDA $23 : SBC.b #$00 : STA $08
+      action_hitbox_x  = (bus::read_u16(0x7E0022) - 0x0E);
+
+      //LDA $20 : SUB.b #$0A : STA $01
+      //LDA $21 : SBC.b #$00 : STA $09
+      action_hitbox_y  = (bus::read_u16(0x7E0020) - 0x0A);
+
+      //LDA.b #$2C : STA $02
+      //INC A      : STA $03
+      action_hitbox_width  = 0x2C;
+      action_hitbox_height = 0x2D;
+
+      return;
+    }
+
+    if (bus::read_u8(0x06F571 + m3c) != 0) {
+      action_hitbox_x = 0x8000;
+      return;
+    }
+
+    x = (bus::read_u8(0x7E002F) << 3) + m3c;
+    x++;
+    calc_action_hitbox_special_pose(x);
+    return;
+  }
 };
 
 class USAROMMapping : ROMMapping {
