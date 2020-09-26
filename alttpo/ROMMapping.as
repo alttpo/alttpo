@@ -140,42 +140,38 @@ abstract class ROMMapping {
   uint8  action_hitbox_height;  // $03
 
   void calc_action_hitbox_special_pose(uint8 x) {
+    //dbgData("calc_action_hitbox_special_pose(x={0})".format({x}));
+
     int8 y;
 
     // LDY.b #$00
-    y = 0;
 
     // LDA $45 : ADD $F46D, X : BPL .positive
-    int8 a = bus::read_u8(0x7E0045) + bus::read_u8(0x06F46D + x);
-    if (a < 0)
-      // DEY
-      y--;
-
+    int a = int8(bus::read_u8(0x7E0045)) + int8(bus::read_u8(0x06F46D + x));
+    //dbgData("     a = {0}".format({fmtInt(a)}));
+    // DEY
     //       ADD $22 : STA $00
     // TYA : ADC $23 : STA $08
-    action_hitbox_x  = uint16(a + bus::read_u8(0x7E0022));
-    a = y;
-    action_hitbox_x |= uint16(a + bus::read_u8(0x7E0023)) << 8;
+    action_hitbox_x  = uint16(bus::read_u16(0x7E0022) + a);
+    //dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
 
     // LDY.b #$00
-    y = 0;
 
     // LDA $44 : ADD $F4EF, X : BPL .positive_2
-    a = bus::read_u8(0x7E0044) + bus::read_u8(0x06F4EF + x);
-    if (a < 0)
-      // DEY
-      y--;
-
+    a = int8(bus::read_u8(0x7E0044)) + int8(bus::read_u8(0x06F4EF + x));
+    //dbgData("     a = {0}".format({fmtInt(a)}));
+    // DEY
     //       ADC $20 : STA $01
     // TYA : ADC $21 : STA $09
-    action_hitbox_y  = uint16(a + bus::read_u8(0x7E0020));
-    a = y;
-    action_hitbox_y |= uint16(a + bus::read_u8(0x7E0021)) << 8;
+    action_hitbox_y  = uint16(bus::read_u16(0x7E0020) + a);
+    //dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
 
     // LDA $F4AE, X : STA $02
     // LDA $F530, X : STA $03
     action_hitbox_width  = bus::read_u8(0x06F4AE + x);
     action_hitbox_height = bus::read_u8(0x06F530 + x);
+    //dbgData("  hb_w = {0}".format({fmtHex(action_hitbox_width,2)}));
+    //dbgData("  hb_h = {0}".format({fmtHex(action_hitbox_height,2)}));
   }
 
   void calc_action_hitbox() {
@@ -187,15 +183,13 @@ abstract class ROMMapping {
 
       // LDA $22 : ADD $F588, Y : STA $00
       // LDA $23 : ADC $F58C, Y : STA $08
-      action_hitbox_x  =
-        (bus::read_u16(0x7E0022) + uint16(bus::read_u8(0x7EF588 + y))) +
-        (uint16(bus::read_u8(0x7EF58C + y)) << 8);
+      int offs = int(uint16(bus::read_u8(0x06F588 + y)) | (uint16(bus::read_u8(0x06F58C + y)) << 8));
+      action_hitbox_x  = uint16(bus::read_u16(0x7E0022) + offs);
 
       // LDA $20 : ADD $F590, Y : STA $01
       // LDA $21 : ADC $F586, Y : STA $09
-      action_hitbox_y  =
-        (bus::read_u16(0x7E0020) + uint16(bus::read_u8(0x7EF590 + y))) +
-        (uint16(bus::read_u8(0x7EF586 + y)) << 8);
+      offs = int(uint16(bus::read_u8(0x06F590 + y)) | (uint16(bus::read_u8(0x06F586 + y)) << 8));
+      action_hitbox_y  = uint16(bus::read_u16(0x7E0020) + offs);
 
       // LDA.b #$10 : STA $02 : STA $03
       action_hitbox_width  = 0x10;
