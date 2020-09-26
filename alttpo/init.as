@@ -94,9 +94,11 @@ void cartridge_loaded() {
   pb.power(true);
 
   // create local player:
-  players.resize(0);
   @local = @LocalGameState();
+  local.reset();
   @onlyLocalPlayer[0] = @local;
+
+  players.resize(0);
   playerCount = 0;
 
   // apply player settings:
