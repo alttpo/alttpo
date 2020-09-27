@@ -377,6 +377,11 @@ class JPROMMapping : ROMMapping {
 
   uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B186; }  // $13186
   uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
+
+  uint32 get_table_hitbox_pose_x_addr()  property { return 0x06F473; }
+  uint32 get_table_hitbox_sword_toggle() property { return 0x06F577; }
+  uint32 get_table_hitbox_dash_y_hi()    property { return 0x06F58C; }
+
 };
 
 class RandomizerMapping : JPROMMapping {
