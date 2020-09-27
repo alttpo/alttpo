@@ -81,6 +81,10 @@ void on_main_alttp(uint32 pc) {
     update_torches();
   }
 
+  if (enablePvP) {
+    local.apply_pvp();
+  }
+
   if (pb.offset > 0) {
     // end the patch buffer:
     pb.jsl(rom.fn_main_routing);  // JSL MainRouting

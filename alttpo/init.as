@@ -25,6 +25,7 @@ bool enableRenderToExtra = true;
 bool enableObjectSync = false;
 bool enableSmallKeySync = false;
 bool enablePvP = true;
+bool enablePvPFriendlyFire = false;
 
 void damageClick() {
   if (rom is null) return;

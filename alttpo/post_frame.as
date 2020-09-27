@@ -96,12 +96,20 @@ void post_frame() {
     memoryWindow.update();
   }
 
-  if (rom !is null) {
-    if (rom.action_hitbox_active) {
-      int rx = int(rom.action_hitbox_x - local.xoffs);
-      int ry = int(rom.action_hitbox_y - local.yoffs);
+  if (enablePvP) {
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote.ttl <= 0) continue;
 
-      ppu::frame.rect(rx, ry, rom.action_hitbox_width, rom.action_hitbox_height);
+      if (!remote.pvp_hitbox_active) continue;
+
+      int rx = int(remote.pvp_hitbox_x - local.xoffs);
+      int ry = int(remote.pvp_hitbox_y - local.yoffs);
+
+      ppu::frame.color = remote.player_color;
+      ppu::frame.rect(rx, ry, remote.pvp_hitbox_w, remote.pvp_hitbox_h);
     }
   }
 }

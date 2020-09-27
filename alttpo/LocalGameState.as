@@ -1205,7 +1205,7 @@ class LocalGameState : GameState {
     }
   }
 
-  void serialize_hitbox(array<uint8> &r) {
+  void serialize_pvp(array<uint8> &r) {
     r.write_u8(uint8(0x0B));
 
     r.write_u8(pvp_hitbox_active ? uint8(1) : uint8(0));
@@ -1516,7 +1516,7 @@ class LocalGameState : GameState {
       serialize_sfx(envelope);
 
       if (enablePvP) {
-        serialize_hitbox(envelope);
+        serialize_pvp(envelope);
       }
 
       if (!settings.RaceMode) {
@@ -2384,5 +2384,97 @@ class LocalGameState : GameState {
 
   void set_in_sm(bool b) {
     in_sm = b ? 1 : 0;
+  }
+
+  void apply_pvp() {
+    // invulnerable:
+    if (bus::read_u8(0x7E037B) != 0) {
+      return;
+    }
+
+    // bank06.asm ; *$37705-$3772E LOCAL
+    // LDA.b #$08 : STA $02
+    //              STA $03
+    //
+    // LDA $22 : ADD.b #$04 : STA $00
+    // LDA $23 : ADC.b #$00 : STA $08
+    //
+    // LDA $20 : ADC.b #$08 : STA $01
+    // LDA $21 : ADC.b #$00 : STA $09
+
+    // our hitbox:
+    uint16 hb_x = x + 4;
+    uint16 hb_y = y + 8;
+    uint8 hb_w = 8;
+    uint8 hb_h = 8;
+
+    // end result to apply to local player:
+    uint8 dmg = 0;
+    int8 recoil_dx = 0;
+    int8 recoil_dy = 0;
+
+    // determine overlap with other players' hitboxes:
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl < 0) continue;
+      if (!remote.in_sm_for_items) continue;
+
+      if (!remote.pvp_hitbox_active) continue;
+      if ((remote.team == team) && !enablePvPFriendlyFire) continue;
+
+      // check hitbox intersection:
+      if ((hb_x + hb_w) < remote.pvp_hitbox_x) continue;
+      if (hb_x > (remote.pvp_hitbox_x + remote.pvp_hitbox_w)) continue;
+      if ((hb_y + hb_h) < remote.pvp_hitbox_y) continue;
+      if (hb_y > (remote.pvp_hitbox_y + remote.pvp_hitbox_h)) continue;
+
+      // hitboxes intersect:
+
+      // apply 1 heart of damage for now:
+      // TODO: damage lookup based on remote weapon
+      int curr_dmg = 8;
+
+      // determine recoil angle from this player:
+      int dx = mathi::abs(remote.x - x);
+      int dy = mathi::abs(remote.y - y);
+      float mag = mathf::sqrt(float(dx * dx + dy * dy));
+
+      // scale recoil vector with damage amount:
+      dx = int(dx * curr_dmg / mag);
+      dy = int(dy * curr_dmg / mag);
+
+      // set proper direction of vector components:
+      if (remote.x > x) {
+        dx = -dx;
+      }
+      if (remote.y > y) {
+        dy = -dy;
+      }
+
+      // add damage and recoil vector:
+      dmg += curr_dmg;
+      recoil_dx += dx;
+      recoil_dy += dy;
+    }
+
+    // apply damage:
+    if (dmg != 0) {
+      bus::write_u8(0x7E0373, dmg);
+    }
+
+    // apply recoil:
+    if (recoil_dx != 0 || recoil_dy != 0) {
+      // recoil state:
+      bus::write_u8(0x7E004D, 0x01);
+      // recoil timer:
+      bus::write_u8(0x7E0046, 0x13);
+      // recoil X velocity:
+      bus::write_u8(0x7E0028, recoil_dx);
+      // recoil Y velocity:
+      bus::write_u8(0x7E0027, recoil_dy);
+    }
   }
 };
