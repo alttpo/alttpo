@@ -97,7 +97,6 @@ void post_frame() {
   }
 
   if (rom !is null) {
-    rom.calc_action_hitbox();
     if (rom.action_hitbox_active) {
       int rx = int(rom.action_hitbox_x - local.xoffs);
       int ry = int(rom.action_hitbox_y - local.yoffs);

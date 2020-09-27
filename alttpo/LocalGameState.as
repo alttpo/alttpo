@@ -442,6 +442,11 @@ class LocalGameState : GameState {
     dungeon = bus::read_u16(0x7E040C);
     dungeon_entrance = bus::read_u16(0x7E010E);
 
+    // calculate hitbox for melee attack (sword, hammer, bugnet):
+    if (enablePvP && (rom !is null)) {
+      rom.calc_action_hitbox();
+    }
+
     // compute aggregated location for Link into a single 24-bit number:
     last_actual_location = actual_location;
     actual_location =
