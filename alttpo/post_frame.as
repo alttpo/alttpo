@@ -98,9 +98,11 @@ void post_frame() {
 
   if (rom !is null) {
     rom.calc_action_hitbox();
-    int rx = int(rom.action_hitbox_x - local.xoffs);
-    int ry = int(rom.action_hitbox_y - local.yoffs);
+    if (rom.action_hitbox_active) {
+      int rx = int(rom.action_hitbox_x - local.xoffs);
+      int ry = int(rom.action_hitbox_y - local.yoffs);
 
-    ppu::frame.rect(rx, ry, rom.action_hitbox_width, rom.action_hitbox_height);
+      ppu::frame.rect(rx, ry, rom.action_hitbox_width, rom.action_hitbox_height);
+    }
   }
 }

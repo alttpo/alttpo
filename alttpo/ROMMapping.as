@@ -143,6 +143,7 @@ abstract class ROMMapping {
   uint16 action_hitbox_y;       // $01,$09
   uint8  action_hitbox_width;   // $02
   uint8  action_hitbox_height;  // $03
+  bool   action_hitbox_active;
 
   void calc_action_hitbox_special_pose(uint8 x) {
     dbgData("calc_action_hitbox_special_pose(x={0})".format({x}));
@@ -162,7 +163,8 @@ abstract class ROMMapping {
     // LDY.b #$00
 
     // LDA $44 : ADD $F4EF, X : BPL .positive_2
-    a = int8(bus::read_u8(0x7E0044)) + int8(bus::read_u8(table_hitbox_pose_y_addr + x));
+    uint8 m44 = bus::read_u8(0x7E0044);
+    a = int8(m44) + int8(bus::read_u8(table_hitbox_pose_y_addr + x));
     dbgData("     a = {0}".format({fmtInt(a)}));
     // DEY
     //       ADC $20 : STA $01
@@ -173,6 +175,7 @@ abstract class ROMMapping {
     // LDA $F530, X : STA $03
     action_hitbox_width  = bus::read_u8(table_hitbox_pose_w_addr + x);
     action_hitbox_height = bus::read_u8(table_hitbox_pose_h_addr + x);
+    action_hitbox_active = (m44 != 0x80);
 
     dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
     dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
@@ -207,6 +210,10 @@ abstract class ROMMapping {
       // LDA.b #$10 : STA $02 : STA $03
       action_hitbox_width  = 0x10;
       action_hitbox_height = 0x10;
+
+      // determine if hitbox is active:
+      uint8 m44 = bus::read_u8(0x7E0044);
+      action_hitbox_active = (m44 != 0x80);
 
       dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
       dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
@@ -248,6 +255,7 @@ abstract class ROMMapping {
       //INC A      : STA $03
       action_hitbox_width  = 0x2C;
       action_hitbox_height = 0x2D;
+      action_hitbox_active = true;
 
       dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
       dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
@@ -261,6 +269,7 @@ abstract class ROMMapping {
     if (bus::read_u8(table_hitbox_sword_toggle + m3c) != 0) {
       // LDA.b #$80 : STA $08
       action_hitbox_x = 0x8000;
+      action_hitbox_active = false;
 
       //dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
       //dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
