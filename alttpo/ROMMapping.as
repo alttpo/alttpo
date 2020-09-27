@@ -134,6 +134,11 @@ abstract class ROMMapping {
     serialize(r, 0x3C5, 0x3CA); // progress made
   }
 
+  uint32 get_table_hitbox_pose_x_addr() property { return 0x06F46D; }                         // 0x06F46D
+  uint32 get_table_hitbox_pose_w_addr() property { return table_hitbox_pose_x_addr + 0x41; }  // 0x06F4AE
+  uint32 get_table_hitbox_pose_y_addr() property { return table_hitbox_pose_x_addr + 0x82; }  // 0x06F4EF
+  uint32 get_table_hitbox_pose_h_addr() property { return table_hitbox_pose_x_addr + 0xC3; }  // 0x06F530
+
   uint16 action_hitbox_x;       // $00,$08
   uint16 action_hitbox_y;       // $01,$09
   uint8  action_hitbox_width;   // $02
@@ -147,7 +152,7 @@ abstract class ROMMapping {
     // LDY.b #$00
 
     // LDA $45 : ADD $F46D, X : BPL .positive
-    int a = int8(bus::read_u8(0x7E0045)) + int8(bus::read_u8(0x06F46D + x));
+    int a = int8(bus::read_u8(0x7E0045)) + int8(bus::read_u8(table_hitbox_pose_x_addr + x));
     dbgData("     a = {0}".format({fmtInt(a)}));
     // DEY
     //       ADD $22 : STA $00
@@ -157,7 +162,7 @@ abstract class ROMMapping {
     // LDY.b #$00
 
     // LDA $44 : ADD $F4EF, X : BPL .positive_2
-    a = int8(bus::read_u8(0x7E0044)) + int8(bus::read_u8(0x06F4EF + x));
+    a = int8(bus::read_u8(0x7E0044)) + int8(bus::read_u8(table_hitbox_pose_y_addr + x));
     dbgData("     a = {0}".format({fmtInt(a)}));
     // DEY
     //       ADC $20 : STA $01
@@ -166,14 +171,21 @@ abstract class ROMMapping {
 
     // LDA $F4AE, X : STA $02
     // LDA $F530, X : STA $03
-    action_hitbox_width  = bus::read_u8(0x06F4AE + x);
-    action_hitbox_height = bus::read_u8(0x06F530 + x);
+    action_hitbox_width  = bus::read_u8(table_hitbox_pose_w_addr + x);
+    action_hitbox_height = bus::read_u8(table_hitbox_pose_h_addr + x);
 
     dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
     dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
     dbgData("  hb_w = {0}".format({fmtHex(action_hitbox_width,2)}));
     dbgData("  hb_h = {0}".format({fmtHex(action_hitbox_height,2)}));
   }
+
+  uint32 get_table_hitbox_dash_y_hi() property { return 0x06F586; }                       // 0x06F586
+  uint32 get_table_hitbox_dash_x_lo() property { return table_hitbox_dash_y_hi + 0x02; }  // 0x06F588
+  uint32 get_table_hitbox_dash_x_hi() property { return table_hitbox_dash_y_hi + 0x06; }  // 0x06F58C
+  uint32 get_table_hitbox_dash_y_lo() property { return table_hitbox_dash_y_hi + 0x0A; }  // 0x06F590
+
+  uint32 get_table_hitbox_sword_toggle() property { return 0x06F571; } // 0x06F571
 
   void calc_action_hitbox() {
     if (bus::read_u8(0x7E0372) != 0) {
@@ -184,12 +196,12 @@ abstract class ROMMapping {
 
       // LDA $22 : ADD $F588, Y : STA $00
       // LDA $23 : ADC $F58C, Y : STA $08
-      int offs = int(uint16(bus::read_u8(0x06F588 + y)) | (uint16(bus::read_u8(0x06F58C + y)) << 8));
+      int offs = int(uint16(bus::read_u8(table_hitbox_dash_x_lo + y)) | (uint16(bus::read_u8(table_hitbox_dash_x_hi + y)) << 8));
       action_hitbox_x  = uint16(bus::read_u16(0x7E0022) + offs);
 
       // LDA $20 : ADD $F590, Y : STA $01
       // LDA $21 : ADC $F586, Y : STA $09
-      offs = int(uint16(bus::read_u8(0x06F590 + y)) | (uint16(bus::read_u8(0x06F586 + y)) << 8));
+      offs = int(uint16(bus::read_u8(table_hitbox_dash_y_lo + y)) | (uint16(bus::read_u8(table_hitbox_dash_y_hi + y)) << 8));
       action_hitbox_y  = uint16(bus::read_u16(0x7E0020) + offs);
 
       // LDA.b #$10 : STA $02 : STA $03
@@ -246,7 +258,7 @@ abstract class ROMMapping {
     }
 
     // LDA $F571, Y : BNE .return
-    if (bus::read_u8(0x06F571 + m3c) != 0) {
+    if (bus::read_u8(table_hitbox_sword_toggle + m3c) != 0) {
       // LDA.b #$80 : STA $08
       action_hitbox_x = 0x8000;
 
