@@ -27,23 +27,6 @@ bool enableSmallKeySync = false;
 bool enablePvP = true;
 bool enablePvPFriendlyFire = false;
 
-void damageClick() {
-  if (rom is null) return;
-
-  // damage 1 heart:
-  bus::write_u8(0x7E0373, 0x08);
-  // recoil state:
-  bus::write_u8(0x7E004D, 0x01);
-  // recoil timer:
-  bus::write_u8(0x7E0046, 0x13);
-  // recoil Y velocity:
-  bus::write_u8(0x7E0027, 0x13);
-  // recoil X velocity:
-  bus::write_u8(0x7E0028, 0x13);
-}
-
-GUI::Window @linkWindow = null;
-
 void init() {
   //message("init()");
   timestamp_now = chrono::realtime::millisecond;
@@ -85,20 +68,6 @@ void init() {
 
   if (debugMemory) {
     @memoryWindow = MemoryWindow();
-  }
-
-  if (true) {
-    @linkWindow = GUI::Window(0, 0, true);
-    linkWindow.title = "Link";
-    linkWindow.size = GUI::Size(96+8, 32+8);
-    linkWindow.visible = true;
-    GUI::VerticalLayout @vl = GUI::VerticalLayout();
-    linkWindow.append(vl);
-    GUI::Button @btn = GUI::Button();
-    vl.append(btn, GUI::Size(-1, -1), 0);
-    btn.text = "Damage";
-    btn.onActivate(@damageClick);
-    vl.resize();
   }
 }
 
