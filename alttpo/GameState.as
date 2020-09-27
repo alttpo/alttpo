@@ -140,6 +140,16 @@ class GameState {
   array<int> torchOwner(0x10);
   array<uint8> torchTimers(0x10);
 
+  bool pvp_hitbox_active;
+  uint16 pvp_hitbox_x;
+  uint16 pvp_hitbox_y;
+  uint8 pvp_hitbox_w;
+  uint8 pvp_hitbox_h;
+  uint8 pvp_sword_time;
+  uint8 pvp_sword_type;
+  uint8 pvp_item_used;
+  uint8 pvp_room_level;
+
   GameState() {
     torchOwner.resize(0x10);
     for (uint t = 0; t < 0x10; t++) {
@@ -385,7 +395,7 @@ class GameState {
         case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
-        //case 0x0B: c = deserialize_palettes(r, c); break;
+        case 0x0B: c = deserialize_pvp(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
@@ -520,6 +530,24 @@ class GameState {
         }
       }
     }
+
+    return c;
+  }
+
+  int deserialize_pvp(array<uint8> r, int c) {
+    pvp_hitbox_active = r[c++] == 1 ? true : false;
+    if (!pvp_hitbox_active) {
+      return c;
+    }
+
+    pvp_hitbox_x =   uint16(r[c++]) | (uint16(r[c++]) << 8);
+    pvp_hitbox_y =   uint16(r[c++]) | (uint16(r[c++]) << 8);
+    pvp_hitbox_w =   r[c++];
+    pvp_hitbox_h =   r[c++];
+    pvp_sword_time = r[c++];
+    pvp_sword_type = r[c++];
+    pvp_item_used =  r[c++];
+    pvp_room_level = r[c++];
 
     return c;
   }

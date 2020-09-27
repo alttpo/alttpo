@@ -442,9 +442,24 @@ class LocalGameState : GameState {
     dungeon = bus::read_u16(0x7E040C);
     dungeon_entrance = bus::read_u16(0x7E010E);
 
-    // calculate hitbox for melee attack (sword, hammer, bugnet):
     if (enablePvP && (rom !is null)) {
+      // calculate hitbox for melee attack (sword, hammer, bugnet):
       rom.calc_action_hitbox();
+
+      pvp_hitbox_active = rom.action_hitbox_active;
+      pvp_hitbox_x = rom.action_hitbox_x;
+      pvp_hitbox_y = rom.action_hitbox_y;
+      pvp_hitbox_w = rom.action_hitbox_width;
+      pvp_hitbox_h = rom.action_hitbox_height;
+
+      //     $3C = sword out time / spin attack
+      pvp_sword_time = bus::read_u8(0x7E003C);
+      // $7EF359 = sword type
+      pvp_sword_type = bus::read_u8(0x7EF359);
+      //   $0301 = item in hand (bitfield, one bit at a time)
+      pvp_item_used = bus::read_u8(0x7E0301);
+      //     $EE = level in room
+      pvp_room_level = bus::read_u8(0x7E00EE);
     }
 
     // compute aggregated location for Link into a single 24-bit number:
@@ -1190,6 +1205,24 @@ class LocalGameState : GameState {
     }
   }
 
+  void serialize_hitbox(array<uint8> &r) {
+    r.write_u8(uint8(0x0B));
+
+    r.write_u8(pvp_hitbox_active ? uint8(1) : uint8(0));
+    if (!pvp_hitbox_active) {
+      return;
+    }
+
+    r.write_u16(pvp_hitbox_x);
+    r.write_u16(pvp_hitbox_y);
+    r.write_u8(pvp_hitbox_w);
+    r.write_u8(pvp_hitbox_h);
+    r.write_u8(pvp_sword_time);
+    r.write_u8(pvp_sword_type);
+    r.write_u8(pvp_item_used);
+    r.write_u8(pvp_room_level);
+  }
+
   void serialize_name(array<uint8> &r) {
     r.write_u8(uint8(0x0C));
 
@@ -1481,6 +1514,10 @@ class LocalGameState : GameState {
       serialize_location(envelope);
       serialize_name(envelope);
       serialize_sfx(envelope);
+
+      if (enablePvP) {
+        serialize_hitbox(envelope);
+      }
 
       if (!settings.RaceMode) {
         serialize_ancillae(envelope);
