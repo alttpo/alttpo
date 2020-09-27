@@ -2389,6 +2389,11 @@ class LocalGameState : GameState {
   void apply_pvp() {
     // invulnerable:
     if (bus::read_u8(0x7E037B) != 0) {
+      dbgData("invlun");
+      return;
+    }
+    if (bus::read_u8(0x7E004D) == 1) {
+      dbgData("recoiling");
       return;
     }
 
@@ -2419,11 +2424,12 @@ class LocalGameState : GameState {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is local) continue;
-      if (remote.ttl < 0) continue;
-      if (!remote.in_sm_for_items) continue;
+      if (remote.ttl <= 0) continue;
 
       if (!remote.pvp_hitbox_active) continue;
-      if ((remote.team == team) && !enablePvPFriendlyFire) continue;
+      //if ((remote.team == team) && !enablePvPFriendlyFire) continue;
+
+      //dbgData("potential");
 
       // check hitbox intersection:
       if ((hb_x + hb_w) < remote.pvp_hitbox_x) continue;
@@ -2432,27 +2438,20 @@ class LocalGameState : GameState {
       if (hb_y > (remote.pvp_hitbox_y + remote.pvp_hitbox_h)) continue;
 
       // hitboxes intersect:
+      dbgData("intersection");
 
       // apply 1 heart of damage for now:
       // TODO: damage lookup based on remote weapon
       int curr_dmg = 8;
 
-      // determine recoil angle from this player:
-      int dx = mathi::abs(remote.x - x);
-      int dy = mathi::abs(remote.y - y);
+      // determine recoil vector from this player:
+      int dx = (remote.x - x);
+      int dy = (remote.y - y);
       float mag = mathf::sqrt(float(dx * dx + dy * dy));
 
       // scale recoil vector with damage amount:
-      dx = int(dx * curr_dmg / mag);
-      dy = int(dy * curr_dmg / mag);
-
-      // set proper direction of vector components:
-      if (remote.x > x) {
-        dx = -dx;
-      }
-      if (remote.y > y) {
-        dy = -dy;
-      }
+      dx = int(dx * curr_dmg * 1.5f / mag);
+      dy = int(dy * curr_dmg * 1.5f / mag);
 
       // add damage and recoil vector:
       dmg += curr_dmg;
@@ -2470,7 +2469,7 @@ class LocalGameState : GameState {
       // recoil state:
       bus::write_u8(0x7E004D, 0x01);
       // recoil timer:
-      bus::write_u8(0x7E0046, 0x13);
+      bus::write_u8(0x7E0046, 0x20);
       // recoil X velocity:
       bus::write_u8(0x7E0028, recoil_dx);
       // recoil Y velocity:
