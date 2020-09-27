@@ -154,7 +154,7 @@ abstract class ROMMapping {
 
     // LDA $45 : ADD $F46D, X : BPL .positive
     int a = int8(bus::read_u8(0x7E0045)) + int8(bus::read_u8(table_hitbox_pose_x_addr + x));
-    dbgData("     a = {0}".format({fmtInt(a)}));
+    //dbgData("     a = {0}".format({fmtInt(a)}));
     // DEY
     //       ADD $22 : STA $00
     // TYA : ADC $23 : STA $08
@@ -165,7 +165,7 @@ abstract class ROMMapping {
     // LDA $44 : ADD $F4EF, X : BPL .positive_2
     uint8 m44 = bus::read_u8(0x7E0044);
     a = int8(m44) + int8(bus::read_u8(table_hitbox_pose_y_addr + x));
-    dbgData("     a = {0}".format({fmtInt(a)}));
+    //dbgData("     a = {0}".format({fmtInt(a)}));
     // DEY
     //       ADC $20 : STA $01
     // TYA : ADC $21 : STA $09
@@ -177,10 +177,12 @@ abstract class ROMMapping {
     action_hitbox_height = bus::read_u8(table_hitbox_pose_h_addr + x);
     action_hitbox_active = (m44 != 0x80);
 
-    dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
-    dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
-    dbgData("  hb_w = {0}".format({fmtHex(action_hitbox_width,2)}));
-    dbgData("  hb_h = {0}".format({fmtHex(action_hitbox_height,2)}));
+    dbgData("  hb = ({0},{1},{2},{3})".format({
+      fmtHex(action_hitbox_x,4),
+      fmtHex(action_hitbox_y,4),
+      fmtHex(action_hitbox_width,2),
+      fmtHex(action_hitbox_height,2)
+    }));
   }
 
   uint32 get_table_hitbox_dash_y_hi() property { return 0x06F586; }                       // 0x06F586
@@ -215,10 +217,12 @@ abstract class ROMMapping {
       uint8 m44 = bus::read_u8(0x7E0044);
       action_hitbox_active = (m44 != 0x80);
 
-      dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
-      dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
-      dbgData("  hb_w = {0}".format({fmtHex(action_hitbox_width,2)}));
-      dbgData("  hb_h = {0}".format({fmtHex(action_hitbox_height,2)}));
+      dbgData("  hb = ({0},{1},{2},{3})".format({
+        fmtHex(action_hitbox_x,4),
+        fmtHex(action_hitbox_y,4),
+        fmtHex(action_hitbox_width,2),
+        fmtHex(action_hitbox_height,2)
+      }));
 
       return;
     }
@@ -257,10 +261,12 @@ abstract class ROMMapping {
       action_hitbox_height = 0x2D;
       action_hitbox_active = true;
 
-      dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
-      dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
-      dbgData("  hb_w = {0}".format({fmtHex(action_hitbox_width,2)}));
-      dbgData("  hb_h = {0}".format({fmtHex(action_hitbox_height,2)}));
+      dbgData("  hb = ({0},{1},{2},{3})".format({
+        fmtHex(action_hitbox_x,4),
+        fmtHex(action_hitbox_y,4),
+        fmtHex(action_hitbox_width,2),
+        fmtHex(action_hitbox_height,2)
+      }));
 
       return;
     }
@@ -271,10 +277,6 @@ abstract class ROMMapping {
       action_hitbox_x = 0x8000;
       action_hitbox_active = false;
 
-      //dbgData("  hb_x = {0}".format({fmtHex(action_hitbox_x,4)}));
-      //dbgData("  hb_y = {0}".format({fmtHex(action_hitbox_y,4)}));
-      //dbgData("  hb_w = {0}".format({fmtHex(action_hitbox_width,2)}));
-      //dbgData("  hb_h = {0}".format({fmtHex(action_hitbox_height,2)}));
       return;
     }
 
