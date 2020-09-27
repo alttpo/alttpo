@@ -146,7 +146,7 @@ abstract class ROMMapping {
   bool   action_hitbox_active;
 
   void calc_action_hitbox_special_pose(uint8 x) {
-    dbgData("calc_action_hitbox_special_pose(x={0})".format({x}));
+    //dbgData("calc_action_hitbox_special_pose(x={0})".format({x}));
 
     int8 y;
 
@@ -177,12 +177,12 @@ abstract class ROMMapping {
     action_hitbox_height = bus::read_u8(table_hitbox_pose_h_addr + x);
     action_hitbox_active = (m44 != 0x80);
 
-    dbgData("  hb = ({0},{1},{2},{3})".format({
-      fmtHex(action_hitbox_x,4),
-      fmtHex(action_hitbox_y,4),
-      fmtHex(action_hitbox_width,2),
-      fmtHex(action_hitbox_height,2)
-    }));
+    //dbgData("  hb = ({0},{1},{2},{3})".format({
+    //  fmtHex(action_hitbox_x,4),
+    //  fmtHex(action_hitbox_y,4),
+    //  fmtHex(action_hitbox_width,2),
+    //  fmtHex(action_hitbox_height,2)
+    //}));
   }
 
   uint32 get_table_hitbox_dash_y_hi() property { return 0x06F586; }                       // 0x06F586
@@ -217,12 +217,12 @@ abstract class ROMMapping {
       uint8 m44 = bus::read_u8(0x7E0044);
       action_hitbox_active = (m44 != 0x80);
 
-      dbgData("  hb = ({0},{1},{2},{3})".format({
-        fmtHex(action_hitbox_x,4),
-        fmtHex(action_hitbox_y,4),
-        fmtHex(action_hitbox_width,2),
-        fmtHex(action_hitbox_height,2)
-      }));
+      //dbgData("  hb = ({0},{1},{2},{3})".format({
+      //  fmtHex(action_hitbox_x,4),
+      //  fmtHex(action_hitbox_y,4),
+      //  fmtHex(action_hitbox_width,2),
+      //  fmtHex(action_hitbox_height,2)
+      //}));
 
       return;
     }
@@ -261,12 +261,12 @@ abstract class ROMMapping {
       action_hitbox_height = 0x2D;
       action_hitbox_active = true;
 
-      dbgData("  hb = ({0},{1},{2},{3})".format({
-        fmtHex(action_hitbox_x,4),
-        fmtHex(action_hitbox_y,4),
-        fmtHex(action_hitbox_width,2),
-        fmtHex(action_hitbox_height,2)
-      }));
+      //dbgData("  hb = ({0},{1},{2},{3})".format({
+      //  fmtHex(action_hitbox_x,4),
+      //  fmtHex(action_hitbox_y,4),
+      //  fmtHex(action_hitbox_width,2),
+      //  fmtHex(action_hitbox_height,2)
+      //}));
 
       return;
     }
