@@ -2389,11 +2389,11 @@ class LocalGameState : GameState {
   void apply_pvp() {
     // invulnerable:
     if (bus::read_u8(0x7E037B) != 0) {
-      dbgData("invlun");
+      //dbgData("invlun");
       return;
     }
     if (bus::read_u8(0x7E004D) == 1) {
-      dbgData("recoiling");
+      //dbgData("recoiling");
       return;
     }
 
@@ -2415,8 +2415,8 @@ class LocalGameState : GameState {
 
     // end result to apply to local player:
     uint8 dmg = 0;
-    int8 recoil_dx = 0;
-    int8 recoil_dy = 0;
+    int recoil_dx = 0;
+    int recoil_dy = 0;
 
     // determine overlap with other players' hitboxes:
     uint len = players.length();
@@ -2429,8 +2429,6 @@ class LocalGameState : GameState {
       if (!remote.pvp_hitbox_active) continue;
       //if ((remote.team == team) && !enablePvPFriendlyFire) continue;
 
-      //dbgData("potential");
-
       // check hitbox intersection:
       if ((hb_x + hb_w) < remote.pvp_hitbox_x) continue;
       if (hb_x > (remote.pvp_hitbox_x + remote.pvp_hitbox_w)) continue;
@@ -2438,20 +2436,19 @@ class LocalGameState : GameState {
       if (hb_y > (remote.pvp_hitbox_y + remote.pvp_hitbox_h)) continue;
 
       // hitboxes intersect:
-      dbgData("intersection");
 
       // apply 1 heart of damage for now:
       // TODO: damage lookup based on remote weapon
       int curr_dmg = 8;
 
       // determine recoil vector from this player:
-      int dx = (remote.x - x);
-      int dy = (remote.y - y);
+      int dx = (x - remote.x);
+      int dy = (y - remote.y);
       float mag = mathf::sqrt(float(dx * dx + dy * dy));
 
       // scale recoil vector with damage amount:
-      dx = int(dx * curr_dmg * 1.5f / mag);
-      dy = int(dy * curr_dmg * 1.5f / mag);
+      dx = int(dx * curr_dmg * 2.0f / mag);
+      dy = int(dy * curr_dmg * 2.0f / mag);
 
       // add damage and recoil vector:
       dmg += curr_dmg;
@@ -2469,11 +2466,16 @@ class LocalGameState : GameState {
       // recoil state:
       bus::write_u8(0x7E004D, 0x01);
       // recoil timer:
-      bus::write_u8(0x7E0046, 0x20);
+      bus::write_u8(0x7E0046, 0x30);
       // recoil X velocity:
       bus::write_u8(0x7E0028, recoil_dx);
       // recoil Y velocity:
       bus::write_u8(0x7E0027, recoil_dy);
+
+      // recoil resistance(?):
+      uint8 resistance = mathi::sqrt(recoil_dx * recoil_dx + recoil_dy * recoil_dy) / 2;
+      bus::write_u8(0x7E0029, resistance);
+      bus::write_u8(0x7E00C7, resistance);
     }
   }
 };
