@@ -140,15 +140,13 @@ class GameState {
   array<int> torchOwner(0x10);
   array<uint8> torchTimers(0x10);
 
-  bool pvp_hitbox_active;
-  uint16 pvp_hitbox_x;
-  uint16 pvp_hitbox_y;
-  uint8 pvp_hitbox_w;
-  uint8 pvp_hitbox_h;
-  uint8 pvp_sword_time;
-  uint8 pvp_sword_type;
-  uint8 pvp_item_used;
-  uint8 pvp_room_level;
+  Hitbox hitbox;
+
+  Hitbox action_hitbox;
+  uint8 action_sword_time;
+  uint8 action_sword_type;
+  uint8 action_item_used;
+  uint8 action_room_level;
 
   GameState() {
     torchOwner.resize(0x10);
@@ -422,6 +420,8 @@ class GameState {
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
+    hitbox.setBox(x + 4, y + 8, 8, 8);
+
     dungeon = uint16(r[c++]) | (uint16(r[c++]) << 8);
     dungeon_entrance = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
@@ -535,19 +535,22 @@ class GameState {
   }
 
   int deserialize_pvp(array<uint8> r, int c) {
-    pvp_hitbox_active = r[c++] == 1 ? true : false;
-    if (!pvp_hitbox_active) {
+    action_hitbox.setActive((r[c++] == 1) ? true : false);
+    if (!action_hitbox.active) {
       return c;
     }
 
-    pvp_hitbox_x =   uint16(r[c++]) | (uint16(r[c++]) << 8);
-    pvp_hitbox_y =   uint16(r[c++]) | (uint16(r[c++]) << 8);
-    pvp_hitbox_w =   r[c++];
-    pvp_hitbox_h =   r[c++];
-    pvp_sword_time = r[c++];
-    pvp_sword_type = r[c++];
-    pvp_item_used =  r[c++];
-    pvp_room_level = r[c++];
+    uint16 bx = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint16 by = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint8  bw = r[c++];
+    uint8  bh = r[c++];
+
+    action_hitbox.setBox(bx, by, bw, bh);
+
+    action_sword_time = r[c++];
+    action_sword_type = r[c++];
+    action_item_used =  r[c++];
+    action_room_level = r[c++];
 
     return c;
   }

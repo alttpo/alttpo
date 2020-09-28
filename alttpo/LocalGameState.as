@@ -446,20 +446,22 @@ class LocalGameState : GameState {
       // calculate hitbox for melee attack (sword, hammer, bugnet):
       rom.calc_action_hitbox();
 
-      pvp_hitbox_active = rom.action_hitbox_active;
-      pvp_hitbox_x = rom.action_hitbox_x;
-      pvp_hitbox_y = rom.action_hitbox_y;
-      pvp_hitbox_w = rom.action_hitbox_width;
-      pvp_hitbox_h = rom.action_hitbox_height;
+      action_hitbox.setActive(rom.action_hitbox_active);
+      action_hitbox.setBox(
+        rom.action_hitbox_x,
+        rom.action_hitbox_y,
+        rom.action_hitbox_w,
+        rom.action_hitbox_h
+      );
 
       //     $3C = sword out time / spin attack
-      pvp_sword_time = bus::read_u8(0x7E003C);
+      action_sword_time = bus::read_u8(0x7E003C);
       // $7EF359 = sword type
-      pvp_sword_type = bus::read_u8(0x7EF359);
+      action_sword_type = bus::read_u8(0x7EF359);
       //   $0301 = item in hand (bitfield, one bit at a time)
-      pvp_item_used = bus::read_u8(0x7E0301);
+      action_item_used = bus::read_u8(0x7E0301);
       //     $EE = level in room
-      pvp_room_level = bus::read_u8(0x7E00EE);
+      action_room_level = bus::read_u8(0x7E00EE);
     }
 
     // compute aggregated location for Link into a single 24-bit number:
@@ -505,6 +507,8 @@ class LocalGameState : GameState {
 
     x = bus::read_u16(0x7E0022);
     y = bus::read_u16(0x7E0020);
+
+    hitbox.setBox(x + 4, y + 8, 8, 8);
 
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
@@ -1208,19 +1212,19 @@ class LocalGameState : GameState {
   void serialize_pvp(array<uint8> &r) {
     r.write_u8(uint8(0x0B));
 
-    r.write_u8(pvp_hitbox_active ? uint8(1) : uint8(0));
-    if (!pvp_hitbox_active) {
+    r.write_u8(action_hitbox.active ? uint8(1) : uint8(0));
+    if (!action_hitbox.active) {
       return;
     }
 
-    r.write_u16(pvp_hitbox_x);
-    r.write_u16(pvp_hitbox_y);
-    r.write_u8(pvp_hitbox_w);
-    r.write_u8(pvp_hitbox_h);
-    r.write_u8(pvp_sword_time);
-    r.write_u8(pvp_sword_type);
-    r.write_u8(pvp_item_used);
-    r.write_u8(pvp_room_level);
+    r.write_u16(action_hitbox.x);
+    r.write_u16(action_hitbox.y);
+    r.write_u8(action_hitbox.w);
+    r.write_u8(action_hitbox.h);
+    r.write_u8(action_sword_time);
+    r.write_u8(action_sword_type);
+    r.write_u8(action_item_used);
+    r.write_u8(action_room_level);
   }
 
   void serialize_name(array<uint8> &r) {
@@ -2397,22 +2401,6 @@ class LocalGameState : GameState {
       return;
     }
 
-    // bank06.asm ; *$37705-$3772E LOCAL
-    // LDA.b #$08 : STA $02
-    //              STA $03
-    //
-    // LDA $22 : ADD.b #$04 : STA $00
-    // LDA $23 : ADC.b #$00 : STA $08
-    //
-    // LDA $20 : ADC.b #$08 : STA $01
-    // LDA $21 : ADC.b #$00 : STA $09
-
-    // our hitbox:
-    uint16 hb_x = x + 4;
-    uint16 hb_y = y + 8;
-    uint8 hb_w = 8;
-    uint8 hb_h = 8;
-
     // end result to apply to local player:
     uint8 potential_dmg = 0;
     uint8 actual_dmg = 0;
@@ -2427,13 +2415,10 @@ class LocalGameState : GameState {
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
 
-      if (!remote.pvp_hitbox_active) continue;
+      if (!remote.action_hitbox.active) continue;
 
       // check hitbox intersection:
-      if ((hb_x + hb_w) < remote.pvp_hitbox_x) continue;
-      if (hb_x > (remote.pvp_hitbox_x + remote.pvp_hitbox_w)) continue;
-      if ((hb_y + hb_h) < remote.pvp_hitbox_y) continue;
-      if (hb_y > (remote.pvp_hitbox_y + remote.pvp_hitbox_h)) continue;
+      if (!hitbox.intersects(remote.action_hitbox)) continue;
 
       // hitboxes intersect:
 
@@ -2480,5 +2465,6 @@ class LocalGameState : GameState {
       bus::write_u8(0x7E0029, jump);
       bus::write_u8(0x7E00C7, jump);
     }
+
   }
 };

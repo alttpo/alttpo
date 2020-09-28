@@ -103,13 +103,23 @@ void post_frame() {
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
 
-      if (!remote.pvp_hitbox_active) continue;
+      if (remote.action_hitbox.active) {
+        ppu::frame.color = remote.player_color;
+        ppu::frame.rect(
+          int(remote.action_hitbox.x - local.xoffs),
+          int(remote.action_hitbox.y - local.yoffs),
+          remote.action_hitbox.w,
+          remote.action_hitbox.h
+        );
+      }
 
-      int rx = int(remote.pvp_hitbox_x - local.xoffs);
-      int ry = int(remote.pvp_hitbox_y - local.yoffs);
-
-      ppu::frame.color = remote.player_color;
-      ppu::frame.rect(rx, ry, remote.pvp_hitbox_w, remote.pvp_hitbox_h);
+      ppu::frame.color = remote.player_color_dark_33;
+      ppu::frame.rect(
+        int(remote.hitbox.x - local.xoffs),
+        int(remote.hitbox.y - local.yoffs),
+        remote.hitbox.w,
+        remote.hitbox.h
+      );
     }
   }
 }
