@@ -2466,14 +2466,14 @@ class LocalGameState : GameState {
       // recoil state:
       bus::write_u8(0x7E004D, 0x01);
       // recoil timer:
-      bus::write_u8(0x7E0046, 0x30);
+      bus::write_u8(0x7E0046, 0x13);
       // recoil X velocity:
       bus::write_u8(0x7E0028, recoil_dx);
       // recoil Y velocity:
       bus::write_u8(0x7E0027, recoil_dy);
 
       // recoil resistance(?):
-      uint8 resistance = mathi::sqrt(recoil_dx * recoil_dx + recoil_dy * recoil_dy) / 2;
+      uint8 resistance = dmg / 2;
       bus::write_u8(0x7E0029, resistance);
       bus::write_u8(0x7E00C7, resistance);
     }
