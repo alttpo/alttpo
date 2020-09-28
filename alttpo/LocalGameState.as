@@ -2401,11 +2401,9 @@ class LocalGameState : GameState {
       return;
     }
 
-    bool stop_attack = false;
-
     // end result to apply to local player:
-    uint8 potential_dmg = 0;
     uint8 actual_dmg = 0;
+    uint8 recoil_timer = 0;
     int recoil_dx = 0;
     int recoil_dy = 0;
 
@@ -2420,7 +2418,37 @@ class LocalGameState : GameState {
       // if we are swinging and hit the remote player then stop our attack:
       if (action_hitbox.active) {
         if (action_hitbox.intersects(remote.hitbox)) {
-          stop_attack = true;
+          if (bus::read_u8(0x7E0372) != 0) {
+            // halt dash:
+            bus::write_u8(0x7E0374, 0);
+            bus::write_u8(0x7E005E, 0);
+            bus::write_u8(0x7E0372, 0);
+            bus::write_u8(0x7E0050, 0);
+            bus::write_u8(0x7E032B, 0);
+          } else if (action_sword_time >= 0x09 && action_sword_time < 0x80) {
+            // retract sword:
+            action_sword_time = 0;
+            bus::write_u8(0x7E003C, 0);
+            bus::write_u8(0x7E003A, 0);
+
+            // determine recoil vector from this player:
+            int dx = (x - remote.x);
+            int dy = (y - remote.y);
+            float mag = mathf::sqrt(float(dx * dx + dy * dy));
+            if (mag == 0) {
+              mag = 1.0f;
+            }
+
+            // scale recoil vector with damage amount:
+            dx = int(dx * 4 * 4.0f / mag);
+            dy = int(dy * 4 * 4.0f / mag);
+
+            // add recoil vector:
+            recoil_dx = dx;
+            recoil_dy = dy;
+            recoil_timer = 0x04;
+            break;
+          }
         }
       }
 
@@ -2439,32 +2467,26 @@ class LocalGameState : GameState {
       int dx = (x - remote.x);
       int dy = (y - remote.y);
       float mag = mathf::sqrt(float(dx * dx + dy * dy));
+      if (mag == 0) {
+        mag = 1.0f;
+      }
 
       // scale recoil vector with damage amount:
-      dx = int(dx * curr_dmg * 3.0f / mag);
-      dy = int(dy * curr_dmg * 3.0f / mag);
+      dx = int(dx * curr_dmg * 4.0f / mag);
+      dy = int(dy * curr_dmg * 4.0f / mag);
 
       // add damage and recoil vector:
-      potential_dmg += curr_dmg;
       if (enablePvPFriendlyFire || (remote.team != team)) {
         actual_dmg += curr_dmg;
       }
       recoil_dx += dx;
       recoil_dy += dy;
+      recoil_timer = 0x08;
     }
 
     // apply damage:
     if (actual_dmg != 0) {
       bus::write_u8(0x7E0373, actual_dmg);
-    }
-
-    // reset our sword attack if we hit someone else:
-    if (stop_attack) {
-      if (action_sword_time >= 0x09 && action_sword_time < 0x80) {
-        action_sword_time = 0;
-        bus::write_u8(0x7E003C, 0);
-        bus::write_u8(0x7E003A, 0);
-      }
     }
 
     // apply recoil:
@@ -2475,14 +2497,14 @@ class LocalGameState : GameState {
       }
 
       // recoil timer:
-      bus::write_u8(0x7E0046, 0x13);
+      bus::write_u8(0x7E0046, recoil_timer);
       // recoil X velocity:
       bus::write_u8(0x7E0028, recoil_dx);
       // recoil Y velocity:
       bus::write_u8(0x7E0027, recoil_dy);
 
       // recoil jump:
-      uint8 jump = potential_dmg / 2;
+      uint8 jump = actual_dmg / 2;
       bus::write_u8(0x7E0029, jump);
       bus::write_u8(0x7E00C7, jump);
 
