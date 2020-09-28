@@ -2414,7 +2414,8 @@ class LocalGameState : GameState {
     uint8 hb_h = 8;
 
     // end result to apply to local player:
-    uint8 dmg = 0;
+    uint8 potential_dmg = 0;
+    uint8 actual_dmg = 0;
     int recoil_dx = 0;
     int recoil_dy = 0;
 
@@ -2427,7 +2428,6 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
 
       if (!remote.pvp_hitbox_active) continue;
-      //if ((remote.team == team) && !enablePvPFriendlyFire) continue;
 
       // check hitbox intersection:
       if ((hb_x + hb_w) < remote.pvp_hitbox_x) continue;
@@ -2447,18 +2447,21 @@ class LocalGameState : GameState {
       float mag = mathf::sqrt(float(dx * dx + dy * dy));
 
       // scale recoil vector with damage amount:
-      dx = int(dx * curr_dmg * 2.0f / mag);
-      dy = int(dy * curr_dmg * 2.0f / mag);
+      dx = int(dx * curr_dmg * 3.0f / mag);
+      dy = int(dy * curr_dmg * 3.0f / mag);
 
       // add damage and recoil vector:
-      dmg += curr_dmg;
+      potential_dmg += curr_dmg;
+      if (enablePvPFriendlyFire || (remote.team != team)) {
+        actual_dmg += curr_dmg;
+      }
       recoil_dx += dx;
       recoil_dy += dy;
     }
 
     // apply damage:
-    if (dmg != 0) {
-      bus::write_u8(0x7E0373, dmg);
+    if (actual_dmg != 0) {
+      bus::write_u8(0x7E0373, actual_dmg);
     }
 
     // apply recoil:
@@ -2472,10 +2475,10 @@ class LocalGameState : GameState {
       // recoil Y velocity:
       bus::write_u8(0x7E0027, recoil_dy);
 
-      // recoil resistance(?):
-      uint8 resistance = dmg / 2;
-      bus::write_u8(0x7E0029, resistance);
-      bus::write_u8(0x7E00C7, resistance);
+      // recoil jump:
+      uint8 jump = potential_dmg / 2;
+      bus::write_u8(0x7E0029, jump);
+      bus::write_u8(0x7E00C7, jump);
     }
   }
 };
