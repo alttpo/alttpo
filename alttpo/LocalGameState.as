@@ -2507,6 +2507,7 @@ class LocalGameState : GameState {
       uint8 jump = actual_dmg / 2;
       bus::write_u8(0x7E0029, jump);
       bus::write_u8(0x7E00C7, jump);
+      bus::write_u8(0x7E02C7, recoil_timer);
 
       // reset Z offset:
       bus::write_u16(0x7E0024, 0);
