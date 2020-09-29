@@ -2414,6 +2414,8 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
+      // TODO: remote dark world == local dark world check
+      // TODO: overworld != underworld
 
       // if we are swinging and hit the remote player then stop our attack:
       if (action_hitbox.active) {
@@ -2457,11 +2459,32 @@ class LocalGameState : GameState {
       // check hitbox intersection:
       if (!hitbox.intersects(remote.action_hitbox)) continue;
 
-      // hitboxes intersect:
+      // hitboxes intersect; remote player is attacking us:
 
-      // apply 1 heart of damage for now:
-      // TODO: damage lookup based on remote weapon
-      int curr_dmg = 8;
+      // determine remote player's sword strength:
+      int sword = remote.action_sword_type; // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
+      if (remote.action_item_used != 0) {
+        // bugnet does fighter-sword damage
+        sword = 1;
+      }
+      if ((remote.action_item_used & 0x02) != 0) {
+        // using hammer, so act as though using tempered sword:
+        sword = 3;
+      }
+      // no damage:
+      if (sword == 0) {
+        continue;
+      }
+
+      // take away the no-sword case to get a bit shift left amount:
+      int sword_shl = sword - 1;    // 0 = fighter, 1 = master, 2 = tempered, 3 = gold
+      // determine our armor strength as a bit shift right amount to reduce damage by:
+      int armor_shr = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
+
+      // 8 damage = 1 whole heart
+      int curr_dmg = 8 << sword_shl;
+      // reduce damage by armor bit shift right:
+      curr_dmg = curr_dmg >> armor_shr;
 
       // determine recoil vector from this player:
       int dx = (x - remote.x);
@@ -2472,8 +2495,8 @@ class LocalGameState : GameState {
       }
 
       // scale recoil vector with damage amount:
-      dx = int(dx * curr_dmg * 4.0f / mag);
-      dy = int(dy * curr_dmg * 4.0f / mag);
+      dx = int(dx * (16 + curr_dmg * 0.25f) / mag);
+      dy = int(dy * (16 + curr_dmg * 0.25f) / mag);
 
       // add damage and recoil vector:
       if (enablePvPFriendlyFire || (remote.team != team)) {
@@ -2481,7 +2504,7 @@ class LocalGameState : GameState {
       }
       recoil_dx += dx;
       recoil_dy += dy;
-      recoil_timer = 0x08;
+      recoil_timer = 0x10;
     }
 
     // apply damage:

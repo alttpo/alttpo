@@ -143,10 +143,10 @@ class GameState {
   Hitbox hitbox;
 
   Hitbox action_hitbox;
-  uint8 action_sword_time;
-  uint8 action_sword_type;
-  uint8 action_item_used;
-  uint8 action_room_level;
+  uint8 action_sword_time;    //     $3C = sword out time / spin attack
+  uint8 action_sword_type;    // $7EF359 = sword type
+  uint8 action_item_used;     //   $0301 = item in hand (bitfield, one bit at a time)
+  uint8 action_room_level;    //     $EE = level in room
 
   GameState() {
     torchOwner.resize(0x10);
