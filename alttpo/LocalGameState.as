@@ -2456,10 +2456,55 @@ class LocalGameState : GameState {
         }
       }
 
-      if (!remote.action_hitbox.active) continue;
+      if (!remote.action_hitbox.active) {
+        continue;
+      }
+
+      if (action_hitbox.intersects(remote.action_hitbox)) {
+        // our sword intersects their sword:
+
+        // determine recoil vector from this player:
+        int dx = (x - remote.x);
+        int dy = (y - remote.y);
+        float mag = mathf::sqrt(float(dx * dx + dy * dy));
+        if (mag == 0) {
+          mag = 1.0f;
+        }
+
+        // scale recoil vector with damage amount:
+        dx = int(dx * 16.0f / mag);
+        dy = int(dy * 16.0f / mag);
+
+        recoil_dx += dx;
+        recoil_dy += dy;
+        recoil_timer = 0x04;
+
+        // tink sparkles
+        //LDA $0FAC : BNE .respulse_spark_already_active
+        auto repulse_timer = bus::read_u8(0x7E0FAC);
+        if (repulse_timer == 0) {
+          //LDA.b #$05 : STA $0FAC
+          bus::write_u8(0x7E0FAC, 0x05);
+
+          //LDA $0022 : ADC $0045 : STA $0FAD
+          bus::write_u8(0x7E0FAD, (x & 0xFF) + bus::read_u8(0x7E0045));
+          //LDA $0020 : ADC $0044 : STA $0FAE
+          bus::write_u8(0x7E0FAE, (y & 0xFF) + bus::read_u8(0x7E0044));
+
+          //LDA $EE : STA $0B68
+          bus::write_u8(0x7E0B68, action_room_level);
+        }
+
+        //; Make "clink" against wall noise
+        //JSL Sound_SetSfxPanWithPlayerCoords
+        //ORA.b #$05 : STA $012E
+        bus::write_u8(0x7E012E, 0x05);  // TODO: OR with 0x40 or 0x80 for left/right panning
+      }
 
       // check hitbox intersection:
-      if (!hitbox.intersects(remote.action_hitbox)) continue;
+      if (!hitbox.intersects(remote.action_hitbox)) {
+        continue;
+      }
 
       // hitboxes intersect; remote player is attacking us:
       int base_dmg = 4; // fighter sword does 1/2 heart against green armor
