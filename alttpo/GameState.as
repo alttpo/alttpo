@@ -334,6 +334,16 @@ class GameState {
     return locations_equal(actual_location, other_location);
   }
 
+  bool is_in_same_map(uint32 other_location) const {
+    // in underworld, doesn't matter if light vs dark:
+    if ((actual_location & 0x010000) == 0x010000 && (other_location & 0x010000) == 0x010000) {
+      return true;
+    }
+
+    // in overworld both must be in light or dark world:
+    return (actual_location & 0x020000) == (other_location & 0x020000);
+  }
+
   void ttl_count() {
     if (ttl > 0) {
       ttl--;

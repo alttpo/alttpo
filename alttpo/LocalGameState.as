@@ -2414,8 +2414,9 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
-      // TODO: remote dark world == local dark world check
-      // TODO: overworld != underworld
+
+      // make sure in same general map:
+      if (!is_in_same_map(remote.actual_location)) continue;
 
       // if we are swinging and hit the remote player then stop our attack:
       if (action_hitbox.active) {
