@@ -2461,6 +2461,7 @@ class LocalGameState : GameState {
       if (!hitbox.intersects(remote.action_hitbox)) continue;
 
       // hitboxes intersect; remote player is attacking us:
+      int base_dmg = 4; // fighter sword does 1/2 heart against green armor
 
       // determine remote player's sword strength:
       int sword = remote.action_sword_type; // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
@@ -2474,7 +2475,8 @@ class LocalGameState : GameState {
       }
       // no damage:
       if (sword == 0) {
-        continue;
+        // just shove:
+        base_dmg = 0;
       }
 
       // take away the no-sword case to get a bit shift left amount:
@@ -2483,9 +2485,15 @@ class LocalGameState : GameState {
       int armor_shr = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
 
       // 8 damage = 1 whole heart
-      int curr_dmg = 8 << sword_shl;
+      int curr_dmg = base_dmg << sword_shl;
+
       // reduce damage by armor bit shift right:
       curr_dmg = curr_dmg >> armor_shr;
+
+      // minimum 1/4 heart damage; let's not mess with 1/8th hearts:
+      if (curr_dmg == 1) {
+        curr_dmg = 2;
+      }
 
       // determine recoil vector from this player:
       int dx = (x - remote.x);
