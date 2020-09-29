@@ -2423,6 +2423,7 @@ class LocalGameState : GameState {
         if (action_hitbox.intersects(remote.hitbox)) {
           if (bus::read_u8(0x7E0372) != 0) {
             // dashing
+
             //// halt dash:
             //bus::write_u8(0x7E0374, 0);
             //bus::write_u8(0x7E005E, 0);
@@ -2430,6 +2431,8 @@ class LocalGameState : GameState {
             //bus::write_u8(0x7E0050, 0);
             //bus::write_u8(0x7E032B, 0);
           } else if (action_sword_time >= 0x09 && action_sword_time < 0x80) {
+            // stabbing:
+
             // retract sword:
             action_sword_time = 0;
             bus::write_u8(0x7E003C, 0);
@@ -2461,7 +2464,7 @@ class LocalGameState : GameState {
       }
 
       if (action_hitbox.intersects(remote.action_hitbox)) {
-        // our sword intersects their sword:
+        // our sword/item intersects their sword/item:
 
         // determine recoil vector from this player:
         int dx = (x - remote.x);
@@ -2501,7 +2504,7 @@ class LocalGameState : GameState {
         bus::write_u8(0x7E012E, 0x05);  // TODO: OR with 0x40 or 0x80 for left/right panning
       }
 
-      // check hitbox intersection:
+      // check our player hitbox against their sword/item hitbox:
       if (!hitbox.intersects(remote.action_hitbox)) {
         continue;
       }
@@ -2510,14 +2513,11 @@ class LocalGameState : GameState {
       int base_dmg = 4; // fighter sword does 1/2 heart against green armor
 
       // determine remote player's sword strength:
-      int sword = remote.action_sword_type; // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
+      int sword = remote.action_sword_type;       // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
+      int sword_time = remote.action_sword_time;  // 0 = not out, $1..8 = slash, $9..C = stab, $90 = spin
       if (remote.action_item_used != 0) {
         // bugnet does fighter-sword damage
         sword = 1;
-      }
-      if ((remote.action_item_used & 0x02) != 0) {
-        // using hammer, so act as though using tempered sword:
-        sword = 3;
       }
       // no damage:
       if (sword == 0) {
@@ -2525,16 +2525,35 @@ class LocalGameState : GameState {
         base_dmg = 0;
       }
 
-      // take away the no-sword case to get a bit shift left amount:
-      int sword_shl = sword - 1;    // 0 = fighter, 1 = master, 2 = tempered, 3 = gold
+      int curr_dmg = 0;
+      if (sword > 0 && sword_time != 0) {
+        // take away the no-sword case to get a bit shift left amount:
+        int sword_shl = sword - 1;    // 0 = fighter, 1 = master, 2 = tempered, 3 = gold
+
+        // 8 damage = 1 whole heart
+        curr_dmg = base_dmg << sword_shl;
+
+        // scale damage for stabbing/spinning attacks:
+        if (sword_time >= 0x09 && sword_time < 0x80) {
+          // stabbing:
+          curr_dmg >>= 1;
+        } else if (sword_time == 0x90) {
+          // spinning:
+          curr_dmg <<= 1;
+        }
+      }
+
+      // TODO: handle arrows damage here
+
       // determine our armor strength as a bit shift right amount to reduce damage by:
       int armor_shr = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
-
-      // 8 damage = 1 whole heart
-      int curr_dmg = base_dmg << sword_shl;
-
       // reduce damage by armor bit shift right:
       curr_dmg = curr_dmg >> armor_shr;
+
+      // if using hammer, apply 10 hearts damage regardless of armor:
+      if ((remote.action_item_used & 0x02) != 0) {
+        curr_dmg = 10 * 8;
+      }
 
       // minimum 1/4 heart damage; let's not mess with 1/8th hearts:
       if (curr_dmg == 1) {
@@ -2559,7 +2578,7 @@ class LocalGameState : GameState {
       }
       recoil_dx += dx;
       recoil_dy += dy;
-      recoil_timer = 0x10;
+      recoil_timer = 0x20;
     }
 
     // apply damage:
