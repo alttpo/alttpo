@@ -2422,12 +2422,13 @@ class LocalGameState : GameState {
       if (action_hitbox.active) {
         if (action_hitbox.intersects(remote.hitbox)) {
           if (bus::read_u8(0x7E0372) != 0) {
-            // halt dash:
-            bus::write_u8(0x7E0374, 0);
-            bus::write_u8(0x7E005E, 0);
-            bus::write_u8(0x7E0372, 0);
-            bus::write_u8(0x7E0050, 0);
-            bus::write_u8(0x7E032B, 0);
+            // dashing
+            //// halt dash:
+            //bus::write_u8(0x7E0374, 0);
+            //bus::write_u8(0x7E005E, 0);
+            //bus::write_u8(0x7E0372, 0);
+            //bus::write_u8(0x7E0050, 0);
+            //bus::write_u8(0x7E032B, 0);
           } else if (action_sword_time >= 0x09 && action_sword_time < 0x80) {
             // retract sword:
             action_sword_time = 0;
@@ -2443,8 +2444,8 @@ class LocalGameState : GameState {
             }
 
             // scale recoil vector with damage amount:
-            dx = int(dx * 4 * 4.0f / mag);
-            dy = int(dy * 4 * 4.0f / mag);
+            dx = int(dx * 16.0f / mag);
+            dy = int(dy * 16.0f / mag);
 
             // add recoil vector:
             recoil_dx = dx;
