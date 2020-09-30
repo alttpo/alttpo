@@ -442,27 +442,7 @@ class LocalGameState : GameState {
     dungeon = bus::read_u16(0x7E040C);
     dungeon_entrance = bus::read_u16(0x7E010E);
 
-    if (settings.EnablePvP && (rom !is null)) {
-      // calculate hitbox for melee attack (sword, hammer, bugnet):
-      rom.calc_action_hitbox();
-
-      action_hitbox.setActive(rom.action_hitbox_active);
-      action_hitbox.setBox(
-        rom.action_hitbox_x,
-        rom.action_hitbox_y,
-        rom.action_hitbox_w,
-        rom.action_hitbox_h
-      );
-
-      //     $3C = sword out time / spin attack
-      action_sword_time = bus::read_u8(0x7E003C);
-      // $7EF359 = sword type
-      action_sword_type = bus::read_u8(0x7EF359);
-      //   $0301 = item in hand (bitfield, one bit at a time)
-      action_item_used = bus::read_u8(0x7E0301);
-      //     $EE = level in room
-      action_room_level = bus::read_u8(0x7E00EE);
-    }
+    fetch_pvp();
 
     // compute aggregated location for Link into a single 24-bit number:
     last_actual_location = actual_location;
@@ -523,6 +503,50 @@ class LocalGameState : GameState {
     fetch_tilemap_changes();
 
     fetch_torches();
+  }
+
+  AncillaTables ancillaTables;
+  array<uint8> projectiles;
+
+  void fetch_pvp() {
+    if (!settings.EnablePvP) {
+      return;
+    }
+    if (rom is null) {
+      return;
+    }
+
+    // calculate hitbox for melee attack (sword, hammer, bugnet):
+    rom.calc_action_hitbox();
+
+    action_hitbox.setActive(rom.action_hitbox_active);
+    action_hitbox.setBox(
+      rom.action_hitbox_x,
+      rom.action_hitbox_y,
+      rom.action_hitbox_w,
+      rom.action_hitbox_h
+    );
+
+    //     $3C = sword out time / spin attack
+    action_sword_time = bus::read_u8(0x7E003C);
+    // $7EF359 = sword type
+    action_sword_type = bus::read_u8(0x7EF359);
+    //   $0301 = item in hand (bitfield, one bit at a time)
+    action_item_used = bus::read_u8(0x7E0301);
+    //     $EE = level in room
+    action_room_level = bus::read_u8(0x7E00EE);
+
+    // read projectile data from WRAM and filter out unimportant effect sparkles:
+    ancillaTables.read_ram();
+    projectiles.reserve(10);
+    projectiles.resize(0);
+    for (uint8 i = 0; i < ancilla_count; i++) {
+      if (!ancillaTables.is_projectile(i)) {
+        continue;
+      }
+
+      projectiles.insertLast(i);
+    }
   }
 
   void fetch_sfx() {
