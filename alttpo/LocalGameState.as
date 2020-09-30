@@ -506,7 +506,7 @@ class LocalGameState : GameState {
   }
 
   AncillaTables ancillaTables;
-  array<uint8> projectiles;
+  array<uint8> projectileAncillae;
 
   void fetch_pvp() {
     if (!settings.EnablePvP) {
@@ -538,14 +538,14 @@ class LocalGameState : GameState {
 
     // read projectile data from WRAM and filter out unimportant effect sparkles:
     ancillaTables.read_ram();
-    projectiles.reserve(10);
-    projectiles.resize(0);
+    projectileAncillae.reserve(10);
+    projectileAncillae.resize(0);
     for (uint8 i = 0; i < ancilla_count; i++) {
       if (!ancillaTables.is_projectile(i)) {
         continue;
       }
 
-      projectiles.insertLast(i);
+      projectileAncillae.insertLast(i);
     }
   }
 
@@ -1243,12 +1243,23 @@ class LocalGameState : GameState {
 
     r.write_u16(action_hitbox.x);
     r.write_u16(action_hitbox.y);
-    r.write_u8(action_hitbox.w);
-    r.write_u8(action_hitbox.h);
-    r.write_u8(action_sword_time);
-    r.write_u8(action_sword_type);
-    r.write_u8(action_item_used);
-    r.write_u8(action_room_level);
+    r.write_u8 (action_hitbox.w);
+    r.write_u8 (action_hitbox.h);
+    r.write_u8 (action_sword_time);
+    r.write_u8 (action_sword_type);
+    r.write_u8 (action_item_used);
+    r.write_u8 (action_room_level);
+
+    // serialize projectiles:
+    auto len = uint8(projectileAncillae.length());
+    r.write_u8(len);
+    for (uint i = 0; i < len; i++) {
+      auto n = projectileAncillae[i];
+
+      r.write_u8 (ancillaTables.mode[n]);
+      r.write_u16(ancillaTables.x[n]);
+      r.write_u16(ancillaTables.y[n]);
+    }
   }
 
   void serialize_name(array<uint8> &r) {

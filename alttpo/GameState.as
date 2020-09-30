@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0F;
+const uint8 script_protocol = 0x10;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -561,6 +561,15 @@ class GameState {
     action_sword_type = r[c++];
     action_item_used =  r[c++];
     action_room_level = r[c++];
+
+    // deserialize projectiles:
+    uint8 len = r[c++];
+    for (uint i = 0; i < len; i++) {
+      // TODO: store this projectile data
+      auto pmode = r[c++];
+      auto px = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      auto py = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
 
     return c;
   }
