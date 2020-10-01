@@ -96,7 +96,7 @@ void post_frame() {
     memoryWindow.update();
   }
 
-  if (enablePvP && false) {
+  if (settings.EnablePvP && false) {
     uint len = players.length();
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];

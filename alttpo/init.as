@@ -118,10 +118,6 @@ void cartridge_loaded() {
     }
   }
   
-  if (settings.EnablePvP) {
-    enablePvP = true;
-  }
-  
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }

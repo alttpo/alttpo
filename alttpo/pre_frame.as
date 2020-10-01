@@ -81,7 +81,7 @@ void on_main_alttp(uint32 pc) {
     update_torches();
   }
 
-  if (enablePvP) {
+  if (settings.EnablePvP) {
     local.apply_pvp();
   }
 
