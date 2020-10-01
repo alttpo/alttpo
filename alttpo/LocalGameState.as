@@ -442,7 +442,7 @@ class LocalGameState : GameState {
     dungeon = bus::read_u16(0x7E040C);
     dungeon_entrance = bus::read_u16(0x7E010E);
 
-    if (enablePvP && (rom !is null)) {
+    if (settings.EnablePvP && (rom !is null)) {
       // calculate hitbox for melee attack (sword, hammer, bugnet):
       rom.calc_action_hitbox();
 
@@ -1519,7 +1519,7 @@ class LocalGameState : GameState {
       serialize_name(envelope);
       serialize_sfx(envelope);
 
-      if (enablePvP) {
+      if (settings.EnablePvP) {
         serialize_pvp(envelope);
       }
 

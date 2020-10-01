@@ -24,7 +24,7 @@ bool enableRenderToExtra = true;
 // sync control:
 bool enableObjectSync = false;
 bool enableSmallKeySync = false;
-bool enablePvP = true;
+bool enablePvP = false;
 bool enablePvPFriendlyFire = false;
 
 void init() {
@@ -117,7 +117,7 @@ void cartridge_loaded() {
       worldMapWindow.add_sm_button();
     }
   }
-
+  
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }
