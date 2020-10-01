@@ -205,7 +205,7 @@ class SettingsWindow {
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
     FontIndex = doc["feature/fontIndex"].naturalOr(0);
-	enablePvP = doc["feature/enablePvP"].booleanOr(false);
+    enablePvP = doc["feature/enablePvP"].booleanOr(false);
     raceMode = doc["feature/raceMode"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
@@ -245,7 +245,7 @@ class SettingsWindow {
     doc.create("feature/showLabels").value = fmtBool(showLabels);
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
-	doc.create("feature/enablePvP").value = fmtBool(enablePvP);
+    doc.create("feature/enablePvP").value = fmtBool(enablePvP);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
@@ -482,8 +482,8 @@ class SettingsWindow {
         ddlFont.onChange(@GUI::Callback(ddlFontChanged));
         ddlFont.enabled = true;
       }
-	  
-	  {
+      
+      {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, 0));
 
