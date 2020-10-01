@@ -148,6 +148,8 @@ class GameState {
   uint8 action_item_used;     //   $0301 = item in hand (bitfield, one bit at a time)
   uint8 action_room_level;    //     $EE = level in room
 
+  array<Projectile> projectiles;
+
   GameState() {
     torchOwner.resize(0x10);
     for (uint t = 0; t < 0x10; t++) {
@@ -564,11 +566,12 @@ class GameState {
 
     // deserialize projectiles:
     uint8 len = r[c++];
+    projectiles.resize(len);
     for (uint i = 0; i < len; i++) {
-      // TODO: store this projectile data
-      auto pmode = r[c++];
-      auto px = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      auto py = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      projectiles[i].mode = r[c++];
+      projectiles[i].x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      projectiles[i].y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      // calc hit box
     }
 
     return c;

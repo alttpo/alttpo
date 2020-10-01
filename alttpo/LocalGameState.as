@@ -2644,6 +2644,5 @@ class LocalGameState : GameState {
       // reset Z offset:
       bus::write_u16(0x7E0024, 0);
     }
-
   }
 };
