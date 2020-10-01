@@ -343,7 +343,7 @@ class EURROMMapping : ROMMapping {
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
   //uint32 get_fn_main_routing() property                { return 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; } // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3C6; } // TODO: unconfirmed! copied from GER_EURROMMapping
   uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; } // TODO: unconfirmed! copied from GER_EURROMMapping
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; } // TODO: unconfirmed! copied from GER_EURROMMapping
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
@@ -375,7 +375,7 @@ class GER_EURROMMapping : ROMMapping {
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
   //uint32 get_fn_main_routing() property                { return 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; } // TODO: not working! copied from USROMMapping
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3C6; }
   uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; }
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; }
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
