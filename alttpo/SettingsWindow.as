@@ -23,6 +23,7 @@ class SettingsWindow {
   private GUI::SNESCanvas @colorCanvas;
   private GUI::CheckLabel @chkShowLabels;
   private GUI::CheckLabel @chkShowMyLabel;
+  private GUI::CheckLabel @chkEnablePvP;
   private GUI::CheckLabel @chkRaceMode;
   private GUI::CheckLabel @chkBridge;
   private GUI::Label @lblBridgeMessage;
@@ -117,6 +118,11 @@ class SettingsWindow {
   void bridgeMessageUpdated(const string &in msg) {
     lblBridgeMessage.text = msg;
   }
+  
+  private bool enablePvp;
+  bool EnablePvP {
+    get { return enablePvP; }
+  }
 
   private bool raceMode;
   bool RaceMode {
@@ -199,6 +205,7 @@ class SettingsWindow {
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
     FontIndex = doc["feature/fontIndex"].naturalOr(0);
+	enablePvP = doc["feature/enablePvP"].booleanOr(false);
     raceMode = doc["feature/raceMode"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
@@ -238,6 +245,7 @@ class SettingsWindow {
     doc.create("feature/showLabels").value = fmtBool(showLabels);
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
+	doc.create("feature/enablePvP").value = fmtBool(enablePvP);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
@@ -247,7 +255,7 @@ class SettingsWindow {
   SettingsWindow() {
     @window = GUI::Window(120, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(sx(280), sy(16*25));
+    window.size = GUI::Size(sx(280), sy(17*25));
     window.dismissable = false;
 
     auto sx100 = sx(100);
@@ -474,6 +482,19 @@ class SettingsWindow {
         ddlFont.onChange(@GUI::Callback(ddlFontChanged));
         ddlFont.enabled = true;
       }
+	  
+	  {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        @chkEnablePvP = GUI::CheckLabel();
+        chkEnablePvP.text = "Enable PvP";
+        chkEnablePvP.toolTip =
+          "Enable this to enable PvP. This will allow you to hit or even kill players in other teams. ";
+        chkEnablePvP.checked = false;
+        chkEnablePvP.onToggle(@GUI::Callback(chkEnablePvPChanged));
+        hz.append(chkEnablePvP, GUI::Size(-1, 0));
+      }
 
       {
         auto @hz = GUI::HorizontalLayout();
@@ -612,6 +633,17 @@ class SettingsWindow {
   }
 
   // callback:
+  private void chkEnablePvPChanged() {
+    enablePvPWasChanged();
+  }
+  
+  private void enablePvPWasChanged(bool persist = true) {
+    enablePvP = chkEnablePvP.checked;
+
+    if (!persist) return;
+    save();
+  }
+  
   private void chkRaceModeChanged() {
     raceModeWasChanged();
   }

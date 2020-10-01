@@ -343,10 +343,42 @@ class EURROMMapping : ROMMapping {
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
   //uint32 get_fn_main_routing() property                { return 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
-  uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
-  uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO
-  uint32 get_fn_sprite_init() property                 { return 0xFFFFFF; } // TODO
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; } // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; } // TODO: unconfirmed! copied from GER_EURROMMapping
+  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; } // TODO: unconfirmed! copied from GER_EURROMMapping
+  uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
+
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_sword_palette() property       { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_shield_palette() property      { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
+};
+
+class GER_EURROMMapping : ROMMapping {
+  GER_EURROMMapping() {
+    _title = "GER-EUR v1." + fmtInt(bus::read_u8(0x00FFDB));
+  }
+
+  uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
+  uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
+
+  // entrance & exit tables:
+  uint32 get_entrance_table_room()    property { return 0x02C813; } // TODO
+  uint32 get_exit_table_room()        property { return 0x02DD8A; } // TODO
+  uint32 get_exit_table_link_y()      property { return 0x02E051; } // TODO
+  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // TODO
+
+  uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
+  uint32 get_fn_patch() property                       { return 0x008056; } // TODO
+  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; } // TODO: not working! copied from USROMMapping
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; }
+  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; }
+  uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
 
   uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
   uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
@@ -605,6 +637,9 @@ ROMMapping@ detect() {
     } else if (region == 0x02) {
       message("Recognized EUR region ROM version v1." + fmtInt(version));
       return EURROMMapping();
+    } else if (region == 0x09) {
+      message("Recognized GER-EUR region ROM version v1." + fmtInt(version));
+      return GER_EURROMMapping();
     } else {
       message("Unrecognized ROM region but has US title; assuming USA ROM v1." + fmtInt(version));
       return USAROMMapping();
