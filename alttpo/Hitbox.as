@@ -19,7 +19,7 @@ class Hitbox {
     this.active = active;
   }
 
-  bool intersects(const Hitbox &in other) {
+  bool intersects(const Hitbox &in other) const {
     if ((this.x + this.w) <  other.x) {
       return false;
     }
@@ -33,5 +33,13 @@ class Hitbox {
       return false;
     }
     return true;
+  }
+
+  uint16 get_mx() const property {
+    return x + (w >> 1);
+  }
+
+  uint16 get_my() const property {
+    return y + (h >> 1);
   }
 };

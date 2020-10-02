@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0F;
+const uint8 script_protocol = 0x10;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -147,6 +147,8 @@ class GameState {
   uint8 action_sword_type;    // $7EF359 = sword type
   uint8 action_item_used;     //   $0301 = item in hand (bitfield, one bit at a time)
   uint8 action_room_level;    //     $EE = level in room
+
+  array<Projectile> projectiles;
 
   GameState() {
     torchOwner.resize(0x10);
@@ -546,21 +548,35 @@ class GameState {
 
   int deserialize_pvp(array<uint8> r, int c) {
     action_hitbox.setActive((r[c++] == 1) ? true : false);
-    if (!action_hitbox.active) {
-      return c;
+    if (action_hitbox.active) {
+      uint16 bx = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint16 by = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint8  bw = r[c++];
+      uint8  bh = r[c++];
+
+      action_hitbox.setBox(bx, by, bw, bh);
+
+      action_sword_time = r[c++];
+      action_item_used =  r[c++];
     }
 
-    uint16 bx = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    uint16 by = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    uint8  bw = r[c++];
-    uint8  bh = r[c++];
-
-    action_hitbox.setBox(bx, by, bw, bh);
-
-    action_sword_time = r[c++];
     action_sword_type = r[c++];
-    action_item_used =  r[c++];
     action_room_level = r[c++];
+
+    // deserialize projectiles:
+    uint8 len = r[c++];
+    projectiles.resize(len);
+    for (uint i = 0; i < len; i++) {
+      projectiles[i].mode = r[c++];
+      projectiles[i].x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      projectiles[i].y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      projectiles[i].vx = int8(r[c++]);
+      projectiles[i].vy = int8(r[c++]);
+      projectiles[i].hitbox_index = r[c++];
+      projectiles[i].room_level = r[c++];
+
+      projectiles[i].calc_hitbox();
+    }
 
     return c;
   }

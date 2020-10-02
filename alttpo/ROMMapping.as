@@ -286,6 +286,15 @@ abstract class ROMMapping {
     calc_action_hitbox_special_pose(x);
     return;
   }
+
+  // address of the ancilla hitbox tables: (x, w, y, h) * 12 items each
+  uint32 get_table_hitbox_ancilla() const property { return 0x088E7D; }
+
+  // fetch the hitbox values:
+   int8 get_hitbox_ancilla_x(int n) const property { return  int8(bus::read_u8(table_hitbox_ancilla + 12*0 + n)); }    // 0x088E7D
+  uint8 get_hitbox_ancilla_w(int n) const property { return uint8(bus::read_u8(table_hitbox_ancilla + 12*1 + n)); }    // 0x088E89
+   int8 get_hitbox_ancilla_y(int n) const property { return  int8(bus::read_u8(table_hitbox_ancilla + 12*2 + n)); }    // 0x088E95
+  uint8 get_hitbox_ancilla_h(int n) const property { return uint8(bus::read_u8(table_hitbox_ancilla + 12*3 + n)); }    // 0x088EA1
 };
 
 class USAROMMapping : ROMMapping {

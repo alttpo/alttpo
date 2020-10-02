@@ -491,7 +491,7 @@ class SettingsWindow {
         chkEnablePvP.text = "Enable PvP";
         chkEnablePvP.toolTip =
           "Enable this to enable PvP. This will allow you to hit or even kill players in other teams. ";
-        chkEnablePvP.checked = false;
+        chkEnablePvP.checked = ::enablePvP;
         chkEnablePvP.onToggle(@GUI::Callback(chkEnablePvPChanged));
         hz.append(chkEnablePvP, GUI::Size(-1, 0));
       }

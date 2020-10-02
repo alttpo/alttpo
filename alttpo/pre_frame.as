@@ -199,7 +199,7 @@ void pre_frame() {
   local.ttl = 255;
 
   if (!main_called) {
-    dbgData("pre_frame send/recv");
+    //dbgData("pre_frame send/recv");
     if (settings.started && (sock !is null)) {
       // send updated state for our Link to server:
       //message("send");
