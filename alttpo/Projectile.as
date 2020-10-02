@@ -12,7 +12,7 @@ class Projectile {
 
   void calc_hitbox() {
     if (mode == 0) {
-      dbgData("projectile mode = 0");
+      //dbgData("projectile mode = 0");
       hitbox.setActive(false);
       hitbox.setBox(0x8000, 0, 0, 0);
       return;
@@ -26,16 +26,22 @@ class Projectile {
     }
 
     if (hitbox_index >= 12) {
-      dbgData("bad hitbox index {0}".format({hitbox_index}));
+      //dbgData("bad hitbox index {0}".format({hitbox_index}));
       return;
+    }
+
+    // special adjustment for sword beam:
+    uint k = hitbox_index;
+    if (mode == 0x0C) {
+      k |= 0x08;
     }
 
     // look up hitbox x,y,w,h from ROM tables:
     hitbox.setBox(
-      x + rom.hitbox_ancilla_x[hitbox_index],
-      y + rom.hitbox_ancilla_y[hitbox_index],
-      rom.hitbox_ancilla_w[hitbox_index],
-      rom.hitbox_ancilla_h[hitbox_index]
+      x + rom.hitbox_ancilla_x[k],
+      y + rom.hitbox_ancilla_y[k],
+      rom.hitbox_ancilla_w[k],
+      rom.hitbox_ancilla_h[k]
     );
   }
 
@@ -56,17 +62,17 @@ class Projectile {
     }
 
     bool intersects = hitbox.intersects(local.hitbox);
-    dbgData("pr ({0},{1},{2},{3}) vs pl ({4},{5},{6},{7}) = {8}".format({
-      fmtHex(hitbox.x,4),
-      fmtHex(hitbox.y,4),
-      fmtHex(hitbox.w,2),
-      fmtHex(hitbox.h,2),
-      fmtHex(local.hitbox.x,4),
-      fmtHex(local.hitbox.y,4),
-      fmtHex(local.hitbox.w,2),
-      fmtHex(local.hitbox.h,2),
-      fmtBool(intersects)
-    }));
+    //dbgData("pr ({0},{1},{2},{3}) vs pl ({4},{5},{6},{7}) = {8}".format({
+    //  fmtHex(hitbox.x,4),
+    //  fmtHex(hitbox.y,4),
+    //  fmtHex(hitbox.w,2),
+    //  fmtHex(hitbox.h,2),
+    //  fmtHex(local.hitbox.x,4),
+    //  fmtHex(local.hitbox.y,4),
+    //  fmtHex(local.hitbox.w,2),
+    //  fmtHex(local.hitbox.h,2),
+    //  fmtBool(intersects)
+    //}));
     if (!intersects) {
       return false;
     }
