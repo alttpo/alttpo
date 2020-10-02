@@ -105,7 +105,6 @@ class Projectile {
           damage <<= sword_shl;
         }
         damage >>= armor_shr;
-        dbgData("beam {0}".format({damage}));
         break;
 
       case 0x01:  // somaria blast
