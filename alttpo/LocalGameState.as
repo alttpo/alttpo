@@ -547,6 +547,7 @@ class LocalGameState : GameState {
 
       projectileAncillae.insertLast(i);
     }
+    //dbgData("projectiles: {0}".format({projectileAncillae.length()}));
   }
 
   void fetch_sfx() {
@@ -1237,18 +1238,16 @@ class LocalGameState : GameState {
     r.write_u8(uint8(0x0B));
 
     r.write_u8(action_hitbox.active ? uint8(1) : uint8(0));
-    if (!action_hitbox.active) {
-      return;
+    if (action_hitbox.active) {
+      r.write_u16(action_hitbox.x);
+      r.write_u16(action_hitbox.y);
+      r.write_u8 (action_hitbox.w);
+      r.write_u8 (action_hitbox.h);
+      r.write_u8 (action_sword_time);
+      r.write_u8 (action_sword_type);
+      r.write_u8 (action_item_used);
+      r.write_u8 (action_room_level);
     }
-
-    r.write_u16(action_hitbox.x);
-    r.write_u16(action_hitbox.y);
-    r.write_u8 (action_hitbox.w);
-    r.write_u8 (action_hitbox.h);
-    r.write_u8 (action_sword_time);
-    r.write_u8 (action_sword_type);
-    r.write_u8 (action_item_used);
-    r.write_u8 (action_room_level);
 
     // serialize projectiles:
     auto len = uint8(projectileAncillae.length());
@@ -1259,6 +1258,8 @@ class LocalGameState : GameState {
       r.write_u8 (ancillaTables.mode[n]);
       r.write_u16(ancillaTables.x[n]);
       r.write_u16(ancillaTables.y[n]);
+      r.write_u8 (ancillaTables.hitbox_index[n]);
+      r.write_u8 (ancillaTables.room_level[n]);
     }
   }
 
@@ -2494,126 +2495,140 @@ class LocalGameState : GameState {
         }
       }
 
-      if (!remote.action_hitbox.active) {
-        continue;
-      }
+      // if remote player is attacking us with a melee item (hammer, bugnet) or sword:
+      if (remote.action_hitbox.active) {
+        if (action_hitbox.intersects(remote.action_hitbox)) {
+          // our sword/item intersects their sword/item:
 
-      if (action_hitbox.intersects(remote.action_hitbox)) {
-        // our sword/item intersects their sword/item:
+          // determine recoil vector from this player:
+          int dx = (x - remote.x);
+          int dy = (y - remote.y);
+          float mag = mathf::sqrt(float(dx * dx + dy * dy));
+          if (mag == 0) {
+            mag = 1.0f;
+          }
 
-        // determine recoil vector from this player:
-        int dx = (x - remote.x);
-        int dy = (y - remote.y);
-        float mag = mathf::sqrt(float(dx * dx + dy * dy));
-        if (mag == 0) {
-          mag = 1.0f;
+          // scale recoil vector with damage amount:
+          dx = int(dx * 16.0f / mag);
+          dy = int(dy * 16.0f / mag);
+
+          recoil_dx += dx;
+          recoil_dy += dy;
+          recoil_timer = 0x04;
+
+          // tink sparkles
+          //LDA $0FAC : BNE .respulse_spark_already_active
+          auto repulse_timer = bus::read_u8(0x7E0FAC);
+          if (repulse_timer == 0) {
+            //LDA.b #$05 : STA $0FAC
+            bus::write_u8(0x7E0FAC, 0x05);
+
+            //LDA $0022 : ADC $0045 : STA $0FAD
+            bus::write_u8(0x7E0FAD, (x & 0xFF) + bus::read_u8(0x7E0045));
+            //LDA $0020 : ADC $0044 : STA $0FAE
+            bus::write_u8(0x7E0FAE, (y & 0xFF) + bus::read_u8(0x7E0044));
+
+            //LDA $EE : STA $0B68
+            bus::write_u8(0x7E0B68, action_room_level);
+          }
+
+          //; Make "clink" against wall noise
+          //JSL Sound_SetSfxPanWithPlayerCoords
+          //ORA.b #$05 : STA $012E
+          bus::write_u8(0x7E012E, 0x05);  // TODO: OR with 0x40 or 0x80 for left/right panning
         }
 
-        // scale recoil vector with damage amount:
-        dx = int(dx * 16.0f / mag);
-        dy = int(dy * 16.0f / mag);
+        // check our player hitbox against their sword/item hitbox:
+        if (hitbox.intersects(remote.action_hitbox)) {
+          // hitboxes intersect; remote player is attacking us:
+          int base_dmg = 4; // fighter sword does 1/2 heart against green armor
 
-        recoil_dx += dx;
-        recoil_dy += dy;
-        recoil_timer = 0x04;
+          // determine remote player's sword strength:
+          int sword = remote.action_sword_type;       // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
+          int sword_time = remote.action_sword_time;  // 0 = not out, $1..8 = slash, $9..C = stab, $90 = spin
+          if (remote.action_item_used != 0) {
+            // bugnet does fighter-sword damage
+            sword = 1;
+          }
+          // no damage:
+          if (sword == 0) {
+            // just shove:
+            base_dmg = 0;
+          }
 
-        // tink sparkles
-        //LDA $0FAC : BNE .respulse_spark_already_active
-        auto repulse_timer = bus::read_u8(0x7E0FAC);
-        if (repulse_timer == 0) {
-          //LDA.b #$05 : STA $0FAC
-          bus::write_u8(0x7E0FAC, 0x05);
+          int curr_dmg = 0;
+          if (sword > 0 && sword_time != 0) {
+            // take away the no-sword case to get a bit shift left amount:
+            int sword_shl = sword - 1;    // 0 = fighter, 1 = master, 2 = tempered, 3 = gold
 
-          //LDA $0022 : ADC $0045 : STA $0FAD
-          bus::write_u8(0x7E0FAD, (x & 0xFF) + bus::read_u8(0x7E0045));
-          //LDA $0020 : ADC $0044 : STA $0FAE
-          bus::write_u8(0x7E0FAE, (y & 0xFF) + bus::read_u8(0x7E0044));
+            // 8 damage = 1 whole heart
+            curr_dmg = base_dmg << sword_shl;
 
-          //LDA $EE : STA $0B68
-          bus::write_u8(0x7E0B68, action_room_level);
+            // scale damage for stabbing/spinning attacks:
+            if (sword_time >= 0x09 && sword_time < 0x80) {
+              // stabbing:
+              curr_dmg >>= 1;
+            } else if (sword_time == 0x90) {
+              // spinning:
+              curr_dmg <<= 1;
+            }
+          }
+
+          // determine our armor strength as a bit shift right amount to reduce damage by:
+          int armor_shr = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
+          // reduce damage by armor bit shift right:
+          curr_dmg = curr_dmg >> armor_shr;
+
+          // if using hammer, apply 10 hearts damage regardless of armor:
+          if ((remote.action_item_used & 0x02) != 0) {
+            curr_dmg = 10 * 8;
+          }
+
+          // minimum 1/4 heart damage; let's not mess with 1/8th hearts:
+          if (curr_dmg == 1) {
+            curr_dmg = 2;
+          }
+
+          // determine recoil vector from this player:
+          int dx = (x - remote.x);
+          int dy = (y - remote.y);
+          float mag = mathf::sqrt(float(dx * dx + dy * dy));
+          if (mag == 0) {
+            mag = 1.0f;
+          }
+
+          // scale recoil vector with damage amount:
+          dx = int(dx * (16 + curr_dmg * 0.25f) / mag);
+          dy = int(dy * (16 + curr_dmg * 0.25f) / mag);
+
+          // add damage and recoil vector:
+          if (enablePvPFriendlyFire || (remote.team != team)) {
+            actual_dmg += curr_dmg;
+          }
+          recoil_dx += dx;
+          recoil_dy += dy;
+          recoil_timer = 0x20;
+        }
+      }
+
+      // process remote projectiles:
+      auto plen = remote.projectiles.length();
+      for (uint j = 0; j < plen; j++) {
+        auto @pr = @remote.projectiles[j];
+
+        // calculate damage to local player with recoil:
+        if (!pr.calc_damage(local, remote)) {
+          continue;
         }
 
-        //; Make "clink" against wall noise
-        //JSL Sound_SetSfxPanWithPlayerCoords
-        //ORA.b #$05 : STA $012E
-        bus::write_u8(0x7E012E, 0x05);  // TODO: OR with 0x40 or 0x80 for left/right panning
-      }
-
-      // check our player hitbox against their sword/item hitbox:
-      if (!hitbox.intersects(remote.action_hitbox)) {
-        continue;
-      }
-
-      // hitboxes intersect; remote player is attacking us:
-      int base_dmg = 4; // fighter sword does 1/2 heart against green armor
-
-      // determine remote player's sword strength:
-      int sword = remote.action_sword_type;       // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
-      int sword_time = remote.action_sword_time;  // 0 = not out, $1..8 = slash, $9..C = stab, $90 = spin
-      if (remote.action_item_used != 0) {
-        // bugnet does fighter-sword damage
-        sword = 1;
-      }
-      // no damage:
-      if (sword == 0) {
-        // just shove:
-        base_dmg = 0;
-      }
-
-      int curr_dmg = 0;
-      if (sword > 0 && sword_time != 0) {
-        // take away the no-sword case to get a bit shift left amount:
-        int sword_shl = sword - 1;    // 0 = fighter, 1 = master, 2 = tempered, 3 = gold
-
-        // 8 damage = 1 whole heart
-        curr_dmg = base_dmg << sword_shl;
-
-        // scale damage for stabbing/spinning attacks:
-        if (sword_time >= 0x09 && sword_time < 0x80) {
-          // stabbing:
-          curr_dmg >>= 1;
-        } else if (sword_time == 0x90) {
-          // spinning:
-          curr_dmg <<= 1;
+        // add damage and recoil vector:
+        if (enablePvPFriendlyFire || (remote.team != team)) {
+          actual_dmg += pr.damage;
         }
+        recoil_dx += pr.recoil_dx;
+        recoil_dy += pr.recoil_dy;
+        recoil_timer = 0x20;
       }
-
-      // TODO: handle arrows damage here
-
-      // determine our armor strength as a bit shift right amount to reduce damage by:
-      int armor_shr = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
-      // reduce damage by armor bit shift right:
-      curr_dmg = curr_dmg >> armor_shr;
-
-      // if using hammer, apply 10 hearts damage regardless of armor:
-      if ((remote.action_item_used & 0x02) != 0) {
-        curr_dmg = 10 * 8;
-      }
-
-      // minimum 1/4 heart damage; let's not mess with 1/8th hearts:
-      if (curr_dmg == 1) {
-        curr_dmg = 2;
-      }
-
-      // determine recoil vector from this player:
-      int dx = (x - remote.x);
-      int dy = (y - remote.y);
-      float mag = mathf::sqrt(float(dx * dx + dy * dy));
-      if (mag == 0) {
-        mag = 1.0f;
-      }
-
-      // scale recoil vector with damage amount:
-      dx = int(dx * (16 + curr_dmg * 0.25f) / mag);
-      dy = int(dy * (16 + curr_dmg * 0.25f) / mag);
-
-      // add damage and recoil vector:
-      if (enablePvPFriendlyFire || (remote.team != team)) {
-        actual_dmg += curr_dmg;
-      }
-      recoil_dx += dx;
-      recoil_dy += dy;
-      recoil_timer = 0x20;
     }
 
     // apply damage:

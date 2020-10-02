@@ -11,29 +11,29 @@ class AncillaTables {
     bus::read_block_u8(0x7E0BF0, 0, ancilla_table_size, data);
   }
 
-  uint8 get_misc(int n)        const property { return      data[n * 10 +  0]; }   // 0x7E0BF0
-  uint8 get_y_posl(int n)      const property { return      data[n * 10 +  1]; }   // 0x7E0BFA
-  uint8 get_x_posl(int n)      const property { return      data[n * 10 +  2]; }   // 0x7E0C04
-  uint8 get_y_posh(int n)      const property { return      data[n * 10 +  3]; }   // 0x7E0C0E
-  uint8 get_x_posh(int n)      const property { return      data[n * 10 +  4]; }   // 0x7E0C18
-   int8 get_y_velocity(int n)  const property { return int8(data[n * 10 +  5]); }  // 0x7E0C22
-   int8 get_x_velocity(int n)  const property { return int8(data[n * 10 +  6]); }  // 0x7E0C2C
-  uint8 get_y_subpixel(int n)  const property { return      data[n * 10 +  7]; }   // 0x7E0C36
-  uint8 get_x_subpixel(int n)  const property { return      data[n * 10 +  8]; }   // 0x7E0C40
-  uint8 get_mode(int n)        const property { return      data[n * 10 +  9]; }   // 0x7E0C4A
-  uint8 get_effects(int n)     const property { return      data[n * 10 + 10]; }   // 0x7E0C54
-  uint8 get_item(int n)        const property { return      data[n * 10 + 11]; }   // 0x7E0C5E
-  uint8 get_timer(int n)       const property { return      data[n * 10 + 12]; }   // 0x7E0C68
-  uint8 get_direction(int n)   const property { return      data[n * 10 + 13]; }   // 0x7E0C72
-  uint8 get_room_level(int n)  const property { return      data[n * 10 + 14]; }   // 0x7E0C7C
-  uint8 get_oam_index(int n)   const property { return      data[n * 10 + 15]; }   // 0x7E0C86
-  uint8 get_oam_count(int n)   const property { return      data[n * 10 + 16]; }   // 0x7E0C90
+  uint8 get_misc(int n)         const property { return      data[ 0*10 + n]; }   // 0x7E0BF0
+  uint8 get_y_posl(int n)       const property { return      data[ 1*10 + n]; }   // 0x7E0BFA
+  uint8 get_x_posl(int n)       const property { return      data[ 2*10 + n]; }   // 0x7E0C04
+  uint8 get_y_posh(int n)       const property { return      data[ 3*10 + n]; }   // 0x7E0C0E
+  uint8 get_x_posh(int n)       const property { return      data[ 4*10 + n]; }   // 0x7E0C18
+   int8 get_y_velocity(int n)   const property { return int8(data[ 5*10 + n]); }  // 0x7E0C22
+   int8 get_x_velocity(int n)   const property { return int8(data[ 6*10 + n]); }  // 0x7E0C2C
+  uint8 get_y_subpixel(int n)   const property { return      data[ 7*10 + n]; }   // 0x7E0C36
+  uint8 get_x_subpixel(int n)   const property { return      data[ 8*10 + n]; }   // 0x7E0C40
+  uint8 get_mode(int n)         const property { return      data[ 9*10 + n]; }   // 0x7E0C4A
+  uint8 get_effects(int n)      const property { return      data[10*10 + n]; }   // 0x7E0C54
+  uint8 get_item(int n)         const property { return      data[11*10 + n]; }   // 0x7E0C5E
+  uint8 get_timer(int n)        const property { return      data[12*10 + n]; }   // 0x7E0C68
+  uint8 get_hitbox_index(int n) const property { return      data[13*10 + n]; }   // 0x7E0C72
+  uint8 get_room_level(int n)   const property { return      data[14*10 + n]; }   // 0x7E0C7C
+  uint8 get_oam_index(int n)    const property { return      data[15*10 + n]; }   // 0x7E0C86
+  uint8 get_oam_count(int n)    const property { return      data[16*10 + n]; }   // 0x7E0C90
 
   // TODO: 0x7E03B1
 
   // typed access:
-  uint16 get_y(int n) const property { return uint16(y_posl[n]) | (uint16(y_posh[n]) << 16); }
-  uint16 get_x(int n) const property { return uint16(x_posl[n]) | (uint16(x_posh[n]) << 16); }
+  uint16 get_y(int n) const property { return uint16(y_posl[n]) | (uint16(y_posh[n]) << 8); }
+  uint16 get_x(int n) const property { return uint16(x_posl[n]) | (uint16(x_posh[n]) << 8); }
 
   bool is_projectile(int n) const {
     auto t = mode[n];

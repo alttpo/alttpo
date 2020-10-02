@@ -548,21 +548,19 @@ class GameState {
 
   int deserialize_pvp(array<uint8> r, int c) {
     action_hitbox.setActive((r[c++] == 1) ? true : false);
-    if (!action_hitbox.active) {
-      return c;
+    if (action_hitbox.active) {
+      uint16 bx = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint16 by = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint8  bw = r[c++];
+      uint8  bh = r[c++];
+
+      action_hitbox.setBox(bx, by, bw, bh);
+
+      action_sword_time = r[c++];
+      action_sword_type = r[c++];
+      action_item_used =  r[c++];
+      action_room_level = r[c++];
     }
-
-    uint16 bx = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    uint16 by = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    uint8  bw = r[c++];
-    uint8  bh = r[c++];
-
-    action_hitbox.setBox(bx, by, bw, bh);
-
-    action_sword_time = r[c++];
-    action_sword_type = r[c++];
-    action_item_used =  r[c++];
-    action_room_level = r[c++];
 
     // deserialize projectiles:
     uint8 len = r[c++];
@@ -571,7 +569,10 @@ class GameState {
       projectiles[i].mode = r[c++];
       projectiles[i].x = uint16(r[c++]) | (uint16(r[c++]) << 8);
       projectiles[i].y = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      // calc hit box
+      projectiles[i].hitbox_index = r[c++];
+      projectiles[i].room_level = r[c++];
+
+      projectiles[i].calc_hitbox();
     }
 
     return c;
