@@ -78,7 +78,11 @@ class Projectile {
     }
 
     // determine our armor strength as a bit shift right amount to reduce damage by:
-    int armor_shr = local.sram[0x35B];  // 0 = green, 1 = blue, 2 = red
+    int armor_shr = local.sram[0x35B];      // 0 = green, 1 = blue, 2 = red
+
+    // take away the no-sword case to get a bit shift left amount:
+    int sword = remote.action_sword_type;   // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
+    int sword_shl = sword - 1;              //           0 = fighter, 1 = master, 2 = tempered, 3 = gold
 
     // determine damage amount:
     switch (mode) {
@@ -93,6 +97,15 @@ class Projectile {
         }
 
         damage >>= armor_shr;
+        break;
+
+      case 0x0C:  // sword beam
+        damage = 8;
+        if (sword > 0) {
+          damage <<= sword_shl;
+        }
+        damage >>= armor_shr;
+        dbgData("beam {0}".format({damage}));
         break;
 
       case 0x01:  // somaria blast

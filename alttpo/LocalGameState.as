@@ -1244,10 +1244,11 @@ class LocalGameState : GameState {
       r.write_u8 (action_hitbox.w);
       r.write_u8 (action_hitbox.h);
       r.write_u8 (action_sword_time);
-      r.write_u8 (action_sword_type);
       r.write_u8 (action_item_used);
-      r.write_u8 (action_room_level);
     }
+
+    r.write_u8 (action_sword_type);
+    r.write_u8 (action_room_level);
 
     // serialize projectiles:
     auto len = uint8(projectileAncillae.length());

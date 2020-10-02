@@ -557,10 +557,11 @@ class GameState {
       action_hitbox.setBox(bx, by, bw, bh);
 
       action_sword_time = r[c++];
-      action_sword_type = r[c++];
       action_item_used =  r[c++];
-      action_room_level = r[c++];
     }
+
+    action_sword_type = r[c++];
+    action_room_level = r[c++];
 
     // deserialize projectiles:
     uint8 len = r[c++];
