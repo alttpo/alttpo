@@ -2478,8 +2478,8 @@ class LocalGameState : GameState {
             bus::write_u8(0x7E003A, 0);
 
             // determine recoil vector from this player:
-            int dx = (x - remote.x);
-            int dy = (y - remote.y);
+            int dx = local.hitbox.mx - remote.hitbox.mx;
+            int dy = local.hitbox.my - remote.hitbox.my;
             float mag = mathf::sqrt(float(dx * dx + dy * dy));
             if (mag == 0) {
               mag = 1.0f;
@@ -2504,8 +2504,8 @@ class LocalGameState : GameState {
           // our sword/item intersects their sword/item:
 
           // determine recoil vector from this player:
-          int dx = (x - remote.x);
-          int dy = (y - remote.y);
+          int dx = local.hitbox.mx - remote.hitbox.mx;
+          int dy = local.hitbox.my - remote.hitbox.my;
           float mag = mathf::sqrt(float(dx * dx + dy * dy));
           if (mag == 0) {
             mag = 1.0f;
@@ -2593,8 +2593,8 @@ class LocalGameState : GameState {
           }
 
           // determine recoil vector from this player:
-          int dx = (x - remote.x);
-          int dy = (y - remote.y);
+          int dx = (local.hitbox.mx - remote.hitbox.mx);
+          int dy = (local.hitbox.my - remote.hitbox.my);
           float mag = mathf::sqrt(float(dx * dx + dy * dy));
           if (mag == 0) {
             mag = 1.0f;

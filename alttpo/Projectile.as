@@ -86,6 +86,10 @@ class Projectile {
     int sword = remote.action_sword_type;   // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
     int sword_shl = sword - 1;              //           0 = fighter, 1 = master, 2 = tempered, 3 = gold
 
+    // default recoil direction for local player is the same direction the projectile is traveling in:
+    float dx = float(vx);
+    float dy = float(vy);
+
     // determine damage amount:
     switch (mode) {
       case 0x09:  // arrow or silver arrow
@@ -116,14 +120,18 @@ class Projectile {
         break;
 
       case 0x1F:  // hookshot
+        damage = 2 * 8;
+        break;
+
       case 0x31:  // Cane of Byrna sparkle
         damage = 2 * 8;
+        // set recoil direction away from remote player:
+        dx = float(x) - remote.hitbox.mx;
+        dy = float(y) - remote.hitbox.my;
         break;
     }
 
-    // determine recoil vector from this projectile:
-    float dx = local.x - (hitbox.x + (hitbox.w * 0.5f));
-    float dy = local.y - (hitbox.y + (hitbox.h * 0.5f));
+    // determine recoil vector from this projectile where it was last frame:
     float mag = mathf::sqrt(dx * dx + dy * dy);
     if (mag == 0) {
       mag = 1.0f;
