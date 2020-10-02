@@ -570,6 +570,8 @@ class GameState {
       projectiles[i].mode = r[c++];
       projectiles[i].x = uint16(r[c++]) | (uint16(r[c++]) << 8);
       projectiles[i].y = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      projectiles[i].vx = int8(r[c++]);
+      projectiles[i].vy = int8(r[c++]);
       projectiles[i].hitbox_index = r[c++];
       projectiles[i].room_level = r[c++];
 

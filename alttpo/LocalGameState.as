@@ -1259,6 +1259,8 @@ class LocalGameState : GameState {
       r.write_u8 (ancillaTables.mode[n]);
       r.write_u16(ancillaTables.x[n]);
       r.write_u16(ancillaTables.y[n]);
+      r.write_u8 (ancillaTables.x_velocity[n]);
+      r.write_u8 (ancillaTables.y_velocity[n]);
       r.write_u8 (ancillaTables.hitbox_index[n]);
       r.write_u8 (ancillaTables.room_level[n]);
     }

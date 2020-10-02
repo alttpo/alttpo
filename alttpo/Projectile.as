@@ -4,6 +4,8 @@ class Projectile {
   uint8 mode;         // $0C4A
   uint16 x;           // $0BFA:$0C0E (lo:hi)
   uint16 y;           // $0C04:$0C18 (lo:hi)
+   int8 vx;           // $0C2C
+   int8 vy;           // $0C22
   uint8 hitbox_index; // $0C72
   uint8 room_level;   // $0C7C
   // end serialized fields
