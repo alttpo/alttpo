@@ -2587,8 +2587,8 @@ class LocalGameState : GameState {
           }
 
           // determine recoil vector for this player:
-          int dx = (remote.hitbox.mx - hitbox.mx);
-          int dy = (remote.hitbox.my - hitbox.my);
+          int dx = (remote.hitbox.mx - action_hitbox.mx);
+          int dy = (remote.hitbox.my - action_hitbox.my);
           float mag = mathf::sqrt(float(dx * dx + dy * dy));
           if (mag == 0) {
             mag = 1.0f;
