@@ -113,13 +113,15 @@ void post_frame() {
         );
       }
 
-      ppu::frame.color = remote.player_color_dark_50;
-      ppu::frame.rect(
-        int(remote.hitbox.x - local.xoffs),
-        int(remote.hitbox.y - local.yoffs),
-        remote.hitbox.w,
-        remote.hitbox.h
-      );
+      if (remote.hitbox.active) {
+        ppu::frame.color = remote.player_color_dark_75;
+        ppu::frame.rect(
+          int(remote.hitbox.x - local.xoffs),
+          int(remote.hitbox.y - local.yoffs),
+          remote.hitbox.w,
+          remote.hitbox.h
+        );
+      }
     }
 
     uint plen = local.projectiles.length();
@@ -129,6 +131,7 @@ void post_frame() {
         continue;
       }
 
+      ppu::frame.color = local.player_color_dark_75;
       ppu::frame.rect(
         int(pr.hitbox.x - local.xoffs),
         int(pr.hitbox.y - local.yoffs),

@@ -491,7 +491,7 @@ class LocalGameState : GameState {
     x = bus::read_u16(0x7E0022);
     y = bus::read_u16(0x7E0020);
 
-    hitbox.setBox(x + 4, y + 8, 8, 8);
+    calc_hitbox();
 
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
@@ -2456,7 +2456,7 @@ class LocalGameState : GameState {
 
       // if we are swinging and hit the remote player then stop our attack:
       if (action_hitbox.active) {
-        if (action_hitbox.intersects(remote.hitbox)) {
+        if (remote.hitbox.active && action_hitbox.intersects(remote.hitbox)) {
           if (bus::read_u8(0x7E0372) != 0) {
             // dashing
 
@@ -2535,7 +2535,7 @@ class LocalGameState : GameState {
         }
 
         // check our sword/melee hitbox against remote player hitbox:
-        if (action_hitbox.intersects(remote.hitbox)) {
+        if (remote.hitbox.active && action_hitbox.intersects(remote.hitbox)) {
           // sword/melee attack:
           PvPAttack attack;
           attack.player_index = remote.index;

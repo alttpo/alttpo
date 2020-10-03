@@ -419,6 +419,11 @@ class GameState {
     return true;
   }
 
+  void calc_hitbox() {
+    hitbox.setBox(x + 4, y + 8, 8, 8);
+    hitbox.setActive(!is_dead() && !is_game_over() && (is_in_overworld_module() || is_in_dungeon_module()));
+  }
+
   int deserialize_location(array<uint8> r, int c) {
     module = r[c++];
     sub_module = r[c++];
@@ -431,8 +436,6 @@ class GameState {
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-    hitbox.setBox(x + 4, y + 8, 8, 8);
 
     dungeon = uint16(r[c++]) | (uint16(r[c++]) << 8);
     dungeon_entrance = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -447,6 +450,8 @@ class GameState {
     player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     in_sm = r[c++];
+
+    calc_hitbox();
 
     return c;
   }
