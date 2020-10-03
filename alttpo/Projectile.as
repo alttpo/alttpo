@@ -16,6 +16,10 @@ class Projectile {
   Projectile() {}
 
   Projectile(AncillaTables@ ancillaTables, uint8 i) {
+    if (ancillaTables is null) {
+      return;
+    }
+
     @this.ancillaTables = @ancillaTables;
     this.index = i;
 
@@ -162,5 +166,23 @@ class Projectile {
     recoil_dy = int8(dy);
 
     return true;
+  }
+
+  void destroy() {
+    if (ancillaTables is null) {
+      return;
+    }
+
+    switch (mode) {
+      case 0x09:
+        ancillaTables.mode[index] = 0x0A;
+        ancillaTables.timer1[index] = 1;
+        ancillaTables.item[index] = 0;
+        break;
+
+      default:
+        ancillaTables.mode[index] = 0x00;
+        break;
+    }
   }
 };

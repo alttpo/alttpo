@@ -2627,6 +2627,9 @@ class LocalGameState : GameState {
         attack.recoil_dy    = pr.recoil_dy;
         attack.recoil_dz    = pr.damage / 2;
         pvp_attacks.insertLast(attack);
+
+        // destroy projectile:
+        pr.destroy();
       }
     }
 
