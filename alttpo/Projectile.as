@@ -180,7 +180,15 @@ class Projectile {
         ancillaTables.item[index] = 0;
         break;
 
-      default:
+      case 0x1F:  // hookshot
+        // set to retracting state:
+        ancillaTables.effects[index] = 0x01;
+        // flip velocity:
+        ancillaTables.y_velocity[index] = -ancillaTables.y_velocity[index];
+        ancillaTables.x_velocity[index] = -ancillaTables.x_velocity[index];
+        break;
+
+      default:    // all else
         ancillaTables.mode[index] = 0x00;
         break;
     }
