@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x10;
+const uint8 script_protocol = 0x11;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -148,7 +148,7 @@ class GameState {
   uint8 action_item_used;     //   $0301 = item in hand (bitfield, one bit at a time)
   uint8 action_room_level;    //     $EE = level in room
 
-  array<Projectile> projectiles;
+  array<PvPAttack> pvp_attacks;
 
   GameState() {
     torchOwner.resize(0x10);
@@ -563,19 +563,18 @@ class GameState {
     action_sword_type = r[c++];
     action_room_level = r[c++];
 
-    // deserialize projectiles:
+    // deserialize pvp attacks:
     uint8 len = r[c++];
-    projectiles.resize(len);
+    pvp_attacks.resize(len);
     for (uint i = 0; i < len; i++) {
-      projectiles[i].mode = r[c++];
-      projectiles[i].x = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      projectiles[i].y = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      projectiles[i].vx = int8(r[c++]);
-      projectiles[i].vy = int8(r[c++]);
-      projectiles[i].hitbox_index = r[c++];
-      projectiles[i].room_level = r[c++];
-
-      projectiles[i].calc_hitbox();
+      pvp_attacks[i].player_index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      pvp_attacks[i].sword_time = r[c++];
+      pvp_attacks[i].melee_item = r[c++];
+      pvp_attacks[i].ancilla_mode = r[c++];
+      pvp_attacks[i].damage = r[c++];
+      pvp_attacks[i].recoil_dx = int8(r[c++]);
+      pvp_attacks[i].recoil_dy = int8(r[c++]);
+      pvp_attacks[i].recoil_dz = int8(r[c++]);
     }
 
     return c;

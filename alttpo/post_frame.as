@@ -120,21 +120,21 @@ void post_frame() {
         remote.hitbox.w,
         remote.hitbox.h
       );
+    }
 
-      uint plen = remote.projectiles.length();
-      for (uint j = 0; j < plen; j++) {
-        auto @pr = @remote.projectiles[j];
-        if (!pr.hitbox.active) {
-          continue;
-        }
-
-        ppu::frame.rect(
-          int(pr.hitbox.x - local.xoffs),
-          int(pr.hitbox.y - local.yoffs),
-          pr.hitbox.w,
-          pr.hitbox.h
-        );
+    uint plen = local.projectiles.length();
+    for (uint j = 0; j < plen; j++) {
+      auto @pr = @local.projectiles[j];
+      if (!pr.hitbox.active) {
+        continue;
       }
+
+      ppu::frame.rect(
+        int(pr.hitbox.x - local.xoffs),
+        int(pr.hitbox.y - local.yoffs),
+        pr.hitbox.w,
+        pr.hitbox.h
+      );
     }
   }
 }
