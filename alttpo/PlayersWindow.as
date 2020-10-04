@@ -70,6 +70,8 @@ class PlayersWindow {
     window.title = "Online players";
     window.size = GUI::Size(sx(260), sy(16*25));
     window.dismissable = false;
+    window.backgroundColor = GUI::Color(28, 28, 28);
+    window.font = GUI::Font("{sans}", 12);
     
     update();
   }
