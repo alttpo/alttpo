@@ -351,6 +351,7 @@ class GameState {
       ttl--;
       if (ttl == 0) {
         local.notify(name + " left");
+        playersWindow.update();
       }
     }
     if (sfx1_ttl > 0) {

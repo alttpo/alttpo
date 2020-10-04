@@ -17,6 +17,7 @@ bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
 bool enableMap = true;
+bool enablePlayerList = true;
 bool enableBgMusic = true;
 
 bool enableRenderToExtra = true;
@@ -116,6 +117,11 @@ void cartridge_loaded() {
     if (rom.is_smz3()) {
       worldMapWindow.add_sm_button();
     }
+  }
+  
+  //show player list when cartridge loaded:
+  if(enablePlayerList) {
+    @playersWindow = PlayersWindow();
   }
   
   if (settings.DiscordEnable) {

@@ -759,11 +759,15 @@ class SettingsWindow {
   void connected() {
     btnConnect.enabled = false;
     btnDisconnect.enabled = true;
+    
+    playersWindow.update();
   }
 
   void disconnected() {
     btnConnect.enabled = true;
     btnDisconnect.enabled = false;
+    
+    playersWindow.update();
   }
 
   // callback:
