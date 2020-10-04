@@ -134,12 +134,12 @@ class Projectile {
         damage >>= armor_shr;
         break;
 
-      case 0x01:  // somaria blast
       case 0x0B:  // ice rod
       case 0x02:  // fire rod
         damage = 4 * 8;
         break;
 
+      case 0x01:  // somaria blast
       case 0x1F:  // hookshot
         damage = 2 * 8;
         break;
@@ -187,6 +187,14 @@ class Projectile {
         // flip velocity:
         ancillaTables.y_velocity[index] = -ancillaTables.y_velocity[index];
         ancillaTables.x_velocity[index] = -ancillaTables.x_velocity[index];
+        break;
+
+      case 0x0C:  // sword beam
+        // change to beam hit:
+        ancillaTables.mode[index] = 0x04;
+
+        ancillaTables.timer[index] = 0x07;
+        ancillaTables.oam_count[index] = 0x10;
         break;
 
       case 0x0B:  // ice rod
