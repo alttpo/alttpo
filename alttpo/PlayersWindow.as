@@ -8,7 +8,7 @@ class PlayersWindow {
   
   private array<GUI::Label@> playerLabels;
   
-  private array<GameState@>@ playersArray() {
+  private array<GameState@> playersArray() {
     array<GameState@> @ps;
 
     if (sock is null) {
@@ -44,9 +44,9 @@ class PlayersWindow {
           playerLabels[i].toolTip =
             "This user is playing in your group.";
           message(fmtHex(p.player_color));
-          int r = (p.player_color << 2) & 0x1F;
-          int g = (p.player_color >> 3) & 0x1F;
-          int b = (p.player_color >> 7) & 0x1F;
+          int r = (p.player_color      ) & 0x1F;
+          int g = (p.player_color >>  5) & 0x1F;
+          int b = (p.player_color >> 10) & 0x1F;
           playerLabels[i].foregroundColor = GUI::Color((r * 527 + 23) >> 6, (g * 527 + 23) >> 6, (b * 527 + 23) >> 6);
           vl.append(playerLabels[i], GUI::Size(-1, 0));
         }
@@ -95,9 +95,9 @@ class PlayersWindow {
             playerLabels[i].text = (fmtInt(i) + ": " + p.name);
             playerLabels[i].toolTip =
               "This user is playing in your group.";
-            int r = (p.player_color << 2) & 0x1F;
-            int g = (p.player_color >> 3) & 0x1F;
-            int b = (p.player_color >> 7) & 0x1F;
+            int r = (p.player_color      ) & 0x1F;
+            int g = (p.player_color >>  5) & 0x1F;
+            int b = (p.player_color >> 10) & 0x1F;
             playerLabels[i].foregroundColor = GUI::Color((r * 527 + 23) >> 6, (g * 527 + 23) >> 6, (b * 527 + 23) >> 6);
             vl.append(playerLabels[i], GUI::Size(-1, 0));
           }

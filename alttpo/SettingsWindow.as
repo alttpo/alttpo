@@ -809,5 +809,11 @@ class SettingsWindow {
 
     // persist settings to disk:
     save();
+    
+    if(settings.started)
+    {
+      disconnect();
+      connect();
+    }
   }
 }
