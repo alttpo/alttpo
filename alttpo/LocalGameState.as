@@ -81,6 +81,9 @@ class LocalGameState : GameState {
   uint8 state;
   uint32 last_sent = 0;
 
+  AncillaTables ancillaTables;
+  array<Projectile> projectiles;
+
   LocalGameState() {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
@@ -488,7 +491,7 @@ class LocalGameState : GameState {
     x = bus::read_u16(0x7E0022);
     y = bus::read_u16(0x7E0020);
 
-    hitbox.setBox(x + 4, y + 8, 8, 8);
+    calc_hitbox();
 
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
@@ -504,9 +507,6 @@ class LocalGameState : GameState {
 
     fetch_torches();
   }
-
-  AncillaTables ancillaTables;
-  array<uint8> projectileAncillae;
 
   void fetch_pvp() {
     if (!settings.EnablePvP) {
@@ -538,14 +538,14 @@ class LocalGameState : GameState {
 
     // read projectile data from WRAM and filter out unimportant effect sparkles:
     ancillaTables.read_ram();
-    projectileAncillae.reserve(10);
-    projectileAncillae.resize(0);
+    projectiles.reserve(10);
+    projectiles.resize(0);
     for (uint8 i = 0; i < ancilla_count; i++) {
       if (!ancillaTables.is_projectile(i)) {
         continue;
       }
 
-      projectileAncillae.insertLast(i);
+      projectiles.insertLast(Projectile(ancillaTables, i));
     }
     //dbgData("projectiles: {0}".format({projectileAncillae.length()}));
   }
@@ -1250,19 +1250,20 @@ class LocalGameState : GameState {
     r.write_u8 (action_sword_type);
     r.write_u8 (action_room_level);
 
-    // serialize projectiles:
-    auto len = uint8(projectileAncillae.length());
+    // serialize PvP attacks:
+    auto len = uint8(pvp_attacks.length());
     r.write_u8(len);
     for (uint i = 0; i < len; i++) {
-      auto n = projectileAncillae[i];
+      auto @a = pvp_attacks[i];
 
-      r.write_u8 (ancillaTables.mode[n]);
-      r.write_u16(ancillaTables.x[n]);
-      r.write_u16(ancillaTables.y[n]);
-      r.write_u8 (ancillaTables.x_velocity[n]);
-      r.write_u8 (ancillaTables.y_velocity[n]);
-      r.write_u8 (ancillaTables.hitbox_index[n]);
-      r.write_u8 (ancillaTables.room_level[n]);
+      r.write_u16(a.player_index);
+      r.write_u8 (a.sword_time);
+      r.write_u8 (a.melee_item);
+      r.write_u8 (a.ancilla_mode);
+      r.write_u8 (a.damage);
+      r.write_u8 (a.recoil_dx);
+      r.write_u8 (a.recoil_dy);
+      r.write_u8 (a.recoil_dz);
     }
   }
 
@@ -2429,22 +2430,18 @@ class LocalGameState : GameState {
     in_sm = b ? 1 : 0;
   }
 
-  void apply_pvp() {
-    // invulnerable:
-    if (bus::read_u8(0x7E037B) != 0) {
-      //dbgData("invlun");
-      return;
-    }
-    if (bus::read_u8(0x7E004D) == 1) {
-      //dbgData("recoiling");
-      return;
-    }
+  // detect attacks from us against all nearby players:
+  void attack_pvp() {
+    pvp_attacks.reserve(playerCount);
+    pvp_attacks.resize(0);
 
-    // end result to apply to local player:
-    uint8 actual_dmg = 0;
     uint8 recoil_timer = 0;
-    int recoil_dx = 0;
-    int recoil_dy = 0;
+    int8 recoil_dx = 0;
+    int8 recoil_dy = 0;
+    int8 recoil_dz = 0;
+
+    int sword = action_sword_type;       // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
+    int sword_time = action_sword_time;  // 0 = not out, $1..8 = slash, $9..C = stab, $90 = spin
 
     // determine overlap with other players' hitboxes:
     uint len = players.length();
@@ -2459,7 +2456,7 @@ class LocalGameState : GameState {
 
       // if we are swinging and hit the remote player then stop our attack:
       if (action_hitbox.active) {
-        if (action_hitbox.intersects(remote.hitbox)) {
+        if (remote.hitbox.active && action_hitbox.intersects(remote.hitbox)) {
           if (bus::read_u8(0x7E0372) != 0) {
             // dashing
 
@@ -2469,7 +2466,7 @@ class LocalGameState : GameState {
             //bus::write_u8(0x7E0372, 0);
             //bus::write_u8(0x7E0050, 0);
             //bus::write_u8(0x7E032B, 0);
-          } else if (action_sword_time >= 0x09 && action_sword_time < 0x80) {
+          } else if (sword_time >= 0x09 && sword_time < 0x80) {
             // stabbing:
 
             // retract sword:
@@ -2478,34 +2475,30 @@ class LocalGameState : GameState {
             bus::write_u8(0x7E003A, 0);
 
             // determine recoil vector from this player:
-            int dx = local.hitbox.mx - remote.hitbox.mx;
-            int dy = local.hitbox.my - remote.hitbox.my;
+            int dx = action_hitbox.mx - remote.hitbox.mx;
+            int dy = action_hitbox.my - remote.hitbox.my;
             float mag = mathf::sqrt(float(dx * dx + dy * dy));
             if (mag == 0) {
               mag = 1.0f;
             }
 
-            // scale recoil vector with damage amount:
             dx = int(dx * 16.0f / mag);
             dy = int(dy * 16.0f / mag);
 
             // add recoil vector:
-            recoil_dx = dx;
-            recoil_dy = dy;
+            recoil_dx   += dx;
+            recoil_dy   += dy;
             recoil_timer = 0x04;
-            break;
           }
         }
-      }
 
-      // if remote player is attacking us with a melee item (hammer, bugnet) or sword:
-      if (remote.action_hitbox.active) {
-        if (action_hitbox.intersects(remote.action_hitbox)) {
+        // if we're attacking remote player with a melee item (hammer, bugnet) or sword:
+        if (remote.action_hitbox.active && action_hitbox.intersects(remote.action_hitbox)) {
           // our sword/item intersects their sword/item:
 
           // determine recoil vector from this player:
-          int dx = local.hitbox.mx - remote.hitbox.mx;
-          int dy = local.hitbox.my - remote.hitbox.my;
+          int dx = hitbox.mx - remote.hitbox.mx;
+          int dy = hitbox.my - remote.hitbox.my;
           float mag = mathf::sqrt(float(dx * dx + dy * dy));
           if (mag == 0) {
             mag = 1.0f;
@@ -2541,15 +2534,21 @@ class LocalGameState : GameState {
           bus::write_u8(0x7E012E, 0x05);  // TODO: OR with 0x40 or 0x80 for left/right panning
         }
 
-        // check our player hitbox against their sword/item hitbox:
-        if (hitbox.intersects(remote.action_hitbox)) {
-          // hitboxes intersect; remote player is attacking us:
+        // check our sword/melee hitbox against remote player hitbox:
+        if (remote.hitbox.active && action_hitbox.intersects(remote.hitbox)) {
+          // sword/melee attack:
+          PvPAttack attack;
+          attack.player_index = remote.index;
+          attack.ancilla_mode = 0;
+
+          // hitboxes intersect; attacking:
           int base_dmg = 4; // fighter sword does 1/2 heart against green armor
 
           // determine remote player's sword strength:
-          int sword = remote.action_sword_type;       // 0 = none, 1 = fighter, 2 = master, 3 = tempered, 4 = gold
-          int sword_time = remote.action_sword_time;  // 0 = not out, $1..8 = slash, $9..C = stab, $90 = spin
-          if (remote.action_item_used != 0) {
+          attack.sword_time = sword_time;
+          attack.melee_item = action_item_used;
+
+          if (action_item_used != 0) {
             // bugnet does fighter-sword damage
             sword = 1;
           }
@@ -2577,13 +2576,8 @@ class LocalGameState : GameState {
             }
           }
 
-          // determine our armor strength as a bit shift right amount to reduce damage by:
-          int armor_shr = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
-          // reduce damage by armor bit shift right:
-          curr_dmg = curr_dmg >> armor_shr;
-
           // if using hammer, apply 10 hearts damage regardless of armor:
-          if ((remote.action_item_used & 0x02) != 0) {
+          if ((action_item_used & 0x02) != 0) {
             curr_dmg = 10 * 8;
           }
 
@@ -2592,9 +2586,9 @@ class LocalGameState : GameState {
             curr_dmg = 2;
           }
 
-          // determine recoil vector from this player:
-          int dx = (local.hitbox.mx - remote.hitbox.mx);
-          int dy = (local.hitbox.my - remote.hitbox.my);
+          // determine recoil vector for this player:
+          int dx = (remote.hitbox.mx - action_hitbox.mx);
+          int dy = (remote.hitbox.my - action_hitbox.my);
           float mag = mathf::sqrt(float(dx * dx + dy * dy));
           if (mag == 0) {
             mag = 1.0f;
@@ -2604,33 +2598,120 @@ class LocalGameState : GameState {
           dx = int(dx * (16 + curr_dmg * 0.25f) / mag);
           dy = int(dy * (16 + curr_dmg * 0.25f) / mag);
 
-          // add damage and recoil vector:
-          if (enablePvPFriendlyFire || (remote.team != team)) {
-            actual_dmg += curr_dmg;
-          }
-          recoil_dx += dx;
-          recoil_dy += dy;
-          recoil_timer = 0x20;
+          // record attack:
+          attack.damage       = curr_dmg;
+          attack.recoil_dx    = dx;
+          attack.recoil_dy    = dy;
+          attack.recoil_dz    = curr_dmg / 2;
+          pvp_attacks.insertLast(attack);
         }
-      }
+      } // sword/melee
 
-      // process remote projectiles:
-      auto plen = remote.projectiles.length();
+      // projectiles:
+      auto plen = projectiles.length();
       for (uint j = 0; j < plen; j++) {
-        auto @pr = @remote.projectiles[j];
+        auto @pr = @projectiles[j];
 
-        // calculate damage to local player with recoil:
-        if (!pr.calc_damage(local, remote)) {
+        // calculate damage to remote player with recoil:
+        if (!pr.calc_damage(remote, local)) {
           continue;
         }
 
-        // add damage and recoil vector:
-        if (enablePvPFriendlyFire || (remote.team != team)) {
-          actual_dmg += pr.damage;
+        // record attack:
+        PvPAttack attack;
+        attack.player_index = remote.index;
+        attack.melee_item   = 0;
+        attack.ancilla_mode = pr.mode;
+        attack.damage       = pr.damage;
+        attack.recoil_dx    = pr.recoil_dx;
+        attack.recoil_dy    = pr.recoil_dy;
+        attack.recoil_dz    = pr.damage / 2;
+        pvp_attacks.insertLast(attack);
+
+        // destroy projectile:
+        pr.destroy();
+      }
+    }
+
+    // apply local recoil:
+    if (recoil_dx != 0 || recoil_dy != 0) {
+      // recoil timer:
+      bus::write_u8(0x7E0046, recoil_timer);
+      bus::write_u8(0x7E02C7, recoil_timer);
+
+      // recoil X velocity:
+      bus::write_u8(0x7E0028, recoil_dx);
+      // recoil Y velocity:
+      bus::write_u8(0x7E0027, recoil_dy);
+      // recoil Z velocity:
+      bus::write_u8(0x7E0029, recoil_dz);
+      bus::write_u8(0x7E00C7, recoil_dz);
+
+      // reset Z offset:
+      bus::write_u16(0x7E0024, 0);
+    }
+  }
+
+  void apply_pvp() {
+    // invulnerable:
+    if (bus::read_u8(0x7E037B) != 0) {
+      //dbgData("invlun");
+      return;
+    }
+    if (bus::read_u8(0x7E004D) == 1) {
+      //dbgData("recoiling");
+      return;
+    }
+
+    // end result to apply to local player:
+    uint8 actual_dmg = 0;
+    uint8 recoil_timer = 0;
+    int recoil_dx = 0;
+    int recoil_dy = 0;
+    int recoil_dz = 0;
+
+    // process PvP attacks against us:
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl <= 0) continue;
+
+      // make sure in same general map:
+      if (!is_in_same_map(remote.actual_location)) continue;
+
+      uint alen = remote.pvp_attacks.length();
+      for (uint a = 0; a < alen; a++) {
+        auto @attack = @remote.pvp_attacks[a];
+        if (int(attack.player_index) != index) {
+          continue;
         }
-        recoil_dx += pr.recoil_dx;
-        recoil_dy += pr.recoil_dy;
+
+        // determine our armor strength as a bit shift right amount to reduce damage by:
+        int armor = sram[0x35B];  // 0 = green, 1 = blue, 2 = red
+        int armor_shr = 0;
+
+        // apply armor reduction for sword attacks:
+        if (attack.sword_time != 0) {
+          armor_shr = armor;
+        }
+
+        // apply armor reduction for arrow attacks:
+        if (attack.ancilla_mode == 0x09) {
+          armor_shr = armor;
+        }
+
+        // reduce damage by armor bit shift right:
+        if (enablePvPFriendlyFire || (remote.team != team)) {
+          actual_dmg += attack.damage >> armor_shr;
+        }
+        recoil_dx   += attack.recoil_dx;
+        recoil_dy   += attack.recoil_dy;
+        recoil_dz   += attack.recoil_dz;
         recoil_timer = 0x20;
+
+        // TODO: reduce attack TTL so that attacks do not last infinitely long if player disconnects
       }
     }
 
@@ -2640,7 +2721,7 @@ class LocalGameState : GameState {
     }
 
     // apply recoil:
-    if (recoil_dx != 0 || recoil_dy != 0) {
+    if (recoil_dx != 0 || recoil_dy != 0 || recoil_dz != 0) {
       if (actual_dmg > 0) {
         // recoil state:
         bus::write_u8(0x7E004D, 0x01);
@@ -2648,16 +2729,15 @@ class LocalGameState : GameState {
 
       // recoil timer:
       bus::write_u8(0x7E0046, recoil_timer);
+      bus::write_u8(0x7E02C7, recoil_timer);
+
       // recoil X velocity:
       bus::write_u8(0x7E0028, recoil_dx);
       // recoil Y velocity:
       bus::write_u8(0x7E0027, recoil_dy);
-
-      // recoil jump:
-      uint8 jump = actual_dmg / 2;
-      bus::write_u8(0x7E0029, jump);
-      bus::write_u8(0x7E00C7, jump);
-      bus::write_u8(0x7E02C7, recoil_timer);
+      // recoil Z velocity:
+      bus::write_u8(0x7E0029, recoil_dz);
+      bus::write_u8(0x7E00C7, recoil_dz);
 
       // reset Z offset:
       bus::write_u16(0x7E0024, 0);

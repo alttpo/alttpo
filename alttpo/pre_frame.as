@@ -39,12 +39,19 @@ void on_main_alttp(uint32 pc) {
   local.capture_sprites_vram();
 
   if (settings.started && (sock !is null)) {
+    // receive network updates from remote players:
+    receive();
+  }
+
+  // calculate PvP damage against nearby players:
+  if (settings.EnablePvP) {
+    local.attack_pvp();
+  }
+
+  if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
     //message("send");
     local.send();
-
-    // receive network updates from remote players:
-    receive();
   } else {
     return;
   }

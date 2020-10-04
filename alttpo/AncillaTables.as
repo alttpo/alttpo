@@ -1,14 +1,15 @@
 
 // 17 tables of 10 bytes each
-uint ancilla_facts = 17;
-uint ancilla_count = 10;
-uint ancilla_table_size = ancilla_facts * ancilla_count;
+const uint ancilla_facts = 17;
+const uint ancilla_count = 10;
+const uint ancilla_table_size = ancilla_facts * ancilla_count;
+const uint32 ancilla_table1_addr = 0x7E0BF0;
 
 class AncillaTables {
   array<uint8> data(ancilla_table_size);
 
   void read_ram() {
-    bus::read_block_u8(0x7E0BF0, 0, ancilla_table_size, data);
+    bus::read_block_u8(ancilla_table1_addr, 0, ancilla_table_size, data);
   }
 
   uint8 get_misc(int n)         const property { return      data[ 0*10 + n]; }   // 0x7E0BF0
@@ -29,7 +30,27 @@ class AncillaTables {
   uint8 get_oam_index(int n)    const property { return      data[15*10 + n]; }   // 0x7E0C86
   uint8 get_oam_count(int n)    const property { return      data[16*10 + n]; }   // 0x7E0C90
 
-  // TODO: 0x7E03B1
+  uint8 get_timer1(int n)       const property { return bus::read_u8(0x7E03B1 + n); } // 0x7E03B1
+
+  void set_misc(int n, uint8 value)         property { data[ 0*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  0*10 + n, uint8(value)); }   // 0x7E0BF0
+  void set_y_posl(int n, uint8 value)       property { data[ 1*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  1*10 + n, uint8(value)); }   // 0x7E0BFA
+  void set_x_posl(int n, uint8 value)       property { data[ 2*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  2*10 + n, uint8(value)); }   // 0x7E0C04
+  void set_y_posh(int n, uint8 value)       property { data[ 3*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  3*10 + n, uint8(value)); }   // 0x7E0C0E
+  void set_x_posh(int n, uint8 value)       property { data[ 4*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  4*10 + n, uint8(value)); }   // 0x7E0C18
+  void set_y_velocity(int n, int8 value)    property { data[ 5*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  5*10 + n, uint8(value)); }   // 0x7E0C22
+  void set_x_velocity(int n, int8 value)    property { data[ 6*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  6*10 + n, uint8(value)); }   // 0x7E0C2C
+  void set_y_subpixel(int n, uint8 value)   property { data[ 7*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  7*10 + n, uint8(value)); }   // 0x7E0C36
+  void set_x_subpixel(int n, uint8 value)   property { data[ 8*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  8*10 + n, uint8(value)); }   // 0x7E0C40
+  void set_mode(int n, uint8 value)         property { data[ 9*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr +  9*10 + n, uint8(value)); }   // 0x7E0C4A
+  void set_effects(int n, uint8 value)      property { data[10*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 10*10 + n, uint8(value)); }   // 0x7E0C54
+  void set_item(int n, uint8 value)         property { data[11*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 11*10 + n, uint8(value)); }   // 0x7E0C5E
+  void set_timer(int n, uint8 value)        property { data[12*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 12*10 + n, uint8(value)); }   // 0x7E0C68
+  void set_hitbox_index(int n, uint8 value) property { data[13*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 13*10 + n, uint8(value)); }   // 0x7E0C72
+  void set_room_level(int n, uint8 value)   property { data[14*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 14*10 + n, uint8(value)); }   // 0x7E0C7C
+  void set_oam_index(int n, uint8 value)    property { data[15*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 15*10 + n, uint8(value)); }   // 0x7E0C86
+  void set_oam_count(int n, uint8 value)    property { data[16*10 + n] = uint8(value); bus::write_u8(ancilla_table1_addr + 16*10 + n, uint8(value)); }   // 0x7E0C90
+
+  void set_timer1(int n, uint8 value)       property { bus::write_u8(0x7E03B1 + n, value); } // 0x7E03B1
 
   // typed access:
   uint16 get_y(int n) const property { return uint16(y_posl[n]) | (uint16(y_posh[n]) << 8); }
