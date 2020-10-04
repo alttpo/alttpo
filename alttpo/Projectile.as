@@ -174,7 +174,8 @@ class Projectile {
     }
 
     switch (mode) {
-      case 0x09:
+      case 0x09:  // arrow
+        // change into embedded arrow:
         ancillaTables.mode[index] = 0x0A;
         ancillaTables.timer1[index] = 1;
         ancillaTables.item[index] = 0;
@@ -186,6 +187,24 @@ class Projectile {
         // flip velocity:
         ancillaTables.y_velocity[index] = -ancillaTables.y_velocity[index];
         ancillaTables.x_velocity[index] = -ancillaTables.x_velocity[index];
+        break;
+
+      case 0x0B:  // ice rod
+        // change to ice rod blast:
+        ancillaTables.mode[index] = 0x11;
+
+        ancillaTables.oam_count[index] = 0x10;
+        ancillaTables.item[index] = 0x00;
+        ancillaTables.timer1[index] = 0x04;
+        break;
+
+      case 0x02:  // fire rod
+        // change to fire rod blast:
+        if (ancillaTables.effects[index] == 0) {
+          ancillaTables.effects[index] = 1;
+          ancillaTables.timer[index] = 0x1F;
+          ancillaTables.oam_count[index] = 0x08;
+        }
         break;
 
       default:    // all else
