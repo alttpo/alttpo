@@ -100,6 +100,7 @@ void receive() {
     players[index].deserialize(r, c);
     if (joined) {
       local.notify(players[index].name + " joined");
+      playersWindow.update();
     }
   }
 }
