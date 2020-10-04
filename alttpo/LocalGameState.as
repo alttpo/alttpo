@@ -1662,8 +1662,12 @@ class LocalGameState : GameState {
 
       if (enableSmallKeySync) {
         // update small keys:
-        if (remote.small_keys !is null) {
+        if (remote.small_keys !is null && remote.small_keys.length() >= 0x10) {
           for (uint j = 0; j < 0x10; j++) {
+            if (small_keys[j] is null || remote.small_keys[j] is null) {
+              continue;
+            }
+
             small_keys[j].compareTo(remote.small_keys[j]);
           }
         }
