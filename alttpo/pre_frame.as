@@ -116,6 +116,7 @@ void on_main_sm(uint32 pc) {
 
   local.get_sm_coords();
   local.fetch_sm_events();
+  local.get_sm_sprite_data();
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -238,7 +239,7 @@ void pre_frame() {
 	  int ry = int(remote_offset_y) - int(local_offset_y);
 	  
 	  
-	  ei = draw_samuses(rx, ry, ei, local.sm_pose);
+	  ei = draw_samuses(rx, ry, ei, remote.sm_pose, remote.bank, remote.address, remote.size0, remote.size1);
       continue;
     }
 

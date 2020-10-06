@@ -8,15 +8,15 @@ bool debugData = false;
 bool debugSRAM = false;
 bool debugNet = false;
 bool debugOAM = false;
-bool debugSprites = true;
+bool debugSprites = false;
 bool debugGameObjects = false;
-bool debugMemory = true;
+bool debugMemory = false;
 
 bool debugRTDScapture = false;
 bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
-bool enableMap = false;
+bool enableMap = true;
 bool enableBgMusic = true;
 
 bool enableRenderToExtra = true;

@@ -80,6 +80,8 @@ class GameState {
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 sm_room_x, sm_room_y, sm_pose;
+  uint8 bank;
+  uint16 address, size0, size1;
   uint8 in_sm;
 
   uint8 module;
@@ -397,6 +399,7 @@ class GameState {
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
+		case 0x10: c = deserialize_sm_sprite(r,c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -448,6 +451,18 @@ class GameState {
 	sm_pose = r[c++];
 
     return c;
+  }
+  
+  int deserialize_sm_sprite(array<uint8> r, int c){
+	
+	
+	bank = r[c++];
+	
+	address = (uint16(r[c++]) << 8) | uint16(r[c++]);
+    size0 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	size1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	
+	return c;
   }
 
   int deserialize_sfx(array<uint8> r, int c) {
@@ -975,5 +990,13 @@ class GameState {
 	sm_room_x = bus::read_u8(0x7E07A1);
 	sm_room_y = bus::read_u8(0x7E07A3);
 	sm_pose = bus::read_u8(0x7E0A1C);
+  }
+  
+  void get_sm_sprite_data(){
+	uint16 offsm = bus::read_u16(0x7e071f);
+	bank = bus::read_u8(0x920000 + offsm + 2);
+	address = bus::read_u16(0x920000 + offsm);
+	size0 = bus::read_u16(0x920000 + offsm + 3);
+	size1 = bus::read_u16(0x920000 + offsm + 5);
   }
 };
