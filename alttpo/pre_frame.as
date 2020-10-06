@@ -1,10 +1,13 @@
 
+bool main_called = false;
+
 // this function intercepts execution immediately before JSL MainRouting in the reset vector:
 // this function is not called for every frame but is for most frames.
 // when it is called, this function is always called before pre_frame.
 // in SMZ3 this function is only called during ALTTP game.
 void on_main_alttp(uint32 pc) {
   //message("main_alttp");
+  main_called = true;
 
   // restore our dynamic code buffer to JSL MainRouting; RTL:
   pb.restore();
@@ -13,17 +16,16 @@ void on_main_alttp(uint32 pc) {
     // reset ownership of OAM sprites:
     localFrameState.reset_owners();
   }
-  
+
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
-  
-  //rom.check_game();
-  //local.set_in_sm(!rom.is_alttp());
-  //if (local.in_sm == 1) return;
-  
+
   local.fetch();
-  if (local.is_frozen()) return;
-  
+
+  // NOTE: commented this line out because it causes "X left" "X joined" messages for the local player when in dialogs
+  // or cut-scenes.
+  //if (local.is_frozen()) return;
+
   if (settings.SyncTunic) {
     local.update_palette();
   }
@@ -36,15 +38,15 @@ void on_main_alttp(uint32 pc) {
   // fetch local VRAM data for sprites:
   local.capture_sprites_vram();
 
-  if (settings.started && !(sock is null)) {
+  if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
-	//message("send");
+    //message("send");
     local.send();
 
     // receive network updates from remote players:
     receive();
   } else {
-	return;
+    return;
   }
 
   if (!settings.RaceMode) {
@@ -55,13 +57,13 @@ void on_main_alttp(uint32 pc) {
     local.update_ancillae();
 
     ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
-	ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
+    ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
 
     if ((local.frame & 15) == 0) {
       local.update_items(sram);
-	  if (rom.is_smz3()){
-		local.update_items(sram_buffer, true);
-	  }
+      if (rom.is_smz3()) {
+        local.update_items(sram_buffer, true);
+      }
     }
 
     if ((local.frame & 31) == 0) {
@@ -98,19 +100,20 @@ bool sm_is_safe_state() {
   return true;
 }
 
-bool sm_loading_room(){
-	return sm_state == 0x0b;
+bool sm_loading_room() {
+  return sm_state == 0x0b;
 }
 
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
+  main_called = true;
 
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
 
   sm_state = bus::read_u8(0x7E0998);
-  
+
   local.get_sm_coords();
   local.fetch_sm_events();
 
@@ -124,23 +127,23 @@ void on_main_sm(uint32 pc) {
 
   if (sm_is_safe_state()) {
     // read ALTTP temporary item buffer from SM SRAM
-	//message("read SM");
-	local.in_sm_for_items = true;
-	bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
+    //message("read SM");
+    local.in_sm_for_items = true;
+    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
     bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
   } else {
-	return;
+    return;
   }
 
   if (settings.started && (sock !is null)) {
-	//message("SM send&recieve");
-	// send updated state for our Link to server:
-	local.send();
+    //message("SM send&recieve");
+    // send updated state for our Link to server:
+    local.send();
 
     // receive network updates from remote players:
     receive();
   } else {
-	return;
+    return;
   }
 
   if (!settings.RaceMode) {
@@ -149,12 +152,12 @@ void on_main_sm(uint32 pc) {
       if (sm_is_safe_state()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
         SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
-		SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
-		
-		local.update_items(sram);
-		local.update_items(sram_buffer, true);
-		
-		local.update_sm_events();
+        SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
+
+        local.update_items(sram);
+        local.update_items(sram_buffer, true);
+
+        local.update_sm_events();
       }
     }
   }
@@ -189,7 +192,22 @@ void pre_frame() {
     return;
   }
 
-  local.ttl = 225;
+  local.ttl = 255;
+
+  if (!main_called) {
+    dbgData("pre_frame send/recv");
+    if (settings.started && (sock !is null)) {
+      // send updated state for our Link to server:
+      //message("send");
+      local.send();
+
+      // receive network updates from remote players:
+      receive();
+    }
+  }
+
+  // reset main loop called state:
+  main_called = false;
 
   // render remote players:
   int ei = 0;
@@ -209,6 +227,18 @@ void pre_frame() {
 
     // exit early if game is not ALTTP (for SMZ3):
     if (!rom.is_alttp()) {
+	  //tests if both players are in the same room
+	  if (!local.can_see_sm(remote)) continue;
+	  
+	  uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
+	  uint16 local_offset_x = bus::read_u16(0x7e0911);
+	  uint16 remote_offset_y = (uint16(remote.sm_y) << 8) + uint16(remote.sm_sub_y);
+	  uint16 local_offset_y = bus::read_u16(0x7e0915);
+	  int rx = int(remote_offset_x)	- int(local_offset_x);
+	  int ry = int(remote_offset_y) - int(local_offset_y);
+	  
+	  
+	  ei = draw_samuses(rx, ry, ei, local.sm_pose);
       continue;
     }
 

@@ -1,7 +1,7 @@
 
 void post_frame() {
   //message("post_frame");
-  
+
   if (oamWindow !is null) {
     oamWindow.update();
   }
@@ -91,9 +91,8 @@ void post_frame() {
   if (gameSpriteWindow !is null) {
     gameSpriteWindow.update();
   }
-  
+
   if (memoryWindow !is null) {
     memoryWindow.update();
   }
-  
 }

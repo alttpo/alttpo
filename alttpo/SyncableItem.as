@@ -43,7 +43,7 @@ class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
   uint8   size;   // 1 - byte, 2 - word
   uint8   type;   // 0 - custom mutate, 1 - highest wins, 2 - bitfield, 3+ TBD...
-  bool is_sm; 	  // whether the syncable is a super metroid item 
+  bool is_sm;       // whether the syncable is a super metroid item
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
 
@@ -51,7 +51,7 @@ class SyncableItem {
     this.offs = offs;
     this.size = size;
     this.type = type;
-	this.is_sm = is_sm;
+    this.is_sm = is_sm;
     @this.notifyNewItems = notifyNewItems;
   }
 
@@ -59,7 +59,7 @@ class SyncableItem {
     this.offs = offs;
     this.size = size;
     this.type = 0;
-	this.is_sm = is_sm;
+    this.is_sm = is_sm;
     @this.mutate = mutate;
     @this.notifyNewItems = notifyNewItems;
   }
@@ -86,7 +86,7 @@ class SyncableItem {
     }
 
     write(localSRAM, newValue);
-	if (is_sm) update_sm_counts();
+    if (is_sm) update_sm_counts();
     return true;
   }
 
@@ -125,47 +125,64 @@ class SyncableItem {
       localSRAM.write_u16(offs, newValue);
     }
   }
-  
-  void update_sm_counts(){
-	int base = 0;
-	if (local.in_sm_for_items){
-		base = 0x7E09A2;
-	} else {
-		base = 0xA17900;
-	}
-	uint8 eold;
-	uint8 enew;
-	uint8 old_count;
-	uint8 diff;
-	switch(offs){
-		case 0x02:
-		case 0x03:
-			eold = bus::read_u8(base + offs - 2);
-			bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
-			break;
-		case 0x06:
-			// special crap here to avoid the murder beam
-			//uint8 eold = bus::read_u8(base + offs - 1);
-			//uint8 enew = (newValue ^ oldValue) | eold;
-			//bus::write_u8( base + offs - 1, enew) ;
-			break;
-		case 0x07:
-			eold = bus::read_u8(base + offs - 2);
-			enew = (newValue ^ oldValue) | eold;
-			bus::write_u8(base + offs - 2, enew);
-			break;
-		case 0x26:
-		case 0x2a:
-		case 0x2e:
-			old_count = bus::read_u8(base + offs - 2);
-			diff = newValue - oldValue;
-			bus::write_u8(base + offs - 2, old_count + diff);
-			break;
-		case 0x22:
-			bus::write_u16(base + offs - 2, bus::read_u16(base + offs));
-			break;
-		default: return;
-	}
+
+  void update_sm_counts() {
+    int base = 0;
+    if (local.in_sm_for_items) {
+      base = 0x7E09A2;
+    } else {
+      base = 0xA17900;
+    }
+    uint8 eold;
+    uint8 enew;
+    uint8 old_count;
+    uint8 diff;
+    switch (offs) {
+      case 0x02:
+		eold = bus::read_u8(base + offs - 2);
+        bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
+        break;
+      case 0x03:
+        eold = bus::read_u8(base + offs - 2);
+        bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
+		if (((newValue ^ oldValue) & 0x40) == 0x40)
+			{
+			bus::write_u16(0x7ec630, 0x3438);
+			bus::write_u16(0x7ec632, 0x7438);
+			bus::write_u16(0x7ec670, 0x3439);
+			bus::write_u16(0x7ec672, 0x7439);
+			}
+		if (((newValue ^ oldValue) & 0x80) == 0x80)
+			{
+			bus::write_u16(0x7ec636,0x343a);
+			bus::write_u16(0x7ec638,0x743a);
+			bus::write_u16(0x7ec676,0x343b);
+			bus::write_u16(0x7ec678,0x743b);
+			}
+        break;
+      case 0x06:
+        // special crap here to avoid the murder beam
+        //uint8 eold = bus::read_u8(base + offs - 1);
+        //uint8 enew = (newValue ^ oldValue) | eold;
+        //bus::write_u8( base + offs - 1, enew) ;
+        break;
+      case 0x07:
+        eold = bus::read_u8(base + offs - 2);
+        enew = (newValue ^ oldValue) | eold;
+        bus::write_u8(base + offs - 2, enew);
+        break;
+      case 0x26:
+      case 0x2a:
+      case 0x2e:
+        old_count = bus::read_u8(base + offs - 2);
+        diff = newValue - oldValue;
+        bus::write_u8(base + offs - 2, old_count + diff);
+        break;
+      case 0x22:
+        bus::write_u16(base + offs - 2, bus::read_u16(base + offs));
+        break;
+      default: return;
+    }
   }
 };
 
@@ -617,33 +634,33 @@ const array<string> @progress2Names = { "Q#Hobo check completed",
                                         "Q#Smithy Rescue completed",
                                         "",
                                         "Q#Sword Tempering started" };
-										
+
 const array<string> @variable1Names = { "Varia Suit",
-										"Spring Ball",
-										"Morph Ball",
-										"Screw Attack",
-										"",
-										"Gravity Suit",
-										"",
-										"" };
-											  
+                                        "Spring Ball",
+                                        "Morph Ball",
+                                        "Screw Attack",
+                                        "",
+                                        "Gravity Suit",
+                                        "",
+                                        "" };
+
 const array<string> @variable2Names = { "High Jump Boots",
-										"Space Jump",
-										"",
-										"",
-										"Bombs",
-										"",
-										"",
-										"" };
+                                        "Space Jump",
+                                        "",
+                                        "",
+                                        "Bombs",
+                                        "",
+                                        "",
+                                        "" };
 
 const array<string> @variable3Names = { "Wave Beam",
-										"Ice Beam",
-										"Spazer",
-										"Plasma",
-										"",
-										"",
-										"",
-										"" };
+                                        "Ice Beam",
+                                        "Spazer",
+                                        "Plasma",
+                                        "",
+                                        "",
+                                        "",
+                                        "" };
 
 
 void nameForCompass1 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass1Names, notify, old, new); }

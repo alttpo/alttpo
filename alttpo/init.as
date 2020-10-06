@@ -8,19 +8,22 @@ bool debugData = false;
 bool debugSRAM = false;
 bool debugNet = false;
 bool debugOAM = false;
-bool debugSprites = false;
+bool debugSprites = true;
 bool debugGameObjects = false;
-bool debugMemory = false;
+bool debugMemory = true;
 
 bool debugRTDScapture = false;
 bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
-bool enableMap = true;
+bool enableMap = false;
 bool enableBgMusic = true;
 
-bool enableObjectSync = false;
 bool enableRenderToExtra = true;
+
+// sync control:
+bool enableObjectSync = false;
+bool enableSmallKeySync = false;
 
 void init() {
   //message("init()");
@@ -30,6 +33,7 @@ void init() {
   settings.ServerAddress = "alttp.online";
   settings.GroupTrimmed = "group1";
   settings.Name = "player1";
+  settings.Team = 0;
   settings.PlayerColor = ppu::rgb(28, 2, 2);
   settings.load();
 
@@ -59,7 +63,7 @@ void init() {
   if (debugGameObjects) {
     @gameSpriteWindow = GameSpriteWindow();
   }
-  
+
   if (debugMemory) {
     @memoryWindow = MemoryWindow();
   }
@@ -89,16 +93,27 @@ void cartridge_loaded() {
   // patch the ROM code to inject our control routine:
   pb.power(true);
 
+  // create local player:
+  @local = @LocalGameState();
+  local.reset();
+  @onlyLocalPlayer[0] = @local;
+
+  players.resize(0);
+  playerCount = 0;
+
+  // apply player settings:
+  settings.playerSettingsChanged();
+
   // register ROM intercepts for local player:
   local.register(true);
 
   // draw map window when cartridge loaded:
-  if (@worldMapWindow != null) {
+  if (worldMapWindow !is null) {
     worldMapWindow.loadMap(true);
     worldMapWindow.drawMap();
-	if (rom.is_smz3()){
-		worldMapWindow.add_sm_button();
-	}
+    if (rom.is_smz3()) {
+      worldMapWindow.add_sm_button();
+    }
   }
 
   if (settings.DiscordEnable) {
@@ -118,16 +133,11 @@ void post_power(bool reset) {
 
     init_torches();
   }
-
-  // clear state:
-  local.reset();
-
-  @onlyLocalPlayer[0] = local;
 }
 
 // called when script itself is unloaded:
 void unload() {
-  if (@rom != null) {
+  if (rom !is null) {
     // restore patched JSL:
     pb.unload();
   }
@@ -149,7 +159,7 @@ string fmtBool(bool value) {
   return value ? "true" : "false";
 }
 
-LocalGameState local;
+LocalGameState@ local = null;
 array<GameState@> players(0);
 array<GameState@> onlyLocalPlayer(1);
 int playerCount = 0;

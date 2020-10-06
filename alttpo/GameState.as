@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0D;
+const uint8 script_protocol = 0x0F;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -20,6 +20,7 @@ const uint16 small_keys_max_offs = 0xF38C;
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
+  uint8 _team = 0; // team number to sync with
 
   // graphics data for current frame:
   array<Sprite@> sprites;
@@ -52,6 +53,14 @@ class GameState {
     }
   }
 
+  uint8 team {
+    get { return _team; }
+    set {
+      _team = value;
+      dbgData("[{0}] team = {1}".format({index, _team}));
+    }
+  }
+
   // local: player index last synced objects from:
   uint16 objects_index_source;
 
@@ -70,6 +79,7 @@ class GameState {
   
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
+  uint8 sm_room_x, sm_room_y, sm_pose;
   uint8 in_sm;
 
   uint8 module;
@@ -109,7 +119,7 @@ class GameState {
   array<uint8> sram(0x500);
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
-  
+
   array<uint8> sm_events(0x50);
 
   array<GameSprite@> objects(0x10);
@@ -139,7 +149,10 @@ class GameState {
   }
 
   void reset() {
+    dbgData("local.reset()");
+
     index = -1;
+    team = 0;
 
     frame = 0;
     actual_location = 0;
@@ -177,12 +190,12 @@ class GameState {
 
     for (uint i = 0; i < 0x500; i++) {
       sram[i] = 0;
-	  sram_buffer[i] = 0;
+      sram_buffer[i] = 0;
     }
-	
-	for (uint i = 0; i < 0x50; i++){
-		sm_events[i] = 0;
-	}
+
+    for (uint i = 0; i < 0x50; i++) {
+      sm_events[i] = 0;
+    }
 
     //array<GameSprite@> objects(0x10);
 
@@ -308,6 +321,12 @@ class GameState {
     }
     return false;
   }
+  
+  // tests if the remote sm player is in the same room as the local one
+  bool can_see_sm(GameState @remote){
+	if(remote.in_sm != 1) return false;
+	return (remote.sm_room_x == this.sm_room_x && remote.sm_room_y == this.sm_room_y && remote.sm_area == this.sm_area);
+  }
 
   bool is_really_in_same_location(uint32 other_location) const {
     // use the location the game thinks is real:
@@ -341,6 +360,12 @@ class GameState {
       return false;
     }
 
+    // read team number:
+    uint8 t = r[c++];
+    if (team != t) {
+      team = t;
+    }
+
     auto frame = r[c++];
     //message("frame = " + fmtHex(frame, 2));
     if (frame < this.frame && this.frame < 0xff) {
@@ -369,9 +394,9 @@ class GameState {
         case 0x0A: c = deserialize_torches(r, c); break;
         //case 0x0B: c = deserialize_palettes(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
-		case 0x0D: c = deserialize_sm_events(r, c); break;
-		case 0x0E: c = deserialize_sram_buffer(r, c); break;
-		case 0x0F: c = deserialize_sm_location(r, c); break;
+        case 0x0D: c = deserialize_sm_events(r, c); break;
+        case 0x0E: c = deserialize_sram_buffer(r, c); break;
+        case 0x0F: c = deserialize_sm_location(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -405,21 +430,24 @@ class GameState {
     yoffs = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
-	
-	in_sm = r[c++];
+
+    in_sm = r[c++];
 
     return c;
   }
-  
-  int deserialize_sm_location(array<uint8> r, int c){
-	sm_area = r[c++];
-	sm_x = r[c++];
-	sm_y = r[c++];
-	sm_sub_x = r[c++];
-	sm_sub_y = r[c++];
-	in_sm = r[c++];
-	
-	return c;
+
+  int deserialize_sm_location(array<uint8> r, int c) {
+    sm_area = r[c++];
+    sm_x = r[c++];
+    sm_y = r[c++];
+    sm_sub_x = r[c++];
+    sm_sub_y = r[c++];
+    in_sm = r[c++];
+	sm_room_x = r[c++];
+	sm_room_y = r[c++];
+	sm_pose = r[c++];
+
+    return c;
   }
 
   int deserialize_sfx(array<uint8> r, int c) {
@@ -567,42 +595,37 @@ class GameState {
   }
 
   int deserialize_sram(array<uint8> r, int c) {
-	
-	bool temp = r[c++] == 1 ? true : false;
-	if (temp){
-		in_sm_for_items = r[c++] == 1 ? true : false;
-	} else {
-		c++;
-	}
-	
-	
-	uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    bool temp = r[c++] == 1 ? true : false;
+    if (temp) {
+      in_sm_for_items = r[c++] == 1 ? true : false;
+    } else {
+      c++;
+    }
+
+    uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
       auto offs = start + i;
       auto b = r[c++];
-	  
+
       sram[offs] = b;
-	  
     }
-	
+
     return c;
   }
   
-  int deserialize_sram_buffer(array<uint8> r, int c){
-	
-	uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
+  int deserialize_sram_buffer(array<uint8> r, int c) {
+    uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     for (uint i = 0; i < count; i++) {
       auto offs = start + i;
       auto b = r[c++];
-	  
+
       sram_buffer[offs] = b;
-	  
     }
-	
+
     return c;
   }
 
@@ -661,11 +684,11 @@ class GameState {
     return c;
   }
   
-  int deserialize_sm_events(array<uint8> r, int c){
-	for (int i = 0; i < 0x50; i++){
-		sm_events[i] = r[c++];
-	}
-	return c;
+  int deserialize_sm_events(array<uint8> r, int c) {
+    for (int i = 0; i < 0x50; i++) {
+        sm_events[i] = r[c++];
+    }
+    return c;
   }
 
   void renderToPPU(int dx, int dy) {
@@ -795,7 +818,6 @@ class GameState {
       @ppu::oam[j] = oam;
     }
   }
-  
 
   int renderToExtra(int dx, int dy, int ei) {
     uint len = sprites.length();
@@ -943,13 +965,15 @@ class GameState {
     }
   }
 
-  void get_sm_coords(){
-	if (sm_loading_room()) return;
-	sm_area = bus::read_u8(0x7E079f);
-	sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
-	sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
-	sm_sub_x = bus::read_u8(0x7E0AF6);
-	sm_sub_y = bus::read_u8(0x7E0AFA);
+  void get_sm_coords() {
+    if (sm_loading_room()) return;
+    sm_area = bus::read_u8(0x7E079f);
+    sm_x = bus::read_u8(0x7E0AF7);
+    sm_y = bus::read_u8(0x7E0AFB);
+    sm_sub_x = bus::read_u8(0x7E0AF6);
+    sm_sub_y = bus::read_u8(0x7E0AFA);
+	sm_room_x = bus::read_u8(0x7E07A1);
+	sm_room_y = bus::read_u8(0x7E07A3);
+	sm_pose = bus::read_u8(0x7E0A1C);
   }
-
 };
