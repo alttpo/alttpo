@@ -62,7 +62,6 @@ class PlayersWindow {
     }
     vl.resize();
     window.visible = true;
-    window.setFocused();
   }
   
   PlayersWindow() {
