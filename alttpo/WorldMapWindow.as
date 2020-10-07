@@ -536,10 +536,8 @@ class WorldMapWindow {
       x = float(px) * mapscale + dotLeft;
       y = float(py) * mapscale + dotTop;
     } else if (screen == 3) {
-
-        uint px = p.sm_x + p.sm_room_x;
-        uint py = p.sm_y + p.sm_room_y;
-
+        uint px = p.sm_x;
+        uint py = p.sm_y;
         uint offsx = metroid_area_base_x(p.sm_area);
         uint offsy = metroid_area_base_Y(p.sm_area);
 

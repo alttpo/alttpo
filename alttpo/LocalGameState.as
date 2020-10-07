@@ -1075,8 +1075,7 @@ class LocalGameState : GameState {
   void fetch_sm_events() {
     if (!in_sm_for_items) return;
 
-
-    for (int i = 0; i < 0x12; i++) {
+    for (int i = 0; i < 0x10; i++) {
       sm_events[i] = bus::read_u8(0x7ED820 + i);
     }
     for (int i = 0x50; i < 0x70; i++) {
@@ -1277,7 +1276,7 @@ class LocalGameState : GameState {
   void serialize_sm_events(array<uint8> &r) {
     r.write_u8(uint8(0x0D));
 
-    for (int i = 0; i < 0x52; i++) {
+    for (int i = 0; i < 0x50; i++) {
       r.write_u8(sm_events[i]);
     }
   }
@@ -1668,7 +1667,6 @@ class LocalGameState : GameState {
             if (small_keys[j] is null || remote.small_keys[j] is null) {
               continue;
             }
-
 
             small_keys[j].compareTo(remote.small_keys[j]);
           }
