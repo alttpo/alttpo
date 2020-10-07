@@ -17,24 +17,24 @@ class Sprite {
   bool is_enabled;
 
   // fetches all the OAM sprite data for OAM sprite at `index`
-  void fetchOAM(uint8 i) {
-    auto @tile = ppu::oam[i];
-  
-    index = i;
-  
-    auto x = tile.x;
-    auto chr = tile.character;
-    b0 = x & 0xff;
-    b1 = tile.y;
-    b2 = chr & 0xff;
-    b3 = ((chr >> 8) & 1) |
-          (tile.palette << 1) |
-          (tile.priority << 4) |
-          (tile.hflip ? 1<<6 : 0) |
-          (tile.vflip ? 1<<7 : 0);
-    b4 = ((x >> 8) & 1) |
-          (tile.size << 1);
-  }
+  //void fetchOAM(uint8 i) {
+  //  auto @tile = ppu::oam[i];
+  //
+  //  index = i;
+  //
+  //  auto x = tile.x;
+  //  auto chr = tile.character;
+  //  b0 = x & 0xff;
+  //  b1 = tile.y;
+  //  b2 = chr & 0xff;
+  //  b3 = ((chr >> 8) & 1) |
+  //        (tile.palette << 1) |
+  //        (tile.priority << 4) |
+  //        (tile.hflip ? 1<<6 : 0) |
+  //        (tile.vflip ? 1<<7 : 0);
+  //  b4 = ((x >> 8) & 1) |
+  //        (tile.size << 1);
+  //}
 
   // b0-b3 are main 4 bytes of OAM table
   // b4 is the 5th byte of extended OAM table
