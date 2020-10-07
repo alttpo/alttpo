@@ -1,5 +1,10 @@
 
 void pre_nmi() {
+  //message("pre_nmi");
+
+  // increment our own frame counter since in SMZ3 there is no single frame counter:
+  local.frame = (local.frame + 1) & 0xff;
+
   if (!enableBgMusic) {
     disable_bg_music();
   }
@@ -10,6 +15,11 @@ void pre_nmi() {
       try {
         // open a UDP socket to receive data from:
         @address = net::resolve_udp(settings.ServerAddress, "4590");
+        if (address is null) {
+          message("Could not resolve network address '{0}'!".format({settings.ServerAddress}));
+          @sock = null;
+          return;
+        }
         // open a UDP socket to receive data from:
         @sock = net::Socket(address);
         // connect to remote address so recv() and send() work:

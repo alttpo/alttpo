@@ -4,6 +4,11 @@ funcdef void SerializeSRAMDelegate(array<uint8> &r, uint16 start, uint16 endExcl
 
 // Lookup table of ROM addresses depending on version:
 abstract class ROMMapping {
+  ROMMapping() {
+    // loads document from `alttpo/lttp_names.bml` or returns an empty `Node@`:
+    @lttp_names = ScriptFiles::loadBML("lttp_names.bml");
+  }
+
   protected string _title;
   string get_title() property {
     return _title;
@@ -11,6 +16,11 @@ abstract class ROMMapping {
 
   void check_game() {}
   bool is_alttp() { return true; }
+  bool is_smz3()  { return false;}
+  void register_pc_intercepts() {
+    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+  }
 
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
@@ -128,6 +138,188 @@ abstract class ROMMapping {
     serialize(r, 0x340, 0x37C); // items earned
     serialize(r, 0x3C5, 0x3CA); // progress made
   }
+
+  uint32 get_table_hitbox_pose_x_addr() property { return 0x06F46D; }                         // 0x06F46D
+  uint32 get_table_hitbox_pose_w_addr() property { return table_hitbox_pose_x_addr + 0x41; }  // 0x06F4AE
+  uint32 get_table_hitbox_pose_y_addr() property { return table_hitbox_pose_x_addr + 0x82; }  // 0x06F4EF
+  uint32 get_table_hitbox_pose_h_addr() property { return table_hitbox_pose_x_addr + 0xC3; }  // 0x06F530
+
+  uint16 action_hitbox_x;       // $00,$08
+  uint16 action_hitbox_y;       // $01,$09
+  uint8  action_hitbox_w;       // $02
+  uint8  action_hitbox_h;       // $03
+  bool   action_hitbox_active;
+
+  void calc_action_hitbox_special_pose(uint8 x) {
+    //dbgData("calc_action_hitbox_special_pose(x={0})".format({x}));
+
+    int8 y;
+
+    // LDY.b #$00
+
+    // LDA $45 : ADD $F46D, X : BPL .positive
+    int a = int8(bus::read_u8(0x7E0045)) + int8(bus::read_u8(table_hitbox_pose_x_addr + x));
+    //dbgData("     a = {0}".format({fmtInt(a)}));
+    // DEY
+    //       ADD $22 : STA $00
+    // TYA : ADC $23 : STA $08
+    action_hitbox_x  = uint16(bus::read_u16(0x7E0022) + a);
+
+    // LDY.b #$00
+
+    // LDA $44 : ADD $F4EF, X : BPL .positive_2
+    uint8 m44 = bus::read_u8(0x7E0044);
+    a = int8(m44) + int8(bus::read_u8(table_hitbox_pose_y_addr + x));
+    //dbgData("     a = {0}".format({fmtInt(a)}));
+    // DEY
+    //       ADC $20 : STA $01
+    // TYA : ADC $21 : STA $09
+    action_hitbox_y  = uint16(bus::read_u16(0x7E0020) + a);
+
+    // LDA $F4AE, X : STA $02
+    // LDA $F530, X : STA $03
+    action_hitbox_w = bus::read_u8(table_hitbox_pose_w_addr + x);
+    action_hitbox_h = bus::read_u8(table_hitbox_pose_h_addr + x);
+    action_hitbox_active = (m44 != 0x80);
+
+    //dbgData("  hb = ({0},{1},{2},{3})".format({
+    //  fmtHex(action_hitbox_x,4),
+    //  fmtHex(action_hitbox_y,4),
+    //  fmtHex(action_hitbox_w,2),
+    //  fmtHex(action_hitbox_h,2)
+    //}));
+  }
+
+  uint32 get_table_hitbox_dash_y_hi() property { return 0x06F586; }                       // 0x06F586
+  uint32 get_table_hitbox_dash_x_lo() property { return table_hitbox_dash_y_hi + 0x02; }  // 0x06F588
+  uint32 get_table_hitbox_dash_x_hi() property { return table_hitbox_dash_y_hi + 0x06; }  // 0x06F58C
+  uint32 get_table_hitbox_dash_y_lo() property { return table_hitbox_dash_y_hi + 0x0A; }  // 0x06F590
+
+  uint32 get_table_hitbox_sword_toggle() property { return 0x06F571; } // 0x06F571
+
+  void calc_action_hitbox() {
+    if (bus::read_u8(0x7E0372) != 0) {
+      // dash hit box:
+
+      // LDA $2F : LSR A : TAY
+      uint8 y = bus::read_u8(0x7E002F) >> 1;
+
+      // LDA $22 : ADD $F588, Y : STA $00
+      // LDA $23 : ADC $F58C, Y : STA $08
+      int offs = int(uint16(bus::read_u8(table_hitbox_dash_x_lo + y)) | (uint16(bus::read_u8(table_hitbox_dash_x_hi + y)) << 8));
+      action_hitbox_x  = uint16(bus::read_u16(0x7E0022) + offs);
+
+      // LDA $20 : ADD $F590, Y : STA $01
+      // LDA $21 : ADC $F586, Y : STA $09
+      offs = int(uint16(bus::read_u8(table_hitbox_dash_y_lo + y)) | (uint16(bus::read_u8(table_hitbox_dash_y_hi + y)) << 8));
+      action_hitbox_y  = uint16(bus::read_u16(0x7E0020) + offs);
+
+      // LDA.b #$10 : STA $02 : STA $03
+      action_hitbox_w = 0x10;
+      action_hitbox_h = 0x10;
+
+      // determine if hitbox is active:
+      uint8 m44 = bus::read_u8(0x7E0044);
+      action_hitbox_active = (m44 != 0x80);
+
+      //dbgData("  hb = ({0},{1},{2},{3})".format({
+      //  fmtHex(action_hitbox_x,4),
+      //  fmtHex(action_hitbox_y,4),
+      //  fmtHex(action_hitbox_w,2),
+      //  fmtHex(action_hitbox_h,2)
+      //}));
+
+      return;
+    }
+
+    // LDX.b #$00
+    uint8 x = 0;
+
+    // LDA $0301 : AND.b #$0A : BNE .special_pose
+    if ((bus::read_u8(0x7E0301) & 0x0A) != 0) {
+      calc_action_hitbox_special_pose(0);
+      return;
+    }
+
+    // LDA $037A : AND.b #$10 : BNE .special_pose
+    if ((bus::read_u8(0x7E037A) & 0x10) != 0) {
+      calc_action_hitbox_special_pose(0);
+      return;
+    }
+
+    // LDY $3C : BMI .spin_attack_hit_box
+    uint8 m3c = bus::read_u8(0x7E003C);
+    if (int8(m3c) < 0) {
+      // spin attack hit box:
+
+      //LDA $22 : SUB.b #$0E : STA $00
+      //LDA $23 : SBC.b #$00 : STA $08
+      action_hitbox_x  = (bus::read_u16(0x7E0022) - 0x0E);
+
+      //LDA $20 : SUB.b #$0A : STA $01
+      //LDA $21 : SBC.b #$00 : STA $09
+      action_hitbox_y  = (bus::read_u16(0x7E0020) - 0x0A);
+
+      //LDA.b #$2C : STA $02
+      //INC A      : STA $03
+      action_hitbox_w = 0x2C;
+      action_hitbox_h = 0x2D;
+      action_hitbox_active = true;
+
+      //dbgData("  hb = ({0},{1},{2},{3})".format({
+      //  fmtHex(action_hitbox_x,4),
+      //  fmtHex(action_hitbox_y,4),
+      //  fmtHex(action_hitbox_w,2),
+      //  fmtHex(action_hitbox_h,2)
+      //}));
+
+      return;
+    }
+
+    // LDA $F571, Y : BNE .return
+    if (bus::read_u8(table_hitbox_sword_toggle + m3c) != 0) {
+      // LDA.b #$80 : STA $08
+      action_hitbox_x = 0x8000;
+      action_hitbox_active = false;
+
+      return;
+    }
+
+    // ; Adding $3C seems to be for the pokey player hit box with the swordy.
+    // LDA $2F : ASL #3 : ADD $3C : TAX : INX
+    x = (bus::read_u8(0x7E002F) << 3) + m3c + 1;
+    calc_action_hitbox_special_pose(x);
+    return;
+  }
+
+  // address of the ancilla hitbox tables: (x, w, y, h) * 12 items each
+  uint32 get_table_hitbox_ancilla() const property { return 0x088E7D; }
+
+  // fetch the hitbox values:
+   int8 get_hitbox_ancilla_x(int n) const property { return  int8(bus::read_u8(table_hitbox_ancilla + 12*0 + n)); }    // 0x088E7D
+  uint8 get_hitbox_ancilla_w(int n) const property { return uint8(bus::read_u8(table_hitbox_ancilla + 12*1 + n)); }    // 0x088E89
+   int8 get_hitbox_ancilla_y(int n) const property { return  int8(bus::read_u8(table_hitbox_ancilla + 12*2 + n)); }    // 0x088E95
+  uint8 get_hitbox_ancilla_h(int n) const property { return uint8(bus::read_u8(table_hitbox_ancilla + 12*3 + n)); }    // 0x088EA1
+
+  BML::Node@ lttp_names;
+
+  string location_name(const GameState@ player) {
+    if (player.in_sm != 0) {
+      return "In Metroid";
+    }
+
+    if (!player.is_in_game_module()) {
+      return "Not In Game";
+    }
+
+    if (player.is_in_dungeon_location()) {
+      string locKey = fmtHex(player.dungeon_room, 4);
+      return lttp_names["underworld"][locKey].textOr("Unknown UW ${0}".format({locKey}));
+    } else {
+      string locKey = fmtHex(player.overworld_room, 4);
+      return lttp_names["overworld"][locKey].textOr("Unknown OW ${0}".format({locKey}));
+    }
+  }
 };
 
 class USAROMMapping : ROMMapping {
@@ -185,10 +377,42 @@ class EURROMMapping : ROMMapping {
   uint32 get_fn_patch() property                       { return 0x008056; } // TODO
   //uint32 get_fn_main_routing() property                { return 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0xFFFFFF; } // TODO
-  uint32 get_fn_dungeon_light_torch_success() property { return 0xFFFFFF; } // TODO
-  uint32 get_fn_dungeon_extinguish_torch() property    { return 0xFFFFFF; } // TODO
-  uint32 get_fn_sprite_init() property                 { return 0xFFFFFF; } // TODO
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3C6; } // TODO: unconfirmed! copied from GER_EURROMMapping
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; } // TODO: unconfirmed! copied from GER_EURROMMapping
+  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; } // TODO: unconfirmed! copied from GER_EURROMMapping
+  uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
+
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_sword_palette() property       { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_shield_palette() property      { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
+};
+
+class GER_EURROMMapping : ROMMapping {
+  GER_EURROMMapping() {
+    _title = "GER-EUR v1." + fmtInt(bus::read_u8(0x00FFDB));
+  }
+
+  uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
+  uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
+
+  // entrance & exit tables:
+  uint32 get_entrance_table_room()    property { return 0x02C813; } // TODO
+  uint32 get_exit_table_room()        property { return 0x02DD8A; } // TODO
+  uint32 get_exit_table_link_y()      property { return 0x02E051; } // TODO
+  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // TODO
+
+  uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
+  uint32 get_fn_patch() property                       { return 0x008056; } // TODO
+  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3C6; }
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; }
+  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; }
+  uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
 
   uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
   uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
@@ -230,21 +454,30 @@ class JPROMMapping : ROMMapping {
 
   uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B186; }  // $13186
   uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
+
+  uint32 get_table_hitbox_pose_x_addr()  property { return 0x06F473; }
+  uint32 get_table_hitbox_sword_toggle() property { return 0x06F577; }
+  uint32 get_table_hitbox_dash_y_hi()    property { return 0x06F58C; }
+
 };
 
 class RandomizerMapping : JPROMMapping {
   protected string _seed;
-  RandomizerMapping(const string &in seed) {
+  protected string _kind;
+
+  RandomizerMapping(const string &in kind, const string &in seed) {
     _seed = seed;
+    _kind = kind;
+    _title = kind + " seed " + _seed;
     syncAll();
   }
 
   void syncAll() {
-    _title = "VT Seed " + _seed;
     syncItems();
     syncShops();
     syncFlags();
     syncStats();
+    syncChestCounters();
   }
 
   void syncItems() {
@@ -305,6 +538,9 @@ class RandomizerMapping : JPROMMapping {
         syncables.insertAt(i, @SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1));
       }
     }
+
+    // track progressive shield:
+    syncables.insertLast(@SyncableItem(0x416, 1, @mutateProgressiveShield));
   }
 
   void syncShops() {
@@ -320,7 +556,15 @@ class RandomizerMapping : JPROMMapping {
   }
 
   void syncStats() {
+    // item limit counters:
+    for (uint i = 0x390; i < 0x3C5; i++) {
+      syncables.insertLast(@SyncableItem(i, 1, 1));
+    }
+
     syncables.insertLast(@SyncableItem(0x418, 1, 1, @nameForTriforcePieces)); // Current Triforce Count
+  }
+
+  void syncChestCounters() {
     syncables.insertLast(@SyncableItem(0x434, 1, 1));                         // hhhhdddd - item locations checked h - HC d - PoD
     syncables.insertLast(@SyncableItem(0x435, 1, 1));                         // dddhhhaa - item locations checked d - DP h - ToH a - AT
     syncables.insertLast(@SyncableItem(0x436, 1, 1));                         // gggggeee - item locations checked g - GT e - EP
@@ -331,67 +575,87 @@ class RandomizerMapping : JPROMMapping {
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x390, 0x3C5); // item limit counters
     serialize(r, 0x3C5, 0x43A); // progress made
   }
 };
 
-class SMZ3Mapping : RandomizerMapping {
-  SMZ3Mapping(const string &in seed) {
-    super(seed);
+class MultiworldMapping : RandomizerMapping {
+  MultiworldMapping(const string &in kind, const string &in seed) {
+    super(kind, seed);
   }
-
-  void syncAll() {
-    RandomizerMapping::syncAll();
-    _title = "SMZ3 Seed " + _seed;
-  }
-
-  uint8 game = 0;
-  void check_game() override {
-    game = bus::read_u8(0xa173fe);
-  }
-
-  bool is_alttp() override { return game == 0; }
-
-}
+};
 
 class DoorRandomizerMapping : RandomizerMapping {
-  DoorRandomizerMapping(const string &in seed) {
-    super(seed);
+  DoorRandomizerMapping(const string &in kind, const string &in seed) {
+    super(kind, seed);
   }
 
   void syncAll() override {
-    _title = "ER Seed " + _seed;
-
     syncItems();
     syncShops();
     syncFlags();
     syncStats();
-    // extra data for door randomizer (unstable, 2aa2266):
-    syncChestKeys();
+    syncChestCounters();
   }
 
-  void syncChestKeys() {
-    syncables.insertLast(@SyncableItem(0x4e0, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e1, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e2, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e3, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e4, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e5, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e6, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e7, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e8, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e9, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4ea, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4eb, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4ec, 1, 1));
+  void syncChestCounters() override {
+    for (uint i = 0; i <= 0xC; i++) {
+      syncables.insertLast(@SyncableItem(0x4c0 + i, 1, 1));
+    }
+    for (uint i = 0; i <= 0xC; i++) {
+      syncables.insertLast(@SyncableItem(0x4e0 + i, 1, 1));
+    }
   }
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x390, 0x3C5); // item limit counters
     serialize(r, 0x3C5, 0x43A); // progress made
+    serialize(r, 0x4C0, 0x4CD); // chests
     serialize(r, 0x4E0, 0x4ED); // chest-keys
   }
 };
+
+class SMZ3Mapping : RandomizerMapping {
+  SMZ3Mapping(const string &in kind, const string &in seed) {
+    super(kind, seed);
+    update_syncables();
+  }
+
+  void update_syncables() {
+    //metroid items
+    syncables.insertLast(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true));
+    syncables.insertLast(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true));
+    syncables.insertLast(@SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true));
+    syncables.insertLast(@SyncableItem(0x07, 1, 1, null, true)); // charge beam
+    syncables.insertLast(@SyncableItem(0x26, 1, 1, null, true)); // missile capacity
+    syncables.insertLast(@SyncableItem(0x2a, 1, 1, null, true)); // super missile capacity
+    syncables.insertLast(@SyncableItem(0x2e, 1, 1, null, true)); // power bomb capacity
+    syncables.insertLast(@SyncableItem(0x32, 2, 1, null, true)); // reserve tanks
+    syncables.insertLast(@SyncableItem(0x22, 2, 1, null, true)); // energy tanks
+  }
+
+  void syncAll() override {
+    RandomizerMapping::syncAll();
+  }
+
+  uint8 game = 0;
+  void check_game() override {
+    game = bus::read_u8(0xA173FE);
+  }
+
+  bool is_alttp() override { return game == 0; }
+  bool is_smz3() override { return true;}
+
+  void register_pc_intercepts() override {
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+
+    // SM main is at 0x82893D (PHK; PLB)
+    // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
+    cpu::register_pc_interceptor(0x828948, @on_main_sm);
+  }
+}
 
 ROMMapping@ detect() {
   array<uint8> sig(21);
@@ -407,6 +671,9 @@ ROMMapping@ detect() {
     } else if (region == 0x02) {
       message("Recognized EUR region ROM version v1." + fmtInt(version));
       return EURROMMapping();
+    } else if (region == 0x09) {
+      message("Recognized GER-EUR region ROM version v1." + fmtInt(version));
+      return GER_EURROMMapping();
     } else {
       message("Unrecognized ROM region but has US title; assuming USA ROM v1." + fmtInt(version));
       return USAROMMapping();
@@ -421,24 +688,55 @@ ROMMapping@ detect() {
     // ALTTPR VT randomizer.
     auto seed = title.slice(3, 10);
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + seed);
-    return RandomizerMapping(seed);
-  } else if ( (title.slice(0, 2) == "ER" || title.slice(0, 2) == "BM") && (title[5] == '_') ) {
+    return RandomizerMapping("VT", seed);
+  } else if ( (title.slice(0, 2) == "BM") && (title[5] == '_') ) {
+    // Berserker MultiWorld randomizer.
     //  0123456789
     // "BM250_1_1_16070690178"
-    // ALTTPR VT-based Entrance Randomizer.
-    // e.g. "ER002_1_1_164246190  "
+    // "250" represents the __version__ string with '.'s removed.
+    auto seed = title.slice(6, 13);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Berserker MultiWorld " + kind + " randomized JP ROM version. Seed: " + seed);
+    return MultiworldMapping(kind, seed);
+  } else if ( title.slice(0, 2) == "BD" && (title[5] == '_') ) {
+    // Berserker MultiWorld Door Randomizer.
+    //  0123456789
+    // "BD251_1_1_23654700304"
+    // "251" represents the __version__ string with '.'s removed.
+    auto seed = title.slice(6, 13);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Berserker MultiWorld Door Randomizer " + kind + " randomized JP ROM version. Seed: " + seed);
+    return DoorRandomizerMapping(kind, seed);
+  } else if ( (title.slice(0, 2) == "ER") && (title[5] == '_') ) {
+    // ALTTPR Entrance or Door Randomizer.
+    //  0123456789
+    // "ER002_1_1_164246190  "
     // "002" represents the __version__ string with '.'s removed.
     // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
     // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
     auto seed = title.slice(6, 13);
-    message("Recognized Entrance Randomized JP ROM version. Seed: " + seed);
-    // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
-    return DoorRandomizerMapping(seed);
-  } else if (title.slice(0, 7) == "ZSM11.0") {
+    string kind;
+    bool isDoor = false;
+    if (bus::read_u16(0x278000) != 0) {
+      // door randomizer
+      isDoor = true;
+      kind = title.slice(0, 2) + " (door) v" + title.slice(2, 3);
+    } else {
+      // entrance randomizer
+      kind = title.slice(0, 2) + " (entrance) v" + title.slice(2, 3);
+    }
+    message("Recognized " + kind + " randomized JP ROM version. Seed: " + seed);
+    if (isDoor) {
+      return DoorRandomizerMapping(kind, seed);
+    } else {
+      return RandomizerMapping(kind, seed);
+    }
+  } else if (title.slice(0, 3) == "ZSM") {
     // SMZ3 randomized
     auto seed = fmtInt(title.slice(9, 8).hex());
-    message("Recognized SMZ3 Combo Randomized ROM version. Seed: " + seed);
-    return SMZ3Mapping(seed);
+    auto kind = title.slice(0, 3) + " v" + title.slice(3, 4);
+    message("Recognized " + kind + " randomized ROM version. Seed: " + seed);
+    return SMZ3Mapping(kind, seed);
   } else {
     switch (region) {
       case 0x00:

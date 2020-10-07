@@ -3,30 +3,40 @@ net::Address@ address;
 
 bool debug = false;
 
+bool debugReadout = false;
 bool debugData = false;
 bool debugSRAM = false;
 bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
+bool debugMemory = false;
 
 bool debugRTDScapture = false;
 bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
 bool enableMap = true;
+bool enablePlayerList = true;
 bool enableBgMusic = true;
 
-bool enableObjectSync = false;
 bool enableRenderToExtra = true;
+
+// sync control:
+bool enableObjectSync = false;
+bool enableSmallKeySync = false;
+bool enablePvP = true;
+bool enablePvPFriendlyFire = false;
 
 void init() {
   //message("init()");
+  timestamp_now = chrono::realtime::millisecond;
 
   @settings = SettingsWindow();
   settings.ServerAddress = "alttp.online";
   settings.GroupTrimmed = "group1";
   settings.Name = "player1";
+  settings.Team = 0;
   settings.PlayerColor = ppu::rgb(28, 2, 2);
   settings.load();
 
@@ -56,23 +66,29 @@ void init() {
   if (debugGameObjects) {
     @gameSpriteWindow = GameSpriteWindow();
   }
+
+  if (debugMemory) {
+    @memoryWindow = MemoryWindow();
+  }
 }
 
 void cartridge_loaded() {
-  //message("cartridge_loaded()");
+  message("cartridge_loaded()");
 
   // Auto-detect ROM version:
   @rom = detect();
 
-  //auto len = rom.syncables.length();
-  //for (uint i = 0; i < len; i++) {
-  //  auto @s = rom.syncables[i];
-  //  if (s is null) {
-  //    message("[" + fmtInt(i) + "] = null");
-  //    continue;
-  //  }
-  //  message("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
-  //}
+  if (debugData) {
+    auto len = rom.syncables.length();
+    for (uint i = 0; i < len; i++) {
+      auto @s = rom.syncables[i];
+      if (s is null) {
+        dbgData("[" + fmtInt(i) + "] = null");
+        continue;
+      }
+      dbgData("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
+    }
+  }
 
   // read the JSL target address from the RESET vector code:
   rom.read_main_routing();
@@ -80,15 +96,34 @@ void cartridge_loaded() {
   // patch the ROM code to inject our control routine:
   pb.power(true);
 
+  // create local player:
+  @local = @LocalGameState();
+  local.reset();
+  @onlyLocalPlayer[0] = @local;
+
+  players.resize(0);
+  playerCount = 0;
+
+  // apply player settings:
+  settings.playerSettingsChanged();
+
   // register ROM intercepts for local player:
   local.register(true);
 
   // draw map window when cartridge loaded:
-  if (@worldMapWindow != null) {
+  if (worldMapWindow !is null) {
     worldMapWindow.loadMap(true);
     worldMapWindow.drawMap();
+    if (rom.is_smz3()) {
+      worldMapWindow.add_sm_button();
+    }
   }
-
+  
+  //show player list when cartridge loaded:
+  if(enablePlayerList) {
+    @playersWindow = PlayersWindow();
+  }
+  
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }
@@ -99,24 +134,18 @@ void post_power(bool reset) {
   //message("post_power()");
 
   if (!reset) {
-    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
-    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_loop);
+    rom.register_pc_intercepts();
 
     //cpu::register_pc_interceptor(0x008D13, @debug_pc);  // in NMI - scrolling OW tilemap update on every 16x16 change
     //cpu::register_pc_interceptor(0x02F273, @debug_pc);  // in main loop - scrolling OW tilemap update on every 16x16 change
 
     init_torches();
   }
-
-  // clear state:
-  local.reset();
-
-  @onlyLocalPlayer[0] = local;
 }
 
 // called when script itself is unloaded:
 void unload() {
-  if (@rom != null) {
+  if (rom !is null) {
     // restore patched JSL:
     pb.unload();
   }
@@ -138,7 +167,7 @@ string fmtBool(bool value) {
   return value ? "true" : "false";
 }
 
-LocalGameState local;
+LocalGameState@ local = null;
 array<GameState@> players(0);
 array<GameState@> onlyLocalPlayer(1);
 int playerCount = 0;
@@ -146,3 +175,11 @@ int playerCount = 0;
 bool font_set = false;
 
 uint32 timestamp_now = 0;
+
+void dbgData(const string &in msg) {
+  if (!debugData) {
+    return;
+  }
+  // e.g. " 830621282) debug log message"
+  message(pad(timestamp_now, 10) + ") " + msg);
+}
