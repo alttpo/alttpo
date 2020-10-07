@@ -35,12 +35,19 @@ class SpritesWindow {
 
   void render(const array<uint16> &palette) {
     // read VRAM:
-    ppu::vram.read_block(0x4000, 0, 0x1000, page0);
-    ppu::vram.read_block(0x5000, 0, 0x1000, page1);
-
+    ppu::vram.read_block(0x6000, 0, 0x1000, page0);
+    ppu::vram.read_block(0x6100, 0, 0x1000, page1);
+	
+	array<uint16> temp_palette(palette.length());
+	uint8 temp = 0x1F;
+	if (temp > palette.length()){
+		temp = palette.length();
+	}
+	bus::read_block_u16(0x7eC180, 0, temp, temp_palette);
+	
     // draw VRAM as 4bpp tiles:
-    canvas.fill(0x0000);
-    canvas.draw_sprite_4bpp(  0, 0, 0, 128, 128, page0, palette);
+    canvas.fill(0xFFFF);
+    canvas.draw_sprite_4bpp(  0, 0, 0, 128, 128, page0, temp_palette);
     canvas.draw_sprite_4bpp(128, 0, 0, 128, 128, page1, palette);
   }
 };

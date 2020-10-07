@@ -86,6 +86,14 @@ class GameState {
     }
   }
 
+  uint8 team {
+    get { return _team; }
+    set {
+      _team = value;
+      dbgData("[{0}] team = {1}".format({index, _team}));
+    }
+  }
+
   // local: player index last synced objects from:
   uint16 objects_index_source;
 
@@ -101,6 +109,12 @@ class GameState {
   int16 yoffs;
 
   uint16 x, y;
+  
+  //coordinates for super metroid game
+  uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
+  uint8 sm_room_x, sm_room_y, sm_pose;
+  uint16 offsm1, offsm2;
+  uint8 in_sm;
 
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
@@ -181,7 +195,8 @@ class GameState {
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
-  array<uint8> sm_events(0x50);
+  array<uint8> sm_events(0x52);
+  array<uint16> sm_palette(0x10);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -400,6 +415,12 @@ class GameState {
     }
     return false;
   }
+  
+  // tests if the remote sm player is in the same room as the local one
+  bool can_see_sm(GameState @remote){
+	if(remote.in_sm != 1) return false;
+	return (remote.sm_room_x == this.sm_room_x && remote.sm_room_y == this.sm_room_y && remote.sm_area == this.sm_area);
+  }
 
   bool is_really_in_same_location(uint32 other_location) const {
     // use the location the game thinks is real:
@@ -486,6 +507,8 @@ class GameState {
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
+		case 0x10: c = deserialize_sm_sprite(r,c); break;
+		
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -550,7 +573,28 @@ class GameState {
     sm_sub_y = r[c++];
     in_sm = r[c++];
 
+	sm_room_x = r[c++];
+	sm_room_y = r[c++];
+	sm_pose = r[c++];
+
     return c;
+  }
+  
+  int deserialize_sm_sprite(array<uint8> r, int c){
+	
+	offsm1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	offsm2 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//bank = r[c++];
+	
+	//address = (uint16(r[c++]) << 8) | uint16(r[c++]);
+    //size0 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//size1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	
+	for(int i = 0; i < 0x10; i++){
+		sm_palette[i] = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	}
+	
+	return c;
   }
 
   int deserialize_sfx(array<uint8> r, int c) {
@@ -834,6 +878,13 @@ class GameState {
     }
     return c;
   }
+  
+  int deserialize_sm_events(array<uint8> r, int c) {
+    for (int i = 0; i < 0x52; i++) {
+        sm_events[i] = r[c++];
+    }
+    return c;
+  }
 
   void renderToPPU(int dx, int dy) {
     for (uint i = 0; i < 512; i++) {
@@ -1112,9 +1163,18 @@ class GameState {
   void get_sm_coords() {
     if (sm_loading_room()) return;
     sm_area = bus::read_u8(0x7E079f);
-    sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
-    sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+    sm_x = bus::read_u8(0x7E0AF7);
+    sm_y = bus::read_u8(0x7E0AFB);
     sm_sub_x = bus::read_u8(0x7E0AF6);
     sm_sub_y = bus::read_u8(0x7E0AFA);
+	sm_room_x = bus::read_u8(0x7E07A1);
+	sm_room_y = bus::read_u8(0x7E07A3);
+	sm_pose = bus::read_u8(0x7E0A1C);
+  }
+  
+  void get_sm_sprite_data(){
+	offsm1 = bus::read_u16(0x7e071f);
+	offsm2 = bus::read_u16(0x7e0721);
+	bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
   }
 };
