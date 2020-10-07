@@ -8,7 +8,7 @@ class PlayersWindow {
   
   private array<GUI::Label@> playerLabels;
   
-  private array<GameState@> playersArray() {
+  private array<GameState@>@ playersArray() {
     array<GameState@> @ps;
 
     if (sock is null) {
@@ -33,11 +33,14 @@ class PlayersWindow {
       array<GameState@> @ps = playersArray();
       playerLabels.resize(ps.length());
 
-      if (ps.length() > 0 && settings.started) {
+      if (ps.length() > 0) {
         // find all team numbers:
         array<uint8> teamNumbers;
         for (uint i = 0; i < ps.length(); i++) {
           auto @p = ps[i];
+          if (p.ttl <= 0) {
+            continue;
+          }
           if (teamNumbers.find(p.team) >= 0) {
             continue;
           }
@@ -55,13 +58,20 @@ class PlayersWindow {
           uint count = 0;
           for (uint i = 0; i < ps.length(); i++) {
             auto @p = ps[i];
+            if (p.ttl <= 0) {
+              continue;
+            }
             if (p.team != team) {
               continue;
             }
 
             count++;
             @playerLabels[i] = GUI::Label();
-            playerLabels[i].text = (fmtInt(i) + ": " + p.name);
+            string locname = "";
+            if (rom !is null) {
+              locname = rom.location_name(p);
+            }
+            playerLabels[i].text = "{0}: {1} ({2})".format({fmtInt(i), p.name, locname});
             playerLabels[i].toolTip =
               "This user is playing in your group.";
             int r = (p.player_color      ) & 0x1F;
@@ -83,9 +93,8 @@ class PlayersWindow {
       }
     }
     vl.resize();
-    window.visible = true;
   }
-  
+
   PlayersWindow() {
     @window = GUI::Window(-260, 48, true);
     window.title = "Online players";
@@ -95,5 +104,7 @@ class PlayersWindow {
     window.font = GUI::Font("{sans}", 12);
 
     update();
+
+    window.visible = true;
   }
 }

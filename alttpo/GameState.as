@@ -17,6 +17,8 @@ bool locations_equal(uint32 a, uint32 b) {
 const uint16 small_keys_min_offs = 0xF37C;
 const uint16 small_keys_max_offs = 0xF38C;
 
+bool players_updated = false;
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -31,33 +33,56 @@ class GameState {
 
   // $3D9-$3E4: 6x uint16 characters for player name
 
+  void player_changed() {
+    players_updated = true;
+  }
+
   string _name = "";
   string name {
-    get { return _name; }
+    get const { return _name; }
     set {
-      _name = value.strip();
+      string lastName = _name;
+      string stripped = value.strip();
+
+      _name = stripped;
       _namePadded = padTo(value, 20);
+
+      if (lastName != stripped) {
+        player_changed();
+      }
     }
   }
 
   string _namePadded = "                    ";  // 20 spaces
   string namePadded {
-    get { return _namePadded; }
+    get const { return _namePadded; }
     set {
-      _name = value.strip();
+      string lastName = _name;
+      string stripped = value.strip();
+
+      _name = stripped;
       if (value.length() == 20) {
         _namePadded = value;
       } else {
         _namePadded = padTo(value, 20);
       }
+
+      if (lastName != stripped) {
+        player_changed();
+      }
     }
   }
 
   uint8 team {
-    get { return _team; }
+    get const { return _team; }
     set {
+      auto lastValue = _team;
       _team = value;
       dbgData("[{0}] team = {1}".format({index, _team}));
+
+      if (value != lastValue) {
+        player_changed();
+      }
     }
   }
 
@@ -76,19 +101,50 @@ class GameState {
   int16 yoffs;
 
   uint16 x, y;
-  
+
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 in_sm;
 
-  uint8 module;
+  uint8 _module;
+  uint8 module {
+    get const { return _module; }
+    set {
+      uint8 lastValue = _module;
+      _module = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
   uint8 sub_module;
   uint8 sub_sub_module;
 
   uint8 in_dark_world;
   uint8 in_dungeon;
-  uint16 overworld_room;
-  uint16 dungeon_room;
+  uint16 _overworld_room;
+  uint16 overworld_room {
+    get const { return _overworld_room; }
+    set {
+      auto lastValue = _overworld_room;
+      _overworld_room = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
+
+  uint16 _dungeon_room;
+  uint16 dungeon_room {
+    get const { return _dungeon_room; }
+    set {
+      auto lastValue = _dungeon_room;
+      _dungeon_room = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
 
   uint16 dungeon;
   uint16 dungeon_entrance;
@@ -98,10 +154,16 @@ class GameState {
 
   private uint16 _player_color;
   uint16 player_color {
-    get { return _player_color; }
+    get const { return _player_color; }
     set {
+      auto lastValue = _player_color;
+
       _player_color = value;
       calculate_player_color_dark();
+
+      if (value != lastValue) {
+        player_changed();
+      }
     }
   }
 
@@ -310,6 +372,14 @@ class GameState {
     return false;
   }
 
+  bool is_in_game_module() const {
+    if (module <= 0x05) return false;
+    if (module == 0x14) return false;
+    if (module >= 0x1B) return false;
+
+    return true;
+  }
+
   bool is_in_screen_transition() const {
     // scrolling between overworld areas:
     if (module == 0x09 && sub_module >= 0x01) return true;
@@ -346,12 +416,17 @@ class GameState {
     return (actual_location & 0x020000) == (other_location & 0x020000);
   }
 
+  bool justJoined = false;
+
   void ttl_count() {
     if (ttl > 0) {
       ttl--;
       if (ttl == 0) {
+        justJoined = false;
         local.notify(name + " left");
-        playersWindow.update();
+        if (playersWindow !is null) {
+          playersWindow.update();
+        }
       }
     }
     if (sfx1_ttl > 0) {
@@ -417,6 +492,10 @@ class GameState {
       }
     }
 
+    if (ttl <= 0) {
+      justJoined = true;
+    }
+    ttl = 255;
     return true;
   }
 
@@ -451,6 +530,12 @@ class GameState {
     player_color = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     in_sm = r[c++];
+
+    if (is_in_dungeon_location()) {
+      dungeon_room = location & 0xFFFF;
+    } else {
+      overworld_room = location & 0xFFFF;
+    }
 
     calc_hitbox();
 
@@ -733,9 +818,16 @@ class GameState {
   int deserialize_name(array<uint8> r, int c) {
     namePadded = r.toString(c, 20);
     c += 20;
+
+    bool update = false;
+    if (justJoined) {
+      local.notify(name + " joined");
+      justJoined = false;
+    }
+
     return c;
   }
-  
+
   int deserialize_sm_events(array<uint8> r, int c) {
     for (int i = 0; i < 0x50; i++) {
         sm_events[i] = r[c++];

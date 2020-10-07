@@ -217,6 +217,13 @@ void pre_frame() {
     }
   }
 
+  if (players_updated) {
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
+  }
+  players_updated = false;
+
   // reset main loop called state:
   main_called = false;
 
