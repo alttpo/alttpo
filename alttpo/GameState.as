@@ -122,7 +122,8 @@ class GameState {
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
-  array<uint8> sm_events(0x50);
+  array<uint8> sm_events(0x52);
+  array<uint16> sm_palette(0x10);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -462,6 +463,10 @@ class GameState {
     size0 = (uint16(r[c++]) << 8) | uint16(r[c++]);
 	size1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
 	
+	for(int i = 0; i < 0x10; i++){
+		sm_palette[i] = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	}
+	
 	return c;
   }
 
@@ -700,7 +705,7 @@ class GameState {
   }
   
   int deserialize_sm_events(array<uint8> r, int c) {
-    for (int i = 0; i < 0x50; i++) {
+    for (int i = 0; i < 0x52; i++) {
         sm_events[i] = r[c++];
     }
     return c;
@@ -998,5 +1003,6 @@ class GameState {
 	address = bus::read_u16(0x920000 + offsm);
 	size0 = bus::read_u16(0x920000 + offsm + 3);
 	size1 = bus::read_u16(0x920000 + offsm + 5);
+	bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
   }
 };

@@ -1,10 +1,9 @@
 
 
-int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, uint16 size0, uint16 size1){
+int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, uint16 size0, uint16 size1, array<uint16> palette){
 	//message("attempted to draw a samus");
 	
 	array<array<uint16>> sprs(32, array<uint16>(16)); // array of 32 different 8x8 sprite blocks
-	array<uint16> palette(0x10); // palette array for loading the right colors
 	int p = 0; // palette int, use is unknown
 	int protocol = determine_protocol(pose); // decides which protocol is used for placing samus' blocks to build the sprite
 	
@@ -14,7 +13,7 @@ int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, u
 	//initialize tile
 	auto @tile = ppu::extra[ei++];
 	tile.index = 0;
-	tile.source = 5;
+	tile.source = 4;
 	tile.x = x + offsx;
     tile.y = y + offsy;
 	tile.priority = -1;
@@ -36,9 +35,6 @@ int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, u
 	for (int i = 0; i < len2; i++) {
 		bus::read_block_u16(transfer1 + 0x20 * i, 0, 16, sprs[i+16]);
 	}
-	
-	//load (local) palette data from ram
-	bus::read_block_u16(0x7eC180, 0, palette.length(), palette);
 	
 	
 	//most of samus' poses, with only a few exceptions
@@ -103,10 +99,14 @@ int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, u
 	}
 	//spin jump
 	else if (protocol == 5){
-	
+		for (int i = 0; i < 16; i++){
+			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+		}
+		for (int i = 0; i < 16; i++){
+			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+		}
 	}
 	
-	ppu::extra.count = 1;
 	return ei;
 }
 
@@ -116,6 +116,8 @@ int determine_protocol(uint8 pose){
 		case 0x04: return 1;
 		case 0x27: return 2;
 		case 0x28: return 2;
+		case 0x38: return 3;
+		case 0x3e: return 3;
 		case 0x43: return 3;
 		case 0x44: return 3;
 		case 0x71: return 3;
@@ -126,10 +128,12 @@ int determine_protocol(uint8 pose){
 		case 0x7a: return 4;
 		case 0x7b: return 4;
 		case 0x7c: return 4;
+		case 0x7d: return 4;
 		case 0x7e: return 4;
 		case 0x7f: return 4;
 		case 0x80: return 4;
-		
+		case 0x81: return 5;
+		case 0x82: return 5;
 		default: return 0;
 	
 	}

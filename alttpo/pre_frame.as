@@ -239,7 +239,7 @@ void pre_frame() {
 	  int ry = int(remote_offset_y) - int(local_offset_y);
 	  
 	  
-	  ei = draw_samuses(rx, ry, ei, remote.sm_pose, remote.bank, remote.address, remote.size0, remote.size1);
+	  ei = draw_samuses(rx, ry, ei, remote.sm_pose, remote.bank, remote.address, remote.size0, remote.size1, remote.sm_palette);
       continue;
     }
 

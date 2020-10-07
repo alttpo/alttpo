@@ -36,7 +36,7 @@ class SpritesWindow {
   void render(const array<uint16> &palette) {
     // read VRAM:
     ppu::vram.read_block(0x6000, 0, 0x1000, page0);
-    ppu::vram.read_block(0x7000, 0, 0x1000, page1);
+    ppu::vram.read_block(0x6100, 0, 0x1000, page1);
 	
 	array<uint16> temp_palette(palette.length());
 	uint8 temp = 0x1F;
