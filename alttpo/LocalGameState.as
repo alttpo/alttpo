@@ -1080,13 +1080,16 @@ class LocalGameState : GameState {
   void serialize_sm_sprite(array<uint8> &r){
 	r.write_u8(uint8(0x10));
 	
-	r.write_u8(bank);
-	r.write_u8((address & 0xFF00) >> 8);
-	r.write_u8(address & 0xFF);
-	r.write_u8((size0 & 0xFF00) >> 8);
-	r.write_u8(size0 & 0xFF);
-	r.write_u8((size1 & 0xFF00) >> 8);
-	r.write_u8(size1 & 0xFF);
+	r.write_u8((offsm1 & 0xFF00) >> 8);
+	r.write_u8(offsm1 & 0xFF);
+	r.write_u8((offsm2 & 0xFF00) >> 8);
+	r.write_u8(offsm2 & 0xFF);
+	//r.write_u8((address & 0xFF00) >> 8);
+	//r.write_u8(address & 0xFF);
+	//r.write_u8((size0 & 0xFF00) >> 8);
+	//r.write_u8(size0 & 0xFF);
+	//r.write_u8((size1 & 0xFF00) >> 8);
+	//r.write_u8(size1 & 0xFF);
 	
 	for(int i = 0; i < 0x10; i++){
 		r.write_u8((sm_palette[i] & 0xFF00) >> 8);

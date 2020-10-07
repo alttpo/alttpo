@@ -433,6 +433,45 @@ class SMZ3Mapping : RandomizerMapping {
   }
 }
 
+class VanillaSMMapping : ROMMapping {
+	VanillaSMMapping() {
+    super();
+    update_syncables();
+  }
+
+  void update_syncables() {
+    //metroid items
+	syncables = { @SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true),
+				 @SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true),
+				 @SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true),
+				 @SyncableItem(0x07, 1, 1, null, true), // charge beam
+				 @SyncableItem(0x26, 1, 1, null, true), // missile capacity
+				 @SyncableItem(0x2a, 1, 1, null, true), // super missile capacity
+				 @SyncableItem(0x2e, 1, 1, null, true), // power bomb capacity
+				 @SyncableItem(0x32, 2, 1, null, true), // reserve tanks
+				 @SyncableItem(0x22, 2, 1, null, true)  // energy tanks
+				} ; 
+  }
+
+  uint8 game = 0;
+  void check_game() override {
+    game = bus::read_u8(0xA173FE);
+  }
+
+  bool is_alttp() override { return false; }
+  bool is_smz3() override { return true;}
+
+  void register_pc_intercepts() override {
+    //cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+
+    // SM main is at 0x82893D (PHK; PLB)
+    // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
+    cpu::register_pc_interceptor(0x828948, @on_main_sm);
+  }
+	
+
+}
+
 ROMMapping@ detect() {
   array<uint8> sig(21);
   bus::read_block_u8(0x00FFC0, 0, 21, sig);
@@ -510,6 +549,9 @@ ROMMapping@ detect() {
     auto kind = title.slice(0, 3) + " v" + title.slice(3, 4);
     message("Recognized " + kind + " randomized ROM version. Seed: " + seed);
     return SMZ3Mapping(kind, seed);
+  } else if (title == "Super Metroid        "){
+	message("Recognized " + title + " ROM");
+	return VanillaSMMapping();
   } else {
     switch (region) {
       case 0x00:

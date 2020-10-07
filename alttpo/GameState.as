@@ -80,8 +80,7 @@ class GameState {
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 sm_room_x, sm_room_y, sm_pose;
-  uint8 bank;
-  uint16 address, size0, size1;
+  uint16 offsm1, offsm2;
   uint8 in_sm;
 
   uint8 module;
@@ -456,12 +455,13 @@ class GameState {
   
   int deserialize_sm_sprite(array<uint8> r, int c){
 	
+	offsm1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	offsm2 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//bank = r[c++];
 	
-	bank = r[c++];
-	
-	address = (uint16(r[c++]) << 8) | uint16(r[c++]);
-    size0 = (uint16(r[c++]) << 8) | uint16(r[c++]);
-	size1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//address = (uint16(r[c++]) << 8) | uint16(r[c++]);
+    //size0 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//size1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
 	
 	for(int i = 0; i < 0x10; i++){
 		sm_palette[i] = (uint16(r[c++]) << 8) | uint16(r[c++]);
@@ -998,11 +998,8 @@ class GameState {
   }
   
   void get_sm_sprite_data(){
-	uint16 offsm = bus::read_u16(0x7e071f);
-	bank = bus::read_u8(0x920000 + offsm + 2);
-	address = bus::read_u16(0x920000 + offsm);
-	size0 = bus::read_u16(0x920000 + offsm + 3);
-	size1 = bus::read_u16(0x920000 + offsm + 5);
+	offsm1 = bus::read_u16(0x7e071f);
+	offsm2 = bus::read_u16(0x7e0721);
 	bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
   }
 };

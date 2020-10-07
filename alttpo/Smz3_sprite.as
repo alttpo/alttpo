@@ -1,6 +1,6 @@
 
 
-int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, uint16 size0, uint16 size1, array<uint16> palette){
+int draw_samuses(int x, int y, int ei, uint8 pose, uint16 offsm1, uint16 offsm2, array<uint16> palette){
 	//message("attempted to draw a samus");
 	
 	array<array<uint16>> sprs(32, array<uint16>(16)); // array of 32 different 8x8 sprite blocks
@@ -23,19 +23,42 @@ int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, u
     tile.height = 128;
 	tile.pixels_clear();
 
-	uint32 transfer0 = 0x010000 * bank + address;
-	uint32 transfer1 = transfer0 + size0;
-
-	uint16 len1 = min(size0 / 32, 16);
-	uint16 len2 = min(size1 / 32, 16);
+	uint8 bank = bus::read_u8(0x920000 + offsm1 + 2);
+	uint16 address = bus::read_u16(0x920000 + offsm1);
+	uint16 size0 = bus::read_u16(0x920000 + offsm1 + 3);
+	uint16 size1 = bus::read_u16(0x920000 + offsm1 + 5);
+	
+	uint8 bank2 = bus::read_u8(0x920000 + offsm2 + 2);
+	uint16 address2 = bus::read_u16(0x920000 + offsm2);
+	uint16 size2 = bus::read_u16(0x920000 + offsm2 + 3);
+	uint16 size3 = bus::read_u16(0x920000 + offsm2 + 5);
+	
+	
+	uint32 transfer0;
+	uint32 transfer1;
+	uint16 len1;
+	uint16 len2;
+	if (pose == 0x1a || pose == 0x19 || pose == 0x81 || pose == 0x82){
+		transfer0 = 0x010000 * bank2 + address2;
+		transfer1 = transfer0 + size2;
+		
+		len1 = min(size2 / 32, 16);
+		len2 = min(size3 / 32, 16);
+	} else {
+		transfer0 = 0x010000 * bank + address;
+		transfer1 = transfer0 + size0;
+		
+		len1 = min(size0 / 32, 16);
+		len2 = min(size1 / 32, 16);
+	}
 	//load data from vram into sprs
+	
 	for (int i = 0; i < len1; i++) {
 		bus::read_block_u16(transfer0 + 0x20 * i, 0, 16, sprs[i]);
 	}
 	for (int i = 0; i < len2; i++) {
 		bus::read_block_u16(transfer1 + 0x20 * i, 0, 16, sprs[i+16]);
 	}
-	
 	
 	//most of samus' poses, with only a few exceptions
 	if (protocol == 0){
@@ -106,12 +129,37 @@ int draw_samuses(int x, int y, int ei, uint8 pose, uint8 bank, uint16 address, u
 			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
 		}
 	}
+	//facing toward the camera
+	else if (protocol == 6){
+		for (int i = 0; i < 12; i++){
+			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+		}
+		for (int i = 0; i < 12; i++){
+			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+		}
+		tile.draw_sprite_4bpp(0, 48, p, sprs[12], palette);
+		tile.draw_sprite_4bpp(16, 48, p, sprs[13], palette);
+		tile.draw_sprite_4bpp(8, 48, p, sprs[28], palette);
+		tile.draw_sprite_4bpp(24, 48, p, sprs[29], palette);
+	}
+	// vertical leap
+	else if (protocol == 7){
+		for (int i = 0; i < 12; i++){
+			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+		}
+		for (int i = 0; i < 12; i++){
+			tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+		}
+		tile.draw_sprite_4bpp(16, 48, p, sprs[13], palette);
+		tile.draw_sprite_4bpp(8, 48, p, sprs[28], palette);
+	}
 	
 	return ei;
 }
 
 int determine_protocol(uint8 pose){
 	switch(pose){
+		case 0x00: return 6;
 		case 0x03: return 1;
 		case 0x04: return 1;
 		case 0x27: return 2;
@@ -120,6 +168,10 @@ int determine_protocol(uint8 pose){
 		case 0x3e: return 3;
 		case 0x43: return 3;
 		case 0x44: return 3;
+		case 0x4b: return 7;
+		case 0x4c: return 7;
+		case 0x4d: return 7;
+		case 0x4e: return 7;
 		case 0x71: return 3;
 		case 0x72: return 3;
 		case 0x73: return 3;
@@ -134,6 +186,8 @@ int determine_protocol(uint8 pose){
 		case 0x80: return 4;
 		case 0x81: return 5;
 		case 0x82: return 5;
+		case 0xa4: return 7;
+		case 0xa5: return 7;
 		default: return 0;
 	
 	}
@@ -152,5 +206,5 @@ int offs_x(uint8 pose){
 
 int offs_y(uint8 pose){
 	//do stuff here
-	return -20;
+	return -32;
 }
