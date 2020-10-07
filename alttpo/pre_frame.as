@@ -72,7 +72,6 @@ void on_main_alttp(uint32 pc) {
         local.update_items(sram_buffer, true);
       }
     }
-
     if ((local.frame & 31) == 0) {
       local.update_rooms(sram);
     }

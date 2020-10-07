@@ -731,6 +731,12 @@ class SettingsWindow {
     save();
   }
 
+  void playerSettingsChanged() {
+    nameWasChanged(false);
+    teamWasChanged(false);
+    colorWasChanged(false);
+  }
+
   // callback:
   private void txtTeamChanged() {
     teamWasChanged();
