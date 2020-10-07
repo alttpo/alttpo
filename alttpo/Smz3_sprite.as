@@ -13,10 +13,10 @@ int draw_samuses(int x, int y, int ei, uint8 pose, uint16 offsm1, uint16 offsm2,
 	//initialize tile
 	auto @tile = ppu::extra[ei++];
 	tile.index = 0;
-	tile.source = 4;
+	tile.source = 5;
 	tile.x = x + offsx;
     tile.y = y + offsy;
-	tile.priority = -1;
+	tile.priority = 261;
 	tile.hflip = false;
     tile.vflip = false;
     tile.width = 64;
@@ -200,11 +200,44 @@ uint16 min(uint16 a, uint16 b){
 }
 
 int offs_x(uint8 pose){
+	switch (pose){
+		case 0x06: return -22;
+		case 0x08: return -22;
+		
+		default: return -15;
+	}
 	
-	return -16;
+	
+	return -15;
 }
 
 int offs_y(uint8 pose){
 	//do stuff here
-	return -32;
+	switch (pose){
+		case 0x03: return -34;
+		case 0x04: return -34;
+		case 0x27: return -22;
+		case 0x28: return -22;
+		case 0x43: return -22;
+		case 0x44: return -22;
+		case 0x71: return -22;
+		case 0x72: return -22;
+		case 0x73: return -22;
+		case 0x74: return -22;
+		case 0x79: return -14;
+		case 0x7a: return -14;
+		case 0x7b: return -14;
+		case 0x7c: return -14;
+		case 0x7d: return -14;
+		case 0x7e: return -14;
+		case 0x7f: return -14;
+		case 0x80: return -14;
+		case 0x81: return -17;
+		case 0x82: return -17;
+		
+		
+		default: return -26;
+	}
+	
+	return -26;
 }

@@ -230,6 +230,7 @@ void pre_frame() {
     if (!rom.is_alttp()) {
 	  //tests if both players are in the same room
 	  if (!local.can_see_sm(remote)) continue;
+	  if (sm_state > 0x0c && sm_state < 0x12) continue;
 	  
 	  uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
 	  uint16 local_offset_x = bus::read_u16(0x7e0911);
