@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x0F;
+const uint8 script_protocol = 0x11;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -17,6 +17,8 @@ bool locations_equal(uint32 a, uint32 b) {
 const uint16 small_keys_min_offs = 0xF37C;
 const uint16 small_keys_max_offs = 0xF38C;
 
+bool players_updated = false;
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -31,24 +33,55 @@ class GameState {
 
   // $3D9-$3E4: 6x uint16 characters for player name
 
+  void player_changed() {
+    players_updated = true;
+  }
+
   string _name = "";
   string name {
-    get { return _name; }
+    get const { return _name; }
     set {
-      _name = value.strip();
+      string lastName = _name;
+      string stripped = value.strip();
+
+      _name = stripped;
       _namePadded = padTo(value, 20);
+
+      if (lastName != stripped) {
+        player_changed();
+      }
     }
   }
 
   string _namePadded = "                    ";  // 20 spaces
   string namePadded {
-    get { return _namePadded; }
+    get const { return _namePadded; }
     set {
-      _name = value.strip();
+      string lastName = _name;
+      string stripped = value.strip();
+
+      _name = stripped;
       if (value.length() == 20) {
         _namePadded = value;
       } else {
         _namePadded = padTo(value, 20);
+      }
+
+      if (lastName != stripped) {
+        player_changed();
+      }
+    }
+  }
+
+  uint8 team {
+    get const { return _team; }
+    set {
+      auto lastValue = _team;
+      _team = value;
+      dbgData("[{0}] team = {1}".format({index, _team}));
+
+      if (value != lastValue) {
+        player_changed();
       }
     }
   }
@@ -83,14 +116,49 @@ class GameState {
   uint16 offsm1, offsm2;
   uint8 in_sm;
 
-  uint8 module;
+  //coordinates for super metroid game
+  uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
+  uint8 in_sm;
+
+  uint8 _module;
+  uint8 module {
+    get const { return _module; }
+    set {
+      uint8 lastValue = _module;
+      _module = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
   uint8 sub_module;
   uint8 sub_sub_module;
 
   uint8 in_dark_world;
   uint8 in_dungeon;
-  uint16 overworld_room;
-  uint16 dungeon_room;
+  uint16 _overworld_room;
+  uint16 overworld_room {
+    get const { return _overworld_room; }
+    set {
+      auto lastValue = _overworld_room;
+      _overworld_room = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
+
+  uint16 _dungeon_room;
+  uint16 dungeon_room {
+    get const { return _dungeon_room; }
+    set {
+      auto lastValue = _dungeon_room;
+      _dungeon_room = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
 
   uint16 dungeon;
   uint16 dungeon_entrance;
@@ -100,10 +168,16 @@ class GameState {
 
   private uint16 _player_color;
   uint16 player_color {
-    get { return _player_color; }
+    get const { return _player_color; }
     set {
+      auto lastValue = _player_color;
+
       _player_color = value;
       calculate_player_color_dark();
+
+      if (value != lastValue) {
+        player_changed();
+      }
     }
   }
 
@@ -142,6 +216,16 @@ class GameState {
 
   array<int> torchOwner(0x10);
   array<uint8> torchTimers(0x10);
+
+  Hitbox hitbox;
+
+  Hitbox action_hitbox;
+  uint8 action_sword_time;    //     $3C = sword out time / spin attack
+  uint8 action_sword_type;    // $7EF359 = sword type
+  uint8 action_item_used;     //   $0301 = item in hand (bitfield, one bit at a time)
+  uint8 action_room_level;    //     $EE = level in room
+
+  array<PvPAttack> pvp_attacks;
 
   GameState() {
     torchOwner.resize(0x10);
@@ -303,6 +387,14 @@ class GameState {
     return false;
   }
 
+  bool is_in_game_module() const {
+    if (module <= 0x05) return false;
+    if (module == 0x14) return false;
+    if (module >= 0x1B) return false;
+
+    return true;
+  }
+
   bool is_in_screen_transition() const {
     // scrolling between overworld areas:
     if (module == 0x09 && sub_module >= 0x01) return true;
@@ -335,11 +427,27 @@ class GameState {
     return locations_equal(actual_location, other_location);
   }
 
+  bool is_in_same_map(uint32 other_location) const {
+    // in underworld, doesn't matter if light vs dark:
+    if ((actual_location & 0x010000) == 0x010000 && (other_location & 0x010000) == 0x010000) {
+      return true;
+    }
+
+    // in overworld both must be in light or dark world:
+    return (actual_location & 0x020000) == (other_location & 0x020000);
+  }
+
+  bool justJoined = false;
+
   void ttl_count() {
     if (ttl > 0) {
       ttl--;
       if (ttl == 0) {
+        justJoined = false;
         local.notify(name + " left");
+        if (playersWindow !is null) {
+          playersWindow.update();
+        }
       }
     }
     if (sfx1_ttl > 0) {
@@ -394,19 +502,29 @@ class GameState {
         case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
-        //case 0x0B: c = deserialize_palettes(r, c); break;
+        case 0x0B: c = deserialize_pvp(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
 		case 0x10: c = deserialize_sm_sprite(r,c); break;
+		
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
       }
     }
 
+    if (ttl <= 0) {
+      justJoined = true;
+    }
+    ttl = 255;
     return true;
+  }
+
+  void calc_hitbox() {
+    hitbox.setBox(x + 4, y + 8, 8, 8);
+    hitbox.setActive(!is_dead() && !is_game_over() && (is_in_overworld_module() || is_in_dungeon_module()));
   }
 
   int deserialize_location(array<uint8> r, int c) {
@@ -436,6 +554,14 @@ class GameState {
 
     in_sm = r[c++];
 
+    if (is_in_dungeon_location()) {
+      dungeon_room = location & 0xFFFF;
+    } else {
+      overworld_room = location & 0xFFFF;
+    }
+
+    calc_hitbox();
+
     return c;
   }
 
@@ -446,6 +572,7 @@ class GameState {
     sm_sub_x = r[c++];
     sm_sub_y = r[c++];
     in_sm = r[c++];
+
 	sm_room_x = r[c++];
 	sm_room_y = r[c++];
 	sm_pose = r[c++];
@@ -549,6 +676,40 @@ class GameState {
           palettes[k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
         }
       }
+    }
+
+    return c;
+  }
+
+  int deserialize_pvp(array<uint8> r, int c) {
+    action_hitbox.setActive((r[c++] == 1) ? true : false);
+    if (action_hitbox.active) {
+      uint16 bx = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint16 by = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint8  bw = r[c++];
+      uint8  bh = r[c++];
+
+      action_hitbox.setBox(bx, by, bw, bh);
+
+      action_sword_time = r[c++];
+      action_item_used =  r[c++];
+    }
+
+    action_sword_type = r[c++];
+    action_room_level = r[c++];
+
+    // deserialize pvp attacks:
+    uint8 len = r[c++];
+    pvp_attacks.resize(len);
+    for (uint i = 0; i < len; i++) {
+      pvp_attacks[i].player_index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      pvp_attacks[i].sword_time = r[c++];
+      pvp_attacks[i].melee_item = r[c++];
+      pvp_attacks[i].ancilla_mode = r[c++];
+      pvp_attacks[i].damage = r[c++];
+      pvp_attacks[i].recoil_dx = int8(r[c++]);
+      pvp_attacks[i].recoil_dy = int8(r[c++]);
+      pvp_attacks[i].recoil_dz = int8(r[c++]);
     }
 
     return c;
@@ -701,6 +862,20 @@ class GameState {
   int deserialize_name(array<uint8> r, int c) {
     namePadded = r.toString(c, 20);
     c += 20;
+
+    bool update = false;
+    if (justJoined) {
+      local.notify(name + " joined");
+      justJoined = false;
+    }
+
+    return c;
+  }
+
+  int deserialize_sm_events(array<uint8> r, int c) {
+    for (int i = 0; i < 0x50; i++) {
+        sm_events[i] = r[c++];
+    }
     return c;
   }
   

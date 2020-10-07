@@ -39,12 +39,21 @@ void on_main_alttp(uint32 pc) {
   local.capture_sprites_vram();
 
   if (settings.started && (sock !is null)) {
+    // receive network updates from remote players:
+    receive();
+  } else {
+    return;
+  }
+
+  // calculate PvP damage against nearby players:
+  if (settings.EnablePvP) {
+    local.attack_pvp();
+  }
+
+  if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
     //message("send");
     local.send();
-
-    // receive network updates from remote players:
-    receive();
   } else {
     return;
   }
@@ -65,7 +74,6 @@ void on_main_alttp(uint32 pc) {
         local.update_items(sram_buffer, true);
       }
     }
-
     if ((local.frame & 31) == 0) {
       local.update_rooms(sram);
     }
@@ -79,6 +87,10 @@ void on_main_alttp(uint32 pc) {
 
     // synchronize torches:
     update_torches();
+  }
+
+  if (settings.EnablePvP) {
+    local.apply_pvp();
   }
 
   if (pb.offset > 0) {
@@ -196,7 +208,7 @@ void pre_frame() {
   local.ttl = 255;
 
   if (!main_called) {
-    dbgData("pre_frame send/recv");
+    //dbgData("pre_frame send/recv");
     if (settings.started && (sock !is null)) {
       // send updated state for our Link to server:
       //message("send");
@@ -206,6 +218,13 @@ void pre_frame() {
       receive();
     }
   }
+
+  if (players_updated) {
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
+  }
+  players_updated = false;
 
   // reset main loop called state:
   main_called = false;
