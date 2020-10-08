@@ -495,6 +495,7 @@ class GameState {
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
+		case 0x10: c = deserialize_sm_sprite(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -564,6 +565,20 @@ class GameState {
 
     return c;
   }
+  
+  int deserialize_sm_sprite(array<uint8> r, int c){
+	
+	offsm1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	offsm2 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//bank = r[c++];
+	
+	//address = (uint16(r[c++]) << 8) | uint16(r[c++]);
+    //size0 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	//size1 = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	
+	for(int i = 0; i < 0x10; i++){
+		sm_palette[i] = (uint16(r[c++]) << 8) | uint16(r[c++]);
+	}
 
   int deserialize_sfx(array<uint8> r, int c) {
     uint8 tx1, tx2;
