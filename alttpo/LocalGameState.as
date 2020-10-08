@@ -1075,7 +1075,7 @@ class LocalGameState : GameState {
   void fetch_sm_events() {
     if (!in_sm_for_items) return;
 
-    for (int i = 0; i < 0x10; i++) {
+    for (int i = 0; i < 0x12; i++) {
       sm_events[i] = bus::read_u8(0x7ED820 + i);
     }
     for (int i = 0x50; i < 0x70; i++) {
@@ -1121,6 +1121,20 @@ class LocalGameState : GameState {
     r.write_u8(sm_sub_x);
     r.write_u8(sm_sub_y);
     r.write_u8(in_sm);
+    r.write_u8(sm_room_x);
+    r.write_u8(sm_room_y);
+    r.write_u8(sm_pose);
+  }
+  
+  void serialize_sm_sprite(array<uint8> &r){
+    r.write_u8(uint8(0x10));
+    
+    r.write_u16(offsm1);
+    r.write_u16(offsm2);
+    
+    for(int i = 0; i < 0x10; i++){
+      r.write_u16(sm_palette[i]);
+    }
   }
 
   void serialize_sfx(array<uint8> &r) {
@@ -1276,7 +1290,7 @@ class LocalGameState : GameState {
   void serialize_sm_events(array<uint8> &r) {
     r.write_u8(uint8(0x0D));
 
-    for (int i = 0; i < 0x50; i++) {
+    for (int i = 0; i < 0x52; i++) {
       r.write_u8(sm_events[i]);
     }
   }
@@ -1628,6 +1642,10 @@ class LocalGameState : GameState {
           array<uint8> envelope = create_envelope();
           serialize_sm_location(envelope);
           p = send_packet(envelope, p);
+        
+          array<uint8> envelope1 = create_envelope();
+          serialize_sm_sprite(envelope1);
+          p = send_packet(envelope1, p);
         }
       }
     }
@@ -2364,7 +2382,7 @@ class LocalGameState : GameState {
       if (remote.team != team) continue;
       if (!remote.in_sm_for_items) continue;
 
-      for (int j = 0; j < 0x50; j++) {
+      for (int j = 0; j < 0x52; j++) {
         sm_events[j] = remote.sm_events[j] | sm_events[j];
       }
     }

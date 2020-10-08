@@ -167,6 +167,11 @@ string fmtBool(bool value) {
   return value ? "true" : "false";
 }
 
+uint16 min(uint16 a, uint16 b){
+    if (a < b) return a;
+    return b;
+}
+
 LocalGameState@ local = null;
 array<GameState@> players(0);
 array<GameState@> onlyLocalPlayer(1);
