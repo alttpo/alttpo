@@ -105,7 +105,6 @@ class GameState {
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 in_sm;
-
   uint8 _module;
   uint8 module {
     get const { return _module; }
@@ -486,6 +485,8 @@ class GameState {
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
+		case 0x10: c = deserialize_sm_sprite(r,c); break;
+		
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -549,6 +550,10 @@ class GameState {
     sm_sub_x = r[c++];
     sm_sub_y = r[c++];
     in_sm = r[c++];
+
+	sm_room_x = r[c++];
+	sm_room_y = r[c++];
+	sm_pose = r[c++];
 
     return c;
   }
@@ -829,7 +834,7 @@ class GameState {
   }
 
   int deserialize_sm_events(array<uint8> r, int c) {
-    for (int i = 0; i < 0x50; i++) {
+    for (int i = 0; i < 0x52; i++) {
         sm_events[i] = r[c++];
     }
     return c;
