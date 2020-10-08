@@ -127,7 +127,7 @@ void on_main_sm(uint32 pc) {
 
   local.get_sm_coords();
   local.fetch_sm_events();
-  local.get_sm_sprite_data();
+  if (sm_state < 0x0c || sm_state > 0x12) local.get_sm_sprite_data();
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -249,6 +249,7 @@ void pre_frame() {
     //tests if both players are in the same room
       if (!local.can_see_sm(remote)) continue;
       if (sm_state > 0x0c && sm_state < 0x12) continue;
+      
       
       uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
       uint16 local_offset_x = bus::read_u16(0x7e0911);

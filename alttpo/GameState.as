@@ -1191,7 +1191,7 @@ class GameState {
     uint32 transfer1;
     uint16 len1;
     uint16 len2;
-    if (sm_pose == 0x1a || sm_pose == 0x19 || sm_pose == 0x81 || sm_pose == 0x82){
+    if (sm_pose == 0x1a || sm_pose == 0x19 || sm_pose == 0x81 || sm_pose == 0x82 || sm_pose == 0x1b || sm_pose == 0x1c){
         transfer0 = 0x010000 * bank2 + address2;
         transfer1 = transfer0 + size2;
         
