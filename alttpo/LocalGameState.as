@@ -1121,6 +1121,20 @@ class LocalGameState : GameState {
     r.write_u8(sm_sub_x);
     r.write_u8(sm_sub_y);
     r.write_u8(in_sm);
+	r.write_u8(sm_room_x);
+	r.write_u8(sm_room_y);
+	r.write_u8(sm_pose);
+  }
+  
+  void serialize_sm_sprite(array<uint8> &r){
+	r.write_u8(uint8(0x10));
+	
+	r.write_u16(offsm1);
+	r.write_u16(offsm2);
+	
+	for(int i = 0; i < 0x10; i++){
+		r.write_u16(sm_palette[i]);
+	}
   }
 
   void serialize_sfx(array<uint8> &r) {
@@ -1628,7 +1642,11 @@ class LocalGameState : GameState {
           array<uint8> envelope = create_envelope();
           serialize_sm_location(envelope);
           p = send_packet(envelope, p);
-        }
+        
+		  array<uint8> envelope1 = create_envelope();
+          serialize_sm_sprite(envelope1);
+          p = send_packet(envelope1, p);
+		}
       }
     }
   }
