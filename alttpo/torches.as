@@ -64,7 +64,6 @@ void update_torches() {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
-      if (remote.in_sm == 1) continue;
       if (!local.is_really_in_same_location(remote.location)) {
         if (local.torchOwner[t] == remote.index) {
           // transfer ownership of the torch if left the room:

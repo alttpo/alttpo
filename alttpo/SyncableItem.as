@@ -1,39 +1,5 @@
 
-interface SRAMReader {
-  uint8  read_u8 (uint16 offs);
-  uint16 read_u16(uint16 offs);
-}
-
-interface SRAMWriter {
-  void write_u8(uint16 offs, uint8 value);
-  void write_u16(uint16 offs, uint16 value);
-}
-
-interface SRAM : SRAMReader, SRAMWriter {}
-
-class SRAMArray : SRAM {
-  array<uint8>@ sram;
-
-  SRAMArray(array<uint8>@ sram) {
-    @this.sram = @sram;
-  }
-
-  uint8  read_u8 (uint16 offs) {
-    return sram[offs];
-  }
-  uint16 read_u16(uint16 offs) {
-    return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
-  }
-  void write_u8 (uint16 offs, uint8 value) {
-    sram[offs] = value;
-  }
-  void write_u16(uint16 offs, uint16 value) {
-    write_u8(offs+0, uint8(value));
-    write_u8(offs+1, uint8(value >> 8));
-  }
-}
-
-funcdef uint16 ItemMutate(SRAM@ localSRAM, uint16 oldValue, uint16 newValue);
+funcdef uint16 ItemMutate(uint16 oldValue, uint16 newValue);
 
 funcdef void NotifyItemReceived(const string &in name);
 funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
@@ -43,59 +9,51 @@ class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
   uint8   size;   // 1 - byte, 2 - word
   uint8   type;   // 0 - custom mutate, 1 - highest wins, 2 - bitfield, 3+ TBD...
-  bool is_sm;       // whether the syncable is a super metroid item
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
 
-  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null, bool is_sm = false) {
+  SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null) {
     this.offs = offs;
     this.size = size;
     this.type = type;
-    this.is_sm = is_sm;
     @this.notifyNewItems = notifyNewItems;
   }
 
-  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null, bool is_sm = false) {
+  SyncableItem(uint16 offs, uint8 size, ItemMutate @mutate, NotifyNewItems @notifyNewItems = null) {
     this.offs = offs;
     this.size = size;
     this.type = 0;
-    this.is_sm = is_sm;
     @this.mutate = mutate;
     @this.notifyNewItems = notifyNewItems;
   }
 
   uint16 oldValue;
   uint16 newValue;
-  void start(SRAMReader@ localSRAM) {
-    oldValue = read(localSRAM);
+  void start(const array<uint8> &in sram) {
+    oldValue = read(sram);
     newValue = oldValue;
   }
 
-  void apply(SRAM@ localSRAM, SRAMReader@ remoteSRAM) {
-    auto remoteValue = read(remoteSRAM);
-    newValue = modify(localSRAM, newValue, remoteValue);
+  void apply(GameState @remote) {
+    auto remoteValue = read(remote.sram);
+    newValue = modify(newValue, remoteValue);
   }
 
-  bool finish(SRAM@ localSRAM, NotifyItemReceived @notifyItemReceived = null) {
-    if (newValue == oldValue) {
-      return false;
+  void finish(NotifyItemReceived @notifyItemReceived = null) {
+    if (newValue != oldValue) {
+      if (!(notifyNewItems is null) && !(notifyItemReceived is null)) {
+        notifyNewItems(oldValue, newValue, notifyItemReceived);
+      }
+      write(newValue);
     }
-
-    if ((notifyNewItems !is null) && (notifyItemReceived !is null)) {
-      notifyNewItems(oldValue, newValue, notifyItemReceived);
-    }
-
-    write(localSRAM, newValue);
-    if (is_sm) update_sm_counts();
-    return true;
   }
 
-  uint16 modify(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+  uint16 modify(uint16 oldValue, uint16 newValue) {
     if (type == 0) {
       if (@this.mutate is null) {
         return oldValue;
       }
-      return this.mutate(localSRAM, oldValue, newValue);
+      return this.mutate(oldValue, newValue);
     } else if (type == 1) {
       // max value:
       if (newValue > oldValue) {
@@ -110,61 +68,19 @@ class SyncableItem {
     return oldValue;
   }
 
-  uint16 read(SRAMReader@ remoteSRAM) {
+  uint16 read(const array<uint8> &in sram) {
     if (size == 1) {
-      return remoteSRAM.read_u8(offs);
+      return sram[offs];
     } else {
-      return remoteSRAM.read_u16(offs);
+      return uint16(sram[offs]) | (uint16(sram[offs+1]) << 8);
     }
   }
 
-  void write(SRAM@ localSRAM, uint16 newValue) {
+  void write(uint16 newValue) {
     if (size == 1) {
-      localSRAM.write_u8(offs, uint8(newValue));
+      bus::write_u8(0x7EF000 + offs, uint8(newValue));
     } else if (size == 2) {
-      localSRAM.write_u16(offs, newValue);
-    }
-  }
-
-  void update_sm_counts() {
-    int base = 0;
-    if (local.in_sm_for_items) {
-      base = 0x7E09A2;
-    } else {
-      base = 0xA17900;
-    }
-    uint8 eold;
-    uint8 enew;
-    uint8 old_count;
-    uint8 diff;
-    switch (offs) {
-      case 0x02:
-      case 0x03:
-        eold = bus::read_u8(base + offs - 2);
-        bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
-        break;
-      case 0x06:
-        // special crap here to avoid the murder beam
-        //uint8 eold = bus::read_u8(base + offs - 1);
-        //uint8 enew = (newValue ^ oldValue) | eold;
-        //bus::write_u8( base + offs - 1, enew) ;
-        break;
-      case 0x07:
-        eold = bus::read_u8(base + offs - 2);
-        enew = (newValue ^ oldValue) | eold;
-        bus::write_u8(base + offs - 2, enew);
-        break;
-      case 0x26:
-      case 0x2a:
-      case 0x2e:
-        old_count = bus::read_u8(base + offs - 2);
-        diff = newValue - oldValue;
-        bus::write_u8(base + offs - 2, old_count + diff);
-        break;
-      case 0x22:
-        bus::write_u16(base + offs - 2, bus::read_u16(base + offs));
-        break;
-      default: return;
+      bus::write_u16(0x7EF000 + offs, newValue);
     }
   }
 };
@@ -178,7 +94,7 @@ class SyncableHealthCapacity : SyncableItem {
     // SyncableItem(0x36C, 1, 1),  // health capacity
   }
 
-  uint16 modify(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) override {
+  uint16 modify(uint16 oldValue, uint16 newValue) override {
     // max value:
     if (newValue > oldValue) {
       return newValue;
@@ -186,84 +102,76 @@ class SyncableHealthCapacity : SyncableItem {
     return oldValue;
   }
 
-  bool finish(SRAM@ localSRAM, NotifyItemReceived @notifyItemReceived = null) override {
-    if (newValue == oldValue) {
-      return false;
-    }
+  void finish(NotifyItemReceived @notifyItemReceived = null) override {
+    if (newValue != oldValue) {
+      if (!(notifyItemReceived is null)) {
+        auto oldHearts = uint8(oldValue) & ~uint8(7);
+        auto oldPieces = uint8(oldValue) & uint8(3);
+        auto newHearts = uint8(newValue) & ~uint8(7);
+        auto newPieces = uint8(newValue) & uint8(3);
 
-    if (notifyItemReceived !is null) {
-      auto oldHearts = uint8(oldValue) & ~uint8(7);
-      auto oldPieces = uint8(oldValue) & uint8(3);
-      auto newHearts = uint8(newValue) & ~uint8(7);
-      auto newPieces = uint8(newValue) & uint8(3);
+        auto diffHearts = (newHearts + (newPieces << 1)) - (oldHearts + (oldPieces << 1));
+        auto fullHearts = diffHearts >> 3;
+        auto pieces = (diffHearts & 7) >> 1;
 
-      auto diffHearts = (newHearts + (newPieces << 1)) - (oldHearts + (oldPieces << 1));
-      auto fullHearts = diffHearts >> 3;
-      auto pieces = (diffHearts & 7) >> 1;
+        string hc;
+        if (fullHearts == 1) {
+          hc = "1 new heart";
+        } else if (fullHearts > 1) {
+          hc = fmtInt(fullHearts) + " new hearts";
+        }
+        if (fullHearts >= 1 && pieces >= 1) hc += ", ";
 
-      string hc;
-      if (fullHearts == 1) {
-        hc = "1 new heart";
-      } else if (fullHearts > 1) {
-        hc = fmtInt(fullHearts) + " new hearts";
+        if (pieces == 1) {
+          hc += "1 new heart piece";
+        } else if (pieces > 0) {
+          hc += fmtInt(pieces) + " new heart pieces";
+        }
+
+        notifyItemReceived(hc);
       }
-      if (fullHearts >= 1 && pieces >= 1) hc += ", ";
-
-      if (pieces == 1) {
-        hc += "1 new heart piece";
-      } else if (pieces > 0) {
-        hc += fmtInt(pieces) + " new heart pieces";
-      }
-
-      notifyItemReceived(hc);
+      write(newValue);
     }
-
-    write(localSRAM, newValue);
-
-    return true;
   }
 
-  uint16 read(SRAMReader@ remoteSRAM) override {
+  uint16 read(const array<uint8> &in sram) override {
     // this works because [0x36C] is always a multiple of 8 and the lower 3 bits are always zero
     // and [0x36B] is in the range [0..3] aka 2 bits:
-    return (remoteSRAM.read_u8(0x36C) & ~7) | (remoteSRAM.read_u8(0x36B) & 3);
+    return (sram[0x36C] & ~7) | (sram[0x36B] & 3);
   }
 
-  void write(SRAM@ localSRAM, uint16 newValue) override {
+  void write(uint16 newValue) override {
     // split out the full hearts from the heart pieces:
     auto hearts = uint8(newValue) & ~uint8(7);
     auto pieces = uint8(newValue) & uint8(3);
     //message("heart write! " + fmtHex(uint8(oldValue),2) + " -> " + fmtHex(uint8(newValue),2) + " = " + fmtInt(hearts) + ", " + fmtInt(pieces));
-    localSRAM.write_u8(0x36C, hearts);
-    localSRAM.write_u8(0x36B, pieces);
+    bus::write_u8(0x7EF36C, hearts);
+    bus::write_u8(0x7EF36B, pieces);
   }
 }
 
-
 // 0x3C5
-uint16 mutateWorldState(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateWorldState(uint16 oldValue, uint16 newValue) {
   // if local player is in the intro sequence, keep them there:
   //if (oldValue < 2) return oldValue;
 
-  if (rom.is_alttp()) {
-    // moving from rain state to non-rain state:
-    if (newValue >= 2 && oldValue < 2) {
-      // this game function loads sprite graphics:
-      pb.jsl(rom.fn_sprite_load_gfx_properties);
+  // moving from rain state to non-rain state:
+  if (newValue >= 2 && oldValue < 2) {
+    // this game function loads sprite graphics:
+    pb.jsl(rom.fn_sprite_load_gfx_properties);
 
-      // if in overworld:
-      if (local.module == 0x09 && local.sub_module == 0x00) {
-        // disable subscreen:
-        bus::write_u8(0x7E001D, 0x00);
-        // remove rain overlay:
-        bus::write_u8(0x7E008C, 0x00);
-        // this game function loads the new song list
-        pb.jsl(rom.fn_overworld_finish_mirror_warp);
+    // if in overworld:
+    if (local.module == 0x09 && local.sub_module == 0x00) {
+      // disable subscreen:
+      bus::write_u8(0x7E001D, 0x00);
+      // remove rain overlay:
+      bus::write_u8(0x7E008C, 0x00);
+      // this game function loads the new song list
+      pb.jsl(rom.fn_overworld_finish_mirror_warp);
 
-        // set ambient sfx to silence:
-        pb.lda_immed(0x05);
-        pb.sta_bank(0x012D);
-      }
+      // set ambient sfx to silence:
+      pb.lda_immed(0x05);
+      pb.sta_bank(0x012D);
     }
   }
 
@@ -273,18 +181,15 @@ uint16 mutateWorldState(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
 }
 
 // 0x3C6
-uint16 mutateProgress1(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
-  if (rom.is_alttp()) {
-    // uncle leaving link's house for the first time will add the telepathic follower.
-    // if receiving uncle's gear, remove zelda telepathic follower:
-    if ((newValue & 0x01) == 0x01) {
-      auto follower = localSRAM.read_u8(0x3CC);
-      if (follower == 0x05) {
-        localSRAM.write_u8(0x3CC, 0x00);
-      }
+uint16 mutateProgress1(uint16 oldValue, uint16 newValue) {
+  // uncle leaving link's house for the first time will add the telepathic follower.
+  // if receiving uncle's gear, remove zelda telepathic follower:
+  if ((newValue & 0x01) == 0x01) {
+    auto follower = bus::read_u8(0x7EF3CC);
+    if (follower == 0x05) {
+      bus::write_u8(0x7EF3CC, 0x00);
     }
   }
-
   // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up:
   if ((oldValue & 0x10) == 0) {
     newValue &= ~uint8(0x10);
@@ -293,83 +198,70 @@ uint16 mutateProgress1(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
 }
 
 // 0x3C9
-uint16 mutateProgress2(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateProgress2(uint16 oldValue, uint16 newValue) {
   // lose smithy follower if already rescued:
   if ((newValue & 0x20) == 0x20) {
-    auto follower = localSRAM.read_u8(0x3CC);
+    auto follower = bus::read_u8(0x7EF3CC);
     if (follower == 0x07 || follower == 0x08) {
-      localSRAM.write_u8(0x3CC, 0x00);
+      bus::write_u8(0x7EF3CC, 0x00);
     }
   }
 
   // remove purple chest follower if purple chest opened:
   if ((newValue & 0x10) == 0x10) {
-    auto follower = localSRAM.read_u8(0x3CC);
+    auto follower = bus::read_u8(0x7EF3CC);
     if (follower == 0x0C) {
-      localSRAM.write_u8(0x3CC, 0x00);
+      bus::write_u8(0x7EF3CC, 0x00);
     }
   }
 
   return newValue | oldValue;
 }
 
-uint16 mutateSword(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateSword(uint16 oldValue, uint16 newValue) {
   // during the dwarven swordsmith quest, sword goes to 0xFF when taken away, so avoid that trap:
   if (newValue >= 1 && newValue <= 4 && newValue > oldValue) {
-    if (rom.is_alttp()) {
-      // JSL DecompSwordGfx
-      pb.jsl(rom.fn_decomp_sword_gfx);
-      pb.jsl(rom.fn_sword_palette);
-    }
+    // JSL DecompSwordGfx
+    pb.jsl(rom.fn_decomp_sword_gfx);
+    pb.jsl(rom.fn_sword_palette);
     return newValue;
   }
   return oldValue;
 }
 
-uint16 mutateShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateShield(uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {
-    if (rom.is_alttp()) {
-      // JSL DecompShieldGfx
-      pb.jsl(rom.fn_decomp_shield_gfx);
-      pb.jsl(rom.fn_shield_palette);
-    }
-    return newValue;
-  }
-  return oldValue;
-}
-
-uint16 mutateProgressiveShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
-  if (newValue > oldValue) {
+    // JSL DecompShieldGfx
+    pb.jsl(rom.fn_decomp_shield_gfx);
+    pb.jsl(rom.fn_shield_palette);
     return newValue;
   }
   return oldValue;
 }
 
 // NOTE: this is called for both gloves and armor separately so could JSL twice in succession for one frame.
-uint16 mutateArmorGloves(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateArmorGloves(uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {
-    if (rom.is_alttp()) {
-      // JSL Palette_ChangeGloveColor
-      pb.jsl(rom.fn_armor_glove_palette);
-    }
+    // JSL Palette_ChangeGloveColor
+    pb.jsl(rom.fn_armor_glove_palette);
     return newValue;
   }
   return oldValue;
 }
 
-uint16 mutateBottleItem(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateBottleItem(uint16 oldValue, uint16 newValue) {
   // only sync gaining a new bottle: 0 = no bottle, 2 = empty bottle.
   if (oldValue == 0 && newValue != 0) return newValue;
   return oldValue;
 }
 
-uint16 mutateZeroToNonZero(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateZeroToNonZero(uint16 oldValue, uint16 newValue) {
   // Allow if replacing 'no item':
   if (oldValue == 0 && newValue != 0) return newValue;
   return oldValue;
 }
 
-uint16 mutateFlute(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateFlute(uint16 oldValue, uint16 newValue) {
   // Allow if replacing 'no item':
   if (oldValue == 0 && newValue != 0) return newValue;
   // Allow if replacing 'flute' with 'bird+flute':
@@ -380,7 +272,7 @@ uint16 mutateFlute(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
 const uint8 bitPowder   = 1<<4;
 const uint8 bitMushroom = 1<<5;
 
-uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+uint16 mutateRandomizerItems(uint16 oldValue, uint16 newValue) {
   // INVENTORY_SWAP = "$7EF38C"
   // Item Tracking Slot
   // brmpnskf
@@ -393,7 +285,7 @@ uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) 
   // k = fake flute
   // f = working flute
 
-  uint8 mushroom = localSRAM.read_u8(0x344);
+  uint8 mushroom = bus::read_u8(0x7EF344);
   // if gaining powder and have no inventory:
   if (
     ((oldValue & bitPowder) == 0) &&
@@ -401,7 +293,7 @@ uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) 
     mushroom == 0
   ) {
     // set powder in inventory:
-    localSRAM.write_u8(0x344, 2);
+    bus::write_u8(0x7EF344, 2);
   }
 
   // if gaining mushroom and have no inventory:
@@ -411,7 +303,7 @@ uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) 
     mushroom == 0
   ) {
     // set mushroom in inventory:
-    localSRAM.write_u8(0x344, 1);
+    bus::write_u8(0x7EF344, 1);
   }
 
   //// if had mushroom and lost mushroom:
@@ -422,10 +314,10 @@ uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) 
   //) {
   //  // if don't have powder, set to empty:
   //  if ((oldValue & bitPowder) == 0) {
-  //    localSRAM.write_u8(0x344, 0);
+  //    bus::write_u8(0x7EF344, 0);
   //  } else {
   //    // else set powder in inventory:
-  //    localSRAM.write_u8(0x344, 2);
+  //    bus::write_u8(0x7EF344, 2);
   //  }
   //}
 
@@ -481,31 +373,31 @@ void nameForBow        (uint16 old, uint16 new, NotifyItemReceived @notify) {
   if (old == 4 && new == 3) return;
   notifySingleItem(bowNames, notify, new);
 }
-void nameForBoomerang        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(boomerangNames, notify, new); }
-void nameForHookshot         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hookshotNames, notify, new); }
-void nameForMushroom         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(mushroomNames, notify, new); }
-void nameForFirerod          (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(firerodNames, notify, new); }
-void nameForIcerod           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(icerodNames, notify, new); }
-void nameForBombos           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bombosNames, notify, new); }
-void nameForEther            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(etherNames, notify, new); }
-void nameForQuake            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(quakeNames, notify, new); }
-void nameForLamp             (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(lampNames, notify, new); }
-void nameForHammer           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hammerNames, notify, new); }
-void nameForFlute            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(fluteNames, notify, new); }
-void nameForBugnet           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bugnetNames, notify, new); }
-void nameForBook             (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bookNames, notify, new); }
-void nameForCanesomaria      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canesomariaNames, notify, new); }
-void nameForCanebyrna        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canebyrnaNames, notify, new); }
-void nameForMagiccape        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magiccapeNames, notify, new); }
-void nameForMagicmirror      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicmirrorNames, notify, new); }
-void nameForGloves           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(glovesNames, notify, new); }
-void nameForBoots            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bootsNames, notify, new); }
-void nameForFlippers         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(flippersNames, notify, new); }
-void nameForMoonpearl        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(moonpearlNames, notify, new); }
-void nameForSword            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(swordNames, notify, new); }
-void nameForShield           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(shieldNames, notify, new); }
-void nameForArmor            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(armorNames, notify, new); }
-void nameForBottle           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bottleNames, notify, new); }
+void nameForBoomerang  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(boomerangNames, notify, new); }
+void nameForHookshot   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hookshotNames, notify, new); }
+void nameForMushroom   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(mushroomNames, notify, new); }
+void nameForFirerod    (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(firerodNames, notify, new); }
+void nameForIcerod     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(icerodNames, notify, new); }
+void nameForBombos     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bombosNames, notify, new); }
+void nameForEther      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(etherNames, notify, new); }
+void nameForQuake      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(quakeNames, notify, new); }
+void nameForLamp       (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(lampNames, notify, new); }
+void nameForHammer     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(hammerNames, notify, new); }
+void nameForFlute      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(fluteNames, notify, new); }
+void nameForBugnet     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bugnetNames, notify, new); }
+void nameForBook       (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bookNames, notify, new); }
+void nameForCanesomaria(uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canesomariaNames, notify, new); }
+void nameForCanebyrna  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(canebyrnaNames, notify, new); }
+void nameForMagiccape  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magiccapeNames, notify, new); }
+void nameForMagicmirror(uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicmirrorNames, notify, new); }
+void nameForGloves     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(glovesNames, notify, new); }
+void nameForBoots      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bootsNames, notify, new); }
+void nameForFlippers   (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(flippersNames, notify, new); }
+void nameForMoonpearl  (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(moonpearlNames, notify, new); }
+void nameForSword      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(swordNames, notify, new); }
+void nameForShield     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(shieldNames, notify, new); }
+void nameForArmor      (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(armorNames, notify, new); }
+void nameForBottle     (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bottleNames, notify, new); }
 
 void nameForMagic         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(magicNames, notify, new); }
 void nameForWorldState    (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(worldStateNames, notify, new); }
@@ -618,34 +510,6 @@ const array<string> @progress2Names = { "Q#Hobo check completed",
                                         "",
                                         "Q#Sword Tempering started" };
 
-const array<string> @variable1Names = { "Varia Suit",
-                                        "Spring Ball",
-                                        "Morph Ball",
-                                        "Screw Attack",
-                                        "",
-                                        "Gravity Suit",
-                                        "",
-                                        "" };
-
-const array<string> @variable2Names = { "High Jump Boots",
-                                        "Space Jump",
-                                        "",
-                                        "",
-                                        "Bombs",
-                                        "",
-                                        "",
-                                        "" };
-
-const array<string> @variable3Names = { "Wave Beam",
-                                        "Ice Beam",
-                                        "Spazer",
-                                        "Plasma",
-                                        "",
-                                        "",
-                                        "",
-                                        "" };
-
-
 void nameForCompass1 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass1Names, notify, old, new); }
 void nameForCompass2 (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(compass2Names, notify, old, new); }
 void nameForBigkey1  (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(bigkey1Names, notify, old, new); }
@@ -656,10 +520,6 @@ void nameForPendants (uint16 old, uint16 new, NotifyItemReceived @notify) { noti
 void nameForCrystals (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(crystalsNames, notify, old, new); }
 void nameForProgress1(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(progress1Names, notify, old, new); }
 void nameForProgress2(uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(progress2Names, notify, old, new); }
-
-void nameForMetroidSuits (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable1Names, notify, old, new); }
-void nameForMetroidBoots (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable2Names, notify, old, new); }
-void nameForMetroidBeams (uint16 old, uint16 new, NotifyItemReceived @notify) { notifyBitfieldItem(variable3Names, notify, old, new); }
 
 const array<string> @randomizerItems1Names = { "Flute (activated)",
                                                "Flute",

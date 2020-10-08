@@ -8,8 +8,7 @@ class WorldMapWindow {
   GUI::SNESCanvas @lightWorld;
   GUI::SNESCanvas @darkWorld;
   GUI::Canvas @underworld;
-  GUI::Canvas @metroid;
-  
+
   array<GUI::SNESCanvas@> dots;
   array<float> dotX(0);
   array<float> dotY(0);
@@ -77,24 +76,6 @@ class WorldMapWindow {
       }
     }
 
-    {
-      // nearly identical copy of the above code for underworld
-      @metroid = GUI::Canvas();
-      vl.append(metroid, GUI::Size(-1,-1));
-
-      metroid.setPosition(0, 0);
-      metroid.setAlignment(0, 0);
-      metroid.collapsible = true;
-      metroid.visible = false;
-
-      // NOTE(Serthow): takes less than a second on my PC, discrepency between jsd and I is unknown
-      if (!metroid.loadPNG("map-super-metroid-no-key.png")) {
-        message("failed to load map-super-metroid-no-key.png");
-        // fill the canvas with red to denote failure:
-        metroid.color = GUI::Color(192, 0, 0);
-      }
-    }
-
     auto @hl = GUI::HorizontalLayout();
     vl.append(hl, GUI::Size(-1, sy(24)));
 
@@ -103,7 +84,7 @@ class WorldMapWindow {
     @chkAuto = GUI::CheckLabel();
     hl.append(chkAuto, GUI::Size(0, 0));
 
-    // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld 3 == metroid
+    // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld
     auto @di = GUI::ComboButtonItem();
     di.text = "Light World";
     di.setSelected();
@@ -127,17 +108,10 @@ class WorldMapWindow {
     lightWorld.onSize(@GUI::Callback(onSize));
     darkWorld.onSize(@GUI::Callback(onSize));
     underworld.onSize(@GUI::Callback(onSize));
-    metroid.onSize(@GUI::Callback(onSize));
 
     lightWorld.doSize();
 
     window.visible = true;
-  }
-
-  void add_sm_button() {
-    auto @di = GUI::ComboButtonItem();
-    di.text = "Super Metroid";
-    this.dd.append(di);
   }
 
   // callback:
@@ -154,10 +128,6 @@ class WorldMapWindow {
       s = underworld.geometry.size;
       screenWidth = 8192;
       screenHeight = 9728;
-    } else if (screen == 3) {
-      s = metroid.geometry.size;
-      screenWidth = 542;
-      screenHeight = 455;
     }
     //message("onSize: " + fmtFloat(s.width) + "," + fmtFloat(s.height));
 
@@ -206,7 +176,6 @@ class WorldMapWindow {
       lightWorld.visible = (screen == 0);
       darkWorld.visible = (screen == 1);
       underworld.visible = (screen == 2);
-      metroid.visible = (screen == 3);
       vl.resize();
       redrawDots();
       lastScreen = screen;
@@ -216,9 +185,8 @@ class WorldMapWindow {
   int screenFor(const GameState &in p) {
     // cave = (actual_location & 0x010000) == 0x010000
     // dark = (actual_location & 0x020000) == 0x020000
-    if (bus::read_u8(0xA173FE) != 0) {
-      return 3;
-    } else if (((p.actual_location & 0x010000) == 0x010000) && (p.dungeon != 0xFF)) {
+
+    if (((p.actual_location & 0x010000) == 0x010000) && (p.dungeon != 0xFF)) {
       // 2 = underworld, only for dungeons:
       return 2;
     } else {
@@ -228,11 +196,7 @@ class WorldMapWindow {
   }
 
   bool showsOnScreen(const GameState &in p, int screen) {
-    if (screen == 3) {
-      return p.in_sm == 1;
-    } else if (p.in_sm == 1) {
-      return false;
-    } else if (screen == 0) {
+    if (screen == 0) {
       // must be in light world:
       return (p.actual_location & 0x020000) == 0;
     } else if (screen == 1) {
@@ -535,24 +499,6 @@ class WorldMapWindow {
 
       x = float(px) * mapscale + dotLeft;
       y = float(py) * mapscale + dotTop;
-    } else if (screen == 3) {
-        uint px = p.sm_x;
-        uint py = p.sm_y;
-        uint offsx = metroid_area_base_x(p.sm_area);
-        uint offsy = metroid_area_base_Y(p.sm_area);
-
-        float squareSize = mapscale * 8;
-
-        //67 squares wide
-        //57 squares tall
-
-        px += offsx;
-        py += offsy;
-
-        // +.37 in the x direction to center
-        // +.35 in the y direction
-        x = float(px) * squareSize + p.sm_sub_x/float(32) * mapscale;
-        y = float(py) * squareSize + p.sm_sub_y/float(32) * mapscale - .4;
     }
   }
 
@@ -564,7 +510,7 @@ class WorldMapWindow {
     } else {
       @ps = players;
     }
-    
+
     return ps;
   }
 
@@ -579,7 +525,6 @@ class WorldMapWindow {
       colors.resize(psLen);
       dotX.resize(psLen);
       dotY.resize(psLen);
-      
       for (uint i = 0; i < psLen; i++) {
         if (null != @dots[i]) continue;
 
@@ -595,10 +540,7 @@ class WorldMapWindow {
     float x, y;
     for (uint i = 0; i < psLen; i++) {
       auto @p = ps[i];
-      if (p is null) continue;
-
       auto @dot = dots[i];
-      if (dot is null) continue;
 
       if ((p.ttl <= 0) || (!showsOnScreen(p, screen))) {
         // If player disappeared, hide their dot:
@@ -607,7 +549,7 @@ class WorldMapWindow {
         dotY[i] = -127;
         continue;
       }
-      
+
       // check if we need to fill the dot in with the player's color:
       if (p.player_color != colors[i]) {
         fillDot(dot, p.player_color | 0x8000);
@@ -622,29 +564,5 @@ class WorldMapWindow {
         dotY[i] = y;
       }
     }
-  }
-
-  int8 metroid_area_base_x(uint8 area) {
-    switch (area) {
-        case 0x00: return -1; //crateria
-        case 0x01: return -4; //brinstar
-        case 0x02: return 27; //wrecked ship
-        case 0x03: return 33; //norfair
-        case 0x04: return 24; //maridia
-        case 0x05: return -4; //tourian
-    }
-    return 0;
-  }
-
-  int8 metroid_area_base_Y(uint8 area) {
-    switch (area) {
-        case 0x00: return 0;  //crateria
-        case 0x01: return 19; //brinstar
-        case 0x02: return 38; //norfair
-        case 0x03: return -10; //wrecked ship
-        case 0x04: return 19; //maridia
-        case 0x05: return 1; //tourian
-    }
-    return 0;
   }
 };

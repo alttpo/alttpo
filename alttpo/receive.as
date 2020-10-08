@@ -66,9 +66,7 @@ void receive() {
           }
 
           // assign the local player into the players[] array:
-          @players[index] = @local;
-
-          players_updated = true;
+          @players[index] = local;
         }
         continue;
       }
@@ -80,25 +78,20 @@ void receive() {
       continue;
     }
 
-    if (index >= players.length()) {
-      players_updated = true;
-    }
-
     while (index >= players.length()) {
       players.insertLast(@GameState());
     }
 
-    if (players[index] is local) {
-      message("received update from remote player with same index as local player {0}".format({index}));
-      // we're confused; reset:
-      local.index = -1;
-      players.resize(0);
-      players_updated = true;
-      continue;
-    }
-
     // deserialize data packet:
+    bool joined = false;
+    if (players[index].ttl <= 0) {
+      joined = true;
+    }
+    players[index].ttl = 255;
     players[index].index = index;
     players[index].deserialize(r, c);
+    if (joined) {
+      local.notify(players[index].name + " joined");
+    }
   }
 }
