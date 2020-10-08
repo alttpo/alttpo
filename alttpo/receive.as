@@ -66,7 +66,7 @@ void receive() {
           }
 
           // assign the local player into the players[] array:
-          @players[index] = local;
+          @players[index] = @local;
         }
         continue;
       }
@@ -80,6 +80,14 @@ void receive() {
 
     while (index >= players.length()) {
       players.insertLast(@GameState());
+    }
+
+    if (players[index] is local) {
+      message("received update from remote player with same index as local player {0}".format({index}));
+      // we're confused; reset:
+      local.index = -1;
+      players.resize(0);
+      continue;
     }
 
     // deserialize data packet:

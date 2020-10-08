@@ -3,6 +3,71 @@ const uint MaxPacketSize = 1452;
 
 const uint OverworldAreaCount = 0x82;
 
+class ALTTPSRAMArray : SRAMArray {
+  bool is_buffer;
+
+  ALTTPSRAMArray(array<uint8>@ sram, bool is_buffer = false) {
+    super(sram);
+    this.is_buffer = is_buffer;
+  }
+
+  void write_u8 (uint16 offs, uint8 value) {
+    if (is_buffer) {
+      write_u8_buffer(offs, value);
+      return;
+    }
+    if (sram[offs] == value) {
+      return;
+    }
+
+    bus::write_u8(0x7EF000 + offs, value);
+    sram[offs] = value;
+  }
+
+  void write_u8_buffer (uint16 offs, uint8 value) {
+    if (sram[offs] == value) {
+      return;
+    }
+    if (offs < 0x40) {
+      bus::write_u8(0xA17900 + offs, value);
+    }
+    sram[offs] = value;
+  }
+}
+
+class SMSRAMArray : SRAMArray {
+  bool is_buffer;
+
+  SMSRAMArray(array<uint8>@ sram, bool is_buffer = false) {
+    super(sram);
+    this.is_buffer = is_buffer;
+  }
+
+  void write_u8 (uint16 offs, uint8 value) override {
+    if (is_buffer) {
+      write_u8_buffer(offs, value);
+      return;
+    }
+    if (sram[offs] == value) {
+      return;
+    }
+
+    bus::write_u8(0x7E09A2 + offs, value);
+    sram[offs] = value;
+  }
+
+  void write_u8_buffer (uint16 offs, uint8 value) {
+    if (sram[offs] == value) {
+      return;
+    }
+
+    if (offs >= 0x300 && offs < 0x400) {
+      bus::write_u8(0xA17B00 + offs - 0x300, value);
+    }
+    sram[offs] = value;
+  }
+}
+
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableItem@> rooms(0x128);
@@ -20,16 +85,6 @@ class LocalGameState : GameState {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
 
-    ancillaeOwner.resize(0x0A);
-    for (uint i = 0; i < 0x0A; i++) {
-      ancillaeOwner[i] = -1;
-    }
-
-    ancillae.resize(0x0A);
-    for (uint i = 0; i < 0x0A; i++) {
-      @ancillae[i] = @GameAncilla();
-    }
-
     // SRAM [$000..$24f] underworld rooms:
     // create syncable item for each underworld room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
     rooms.resize(0x128);
@@ -37,14 +92,9 @@ class LocalGameState : GameState {
       @rooms[a] = @SyncableItem(a << 1, 2, 2);
     }
 
-    // desync the indoor flags for the swamp palace and the watergate:
-    // LDA $7EF216 : AND.b #$7F : STA $7EF216
-    // LDA $7EF051 : AND.b #$FE : STA $7EF051
-    @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(uint16 oldValue, uint16 newValue) {
+    // desync swamp inner watergate at $7EF06A (supertile $35)
+    @rooms[0x035] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
       return oldValue | (newValue & 0xFF7F);
-    });
-    @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xFEFF);
     });
 
     // SRAM [$250..$27f] unused
@@ -56,15 +106,30 @@ class LocalGameState : GameState {
       @areas[a] = @SyncableItem(0x280 + a, 1, 2);
     }
 
-    // desync the overlay flags for the swamp palace and its light world counterpart:
-    // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
-    // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
-    @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xDF);
-    });
-    @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xDF);
-    });
+    // org $30803D ; PC 0x18003D
+    // PersistentFloodgate:
+    // db #$00 ; #$00 = Off (default) - #$01 = On
+    if (bus::read_u8(0x30803D) == 0x00) {
+      // desync the indoor flags for the swamp palace and the watergate:
+      // LDA $7EF216 : AND.b #$7F : STA $7EF216
+      // LDA $7EF051 : AND.b #$FE : STA $7EF051
+      @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xFF7F);
+      });
+      @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xFEFF);
+      });
+
+      // desync the overlay flags for the swamp palace and its light world counterpart:
+      // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB
+      // LDA $7EF2FB : AND.b #$DF : STA $7EF2FB
+      @areas[0x3B] = @SyncableItem(0x280 + 0x3B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xDF);
+      });
+      @areas[0x7B] = @SyncableItem(0x280 + 0x7B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+        return oldValue | (newValue & 0xDF);
+      });
+    }
 
     for (uint i = 0; i < 0x80; i++) {
       @sprs[i] = Sprite();
@@ -122,38 +187,52 @@ class LocalGameState : GameState {
       return;
     }
 
-    message("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+    dbgData("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
   }
 
   bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    bool allow = true;
+    if (module <= 0x06) allow = false;
+    else if (module == 0x17) allow = false;
+
     if (debugData) {
-      message("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      dbgData("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " +
+        (allow ? "Y " : "N ") +
+        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" +
+        fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
+      );
     }
 
-    if (module < 0x06) return false;
-    if (module == 0x17) return false;
-
-    return true;
+    return allow;
   }
 
   bool small_keys_current_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
+    bool allow = true;
     if (module != 0x07) {
-      return false;
+      allow = false;
     }
 
     // which dungeon are we in:
     auto dung = bus::read_u8(0x7E040C);
+    uint i = 0xFF;
     if (dung == 0xFF) {
-      return false;
+      allow = false;
+    } else if (dung >= 0x20) {
+      allow = false;
+    } else {
+      i = dung >> 1;
     }
-    if (dung >= 0x20) {
-      return false;
-    }
-
-    uint i = dung >> 1;
 
     if (debugData) {
-      message("keys_current: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      dbgData("keys_current: " +
+        (allow ? "Y " : "N ") +
+        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) +
+        "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
+      );
+    }
+
+    if (!allow) {
+      return false;
     }
 
     small_keys[i].capture(newValue);
@@ -164,9 +243,9 @@ class LocalGameState : GameState {
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
     // hitting crystal switch in dungeon:
     if (module == 0x07) {
-      if (debugData) {
-        message("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
-      }
+      //if (debugData) {
+      //  dbgData("crystal: " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
+      //}
       return true;
     }
 
@@ -317,8 +396,7 @@ class LocalGameState : GameState {
   void fetch() {
     sprites_need_vram = false;
 
-    // read frame counter (increments from 00 to FF and wraps around):
-    frame = bus::read_u8(0x7E001A);
+    fetch_sram();
 
     // player state:
     // 0x00 - ground state
@@ -414,8 +492,6 @@ class LocalGameState : GameState {
 
     fetch_sprites();
 
-    fetch_sram();
-
     fetch_objects();
 
     fetch_ancillae();
@@ -464,8 +540,9 @@ class LocalGameState : GameState {
   void fetch_sram() {
     // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
     if (is_frozen()) return;
-
+    local.in_sm_for_items = false;
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
+    bus::read_block_u8(0xA17900, 0, 0x40, sram_buffer);
   }
 
   void fetch_objects() {
@@ -630,8 +707,19 @@ class LocalGameState : GameState {
         || chr == 0x46 || chr == 0x44 || chr == 0x42
         // follower:
         || chr == 0x20 || chr == 0x22
+      ) {
+        // append the sprite to our array:
+        sprites.resize(++numsprites);
+        @sprites[numsprites-1] = spr;
+        continue;
+      }
+
+      // don't sync the following sprites in ganon's room as it gets too busy:
+      if (module == 0x07 && dungeon_room == 0x00) continue;
+
+      if (
         // arrow:
-        || chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
+           chr == 0x2a || chr == 0x2b || chr == 0x3a || chr == 0x3b
         || chr == 0x2c || chr == 0x2d || chr == 0x3c || chr == 0x3d
         // fire rod shot:
         || chr == 0x8d || chr == 0x9c || chr == 0x9d
@@ -897,7 +985,7 @@ class LocalGameState : GameState {
     bus::read_block_u8(0x7E0380, 0, 0x4F, u380);
     bus::read_block_u8(0x7E0BF0, 0, 0xAA, uBF0);
     for (uint i = 0; i < 0x0A; i++) {
-      auto @anc = ancillae[i];
+      auto @anc = @ancillae[i];
       anc.readRAM(i, u280, u380, uBF0);
 
       // Update ownership:
@@ -935,6 +1023,20 @@ class LocalGameState : GameState {
     return (tm & 0x8000) == 0x8000;
   }
 
+  void fetch_sm_events() {
+    if (!in_sm_for_items) return;
+
+    for (int i = 0; i < 0x12; i++) {
+      sm_events[i] = bus::read_u8(0x7ED820 + i);
+    }
+    for (int i = 0x50; i < 0x70; i++) {
+      sm_events[i - 0x40] = bus::read_u8(0x7ED820 + i);
+    }
+    for (int i = 0x90; i < 0xB0; i++) {
+      sm_events[i - 0x60] = bus::read_u8(0x7ED820 + i);
+    }
+  }
+
   void serialize_location(array<uint8> &r) {
     r.write_u8(uint8(0x01));
 
@@ -957,6 +1059,42 @@ class LocalGameState : GameState {
     r.write_u16(yoffs);
 
     r.write_u16(player_color);
+
+    r.write_u8(in_sm);
+  }
+
+  void serialize_sm_location(array<uint8> &r) {
+    r.write_u8(uint8(0x0F));
+
+    r.write_u8(sm_area);
+    r.write_u8(sm_x);
+    r.write_u8(sm_y);
+    r.write_u8(sm_sub_x);
+    r.write_u8(sm_sub_y);
+    r.write_u8(in_sm);
+	r.write_u8(sm_room_x);
+	r.write_u8(sm_room_y);
+	r.write_u8(sm_pose);
+  }
+  
+  void serialize_sm_sprite(array<uint8> &r){
+	r.write_u8(uint8(0x10));
+	
+	r.write_u8((offsm1 & 0xFF00) >> 8);
+	r.write_u8(offsm1 & 0xFF);
+	r.write_u8((offsm2 & 0xFF00) >> 8);
+	r.write_u8(offsm2 & 0xFF);
+	//r.write_u8((address & 0xFF00) >> 8);
+	//r.write_u8(address & 0xFF);
+	//r.write_u8((size0 & 0xFF00) >> 8);
+	//r.write_u8(size0 & 0xFF);
+	//r.write_u8((size1 & 0xFF00) >> 8);
+	//r.write_u8(size1 & 0xFF);
+	
+	for(int i = 0; i < 0x10; i++){
+		r.write_u8((sm_palette[i] & 0xFF00) >> 8);
+		r.write_u8(sm_palette[i] & 0xFF);
+	}
   }
 
   void serialize_sfx(array<uint8> &r) {
@@ -969,11 +1107,29 @@ class LocalGameState : GameState {
   void serialize_sram(array<uint8> &r, uint16 start, uint16 endExclusive) {
     r.write_u8(uint8(0x06));
 
+    r.write_u8(start == 0 ? 1 : 0);
+    r.write_u8(in_sm_for_items ? 1 : 0);
+
     r.write_u16(start);
     uint16 count = uint16(endExclusive - start);
     r.write_u16(count);
     for (uint i = 0; i < count; i++) {
-      r.write_u8(sram[start + i]);
+      auto offs = start + i;
+      auto b = sram[offs];
+      r.write_u8(b);
+    }
+  }
+
+  void serialize_sram_buffer(array<uint8> &r, uint16 start, uint16 endExclusive) {
+    r.write_u8(uint8(0x0E));
+
+    r.write_u16(start);
+    uint16 count = uint16(endExclusive - start);
+    r.write_u16(count);
+    for (uint i = 0; i < count; i++) {
+      auto offs = start + i;
+      auto b = sram_buffer[offs];
+      r.write_u8(b);
     }
   }
 
@@ -984,13 +1140,15 @@ class LocalGameState : GameState {
     r.write_u16(crystal.offs);
     crystal.serialize(r);
 
-    // write a table of 16 sync-bytes for dungeon small keys:
-    r.write_u8(uint8(0x05));
-    r.write_u8(uint8(0x10));
-    r.write_u16(small_keys_min_offs);
-    for (uint8 i = 0; i < 0x10; i++) {
-      auto @k = @small_keys[i];
-      k.serialize(r);
+    if (enableSmallKeySync) {
+      // write a table of 16 sync-bytes for dungeon small keys:
+      r.write_u8(uint8(0x05));
+      r.write_u8(uint8(0x10));
+      r.write_u16(small_keys_min_offs);
+      for (uint8 i = 0; i < 0x10; i++) {
+        auto @k = @small_keys[i];
+        k.serialize(r);
+      }
     }
   }
 
@@ -1054,6 +1212,14 @@ class LocalGameState : GameState {
     r.write_u8(uint8(0x0C));
 
     r.write_str(namePadded);
+  }
+
+  void serialize_sm_events(array<uint8> &r) {
+    r.write_u8(uint8(0x0D));
+
+    for (int i = 0; i < 0x52; i++) {
+      r.write_u8(sm_events[i]);
+    }
   }
 
   uint send_sprites(uint p) {
@@ -1274,7 +1440,9 @@ class LocalGameState : GameState {
     // script protocol:
     envelope.write_u8(uint8(script_protocol));
 
-    // protocol starts with frame number to correlate them together:
+    // protocol starts with team number:
+    envelope.write_u8(team);
+    // frame number to correlate separate packets together:
     envelope.write_u8(frame);
 
     return envelope;
@@ -1373,6 +1541,36 @@ class LocalGameState : GameState {
         serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
         p = send_packet(envelope, p);
       }
+
+      if (rom.is_smz3()) {
+        if ((frame & 31) == 0) {
+          array<uint8> envelope = create_envelope();
+          serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
+          p = send_packet(envelope, p);
+        }
+
+        if ((frame & 31) == 0) {
+          array<uint8> envelope = create_envelope();
+          serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
+          p = send_packet(envelope, p);
+        }
+
+        if ((frame & 31) == 16) {
+          array<uint8> envelope = create_envelope();
+          serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
+          p = send_packet(envelope, p);
+        }
+
+        if (!rom.is_alttp()) {
+          array<uint8> envelope = create_envelope();
+          serialize_sm_location(envelope);
+          p = send_packet(envelope, p);
+		  
+		  array<uint8> envelope1 = create_envelope();
+		  serialize_sm_sprite(envelope1);
+		  p = send_packet(envelope1, p);
+        }
+      }
     }
   }
 
@@ -1381,8 +1579,10 @@ class LocalGameState : GameState {
 
     // reset comparison state:
     crystal.compareStart();
-    for (uint j = 0; j < 0x10; j++) {
-      small_keys[j].compareStart();
+    if (enableSmallKeySync) {
+      for (uint j = 0; j < 0x10; j++) {
+        small_keys[j].compareStart();
+      }
     }
 
     // compare remote values from all other active players:
@@ -1392,25 +1592,31 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
       if (remote.is_it_a_bad_time()) continue;
+      if (remote.in_sm_for_items) continue;
 
       // update crystal switches to latest state among all players in same dungeon:
       if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
         crystal.compareTo(remote.crystal);
       }
 
-      // update small keys:
-      for (uint j = 0; j < 0x10; j++) {
-        small_keys[j].compareTo(remote.small_keys[j]);
+      if (enableSmallKeySync) {
+        // update small keys:
+        if (remote.small_keys !is null) {
+          for (uint j = 0; j < 0x10; j++) {
+            small_keys[j].compareTo(remote.small_keys[j]);
+          }
+        }
       }
     }
 
     if (crystal.winner !is null) {
       // record timestamp so if we just joined we should keep that:
       if (crystal.updateTo(crystal.winner)) {
-        if (debugData) {
-          message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
-        }
+        //if (debugData) {
+        //  message("crystal update " + fmtHex(crystal.oldValue,2) + " -> " + fmtHex(crystal.value,2));
+        //}
 
         // go to switch transition module:
         //LDA.b #$16 : STA $11
@@ -1421,21 +1627,25 @@ class LocalGameState : GameState {
       }
     }
 
-    auto this_dungeon = dungeon >> 1;
-    for (uint j = 0; j < 0x10; j++) {
-      auto @key = small_keys[j];
-      if (key.winner is null) continue;
+    if (enableSmallKeySync) {
+      auto this_dungeon = dungeon >> 1;
+      for (uint j = 0; j < 0x10; j++) {
+        auto @key = small_keys[j];
+        if (key.winner is null) {
+          continue;
+        }
 
-      key.updateTo(key.winner);
-      if (debugData) {
-        message("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
-      }
+        key.updateTo(key.winner);
+        if (debugData) {
+          dbgData("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+        }
 
-      if (dungeon != 0xFF && module == 0x07) {
-        if (this_dungeon == j) {
-          // update current dungeon key counter:
-          small_keys_current.updateTo(key);
-          message("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2));
+        if (dungeon != 0xFF && module == 0x07) {
+          if (this_dungeon == j) {
+            // update current dungeon key counter:
+            small_keys_current.updateTo(key);
+            dbgData("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
+          }
         }
       }
     }
@@ -1453,12 +1663,14 @@ class LocalGameState : GameState {
     received_items.insertLast(name);
   }
 
-  void update_items() {
-    if (is_it_a_bad_time()) return;
-    // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
-    if (is_frozen()) return;
+  void update_items(SRAM@ d, bool is_sram_buffer = false) {
+    if (rom.is_alttp()) {
+      if (is_it_a_bad_time()) return;
+      // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
+      if (is_frozen()) return;
+    }
 
-    auto @syncables = rom.syncables;
+    auto @syncables = @rom.syncables;
 
     // track names of items received:
     received_items.reserve(syncables.length());
@@ -1469,12 +1681,13 @@ class LocalGameState : GameState {
     uint len = players.length();
     uint slen = syncables.length();
     for (uint k = 0; k < slen; k++) {
-      auto @syncable = syncables[k];
+      auto @syncable = @syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
+      if ((in_sm_for_items == syncable.is_sm) == is_sram_buffer) continue;
 
       // start the sync process for each syncable item in SRAM:
-      syncable.start(sram);
+      syncable.start(d);
 
       // apply remote values from all other active players:
       for (uint i = 0; i < len; i++) {
@@ -1482,14 +1695,19 @@ class LocalGameState : GameState {
         if (remote is null) continue;
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
-        if (remote.is_it_a_bad_time()) continue;
+        if (remote.team != team) continue;
+        //if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
-        syncable.apply(remote);
+        if (remote.in_sm_for_items == syncable.is_sm) {
+          syncable.apply(d, @SRAMArray(remote.sram));
+        } else {
+          syncable.apply(d, @SRAMArray(remote.sram_buffer));
+        }
       }
 
       // write back any new updates:
-      syncable.finish(itemReceivedDelegate);
+      syncable.finish(d, itemReceivedDelegate);
     }
 
     // Generate notification messages:
@@ -1505,7 +1723,7 @@ class LocalGameState : GameState {
     }
   }
 
-  void update_overworld() {
+  void update_overworld(SRAM@ d) {
     if (is_it_a_bad_time()) return;
 
     uint len = players.length();
@@ -1515,10 +1733,12 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+      if (remote.in_sm_for_items) continue;
 
       // read current state from SRAM:
       for (uint a = 0; a < OverworldAreaCount; a++) {
-        areas[a].start(sram);
+        areas[a].start(d);
       }
     }
 
@@ -1527,9 +1747,11 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+      if (remote.in_sm_for_items) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
-        areas[a].apply(remote);
+        areas[a].apply(d, @SRAMArray(remote.sram));
       }
     }
 
@@ -1538,15 +1760,17 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+      if (remote.in_sm_for_items) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
         // write new state to SRAM:
-        areas[a].finish();
+        areas[a].finish(d);
       }
     }
   }
 
-  void update_rooms() {
+  void update_rooms(SRAM@ d) {
     uint len = players.length();
 
     // $000 - $24F : Data for Rooms (two bytes per room)
@@ -1568,10 +1792,12 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+      if (remote.in_sm_for_items) continue;
 
       // read current state from SRAM:
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].start(sram);
+        rooms[a].start(d);
       }
     }
 
@@ -1580,9 +1806,11 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+      if (remote.in_sm_for_items) continue;
 
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].apply(remote);
+        rooms[a].apply(d, @SRAMArray(remote.sram));
       }
     }
 
@@ -1591,10 +1819,12 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+      if (remote.in_sm_for_items) continue;
 
       // write new state to SRAM:
       for (uint a = 0; a < 0x128; a++) {
-        rooms[a].finish();
+        rooms[a].finish(d);
       }
     }
   }
@@ -1728,9 +1958,6 @@ class LocalGameState : GameState {
       if (dungeon_room == 0x0000) return false;
 
       return true;
-    } else if (module == 0x0F) {
-      // closing spotlight:
-      return true;
     } else if (module == 0x10) {
       // opening spotlight:
       return true;
@@ -1741,7 +1968,8 @@ class LocalGameState : GameState {
   }
 
   void update_tilemap() {
-    bool write_to_vram = true;
+    bool write_to_vram = false;
+    bool team_check = true;
 
     if (!is_safe_to_write_tilemap()) {
       return;
@@ -1749,8 +1977,9 @@ class LocalGameState : GameState {
 
     // don't write to VRAM when...
     if (module == 0x09) {
-
       // overworld:
+      write_to_vram = true;
+
       // during screen transition:
       if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
       // during lost woods transition:
@@ -1761,8 +1990,13 @@ class LocalGameState : GameState {
       if (sub_module >= 0x23) write_to_vram = false;
 
       tilemap.determine_vram_bounds_overworld();
+
+      // allow overworld tilemap changes to sync across teams:
+      team_check = false;
     } else if (module == 0x0B) {
       // master sword or zora:
+      write_to_vram = true;
+
       // safety measure here:
       if (sub_module >= 0x01) write_to_vram = false;
       // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
@@ -1770,8 +2004,13 @@ class LocalGameState : GameState {
       // sub_module == 0x24 mosaic out
 
       tilemap.determine_vram_bounds_overworld();
+
+      // allow overworld tilemap changes to sync across teams:
+      team_check = false;
     } else if (module == 0x07) {
       // underworld:
+      write_to_vram = true;
+
       // scrolling between rooms in same supertile:
       if (sub_module == 0x01) write_to_vram = false;
       // loading new supertile:
@@ -1807,10 +2046,12 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
+      if (team_check && (remote.team != team)) continue;
       if (remote.tilemapLocation == 0) continue;
       if (!is_really_in_same_location(remote.location)) {
         continue;
       }
+      if (remote.in_sm_for_items) continue;
 
       if (!locations_equal(actual_location, remote.tilemapLocation)) {
         if (debugRTDSapply) {
@@ -1855,7 +2096,10 @@ class LocalGameState : GameState {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
+      // NOTE: allow bombs to sync across team boundaries for teh lulz
+      //if (remote.team != team) continue;
       if (!is_really_in_same_location(remote.location)) continue;
+      if (remote.in_sm_for_items) continue;
 
       //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
       if (remote is this) {
@@ -1946,6 +2190,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
+      if (remote.in_sm_for_items) continue;
       if (!is_really_in_same_location(remote.location)) {
         // free ownership of any objects left behind:
         for (uint j = 0; j < 0x10; j++) {
@@ -2045,6 +2290,33 @@ class LocalGameState : GameState {
     }
   }
 
+  void update_sm_events() {
+    uint len = players.length();
+
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl < 0) continue;
+      if (remote.team != team) continue;
+      if (!remote.in_sm_for_items) continue;
+
+      for (int j = 0; j < 0x52; j++) {
+        sm_events[j] = remote.sm_events[j] | sm_events[j];
+      }
+    }
+
+    for (int i = 0; i < 0x12; i++) {
+      bus::write_u8(0x7ED820 + i, sm_events[i]);
+    }
+    for (int i = 0x50; i < 0x70; i++) {
+      bus::write_u8(0x7ED820 + i, sm_events[i - 0x40]);
+    }
+    for (int i = 0x90; i < 0xB0; i++) {
+      bus::write_u8(0x7ED820 + i, sm_events[i - 0x60]);
+    }
+  }
+
   // Notifications system:
   array<string> notifications(0);
   void notify(const string &in msg) {
@@ -2093,5 +2365,9 @@ class LocalGameState : GameState {
     }
 
     return ei;
+  }
+
+  void set_in_sm(bool b) {
+    in_sm = b ? 1 : 0;
   }
 };

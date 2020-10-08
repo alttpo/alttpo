@@ -11,6 +11,11 @@ abstract class ROMMapping {
 
   void check_game() {}
   bool is_alttp() { return true; }
+  bool is_smz3()  { return false;}
+  void register_pc_intercepts() {
+    // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+  }
 
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
@@ -234,17 +239,21 @@ class JPROMMapping : ROMMapping {
 
 class RandomizerMapping : JPROMMapping {
   protected string _seed;
-  RandomizerMapping(const string &in seed) {
+  protected string _kind;
+
+  RandomizerMapping(const string &in kind, const string &in seed) {
     _seed = seed;
+    _kind = kind;
+    _title = kind + " seed " + _seed;
     syncAll();
   }
 
   void syncAll() {
-    _title = "VT Seed " + _seed;
     syncItems();
     syncShops();
     syncFlags();
     syncStats();
+    syncChestCounters();
   }
 
   void syncItems() {
@@ -305,6 +314,9 @@ class RandomizerMapping : JPROMMapping {
         syncables.insertAt(i, @SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1));
       }
     }
+
+    // track progressive shield:
+    syncables.insertLast(@SyncableItem(0x416, 1, @mutateProgressiveShield));
   }
 
   void syncShops() {
@@ -320,7 +332,15 @@ class RandomizerMapping : JPROMMapping {
   }
 
   void syncStats() {
+    // item limit counters:
+    for (uint i = 0x390; i < 0x3C5; i++) {
+      syncables.insertLast(@SyncableItem(i, 1, 1));
+    }
+
     syncables.insertLast(@SyncableItem(0x418, 1, 1, @nameForTriforcePieces)); // Current Triforce Count
+  }
+
+  void syncChestCounters() {
     syncables.insertLast(@SyncableItem(0x434, 1, 1));                         // hhhhdddd - item locations checked h - HC d - PoD
     syncables.insertLast(@SyncableItem(0x435, 1, 1));                         // dddhhhaa - item locations checked d - DP h - ToH a - AT
     syncables.insertLast(@SyncableItem(0x436, 1, 1));                         // gggggeee - item locations checked g - GT e - EP
@@ -331,67 +351,126 @@ class RandomizerMapping : JPROMMapping {
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x390, 0x3C5); // item limit counters
     serialize(r, 0x3C5, 0x43A); // progress made
   }
 };
 
-class SMZ3Mapping : RandomizerMapping {
-  SMZ3Mapping(const string &in seed) {
-    super(seed);
+class MultiworldMapping : RandomizerMapping {
+  MultiworldMapping(const string &in kind, const string &in seed) {
+    super(kind, seed);
   }
-
-  void syncAll() {
-    RandomizerMapping::syncAll();
-    _title = "SMZ3 Seed " + _seed;
-  }
-
-  uint8 game = 0;
-  void check_game() override {
-    game = bus::read_u8(0xa173fe);
-  }
-
-  bool is_alttp() override { return game == 0; }
-
-}
+};
 
 class DoorRandomizerMapping : RandomizerMapping {
-  DoorRandomizerMapping(const string &in seed) {
-    super(seed);
+  DoorRandomizerMapping(const string &in kind, const string &in seed) {
+    super(kind, seed);
   }
 
   void syncAll() override {
-    _title = "ER Seed " + _seed;
-
     syncItems();
     syncShops();
     syncFlags();
     syncStats();
-    // extra data for door randomizer (unstable, 2aa2266):
-    syncChestKeys();
+    syncChestCounters();
   }
 
-  void syncChestKeys() {
-    syncables.insertLast(@SyncableItem(0x4e0, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e1, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e2, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e3, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e4, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e5, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e6, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e7, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e8, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4e9, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4ea, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4eb, 1, 1));
-    syncables.insertLast(@SyncableItem(0x4ec, 1, 1));
+  void syncChestCounters() override {
+    for (uint i = 0; i <= 0xC; i++) {
+      syncables.insertLast(@SyncableItem(0x4c0 + i, 1, 1));
+    }
+    for (uint i = 0; i <= 0xC; i++) {
+      syncables.insertLast(@SyncableItem(0x4e0 + i, 1, 1));
+    }
   }
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
+    serialize(r, 0x390, 0x3C5); // item limit counters
     serialize(r, 0x3C5, 0x43A); // progress made
+    serialize(r, 0x4C0, 0x4CD); // chests
     serialize(r, 0x4E0, 0x4ED); // chest-keys
   }
 };
+
+class SMZ3Mapping : RandomizerMapping {
+  SMZ3Mapping(const string &in kind, const string &in seed) {
+    super(kind, seed);
+    update_syncables();
+  }
+
+  void update_syncables() {
+    //metroid items
+    syncables.insertLast(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true));
+    syncables.insertLast(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true));
+    syncables.insertLast(@SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true));
+    syncables.insertLast(@SyncableItem(0x07, 1, 1, null, true)); // charge beam
+    syncables.insertLast(@SyncableItem(0x26, 1, 1, null, true)); // missile capacity
+    syncables.insertLast(@SyncableItem(0x2a, 1, 1, null, true)); // super missile capacity
+    syncables.insertLast(@SyncableItem(0x2e, 1, 1, null, true)); // power bomb capacity
+    syncables.insertLast(@SyncableItem(0x32, 2, 1, null, true)); // reserve tanks
+    syncables.insertLast(@SyncableItem(0x22, 2, 1, null, true)); // energy tanks
+  }
+
+  void syncAll() override {
+    RandomizerMapping::syncAll();
+  }
+
+  uint8 game = 0;
+  void check_game() override {
+    game = bus::read_u8(0xA173FE);
+  }
+
+  bool is_alttp() override { return game == 0; }
+  bool is_smz3() override { return true;}
+
+  void register_pc_intercepts() override {
+    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+
+    // SM main is at 0x82893D (PHK; PLB)
+    // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
+    cpu::register_pc_interceptor(0x828948, @on_main_sm);
+  }
+}
+
+class VanillaSMMapping : ROMMapping {
+	VanillaSMMapping() {
+    super();
+    update_syncables();
+  }
+
+  void update_syncables() {
+    //metroid items
+	syncables = { @SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true),
+				 @SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true),
+				 @SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true),
+				 @SyncableItem(0x07, 1, 1, null, true), // charge beam
+				 @SyncableItem(0x26, 1, 1, null, true), // missile capacity
+				 @SyncableItem(0x2a, 1, 1, null, true), // super missile capacity
+				 @SyncableItem(0x2e, 1, 1, null, true), // power bomb capacity
+				 @SyncableItem(0x32, 2, 1, null, true), // reserve tanks
+				 @SyncableItem(0x22, 2, 1, null, true)  // energy tanks
+				} ; 
+  }
+
+  uint8 game = 0;
+  void check_game() override {
+    game = bus::read_u8(0xA173FE);
+  }
+
+  bool is_alttp() override { return false; }
+  bool is_smz3() override { return true;}
+
+  void register_pc_intercepts() override {
+    //cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+
+    // SM main is at 0x82893D (PHK; PLB)
+    // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
+    cpu::register_pc_interceptor(0x828948, @on_main_sm);
+  }
+	
+
+}
 
 ROMMapping@ detect() {
   array<uint8> sig(21);
@@ -421,24 +500,58 @@ ROMMapping@ detect() {
     // ALTTPR VT randomizer.
     auto seed = title.slice(3, 10);
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + seed);
-    return RandomizerMapping(seed);
-  } else if ( (title.slice(0, 2) == "ER" || title.slice(0, 2) == "BM") && (title[5] == '_') ) {
+    return RandomizerMapping("VT", seed);
+  } else if ( (title.slice(0, 2) == "BM") && (title[5] == '_') ) {
+    // Berserker MultiWorld randomizer.
     //  0123456789
     // "BM250_1_1_16070690178"
-    // ALTTPR VT-based Entrance Randomizer.
-    // e.g. "ER002_1_1_164246190  "
+    // "250" represents the __version__ string with '.'s removed.
+    auto seed = title.slice(6, 13);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Berserker MultiWorld " + kind + " randomized JP ROM version. Seed: " + seed);
+    return MultiworldMapping(kind, seed);
+  } else if ( title.slice(0, 2) == "BD" && (title[5] == '_') ) {
+    // Berserker MultiWorld Door Randomizer.
+    //  0123456789
+    // "BD251_1_1_23654700304"
+    // "251" represents the __version__ string with '.'s removed.
+    auto seed = title.slice(6, 13);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Berserker MultiWorld Door Randomizer " + kind + " randomized JP ROM version. Seed: " + seed);
+    return DoorRandomizerMapping(kind, seed);
+  } else if ( (title.slice(0, 2) == "ER") && (title[5] == '_') ) {
+    // ALTTPR Entrance or Door Randomizer.
+    //  0123456789
+    // "ER002_1_1_164246190  "
     // "002" represents the __version__ string with '.'s removed.
     // see https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Main.py#L27
     // and https://github.com/aerinon/ALttPDoorRandomizer/blob/DoorDev/Rom.py#L1316
     auto seed = title.slice(6, 13);
-    message("Recognized Entrance Randomized JP ROM version. Seed: " + seed);
-    // TODO: assuming door randomizer. No easy way to differentiate between entrance/door randomizers.
-    return DoorRandomizerMapping(seed);
-  } else if (title.slice(0, 7) == "ZSM11.0") {
+    string kind;
+    bool isDoor = false;
+    if (bus::read_u16(0x278000) != 0) {
+      // door randomizer
+      isDoor = true;
+      kind = title.slice(0, 2) + " (door) v" + title.slice(2, 3);
+    } else {
+      // entrance randomizer
+      kind = title.slice(0, 2) + " (entrance) v" + title.slice(2, 3);
+    }
+    message("Recognized " + kind + " randomized JP ROM version. Seed: " + seed);
+    if (isDoor) {
+      return DoorRandomizerMapping(kind, seed);
+    } else {
+      return RandomizerMapping(kind, seed);
+    }
+  } else if (title.slice(0, 3) == "ZSM") {
     // SMZ3 randomized
     auto seed = fmtInt(title.slice(9, 8).hex());
-    message("Recognized SMZ3 Combo Randomized ROM version. Seed: " + seed);
-    return SMZ3Mapping(seed);
+    auto kind = title.slice(0, 3) + " v" + title.slice(3, 4);
+    message("Recognized " + kind + " randomized ROM version. Seed: " + seed);
+    return SMZ3Mapping(kind, seed);
+  } else if (title == "Super Metroid        "){
+	message("Recognized " + title + " ROM");
+	return VanillaSMMapping();
   } else {
     switch (region) {
       case 0x00:
