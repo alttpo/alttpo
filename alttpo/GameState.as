@@ -104,6 +104,8 @@ class GameState {
 
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
+  uint8 sm_room_x, sm_room_y, sm_pose;
+  uint16 offsm1, offsm2;
   uint8 in_sm;
 
   uint8 _module;
