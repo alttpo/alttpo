@@ -39,12 +39,19 @@ void on_main_alttp(uint32 pc) {
   local.capture_sprites_vram();
 
   if (settings.started && (sock !is null)) {
+    // receive network updates from remote players:
+    receive();
+  }
+
+  // calculate PvP damage against nearby players:
+  if (settings.EnablePvP) {
+    local.attack_pvp();
+  }
+
+  if (settings.started && (sock !is null)) {
     // send updated state for our Link to server:
     //message("send");
     local.send();
-
-    // receive network updates from remote players:
-    receive();
   } else {
     return;
   }
@@ -79,6 +86,10 @@ void on_main_alttp(uint32 pc) {
 
     // synchronize torches:
     update_torches();
+  }
+
+  if (settings.EnablePvP) {
+    local.apply_pvp();
   }
 
   if (pb.offset > 0) {
@@ -116,7 +127,6 @@ void on_main_sm(uint32 pc) {
 
   local.get_sm_coords();
   local.fetch_sm_events();
-  local.get_sm_sprite_data();
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -196,7 +206,7 @@ void pre_frame() {
   local.ttl = 255;
 
   if (!main_called) {
-    dbgData("pre_frame send/recv");
+    //dbgData("pre_frame send/recv");
     if (settings.started && (sock !is null)) {
       // send updated state for our Link to server:
       //message("send");
@@ -206,6 +216,13 @@ void pre_frame() {
       receive();
     }
   }
+
+  if (players_updated) {
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
+  }
+  players_updated = false;
 
   // reset main loop called state:
   main_called = false;
@@ -228,19 +245,6 @@ void pre_frame() {
 
     // exit early if game is not ALTTP (for SMZ3):
     if (!rom.is_alttp()) {
-	  //tests if both players are in the same room
-	  if (!local.can_see_sm(remote)) continue;
-	  if (sm_state > 0x0c && sm_state < 0x12) continue;
-	  
-	  uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
-	  uint16 local_offset_x = bus::read_u16(0x7e0911);
-	  uint16 remote_offset_y = (uint16(remote.sm_y) << 8) + uint16(remote.sm_sub_y);
-	  uint16 local_offset_y = bus::read_u16(0x7e0915);
-	  int rx = int(remote_offset_x)	- int(local_offset_x);
-	  int ry = int(remote_offset_y) - int(local_offset_y);
-	  
-	  
-	  ei = draw_samuses(rx, ry, ei, remote.sm_pose, remote.offsm1, remote.offsm2, remote.sm_palette);
       continue;
     }
 

@@ -25,7 +25,7 @@ class MemoryWindow {
     auto fontWidth = 7.225; // looks nice on my mac with 8pt font
 
     // relative position to bsnes window:
-    @window = GUI::Window(128, 128, true);
+    @window = GUI::Window(256, 16, true);
     window.title = "Memory";
     window.font = GUI::Font("{mono}", 8);
     window.size = GUI::Size((16*3 + 6 + 2) * 8, (16 + 2) * 16);

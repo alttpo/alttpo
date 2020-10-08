@@ -9,7 +9,7 @@ class WorldMapWindow {
   GUI::SNESCanvas @darkWorld;
   GUI::Canvas @underworld;
   GUI::Canvas @metroid;
-
+  
   array<GUI::SNESCanvas@> dots;
   array<float> dotX(0);
   array<float> dotY(0);
@@ -536,8 +536,8 @@ class WorldMapWindow {
       x = float(px) * mapscale + dotLeft;
       y = float(py) * mapscale + dotTop;
     } else if (screen == 3) {
-        uint px = p.sm_x + p.sm_room_x;
-        uint py = p.sm_y + p.sm_room_y;
+        uint px = p.sm_x;
+        uint py = p.sm_y;
         uint offsx = metroid_area_base_x(p.sm_area);
         uint offsy = metroid_area_base_Y(p.sm_area);
 
@@ -564,7 +564,7 @@ class WorldMapWindow {
     } else {
       @ps = players;
     }
-
+    
     return ps;
   }
 
@@ -579,6 +579,7 @@ class WorldMapWindow {
       colors.resize(psLen);
       dotX.resize(psLen);
       dotY.resize(psLen);
+      
       for (uint i = 0; i < psLen; i++) {
         if (null != @dots[i]) continue;
 
@@ -606,7 +607,7 @@ class WorldMapWindow {
         dotY[i] = -127;
         continue;
       }
-
+      
       // check if we need to fill the dot in with the player's color:
       if (p.player_color != colors[i]) {
         fillDot(dot, p.player_color | 0x8000);

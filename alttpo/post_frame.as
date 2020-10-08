@@ -95,4 +95,49 @@ void post_frame() {
   if (memoryWindow !is null) {
     memoryWindow.update();
   }
+
+  if (settings.EnablePvP && debugData) {
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote.ttl <= 0) continue;
+
+      if (remote.action_hitbox.active) {
+        ppu::frame.color = remote.player_color;
+        ppu::frame.rect(
+          int(remote.action_hitbox.x - local.xoffs),
+          int(remote.action_hitbox.y - local.yoffs),
+          remote.action_hitbox.w,
+          remote.action_hitbox.h
+        );
+      }
+
+      if (remote.hitbox.active) {
+        ppu::frame.color = remote.player_color_dark_75;
+        ppu::frame.rect(
+          int(remote.hitbox.x - local.xoffs),
+          int(remote.hitbox.y - local.yoffs),
+          remote.hitbox.w,
+          remote.hitbox.h
+        );
+      }
+    }
+
+    uint plen = local.projectiles.length();
+    for (uint j = 0; j < plen; j++) {
+      auto @pr = @local.projectiles[j];
+      if (!pr.hitbox.active) {
+        continue;
+      }
+
+      ppu::frame.color = local.player_color_dark_75;
+      ppu::frame.rect(
+        int(pr.hitbox.x - local.xoffs),
+        int(pr.hitbox.y - local.yoffs),
+        pr.hitbox.w,
+        pr.hitbox.h
+      );
+    }
+  }
 }
