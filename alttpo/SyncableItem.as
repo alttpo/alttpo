@@ -139,26 +139,9 @@ class SyncableItem {
     uint8 diff;
     switch (offs) {
       case 0x02:
-		eold = bus::read_u8(base + offs - 2);
-        bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
-        break;
       case 0x03:
         eold = bus::read_u8(base + offs - 2);
         bus::write_u8( base + offs - 2, (newValue ^ oldValue) | eold);
-		if (((newValue ^ oldValue) & 0x40) == 0x40)
-			{
-			bus::write_u16(0x7ec630, 0x3438);
-			bus::write_u16(0x7ec632, 0x7438);
-			bus::write_u16(0x7ec670, 0x3439);
-			bus::write_u16(0x7ec672, 0x7439);
-			}
-		if (((newValue ^ oldValue) & 0x80) == 0x80)
-			{
-			bus::write_u16(0x7ec636,0x343a);
-			bus::write_u16(0x7ec638,0x743a);
-			bus::write_u16(0x7ec676,0x343b);
-			bus::write_u16(0x7ec678,0x743b);
-			}
         break;
       case 0x06:
         // special crap here to avoid the murder beam
