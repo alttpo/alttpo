@@ -246,20 +246,20 @@ void pre_frame() {
 
     // exit early if game is not ALTTP (for SMZ3):
     if (!rom.is_alttp()) {
-	//tests if both players are in the same room
-	  if (!local.can_see_sm(remote)) continue;
-	  if (sm_state > 0x0c && sm_state < 0x12) continue;
-	  
-	  uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
-	  uint16 local_offset_x = bus::read_u16(0x7e0911);
-	  uint16 remote_offset_y = (uint16(remote.sm_y) << 8) + uint16(remote.sm_sub_y);
-	  uint16 local_offset_y = bus::read_u16(0x7e0915);
-	  int rx = int(remote_offset_x)	- int(local_offset_x);
-	  int ry = int(remote_offset_y) - int(local_offset_y);
-	  
-	  
-	  ei = draw_samuses(rx, ry, ei, remote.sm_pose, remote.offsm1, remote.offsm2, remote.sm_palette);
-	
+    //tests if both players are in the same room
+      if (!local.can_see_sm(remote)) continue;
+      if (sm_state > 0x0c && sm_state < 0x12) continue;
+      
+      uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
+      uint16 local_offset_x = bus::read_u16(0x7e0911);
+      uint16 remote_offset_y = (uint16(remote.sm_y) << 8) + uint16(remote.sm_sub_y);
+      uint16 local_offset_y = bus::read_u16(0x7e0915);
+      int rx = int(remote_offset_x) - int(local_offset_x);
+      int ry = int(remote_offset_y) - int(local_offset_y);
+      
+      
+      ei = draw_samuses(rx, ry, ei, remote.sm_pose, remote.offsm1, remote.offsm2, remote.sm_palette);
+    
       continue;
     }
 
