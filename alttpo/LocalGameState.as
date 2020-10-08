@@ -1121,6 +1121,9 @@ class LocalGameState : GameState {
     r.write_u8(sm_sub_x);
     r.write_u8(sm_sub_y);
     r.write_u8(in_sm);
+	r.write_u8(sm_room_x);
+	r.write_u8(sm_room_y);
+	r.write_u8(sm_pose);
   }
 
   void serialize_sfx(array<uint8> &r) {

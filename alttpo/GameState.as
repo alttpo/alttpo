@@ -558,6 +558,9 @@ class GameState {
     sm_sub_x = r[c++];
     sm_sub_y = r[c++];
     in_sm = r[c++];
+	sm_room_x = r[c++];
+	sm_room_y = r[c++];
+	sm_pose = r[c++];
 
     return c;
   }
