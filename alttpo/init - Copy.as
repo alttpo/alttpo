@@ -17,7 +17,6 @@ bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
 bool enableMap = true;
-bool enablePlayerList = true;
 bool enableBgMusic = true;
 
 bool enableRenderToExtra = true;
@@ -25,8 +24,6 @@ bool enableRenderToExtra = true;
 // sync control:
 bool enableObjectSync = false;
 bool enableSmallKeySync = false;
-bool enablePvP = true;
-bool enablePvPFriendlyFire = false;
 
 void init() {
   //message("init()");
@@ -73,7 +70,7 @@ void init() {
 }
 
 void cartridge_loaded() {
-  message("cartridge_loaded()");
+  //message("cartridge_loaded()");
 
   // Auto-detect ROM version:
   @rom = detect();
@@ -118,12 +115,7 @@ void cartridge_loaded() {
       worldMapWindow.add_sm_button();
     }
   }
-  
-  //show player list when cartridge loaded:
-  if(enablePlayerList) {
-    @playersWindow = PlayersWindow();
-  }
-  
+
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }
