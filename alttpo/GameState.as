@@ -578,6 +578,9 @@ class GameState {
 	
 	for(int i = 0; i < 0x10; i++){
 		sm_palette[i] = (uint16(r[c++]) << 8) | uint16(r[c++]);
+		}
+	
+	return c;
 	}
 
   int deserialize_sfx(array<uint8> r, int c) {
