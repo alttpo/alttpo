@@ -183,7 +183,8 @@ class GameState {
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
-  array<uint8> sm_events(0x50);
+  array<uint8> sm_events(0x52);
+  array<uint16> sm_palette(0x10);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -831,7 +832,7 @@ class GameState {
   }
 
   int deserialize_sm_events(array<uint8> r, int c) {
-    for (int i = 0; i < 0x50; i++) {
+    for (int i = 0; i < 0x52; i++) {
         sm_events[i] = r[c++];
     }
     return c;
@@ -1114,9 +1115,18 @@ class GameState {
   void get_sm_coords() {
     if (sm_loading_room()) return;
     sm_area = bus::read_u8(0x7E079f);
-    sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
-    sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+    sm_x = bus::read_u8(0x7E0AF7);
+    sm_y = bus::read_u8(0x7E0AFB);
     sm_sub_x = bus::read_u8(0x7E0AF6);
     sm_sub_y = bus::read_u8(0x7E0AFA);
+	sm_room_x = bus::read_u8(0x7E07A1);
+	sm_room_y = bus::read_u8(0x7E07A3);
+	sm_pose = bus::read_u8(0x7E0A1C);
+  }
+  
+  void get_sm_sprite_data(){
+	offsm1 = bus::read_u16(0x7e071f);
+	offsm2 = bus::read_u16(0x7e0721);
+	bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
   }
 };
