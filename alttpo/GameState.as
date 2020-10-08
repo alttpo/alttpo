@@ -403,6 +403,12 @@ class GameState {
     }
     return false;
   }
+  
+  // tests if the remote sm player is in the same room as the local one
+  bool can_see_sm(GameState @remote){
+	if(remote.in_sm != 1) return false;
+	return (remote.sm_room_x == this.sm_room_x && remote.sm_room_y == this.sm_room_y && remote.sm_area == this.sm_area);
+  }
 
   bool is_really_in_same_location(uint32 other_location) const {
     // use the location the game thinks is real:
