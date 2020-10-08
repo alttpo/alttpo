@@ -11,3 +11,20 @@ test.sh
 image/
 old/
 *.sh
+DoorRandomizer
+pvp
+roms/
+smz3_combo_randomizer_rom
+*.csv
+warping asm
+z3randomizer
+supermetroid
+bugs/
+Zelda3HackingResources
+MultiWorld-Utilities
+cait-z3randomizer
+editing/
+vt_randomizer
+static/*.png
+static/DW.lua
+video notes

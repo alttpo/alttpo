@@ -64,6 +64,32 @@ Thanks for testing!
 
 Press the `Connect` button to go online and join your group. This window will stay open while connected so that you may adjust your player name and player color at will. The updates will be synced in real time to other players.
 
+## Troubleshooting
+
+1. Q: Help! I cannot see other players! I'm connected and am sharing inventory but cannot see any other sprites.
+    1. Open up bsnes Settings > Enhancements... > PPU (video) > Enable "Fast mode".
+    1. The fast PPU renderer must be used to see other players and notification messages rendered on your game screen.
+    1. The reason why is because there are actually two independent PPU renderers built into bsnes and I've only extended
+    the "fast" PPU renderer and not the "slow" PPU renderer.
+1. Q: Help! We can see each other but none of our items or progress are syncing!
+    1. Make sure the "Disable sync" checkbox is not enabled in the "Join a Game" window for ALL players connected to the group.
+    1. Make sure all players in the group use the exact same Group name.
+    1. Make sure all players in the group have clicked "Connect" and that the button is disabled and the "Disconnect" button is enabled.
+    1. Make sure you're all using the same server Address. Use "alttp.online" as the default unless you're hosting your own server.
+    1. Be sure you have UDP port 4590 open for bidirectional communication to the public internet.
+
+### MacOS Catalina
+
+#### Help! I cannot open bsnes-as on MacOS Catalina (10.15)!
+
+![MacOS Catalina Error](static/macos-catalina.png)
+
+If you see this window, delete your extracted folder and instead extract the downloaded archive using https://www.keka.io/en/ file archiver, or any other archive software besides the built-in "Archive Utility.app". In other words, DO NOT use the built-in "Archive Utility.app" to extract the download or MacOS Catalina will refuse to open the app.
+
+### Other issues
+
+For any other issues, please feel free to use the Github Issues feature and make a report, or go to our discord and use the #bug-reports channel.
+
 ## Map window
 ![Map Window](static/map-window.png)
 

@@ -11,6 +11,12 @@ jobs:
     variables:
       GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
       modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
+      isStable: $[eq(variables['Build.SourceBranch'], 'refs/heads/stable')]
+      isUnstable: $[eq(variables['Build.SourceBranch'], 'refs/heads/unstable')]
+      ${{ if or( eq(variables['Build.SourceBranch'],'refs/heads/stable'), eq(variables['Build.SourceBranch'],'refs/heads/unstable') ) }}:
+        bsnesBranch: ${{ variables['Build.SourceBranch'] }}
+      ${{ if not( or( eq(variables['Build.SourceBranch'],'refs/heads/stable'), eq(variables['Build.SourceBranch'],'refs/heads/unstable') ) ) }}:
+        bsnesBranch: 'refs/heads/unstable'
 
     strategy:
       matrix:
@@ -58,9 +64,9 @@ jobs:
         project: 'ed1875fa-87ea-4872-9756-9a91c67a8c6e'
         definition: '3'
         buildVersionToDownload: 'latestFromBranch'
-        branchName: '$(Build.SourceBranch)'
+        branchName: '$(bsnesBranch)'
         targetPath: '$(modulePath)'
-      displayName: 'Download bsnes-angelscript $(Build.SourceBranchName)'
+      displayName: 'Download bsnes-angelscript $(bsnesBranch)'
 
     - script: |
         echo 'Package'
