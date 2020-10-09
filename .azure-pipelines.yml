@@ -91,6 +91,7 @@ jobs:
         mkdir ${alttpo_nightly}/alttpo
         cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
         cp -a alttpo/*.png ${alttpo_nightly}/alttpo/
+        cp -a alttpo/*.bml ${alttpo_nightly}/alttpo/
 
         cp -a README.md ${alttpo_nightly}/
         cp -a static ${alttpo_nightly}/
