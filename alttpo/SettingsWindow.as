@@ -482,7 +482,7 @@ class SettingsWindow {
 
         uint len = ppu::fonts_count;
         for (uint i = 0; i < len; i++) {
-          auto @di = GUI::ComboButtonItem();
+          auto di = GUI::ComboButtonItem();
           auto @f = ppu::fonts[i];
           di.text = f.displayName;
           ddlFont.append(di);

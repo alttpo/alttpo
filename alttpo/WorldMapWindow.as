@@ -104,16 +104,16 @@ class WorldMapWindow {
     hl.append(chkAuto, GUI::Size(0, 0));
 
     // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld 3 == metroid
-    auto @di = GUI::ComboButtonItem();
+    auto di = GUI::ComboButtonItem();
     di.text = "Light World";
     di.setSelected();
     dd.append(di);
 
-    @di = GUI::ComboButtonItem();
+    di = GUI::ComboButtonItem();
     di.text = "Dark World";
     dd.append(di);
 
-    @di = GUI::ComboButtonItem();
+    di = GUI::ComboButtonItem();
     di.text = "Underworld";
     dd.append(di);
 
@@ -135,7 +135,7 @@ class WorldMapWindow {
   }
 
   void add_sm_button() {
-    auto @di = GUI::ComboButtonItem();
+    auto di = GUI::ComboButtonItem();
     di.text = "Super Metroid";
     this.dd.append(di);
   }
