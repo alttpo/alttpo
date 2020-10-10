@@ -6,7 +6,7 @@ funcdef void SerializeSRAMDelegate(array<uint8> &r, uint16 start, uint16 endExcl
 abstract class ROMMapping {
   ROMMapping() {
     // loads document from `alttpo/lttp_names.bml` or returns an empty `Node@`:
-    @lttp_names = ScriptFiles::loadBML("lttp_names.bml");
+    lttp_names = ScriptFiles::loadBML("lttp_names.bml");
   }
 
   protected string _title;
@@ -301,7 +301,7 @@ abstract class ROMMapping {
    int8 get_hitbox_ancilla_y(int n) const property { return  int8(bus::read_u8(table_hitbox_ancilla + 12*2 + n)); }    // 0x088E95
   uint8 get_hitbox_ancilla_h(int n) const property { return uint8(bus::read_u8(table_hitbox_ancilla + 12*3 + n)); }    // 0x088EA1
 
-  BML::Node@ lttp_names;
+  BML::Node lttp_names;
 
   string location_name(const GameState@ player) {
     if (player.in_sm != 0) {

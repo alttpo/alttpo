@@ -189,7 +189,7 @@ class SettingsWindow {
 
   void load() {
     // try to load previous settings from disk:
-    auto @doc = UserSettings::load("alttpo.bml");
+    auto doc = UserSettings::load("alttpo.bml");
     auto version = doc["version"].naturalOr(0);
     serverAddress = doc["server/address"].textOr(ServerAddress);
     if (version == 0) {
@@ -239,7 +239,7 @@ class SettingsWindow {
     showMyLabel = chkShowMyLabel.checked;
     raceMode = chkRaceMode.checked;
 
-    auto @doc = BML::Node();
+    auto doc = BML::Node();
     doc.create("version").value = "1";
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
