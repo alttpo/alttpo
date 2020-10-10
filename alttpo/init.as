@@ -70,6 +70,10 @@ void init() {
   if (debugMemory) {
     @memoryWindow = MemoryWindow();
   }
+
+  if (enablePlayerList) {
+    @playersWindow = PlayersWindow();
+  }
 }
 
 void cartridge_loaded() {
@@ -118,12 +122,7 @@ void cartridge_loaded() {
       worldMapWindow.add_sm_button();
     }
   }
-  
-  //show player list when cartridge loaded:
-  if(enablePlayerList) {
-    @playersWindow = PlayersWindow();
-  }
-  
+
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }
