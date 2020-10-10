@@ -93,6 +93,7 @@ class PlayersWindow {
       }
     }
     vl.resize();
+    window.visible = true;
   }
 
   PlayersWindow() {
