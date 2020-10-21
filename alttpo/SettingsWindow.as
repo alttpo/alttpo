@@ -809,15 +809,19 @@ class SettingsWindow {
   void connected() {
     btnConnect.enabled = false;
     btnDisconnect.enabled = true;
-    
-    playersWindow.update();
+
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
   }
 
   void disconnected() {
     btnConnect.enabled = true;
     btnDisconnect.enabled = false;
-    
-    playersWindow.update();
+
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
   }
 
   // callback:
