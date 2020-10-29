@@ -57,6 +57,8 @@ void post_frame() {
       //  4
       //));
 
+      // PC $80000-$86FFF - 4bpp graphics sets for all of Link's animations
+
       ppu::frame.text(148+36*0, 208+0, fmtHex((bus::read_u16(0x7E0ACC) - 0x8000) >> 6, 3));
       ppu::frame.text(148+36*0, 208+8, fmtHex((bus::read_u16(0x7E0ACE) - 0x8000) >> 6, 3));
       ppu::frame.text(148+36*1, 208+0, fmtHex((bus::read_u16(0x7E0AD0) - 0x8000) >> 6, 3));
