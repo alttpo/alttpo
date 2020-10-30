@@ -2686,6 +2686,7 @@ class LocalGameState : GameState {
     }
 
     // end result to apply to local player:
+    bool recoil_state = false;
     uint8 actual_dmg = 0;
     uint8 recoil_timer = 0;
     int recoil_dx = 0;
@@ -2728,6 +2729,7 @@ class LocalGameState : GameState {
         if (enablePvPFriendlyFire || (remote.team != team)) {
           actual_dmg += attack.damage >> armor_shr;
         }
+        recoil_state = true;
         recoil_dx   += attack.recoil_dx;
         recoil_dy   += attack.recoil_dy;
         recoil_dz   += attack.recoil_dz;
@@ -2744,7 +2746,7 @@ class LocalGameState : GameState {
 
     // apply recoil:
     if (recoil_dx != 0 || recoil_dy != 0 || recoil_dz != 0) {
-      if (actual_dmg > 0) {
+      if (recoil_state) {
         // recoil state:
         bus::write_u8(0x7E004D, 0x01);
       }
