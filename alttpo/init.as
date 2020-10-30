@@ -9,6 +9,7 @@ bool debugSRAM = false;
 bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
+bool debugROMSprites = true;
 bool debugGameObjects = false;
 bool debugMemory = true;
 
@@ -59,6 +60,10 @@ void init() {
 
   if (debugSprites) {
     @sprites = SpritesWindow();
+  }
+
+  if (debugROMSprites) {
+    @romSprites = ROMSpritesWindow();
   }
 
   if (enableMap) {
@@ -133,6 +138,14 @@ void cartridge_loaded() {
 
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
+  }
+
+  if (romSprites !is null) {
+    for (int i = 0; i < 16; i++) {
+      palette7[i] = ppu::cgram[(15 << 4) + i];
+    }
+    romSprites.render(palette7);
+    romSprites.update();
   }
 }
 
