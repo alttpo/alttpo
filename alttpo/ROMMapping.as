@@ -541,6 +541,9 @@ class RandomizerMapping : JPROMMapping {
 
     // track progressive shield:
     syncables.insertLast(@SyncableItem(0x416, 1, @mutateProgressiveShield));
+	
+		// trying silly coat sync get at me
+	syncables.insertLast(@SyncableItem(0x41A, 1, 1, @nameForCoat));  // coat
   }
 
   void syncShops() {
