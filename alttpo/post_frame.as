@@ -58,14 +58,14 @@ void post_frame() {
       //));
 
       // PC $80000-$86FFF - 4bpp graphics sets for all of Link's animations
-      // $048000
+      // $108000
 
-      ppu::frame.text(148+36*0, 208+0, fmtHex((bus::read_u16(0x7E0ACC) - 0x8000) >> 6, 3));
-      ppu::frame.text(148+36*0, 208+8, fmtHex((bus::read_u16(0x7E0ACE) - 0x8000) >> 6, 3));
-      ppu::frame.text(148+36*1, 208+0, fmtHex((bus::read_u16(0x7E0AD0) - 0x8000) >> 6, 3));
-      ppu::frame.text(148+36*1, 208+8, fmtHex((bus::read_u16(0x7E0AD2) - 0x8000) >> 6, 3));
-      ppu::frame.text(148+36*2, 208+0, fmtHex((bus::read_u16(0x7E0AD4) - 0x8000) >> 6, 3));
-      ppu::frame.text(148+36*2, 208+8, fmtHex((bus::read_u16(0x7E0AD6) - 0x8000) >> 6, 3));
+      ppu::frame.text(148+36*0, 208+0, fmtHex((bus::read_u16(0x7E0ACC) - 0x8000) >> 6, 4));
+      ppu::frame.text(148+36*0, 208+8, fmtHex((bus::read_u16(0x7E0ACE) - 0x8000) >> 6, 4));
+      ppu::frame.text(148+36*1, 208+0, fmtHex((bus::read_u16(0x7E0AD0) - 0x8000) >> 6, 4));
+      ppu::frame.text(148+36*1, 208+8, fmtHex((bus::read_u16(0x7E0AD2) - 0x8000) >> 6, 4));
+      ppu::frame.text(148+36*2, 208+0, fmtHex((bus::read_u16(0x7E0AD4) - 0x8000) >> 6, 4));
+      ppu::frame.text(148+36*2, 208+8, fmtHex((bus::read_u16(0x7E0AD6) - 0x8000) >> 6, 4));
 
       //// water rooms:
       //ppu::frame.text(224,  0, fmtHex(bus::read_u8(0x7E0403), 2));
