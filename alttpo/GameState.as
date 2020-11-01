@@ -17,6 +17,8 @@ bool locations_equal(uint32 a, uint32 b) {
 const uint16 small_keys_min_offs = 0xF37C;
 const uint16 small_keys_max_offs = 0xF38C;
 
+bool players_updated = false;
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -31,33 +33,56 @@ class GameState {
 
   // $3D9-$3E4: 6x uint16 characters for player name
 
+  void player_changed() {
+    players_updated = true;
+  }
+
   string _name = "";
   string name {
-    get { return _name; }
+    get const { return _name; }
     set {
-      _name = value.strip();
+      string lastName = _name;
+      string stripped = value.strip();
+
+      _name = stripped;
       _namePadded = padTo(value, 20);
+
+      if (lastName != stripped) {
+        player_changed();
+      }
     }
   }
 
   string _namePadded = "                    ";  // 20 spaces
   string namePadded {
-    get { return _namePadded; }
+    get const { return _namePadded; }
     set {
-      _name = value.strip();
+      string lastName = _name;
+      string stripped = value.strip();
+
+      _name = stripped;
       if (value.length() == 20) {
         _namePadded = value;
       } else {
         _namePadded = padTo(value, 20);
       }
+
+      if (lastName != stripped) {
+        player_changed();
+      }
     }
   }
 
   uint8 team {
-    get { return _team; }
+    get const { return _team; }
     set {
+      auto lastValue = _team;
       _team = value;
       dbgData("[{0}] team = {1}".format({index, _team}));
+
+      if (value != lastValue) {
+        player_changed();
+      }
     }
   }
 
@@ -76,19 +101,52 @@ class GameState {
   int16 yoffs;
 
   uint16 x, y;
-  
+
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
+  uint8 sm_room_x, sm_room_y, sm_pose;
+  uint16 offsm1, offsm2;
   uint8 in_sm;
 
-  uint8 module;
+  uint8 _module;
+  uint8 module {
+    get const { return _module; }
+    set {
+      uint8 lastValue = _module;
+      _module = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
   uint8 sub_module;
   uint8 sub_sub_module;
 
   uint8 in_dark_world;
   uint8 in_dungeon;
-  uint16 overworld_room;
-  uint16 dungeon_room;
+  uint16 _overworld_room;
+  uint16 overworld_room {
+    get const { return _overworld_room; }
+    set {
+      auto lastValue = _overworld_room;
+      _overworld_room = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
+
+  uint16 _dungeon_room;
+  uint16 dungeon_room {
+    get const { return _dungeon_room; }
+    set {
+      auto lastValue = _dungeon_room;
+      _dungeon_room = value;
+      if (value != lastValue) {
+        player_changed();
+      }
+    }
+  }
 
   uint16 dungeon;
   uint16 dungeon_entrance;
@@ -98,10 +156,16 @@ class GameState {
 
   private uint16 _player_color;
   uint16 player_color {
-    get { return _player_color; }
+    get const { return _player_color; }
     set {
+      auto lastValue = _player_color;
+
       _player_color = value;
       calculate_player_color_dark();
+
+      if (value != lastValue) {
+        player_changed();
+      }
     }
   }
 
@@ -119,7 +183,8 @@ class GameState {
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
-  array<uint8> sm_events(0x50);
+  array<uint8> sm_events(0x52);
+  array<uint16> sm_palette(0x10);
 
   array<GameSprite@> objects(0x10);
   array<uint8> objectsBlock(0x2A0);
@@ -310,6 +375,14 @@ class GameState {
     return false;
   }
 
+  bool is_in_game_module() const {
+    if (module <= 0x05) return false;
+    if (module == 0x14) return false;
+    if (module >= 0x1B) return false;
+
+    return true;
+  }
+
   bool is_in_screen_transition() const {
     // scrolling between overworld areas:
     if (module == 0x09 && sub_module >= 0x01) return true;
@@ -330,6 +403,12 @@ class GameState {
     }
     return false;
   }
+  
+  // tests if the remote sm player is in the same room as the local one
+  bool can_see_sm(GameState @remote){
+    if(remote.in_sm != 1) return false;
+    return (remote.sm_room_x == this.sm_room_x && remote.sm_room_y == this.sm_room_y && remote.sm_area == this.sm_area);
+  }
 
   bool is_really_in_same_location(uint32 other_location) const {
     // use the location the game thinks is real:
@@ -346,12 +425,17 @@ class GameState {
     return (actual_location & 0x020000) == (other_location & 0x020000);
   }
 
+  bool justJoined = false;
+
   void ttl_count() {
     if (ttl > 0) {
       ttl--;
       if (ttl == 0) {
+        justJoined = false;
         local.notify(name + " left");
-        playersWindow.update();
+        if (playersWindow !is null) {
+          playersWindow.update();
+        }
       }
     }
     if (sfx1_ttl > 0) {
@@ -411,12 +495,17 @@ class GameState {
         case 0x0D: c = deserialize_sm_events(r, c); break;
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
+        case 0x10: c = deserialize_sm_sprite(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
       }
     }
 
+    if (ttl <= 0) {
+      justJoined = true;
+    }
+    ttl = 255;
     return true;
   }
 
@@ -452,6 +541,12 @@ class GameState {
 
     in_sm = r[c++];
 
+    if (is_in_dungeon_location()) {
+      dungeon_room = location & 0xFFFF;
+    } else {
+      overworld_room = location & 0xFFFF;
+    }
+
     calc_hitbox();
 
     return c;
@@ -464,9 +559,24 @@ class GameState {
     sm_sub_x = r[c++];
     sm_sub_y = r[c++];
     in_sm = r[c++];
+    sm_room_x = r[c++];
+    sm_room_y = r[c++];
+    sm_pose = r[c++];
 
     return c;
   }
+  
+  int deserialize_sm_sprite(array<uint8> r, int c){
+    
+    offsm1 = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    offsm2 = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    
+    for(int i = 0; i < 0x10; i++){
+        sm_palette[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        }
+    
+    return c;
+    }
 
   int deserialize_sfx(array<uint8> r, int c) {
     uint8 tx1, tx2;
@@ -733,11 +843,18 @@ class GameState {
   int deserialize_name(array<uint8> r, int c) {
     namePadded = r.toString(c, 20);
     c += 20;
+
+    bool update = false;
+    if (justJoined) {
+      local.notify(name + " joined");
+      justJoined = false;
+    }
+
     return c;
   }
-  
+
   int deserialize_sm_events(array<uint8> r, int c) {
-    for (int i = 0; i < 0x50; i++) {
+    for (int i = 0; i < 0x52; i++) {
         sm_events[i] = r[c++];
     }
     return c;
@@ -1020,9 +1137,256 @@ class GameState {
   void get_sm_coords() {
     if (sm_loading_room()) return;
     sm_area = bus::read_u8(0x7E079f);
-    sm_x = bus::read_u8(0x7E0AF7) + bus::read_u8(0x7E07A1);
-    sm_y = bus::read_u8(0x7E0AFB) + bus::read_u8(0x07A3);
+    sm_x = bus::read_u8(0x7E0AF7);
+    sm_y = bus::read_u8(0x7E0AFB);
     sm_sub_x = bus::read_u8(0x7E0AF6);
     sm_sub_y = bus::read_u8(0x7E0AFA);
+    sm_room_x = bus::read_u8(0x7E07A1);
+    sm_room_y = bus::read_u8(0x7E07A3);
+    sm_pose = bus::read_u8(0x7E0A1C);
+  }
+  
+  void get_sm_sprite_data(){
+    offsm1 = bus::read_u16(0x7e071f);
+    offsm2 = bus::read_u16(0x7e0721);
+    bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
+  }
+  
+  int draw_samus(int x, int y, int ei){
+    //message("attempted to draw a samus");
+    
+    array<array<uint16>> sprs(32, array<uint16>(16)); // array of 32 different 8x8 sprite blocks
+    array<uint16> palette = sm_palette;
+    int p = 0; // palette int, use is unknown
+    int protocol = determine_protocol(sm_pose); // decides which protocol is used for placing samus' blocks to build the sprite
+    
+    int offsx = offs_x(sm_pose); // X offset to align sprite with actual location, differs by pose
+    int offsy = offs_y(sm_pose); // Y offset to align sprite with actual location, differs by pose 
+    
+    //initialize tile
+    auto @tile = ppu::extra[ei++];
+    tile.index = 0;
+    tile.source = 5;
+    tile.x = x + offsx;
+    tile.y = y + offsy;
+    tile.priority = 261;
+    tile.hflip = false;
+    tile.vflip = false;
+    tile.width = 64;
+    tile.height = 128;
+    tile.pixels_clear();
+
+    uint8 bank = bus::read_u8(0x920000 + offsm1 + 2);
+    uint16 address = bus::read_u16(0x920000 + offsm1);
+    uint16 size0 = bus::read_u16(0x920000 + offsm1 + 3);
+    uint16 size1 = bus::read_u16(0x920000 + offsm1 + 5);
+    
+    uint8 bank2 = bus::read_u8(0x920000 + offsm2 + 2);
+    uint16 address2 = bus::read_u16(0x920000 + offsm2);
+    uint16 size2 = bus::read_u16(0x920000 + offsm2 + 3);
+    uint16 size3 = bus::read_u16(0x920000 + offsm2 + 5);
+    
+    
+    uint32 transfer0;
+    uint32 transfer1;
+    uint16 len1;
+    uint16 len2;
+    if (sm_pose == 0x1a || sm_pose == 0x19 || sm_pose == 0x81 || sm_pose == 0x82 || sm_pose == 0x1b || sm_pose == 0x1c){
+        transfer0 = 0x010000 * bank2 + address2;
+        transfer1 = transfer0 + size2;
+        
+        len1 = min(size2 / 32, 16);
+        len2 = min(size3 / 32, 16);
+    } else {
+        transfer0 = 0x010000 * bank + address;
+        transfer1 = transfer0 + size0;
+        
+        len1 = min(size0 / 32, 16);
+        len2 = min(size1 / 32, 16);
+    }
+    //load data from vram into sprs
+    
+    for (int i = 0; i < len1; i++) {
+        bus::read_block_u16(transfer0 + 0x20 * i, 0, 16, sprs[i]);
+    }
+    for (int i = 0; i < len2; i++) {
+        bus::read_block_u16(transfer1 + 0x20 * i, 0, 16, sprs[i+16]);
+    }
+    
+    //most of samus' poses, with only a few exceptions
+    if (protocol == 0){
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(32, 32, p, sprs[14], palette);
+        tile.draw_sprite_4bpp(32, 24, p, sprs[29], palette);
+        tile.draw_sprite_4bpp(32, 40, p, sprs[30], palette);
+    }
+    // aim upwards
+    else if(protocol == 1){
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(8, 48, p, sprs[28], palette);
+        tile.draw_sprite_4bpp(0, 48, p, sprs[12], palette);
+        tile.draw_sprite_4bpp(16, 48, p, sprs[13], palette);
+        tile.draw_sprite_4bpp(24, 48, p, sprs[29], palette);
+        tile.draw_sprite_4bpp(32, 48, p, sprs[30], palette);
+    }
+    // crouching no aim
+    else if (protocol == 2){
+        for (int i = 0; i < 8; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 8; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(16, 32, p, sprs[9], palette);
+        tile.draw_sprite_4bpp(8, 32, p, sprs[24], palette);
+    }
+    // crouching aim diagonally
+    else if (protocol == 3){
+        for (int i = 0; i < 8; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 8; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(24, 32, p, sprs[27], palette);
+        tile.draw_sprite_4bpp(16, 32, p, sprs[11], palette);
+        tile.draw_sprite_4bpp(8, 32, p, sprs[26], palette);
+    }
+    // morph ball
+    else if (protocol == 4){
+        for (int i = 0; i < 4; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 4; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(16, 16, p, sprs[5], palette);
+        tile.draw_sprite_4bpp(8, 16, p, sprs[20], palette);
+    }
+    //spin jump
+    else if (protocol == 5){
+        for (int i = 0; i < 16; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 16; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+    }
+    //facing toward the camera
+    else if (protocol == 6){
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(0, 48, p, sprs[12], palette);
+        tile.draw_sprite_4bpp(16, 48, p, sprs[13], palette);
+        tile.draw_sprite_4bpp(8, 48, p, sprs[28], palette);
+        tile.draw_sprite_4bpp(24, 48, p, sprs[29], palette);
+    }
+    // vertical leap
+    else if (protocol == 7){
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4), p, sprs[i], palette);
+        }
+        for (int i = 0; i < 12; i++){
+            tile.draw_sprite_4bpp(8*(i%4), 16*(i/4)+8, p, sprs[i+16], palette);
+        }
+        tile.draw_sprite_4bpp(16, 48, p, sprs[13], palette);
+        tile.draw_sprite_4bpp(8, 48, p, sprs[28], palette);
+    }
+    
+    return ei;
+  }
+  
+  int determine_protocol(uint8 pose){
+    switch(pose){
+        case 0x00: return 6;
+        case 0x03: return 1;
+        case 0x04: return 1;
+        case 0x27: return 2;
+        case 0x28: return 2;
+        case 0x38: return 3;
+        case 0x3e: return 3;
+        case 0x43: return 3;
+        case 0x44: return 3;
+        case 0x4b: return 7;
+        case 0x4c: return 7;
+        case 0x4d: return 7;
+        case 0x4e: return 7;
+        case 0x71: return 3;
+        case 0x72: return 3;
+        case 0x73: return 3;
+        case 0x74: return 3;
+        case 0x79: return 4;
+        case 0x7a: return 4;
+        case 0x7b: return 4;
+        case 0x7c: return 4;
+        case 0x7d: return 4;
+        case 0x7e: return 4;
+        case 0x7f: return 4;
+        case 0x80: return 4;
+        case 0x81: return 5;
+        case 0x82: return 5;
+        case 0xa4: return 7;
+        case 0xa5: return 7;
+        default: return 0;
+    
+    }
+    return 0;
+}
+
+  int offs_x(uint8 pose){
+    switch (pose){
+        case 0x06: return -22;
+        case 0x08: return -22;
+        
+        default: return -15;
+    }
+    
+    
+    return -15;
+  }
+
+  int offs_y(uint8 pose){
+    //do stuff here
+    switch (pose){
+        case 0x03: return -34;
+        case 0x04: return -34;
+        case 0x27: return -22;
+        case 0x28: return -22;
+        case 0x43: return -22;
+        case 0x44: return -22;
+        case 0x71: return -22;
+        case 0x72: return -22;
+        case 0x73: return -22;
+        case 0x74: return -22;
+        case 0x79: return -14;
+        case 0x7a: return -14;
+        case 0x7b: return -14;
+        case 0x7c: return -14;
+        case 0x7d: return -14;
+        case 0x7e: return -14;
+        case 0x7f: return -14;
+        case 0x80: return -14;
+        case 0x81: return -17;
+        case 0x82: return -17;
+        
+        
+        default: return -26;
+    }
+    
+    return -26;
   }
 };

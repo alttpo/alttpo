@@ -104,16 +104,16 @@ class WorldMapWindow {
     hl.append(chkAuto, GUI::Size(0, 0));
 
     // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld 3 == metroid
-    auto @di = GUI::ComboButtonItem();
+    auto di = GUI::ComboButtonItem();
     di.text = "Light World";
     di.setSelected();
     dd.append(di);
 
-    @di = GUI::ComboButtonItem();
+    di = GUI::ComboButtonItem();
     di.text = "Dark World";
     dd.append(di);
 
-    @di = GUI::ComboButtonItem();
+    di = GUI::ComboButtonItem();
     di.text = "Underworld";
     dd.append(di);
 
@@ -135,7 +135,7 @@ class WorldMapWindow {
   }
 
   void add_sm_button() {
-    auto @di = GUI::ComboButtonItem();
+    auto di = GUI::ComboButtonItem();
     di.text = "Super Metroid";
     this.dd.append(di);
   }
@@ -536,8 +536,8 @@ class WorldMapWindow {
       x = float(px) * mapscale + dotLeft;
       y = float(py) * mapscale + dotTop;
     } else if (screen == 3) {
-        uint px = p.sm_x;
-        uint py = p.sm_y;
+        uint px = p.sm_x + p.sm_room_x;
+        uint py = p.sm_y + p.sm_room_y;
         uint offsx = metroid_area_base_x(p.sm_area);
         uint offsy = metroid_area_base_Y(p.sm_area);
 

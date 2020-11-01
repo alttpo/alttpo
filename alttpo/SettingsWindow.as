@@ -24,6 +24,8 @@ class SettingsWindow {
   private GUI::CheckLabel @chkShowLabels;
   private GUI::CheckLabel @chkShowMyLabel;
   private GUI::CheckLabel @chkEnablePvP;
+  private GUI::CheckLabel @chkPvPFF;
+  private GUI::CheckLabel @chkKeySync;
   private GUI::CheckLabel @chkRaceMode;
   private GUI::CheckLabel @chkBridge;
   private GUI::Label @lblBridgeMessage;
@@ -167,6 +169,9 @@ class SettingsWindow {
   private void setFeaturesGUI() {
     chkShowLabels.checked = showLabels;
     chkShowMyLabel.checked = showMyLabel;
+    chkEnablePvP.checked = enablePvP;
+    chkPvPFF.checked = enablePvPFriendlyFire;
+    chkKeySync.checked = enableSmallKeySync;
     chkRaceMode.checked = raceMode;
     chkDiscordEnable.checked = discordEnable;
     chkDiscordPrivate.checked = discordPrivate;
@@ -184,7 +189,7 @@ class SettingsWindow {
 
   void load() {
     // try to load previous settings from disk:
-    auto @doc = UserSettings::load("alttpo.bml");
+    auto doc = UserSettings::load("alttpo.bml");
     auto version = doc["version"].naturalOr(0);
     serverAddress = doc["server/address"].textOr(ServerAddress);
     if (version == 0) {
@@ -205,8 +210,10 @@ class SettingsWindow {
     showLabels = doc["feature/showLabels"].booleanOr(true);
     showMyLabel = doc["feature/showMyLabel"].booleanOr(false);
     FontIndex = doc["feature/fontIndex"].naturalOr(0);
-    enablePvP = doc["feature/enablePvP"].booleanOr(false);
+    enablePvP = doc["feature/enablePvP"].booleanOr(true);
+    enablePvPFriendlyFire = doc["feature/enablePvPFriendlyFire"].booleanOr(false);
     raceMode = doc["feature/raceMode"].booleanOr(false);
+    enableSmallKeySync = doc["feature/enableSmallKeySync"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
 
@@ -232,7 +239,7 @@ class SettingsWindow {
     showMyLabel = chkShowMyLabel.checked;
     raceMode = chkRaceMode.checked;
 
-    auto @doc = BML::Node();
+    auto doc = BML::Node();
     doc.create("version").value = "1";
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
@@ -246,18 +253,21 @@ class SettingsWindow {
     doc.create("feature/showMyLabel").value = fmtBool(showMyLabel);
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
     doc.create("feature/enablePvP").value = fmtBool(enablePvP);
+    doc.create("feature/enablePvPFriendlyFire").value = fmtBool(enablePvPFriendlyFire);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
+    doc.create("feature/enableSmallKeySync").value = fmtBool(enableSmallKeySync);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
     UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
-    @window = GUI::Window(120, 32, true);
+    @window = GUI::Window(140, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(sx(280), sy(17*25));
+    window.size = GUI::Size(sx(320), sy(18*25));
     window.dismissable = false;
 
+    auto sx150 = sx(150);
     auto sx100 = sx(100);
     auto sx40 = sx(40);
     auto sy20 = sy(20);
@@ -444,7 +454,7 @@ class SettingsWindow {
           "Enable this to see other players' name labels rendered on screen beneath their avatars.";
         chkShowLabels.checked = true;
         chkShowLabels.onToggle(@GUI::Callback(chkShowLabelsChanged));
-        hz.append(chkShowLabels, GUI::Size(-1, 0));
+        hz.append(chkShowLabels, GUI::Size(sx150, 0));
 
         @chkShowMyLabel = GUI::CheckLabel();
         chkShowMyLabel.text = "Show My Label";
@@ -452,7 +462,7 @@ class SettingsWindow {
           "Enable this to see your own player name label rendered on screen beneath your avatar.";
         chkShowMyLabel.checked = true;
         chkShowMyLabel.onToggle(@GUI::Callback(chkShowMyLabelChanged));
-        hz.append(chkShowMyLabel, GUI::Size(-1, 0));
+        hz.append(chkShowMyLabel, GUI::Size(sx150, 0));
       }
 
       {
@@ -472,7 +482,7 @@ class SettingsWindow {
 
         uint len = ppu::fonts_count;
         for (uint i = 0; i < len; i++) {
-          auto @di = GUI::ComboButtonItem();
+          auto di = GUI::ComboButtonItem();
           auto @f = ppu::fonts[i];
           di.text = f.displayName;
           ddlFont.append(di);
@@ -482,7 +492,7 @@ class SettingsWindow {
         ddlFont.onChange(@GUI::Callback(ddlFontChanged));
         ddlFont.enabled = true;
       }
-      
+
       {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, 0));
@@ -490,10 +500,18 @@ class SettingsWindow {
         @chkEnablePvP = GUI::CheckLabel();
         chkEnablePvP.text = "Enable PvP";
         chkEnablePvP.toolTip =
-          "Enable this to enable PvP. This will allow you to hit or even kill players in other teams. ";
+          "Enable this to enable PvP. This will allow you to hit or even kill players in other teams.";
         chkEnablePvP.checked = ::enablePvP;
         chkEnablePvP.onToggle(@GUI::Callback(chkEnablePvPChanged));
-        hz.append(chkEnablePvP, GUI::Size(-1, 0));
+        hz.append(chkEnablePvP, GUI::Size(sx150, 0));
+
+        @chkPvPFF = GUI::CheckLabel();
+        chkPvPFF.text = "PvP Friendly Fire";
+        chkPvPFF.toolTip =
+          "Enables friendly-fire mode for PvP.";
+        chkPvPFF.checked = ::enablePvPFriendlyFire;
+        chkPvPFF.onToggle(@GUI::Callback(chkPvPFFChanged));
+        hz.append(chkPvPFF, GUI::Size(sx150, 0));
       }
 
       {
@@ -509,7 +527,15 @@ class SettingsWindow {
           "real-time screen sync for both overworld and underworld areas.";
         chkRaceMode.checked = false;
         chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
-        hz.append(chkRaceMode, GUI::Size(-1, 0));
+        hz.append(chkRaceMode, GUI::Size(sx150, 0));
+
+        @chkKeySync = GUI::CheckLabel();
+        chkKeySync.text = "Enable Small Key Sync";
+        chkKeySync.toolTip =
+          "EXPERIMENTAL! Enable this to sync small keys. This may cause small keys to be lost.";
+        chkKeySync.checked = ::enableSmallKeySync;
+        chkKeySync.onToggle(@GUI::Callback(chkKeySyncChanged));
+        hz.append(chkKeySync, GUI::Size(sx150, 0));
       }
 
       {
@@ -523,7 +549,7 @@ class SettingsWindow {
           "the visual aspect to see other players live in the same world.";
         chkBridge.checked = false;
         chkBridge.onToggle(@GUI::Callback(chkBridgeChanged));
-        hz.append(chkBridge, GUI::Size(-1, 0));
+        hz.append(chkBridge, GUI::Size(sx150, 0));
 
         @lblBridgeMessage = GUI::Label();
         lblBridgeMessage.text = "";
@@ -551,7 +577,7 @@ class SettingsWindow {
         chkDiscordEnable.enabled = discord::enabled;
         chkDiscordEnable.checked = false;
         chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
-        hz.append(chkDiscordEnable, GUI::Size(-1, 0));
+        hz.append(chkDiscordEnable, GUI::Size(sx150, 0));
 
         @chkDiscordPrivate = GUI::CheckLabel();
         chkDiscordPrivate.text = "Hide Group Name";
@@ -560,7 +586,7 @@ class SettingsWindow {
         chkDiscordPrivate.enabled = discord::enabled;
         chkDiscordPrivate.checked = false;
         chkDiscordPrivate.onToggle(@GUI::Callback(chkDiscordPrivateChanged));
-        hz.append(chkDiscordPrivate, GUI::Size(-1, 0));
+        hz.append(chkDiscordPrivate, GUI::Size(sx150, 0));
       }
 
       {
@@ -643,7 +669,31 @@ class SettingsWindow {
     if (!persist) return;
     save();
   }
-  
+
+  // callback:
+  private void chkPvPFFChanged() {
+    enablePvPFFWasChanged();
+  }
+
+  private void enablePvPFFWasChanged(bool persist = true) {
+    enablePvPFriendlyFire = chkPvPFF.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkKeySyncChanged() {
+    keySyncWasChanged();
+  }
+
+  private void keySyncWasChanged(bool persist = true) {
+    enableSmallKeySync = chkKeySync.checked;
+
+    if (!persist) return;
+    save();
+  }
+
   private void chkRaceModeChanged() {
     raceModeWasChanged();
   }
@@ -759,15 +809,19 @@ class SettingsWindow {
   void connected() {
     btnConnect.enabled = false;
     btnDisconnect.enabled = true;
-    
-    playersWindow.update();
+
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
   }
 
   void disconnected() {
     btnConnect.enabled = true;
     btnDisconnect.enabled = false;
-    
-    playersWindow.update();
+
+    if (playersWindow !is null) {
+      playersWindow.update();
+    }
   }
 
   // callback:
