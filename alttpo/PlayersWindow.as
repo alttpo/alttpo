@@ -5,7 +5,11 @@ class PlayersWindow {
   private GUI::VerticalLayout @vl;
   private GUI::HorizontalLayout @hz;
   private GUI::Label @noPlayersLabel;
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> upstream/unstable
   private array<GUI::Label@> playerLabels;
   
   private array<GameState@>@ playersArray() {
@@ -38,6 +42,12 @@ class PlayersWindow {
         array<uint8> teamNumbers;
         for (uint i = 0; i < ps.length(); i++) {
           auto @p = ps[i];
+<<<<<<< HEAD
+=======
+          if (p is null) {
+            continue;
+          }
+>>>>>>> upstream/unstable
           if (p.ttl <= 0) {
             continue;
           }
@@ -58,6 +68,12 @@ class PlayersWindow {
           uint count = 0;
           for (uint i = 0; i < ps.length(); i++) {
             auto @p = ps[i];
+<<<<<<< HEAD
+=======
+            if (p is null) {
+              continue;
+            }
+>>>>>>> upstream/unstable
             if (p.ttl <= 0) {
               continue;
             }
@@ -93,18 +109,31 @@ class PlayersWindow {
       }
     }
     vl.resize();
+<<<<<<< HEAD
   }
 
   PlayersWindow() {
     @window = GUI::Window(-260, 48, true);
     window.title = "Online players";
     window.size = GUI::Size(sx(260), sy(16*25));
+=======
+    window.visible = true;
+  }
+
+  PlayersWindow() {
+    @window = GUI::Window(260, 48, true);
+    window.title = "Online players";
+    window.size = GUI::Size(sx(340), sy(16*25));
+>>>>>>> upstream/unstable
     window.dismissable = false;
     window.backgroundColor = GUI::Color(28, 28, 28);
     window.font = GUI::Font("{sans}", 12);
 
     update();
+<<<<<<< HEAD
 
     window.visible = true;
+=======
+>>>>>>> upstream/unstable
   }
 }

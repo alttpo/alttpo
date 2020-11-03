@@ -17,7 +17,7 @@ bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
 bool enableMap = true;
-bool enablePlayerList = true;
+bool enablePlayerList = false;
 bool enableBgMusic = true;
 
 bool enableRenderToExtra = true;
@@ -70,6 +70,10 @@ void init() {
   if (debugMemory) {
     @memoryWindow = MemoryWindow();
   }
+
+  if (enablePlayerList) {
+    @playersWindow = PlayersWindow();
+  }
 }
 
 void cartridge_loaded() {
@@ -118,12 +122,7 @@ void cartridge_loaded() {
       worldMapWindow.add_sm_button();
     }
   }
-  
-  //show player list when cartridge loaded:
-  if(enablePlayerList) {
-    @playersWindow = PlayersWindow();
-  }
-  
+
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
   }
@@ -165,6 +164,11 @@ string padTo(string value, int len) {
 
 string fmtBool(bool value) {
   return value ? "true" : "false";
+}
+
+uint16 min(uint16 a, uint16 b){
+    if (a < b) return a;
+    return b;
 }
 
 LocalGameState@ local = null;

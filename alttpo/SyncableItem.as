@@ -463,6 +463,7 @@ const array<string> @glovesNames      = {"Power Gloves", "Titan's Mitts"};
 const array<string> @bootsNames       = {"Pegasus Boots"};
 const array<string> @flippersNames    = {"Flippers"};
 const array<string> @moonpearlNames   = {"Moon Pearl"};
+const array<string> @coatNames        = {"Coat"};
 const array<string> @swordNames       = {"Fighter Sword", "Master Sword", "Tempered Sword", "Golden Sword"};
 const array<string> @shieldNames      = {"Blue Shield", "Red Shield", "Mirror Shield"};
 const array<string> @armorNames       = {"Blue Mail", "Red Mail"};
@@ -502,6 +503,7 @@ void nameForGloves           (uint16 _, uint16 new, NotifyItemReceived @notify) 
 void nameForBoots            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(bootsNames, notify, new); }
 void nameForFlippers         (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(flippersNames, notify, new); }
 void nameForMoonpearl        (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(moonpearlNames, notify, new); }
+void nameForCoat             (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(coatNames, notify, new); }
 void nameForSword            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(swordNames, notify, new); }
 void nameForShield           (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(shieldNames, notify, new); }
 void nameForArmor            (uint16 _, uint16 new, NotifyItemReceived @notify) { notifySingleItem(armorNames, notify, new); }
