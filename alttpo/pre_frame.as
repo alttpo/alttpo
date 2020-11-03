@@ -21,6 +21,10 @@ void on_main_alttp(uint32 pc) {
   local.set_in_sm(!rom.is_alttp());
 
   local.fetch();
+  
+  if(rom.is_smz3()){
+    local.fetch_games_won();
+  }
 
   // NOTE: commented this line out because it causes "X left" "X joined" messages for the local player when in dialogs
   // or cut-scenes.
@@ -127,6 +131,7 @@ void on_main_sm(uint32 pc) {
 
   local.get_sm_coords();
   local.fetch_sm_events();
+  local.fetch_games_won();
   if (sm_state < 0x0c || sm_state > 0x12) local.get_sm_sprite_data();
 
   local.module = 0x00;
@@ -170,6 +175,7 @@ void on_main_sm(uint32 pc) {
         local.update_items(sram_buffer, true);
 
         local.update_sm_events();
+        local.update_games_won();
       }
     }
   }

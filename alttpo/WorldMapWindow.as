@@ -540,6 +540,10 @@ class WorldMapWindow {
         uint py = p.sm_y + p.sm_room_y;
         uint offsx = metroid_area_base_x(p.sm_area);
         uint offsy = metroid_area_base_Y(p.sm_area);
+        
+        if (p.sm_area == 0 && p.sm_room_x >= 0x31){
+          px += 7;
+        }
 
         float squareSize = mapscale * 8;
 

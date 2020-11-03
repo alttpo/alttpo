@@ -5,7 +5,6 @@ class PlayersWindow {
   private GUI::VerticalLayout @vl;
   private GUI::HorizontalLayout @hz;
   private GUI::Label @noPlayersLabel;
-
   private array<GUI::Label@> playerLabels;
   
   private array<GameState@>@ playersArray() {

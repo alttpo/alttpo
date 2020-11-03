@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x11;
+const uint8 script_protocol = 0x12;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -107,6 +107,7 @@ class GameState {
   uint8 sm_room_x, sm_room_y, sm_pose;
   uint16 offsm1, offsm2;
   uint8 in_sm;
+  uint8 sm_clear, z3_clear;
 
   uint8 _module;
   uint8 module {
@@ -857,6 +858,8 @@ class GameState {
     for (int i = 0; i < 0x52; i++) {
         sm_events[i] = r[c++];
     }
+    sm_clear = r[c++];
+    z3_clear = r[c++];
     return c;
   }
 
@@ -1315,10 +1318,16 @@ class GameState {
         case 0x00: return 6;
         case 0x03: return 1;
         case 0x04: return 1;
+        case 0x1d: return 4;
+        case 0x1e: return 4;
+        case 0x1f: return 4;
         case 0x27: return 2;
         case 0x28: return 2;
+        case 0x31: return 4;
+        case 0x32: return 4;
         case 0x38: return 3;
         case 0x3e: return 3;
+        case 0x41: return 4;
         case 0x43: return 3;
         case 0x44: return 3;
         case 0x4b: return 7;
@@ -1364,8 +1373,14 @@ class GameState {
     switch (pose){
         case 0x03: return -34;
         case 0x04: return -34;
+        case 0x1d: return -14;
+        case 0x1e: return -14;
+        case 0x1f: return -14;
         case 0x27: return -22;
         case 0x28: return -22;
+        case 0x31: return -14;
+        case 0x32: return -14;
+        case 0x41: return -14;
         case 0x43: return -22;
         case 0x44: return -22;
         case 0x71: return -22;
