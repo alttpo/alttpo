@@ -22,7 +22,7 @@ void on_main_alttp(uint32 pc) {
 
   local.fetch();
   
-  if(rom.is_smz3){
+  if(rom.is_smz3()){
     local.fetch_games_won();
   }
 

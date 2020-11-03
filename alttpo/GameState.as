@@ -107,6 +107,7 @@ class GameState {
   uint8 sm_room_x, sm_room_y, sm_pose;
   uint16 offsm1, offsm2;
   uint8 in_sm;
+  uint8 sm_clear, z3_clear;
 
   uint8 _module;
   uint8 module {
@@ -1379,7 +1380,7 @@ class GameState {
         case 0x28: return -22;
         case 0x31: return -14;
         case 0x32: return -14;
-        case 0x41: return -14
+        case 0x41: return -14;
         case 0x43: return -22;
         case 0x44: return -22;
         case 0x71: return -22;

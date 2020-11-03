@@ -1087,8 +1087,8 @@ class LocalGameState : GameState {
   }
   
   void fetch_games_won(){
-    sm_clear = bus.read_u8(0xa17402);
-    z3_clear = bus.read_u8(0xa17506);
+    sm_clear = bus::read_u8(0xa17402);
+    z3_clear = bus::read_u8(0xa17506);
   }
 
   void serialize_location(array<uint8> &r) {
@@ -2407,6 +2407,8 @@ class LocalGameState : GameState {
   }
   
   void update_games_won(){
+     uint len = players.length();
+  
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -2419,8 +2421,8 @@ class LocalGameState : GameState {
       z3_clear = z3_clear | remote.z3_clear;
     }
     
-    bus.write_u8(0xa17402, sm_clear);
-    bus.write_u8(0xa17506, z3_clear);
+    bus::write_u8(0xa17402, sm_clear);
+    bus::write_u8(0xa17506, z3_clear);
   }
 
   // Notifications system:
