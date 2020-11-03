@@ -1085,6 +1085,11 @@ class LocalGameState : GameState {
       sm_events[i - 0x60] = bus::read_u8(0x7ED820 + i);
     }
   }
+  
+  void fetch_games_won(){
+    sm_clear = bus.read_u8(0xa17402);
+    z3_clear = bus.read_u8(0xa17506);
+  }
 
   void serialize_location(array<uint8> &r) {
     r.write_u8(uint8(0x01));
@@ -1293,6 +1298,9 @@ class LocalGameState : GameState {
     for (int i = 0; i < 0x52; i++) {
       r.write_u8(sm_events[i]);
     }
+    
+    r.write_u8(sm_clear);
+    r.write_u8(z3_clear);
   }
 
   uint send_sprites(uint p) {
@@ -2396,6 +2404,23 @@ class LocalGameState : GameState {
     for (int i = 0x90; i < 0xB0; i++) {
       bus::write_u8(0x7ED820 + i, sm_events[i - 0x60]);
     }
+  }
+  
+  void update_games_won(){
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl < 0) continue;
+      if (remote.team != team) continue;
+      if (!remote.in_sm_for_items) continue;
+
+      sm_clear = sm_clear | remote.sm_clear;
+      z3_clear = z3_clear | remote.z3_clear;
+    }
+    
+    bus.write_u8(0xa17402, sm_clear);
+    bus.write_u8(0xa17506, z3_clear);
   }
 
   // Notifications system:
