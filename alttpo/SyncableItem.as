@@ -145,7 +145,6 @@ class SyncableItem {
       case 0x03:
         eold = bus::read_u8(base + offs - 2);
         if ((newValue ^ oldValue) & 0x40 == 0x40){
-          message("Tried to update hud");
           bus::write_u16(0x7ec630, 0x3438);
           bus::write_u16(0x7ec632, 0x7438);
           bus::write_u16(0x7ec670, 0x3439);
