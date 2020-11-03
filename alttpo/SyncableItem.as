@@ -163,7 +163,7 @@ class SyncableItem {
         //special crap here to avoid the murder beam
         eold = bus::read_u8(base + offs - 2);
         enew = (newValue ^ oldValue) | eold;
-        if(enew & 0x0C == 0x0C) enew = enew & 0xFB;
+        if(enew & 0x08 == 0x08) enew = enew & 0xFB;
         bus::write_u8( base + offs - 2, enew) ;
         break;
       case 0x07:
