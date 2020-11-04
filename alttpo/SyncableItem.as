@@ -171,14 +171,33 @@ class SyncableItem {
         bus::write_u8(base + offs - 2, enew);
         break;
       case 0x26:
+        old_count = bus::read_u8(base + offs - 2);
+        diff = newValue - oldValue;
+        bus::write_u8(base + offs - 2, old_count + diff);
+        local.notify("Got " + fmtInt(diff) + " Missiles");
+        break;
       case 0x2a:
+        old_count = bus::read_u8(base + offs - 2);
+        diff = newValue - oldValue;
+        bus::write_u8(base + offs - 2, old_count + diff);
+        local.notify("Got " + fmtInt(diff) + " Super Missiles");
+        break;
       case 0x2e:
         old_count = bus::read_u8(base + offs - 2);
         diff = newValue - oldValue;
         bus::write_u8(base + offs - 2, old_count + diff);
+        local.notify("Got " + fmtInt(diff) + " Power Bombs");
         break;
       case 0x22:
         bus::write_u16(base + offs - 2, bus::read_u16(base + offs));
+        diff = newValue - oldValue;
+        if (diff/100 == 1) local.notify("Got " + fmtInt(diff/100) + " Energy Tank");
+        else local.notify("Got " + fmtInt(diff/100) + " Energy Tanks");
+        break;
+       case 0x32:
+        diff = newValue - oldValue;
+        if (diff/100 == 1) local.notify("Got " + fmtInt(diff/100) + " Reserve Tank");
+        else local.notify("Got " + fmtInt(diff/100) + " Reserve Tanks");
         break;
       default: return;
     }
