@@ -3,8 +3,6 @@ const uint MaxPacketSize = 1452;
 
 const uint OverworldAreaCount = 0x82;
 
-uint8 gotShield;
-
 class ALTTPSRAMArray : SRAMArray {
   bool is_buffer;
 
@@ -82,6 +80,8 @@ class LocalGameState : GameState {
 
   uint8 state;
   uint32 last_sent = 0;
+  
+  uint8 gotShield;
   
   AncillaTables ancillaTables;
   array<Projectile> projectiles;
