@@ -1209,10 +1209,10 @@ class GameState {
     }
     //load data from vram into sprs
     
-    for (int i = 0; i < len1; i++) {
+    for (uint16 i = 0; i < len1; i++) {
         bus::read_block_u16(transfer0 + 0x20 * i, 0, 16, sprs[i]);
     }
-    for (int i = 0; i < len2; i++) {
+    for (uint16 i = 0; i < len2; i++) {
         bus::read_block_u16(transfer1 + 0x20 * i, 0, 16, sprs[i+16]);
     }
     
