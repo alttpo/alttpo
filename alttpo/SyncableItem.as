@@ -38,6 +38,8 @@ funcdef uint16 ItemMutate(SRAM@ localSRAM, uint16 oldValue, uint16 newValue);
 funcdef void NotifyItemReceived(const string &in name);
 funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
 
+uint8 gotShield;
+
 // list of SRAM values to sync as items:
 class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
@@ -327,12 +329,17 @@ uint16 mutateSword(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
 }
 
 uint16 mutateShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
-  if (newValue > oldValue) {
+  if(gotShield == 0)
+  {
+    gotShield = newValue;
+  }
+  if (newValue > oldValue && newValue > gotShield) {
     if (rom.is_alttp()) {
       // JSL DecompShieldGfx
       pb.jsl(rom.fn_decomp_shield_gfx);
       pb.jsl(rom.fn_shield_palette);
     }
+    gotShield = newValue;
     return newValue;
   }
   return oldValue;
