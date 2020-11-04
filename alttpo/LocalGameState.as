@@ -3,6 +3,8 @@ const uint MaxPacketSize = 1452;
 
 const uint OverworldAreaCount = 0x82;
 
+uint8 gotShield;
+
 class ALTTPSRAMArray : SRAMArray {
   bool is_buffer;
 
@@ -80,7 +82,7 @@ class LocalGameState : GameState {
 
   uint8 state;
   uint32 last_sent = 0;
-
+  
   AncillaTables ancillaTables;
   array<Projectile> projectiles;
 
@@ -150,6 +152,8 @@ class LocalGameState : GameState {
 
     small_keys_current.reset();
     last_sent = 0;
+    
+    gotShield = 0;
   }
 
   bool registered = false;

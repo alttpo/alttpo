@@ -38,8 +38,6 @@ funcdef uint16 ItemMutate(SRAM@ localSRAM, uint16 oldValue, uint16 newValue);
 funcdef void NotifyItemReceived(const string &in name);
 funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
 
-uint8 gotShield;
-
 // list of SRAM values to sync as items:
 class SyncableItem {
   uint16  offs;   // SRAM offset from $7EF000 base address
