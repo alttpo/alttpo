@@ -80,7 +80,9 @@ class LocalGameState : GameState {
 
   uint8 state;
   uint32 last_sent = 0;
-
+  
+  uint8 gotShield;
+  
   AncillaTables ancillaTables;
   array<Projectile> projectiles;
 
@@ -150,6 +152,8 @@ class LocalGameState : GameState {
 
     small_keys_current.reset();
     last_sent = 0;
+    
+    gotShield = 0;
   }
 
   bool registered = false;
