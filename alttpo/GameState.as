@@ -1163,6 +1163,11 @@ class GameState {
     int p = 0; // palette int, use is unknown
     int protocol = determine_protocol(sm_pose); // decides which protocol is used for placing samus' blocks to build the sprite
     
+    palette[1] = player_color_dark_33;
+    palette[2] = player_color;
+    palette[11] = player_color_dark_33;
+    palette[10] = player_color_dark_50;
+    
     int offsx = offs_x(sm_pose); // X offset to align sprite with actual location, differs by pose
     int offsy = offs_y(sm_pose); // Y offset to align sprite with actual location, differs by pose 
     

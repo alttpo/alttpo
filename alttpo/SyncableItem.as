@@ -169,6 +169,7 @@ class SyncableItem {
         eold = bus::read_u8(base + offs - 2);
         enew = (newValue ^ oldValue) | eold;
         bus::write_u8(base + offs - 2, enew);
+        local.notify("Got Charge Beam");
         break;
       case 0x26:
         old_count = bus::read_u8(base + offs - 2);
