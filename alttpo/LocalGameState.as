@@ -2502,10 +2502,10 @@ class LocalGameState : GameState {
   }
   
   void update_sm_palette(){
-    palette[1] = player_color_dark_33;
-    palette[2] = player_color;
-    palette[11] = player_color_dark_33;
-    palette[10] = player_color_dark_50;
+    sm_palette[1] = player_color_dark_33;
+    sm_palette[2] = player_color;
+    sm_palette[11] = player_color_dark_33;
+    sm_palette[10] = player_color_dark_50;
   }
 
   // detect attacks from us against all nearby players:
