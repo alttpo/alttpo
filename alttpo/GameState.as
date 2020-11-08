@@ -1136,24 +1136,6 @@ class GameState {
       }
     }
   }
-
-  void get_sm_coords() {
-    if (sm_loading_room()) return;
-    sm_area = bus::read_u8(0x7E079f);
-    sm_x = bus::read_u8(0x7E0AF7);
-    sm_y = bus::read_u8(0x7E0AFB);
-    sm_sub_x = bus::read_u8(0x7E0AF6);
-    sm_sub_y = bus::read_u8(0x7E0AFA);
-    sm_room_x = bus::read_u8(0x7E07A1);
-    sm_room_y = bus::read_u8(0x7E07A3);
-    sm_pose = bus::read_u8(0x7E0A1C);
-  }
-  
-  void get_sm_sprite_data(){
-    offsm1 = bus::read_u16(0x7e071f);
-    offsm2 = bus::read_u16(0x7e0721);
-    bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
-  }
   
   int draw_samus(int x, int y, int ei){
     //message("attempted to draw a samus");
@@ -1162,6 +1144,11 @@ class GameState {
     array<uint16> palette = sm_palette;
     int p = 0; // palette int, use is unknown
     int protocol = determine_protocol(sm_pose); // decides which protocol is used for placing samus' blocks to build the sprite
+    
+    palette[1] = player_color_dark_33;
+    palette[2] = player_color;
+    palette[11] = player_color_dark_33;
+    palette[10] = player_color_dark_50;
     
     int offsx = offs_x(sm_pose); // X offset to align sprite with actual location, differs by pose
     int offsy = offs_y(sm_pose); // Y offset to align sprite with actual location, differs by pose 
