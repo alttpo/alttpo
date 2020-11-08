@@ -414,11 +414,11 @@ class GER_EURROMMapping : ROMMapping {
   uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; }
   uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
 
-  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_sword_palette() property       { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_shield_palette() property      { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D248; }
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D288; }
+  uint32 get_fn_sword_palette() property       { return 0x1BED03; }
+  uint32 get_fn_shield_palette() property      { return 0x1BED29; }
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
 };
 
 class JPROMMapping : ROMMapping {
