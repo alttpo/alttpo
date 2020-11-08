@@ -132,7 +132,13 @@ void on_main_sm(uint32 pc) {
   local.get_sm_coords();
   local.fetch_sm_events();
   local.fetch_games_won();
-  if (sm_state < 0x0c || sm_state > 0x12) local.get_sm_sprite_data();
+  if (sm_state < 0x0c || sm_state > 0x12){ 
+    local.get_sm_sprite_data();
+    if (settings.SyncTunic){
+      local.update_sm_palette();
+    }
+  }
+  
 
   local.module = 0x00;
   local.sub_module = 0x00;
