@@ -64,8 +64,18 @@ namespace discord {
       activity.Type = 1;  // Playing
       activity.Details = rom.title;
 
-      activity.Assets.LargeImage = "logo";
-      activity.Assets.LargeText = "ALttPO";
+      if (rom !is null) {
+        if ((cast<SMZ3Mapping>(rom) !is null) || (cast<VanillaSMMappping>(rom) !is null)) {
+          activity.Assets.LargeImage = "logo";
+          activity.Assets.LargeText = "SMZ3O";
+        } else {
+          activity.Assets.LargeImage = "logo";
+          activity.Assets.LargeText = "ALttPO";
+        }
+      } else {
+        activity.Assets.LargeImage = "logo";
+        activity.Assets.LargeText = "ALttPO";
+      }
       //activity.Assets.SmallImage = "logo";
       //activity.Assets.SmallText = "small text";
 
