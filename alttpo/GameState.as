@@ -1305,6 +1305,8 @@ class GameState {
         case 0x1f: return 4;
         case 0x27: return 2;
         case 0x28: return 2;
+        case 0x29: return 1;
+        case 0x2a: return 1;
         case 0x31: return 4;
         case 0x32: return 4;
         case 0x38: return 3;
@@ -1330,6 +1332,7 @@ class GameState {
         case 0x80: return 4;
         case 0x81: return 5;
         case 0x82: return 5;
+        case 0x9b: return 1;
         case 0xa4: return 7;
         case 0xa5: return 7;
         default: return 0;
