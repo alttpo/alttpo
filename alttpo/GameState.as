@@ -1150,11 +1150,11 @@ class GameState {
     
     //initialize tile
     auto @tile = ppu::extra[ei++];
-    tile.index = 0;
-    tile.source = 5;
+    tile.index = 127;
+    tile.source = 4;
     tile.x = x + offsx;
     tile.y = y + offsy;
-    tile.priority = 261;
+    tile.priority = 0x106; //0x106-0x108
     tile.hflip = false;
     tile.vflip = false;
     tile.width = 64;
