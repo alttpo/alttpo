@@ -1082,11 +1082,11 @@ class LocalGameState : GameState {
     for (int i = 0; i < 0x12; i++) {
       sm_events[i] = bus::read_u8(0x7ED820 + i);
     }
-    for (int i = 0x50; i < 0x70; i++) {
-      sm_events[i - 0x40] = bus::read_u8(0x7ED820 + i);
+    for (int i = 0; i < 0x20; i++) {
+      sm_events[i + 0x12] = bus::read_u8(0x7ED870 + i);
     }
-    for (int i = 0x90; i < 0xB0; i++) {
-      sm_events[i - 0x60] = bus::read_u8(0x7ED820 + i);
+    for (int i = 0; i < 0x20; i++) {
+      sm_events[i + 0x12 + 0x20] = bus::read_u8(0x7ED8B0 + i);
     }
   }
   
@@ -2399,14 +2399,14 @@ class LocalGameState : GameState {
       }
     }
 
-    for (int i = 0; i < 0x10; i++) {
+    for (int i = 0; i < 0x12; i++) {
       bus::write_u8(0x7ED820 + i, sm_events[i]);
     }
-    for (int i = 0x50; i < 0x70; i++) {
-      bus::write_u8(0x7ED820 + i, sm_events[i - 0x40]);
+    for (int i = 0; i < 0x20; i++) {
+      bus::write_u8(0x7ED870 + i, sm_events[i + 0x12]);
     }
-    for (int i = 0x90; i < 0xB0; i++) {
-      bus::write_u8(0x7ED820 + i, sm_events[i - 0x60]);
+    for (int i = 0; i < 0x20; i++) {
+      bus::write_u8(0x7ED8B0 + i, sm_events[i + 0x12 + 0x20]);
     }
   }
   

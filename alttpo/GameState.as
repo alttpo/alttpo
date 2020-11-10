@@ -1346,7 +1346,7 @@ class GameState {
         case 0x06: return -22;
         case 0x08: return -22;
         
-        default: return -15;
+        default: return -13;
     }
     
     
