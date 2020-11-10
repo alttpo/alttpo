@@ -2501,11 +2501,27 @@ class LocalGameState : GameState {
     bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
   }
   
+  bool deselect_tunic_sync_sm;
   void update_sm_palette(){
     sm_palette[1] = player_color_dark_33;
     sm_palette[2] = player_color;
     sm_palette[11] = player_color_dark_33;
     sm_palette[10] = player_color_dark_50;
+  }
+  
+  void update_local_suit(){
+    if(!rom.is_alttp()){
+    if(settings.SyncTunic){
+      bus::write_u16(0x7ec182, player_color_dark_33);
+      bus::write_u16(0x7ec184, player_color);
+      bus::write_u16(0x7ec196, player_color_dark_33);
+      bus::write_u16(0x7ec194, player_color_dark_33);
+     } else if(deselect_tunic_sync_sm){
+      bus::write_u16(0x7e0a48, 0x06);
+     }
+  }
+  
+  deselect_tunic_sync_sm = settings.SyncTunic;
   }
 
   // detect attacks from us against all nearby players:

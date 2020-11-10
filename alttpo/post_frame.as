@@ -95,6 +95,8 @@ void post_frame() {
   if (memoryWindow !is null) {
     memoryWindow.update();
   }
+  
+  local.update_local_suit();
 
   if (settings.EnablePvP && debugData) {
     uint len = players.length();
