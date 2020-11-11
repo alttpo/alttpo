@@ -119,6 +119,10 @@ bool sm_loading_room() {
   return sm_state == 0x0b;
 }
 
+bool sm_in_menu(){
+  return (sm_state >= 0x0c && sm_state <= 0x12);
+}
+
 // Super Metroid main loop intercept:
 void on_main_sm(uint32 pc) {
   //message("main_sm");
@@ -132,7 +136,7 @@ void on_main_sm(uint32 pc) {
   local.get_sm_coords();
   local.fetch_sm_events();
   local.fetch_games_won();
-  if (sm_state < 0x0c || sm_state > 0x12){ 
+  if (!sm_in_menu()){ 
     local.get_sm_sprite_data();
     if (settings.SyncTunic){
       local.update_sm_palette();
@@ -296,7 +300,7 @@ void pre_frame() {
       if (enableRenderToExtra) {
         ei = remote.renderToExtra(rx, ry, ei);
 
-        if (settings.ShowLabels) {
+        if (settings.ShowLabels && ! sm_in_menu()) {
           ei = remote.renderLabel(rx, ry, ei);
         }
       } else {
@@ -330,7 +334,7 @@ void pre_frame() {
         ei = local.renderNotifications(ei);
       }
       
-      if (settings.ShowMyLabel && !sm_loading_room()){
+      if (settings.ShowMyLabel && !sm_loading_room() && !sm_in_menu()){
         int offset_x = int(bus::read_u16(0x7e0b04));
         int offset_y = int(bus::read_u16(0x7e0b06));
         
