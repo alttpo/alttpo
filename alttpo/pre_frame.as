@@ -272,6 +272,10 @@ void pre_frame() {
       
       
       ei = remote.draw_samus(rx, ry, ei);
+      
+      if (settings.ShowLabels){
+          ei = remote.render_sm_label(rx - 8, ry - 64, ei);
+      }
     
       continue;
     }
@@ -324,6 +328,13 @@ void pre_frame() {
       sm_state = bus::read_u8(0x7E0998);
       if (sm_is_safe_state()) {
         ei = local.renderNotifications(ei);
+      }
+      
+      if (settings.ShowMyLabel){
+        int offset_x = int(bus::read_u16(0x7e0b04));
+        int offset_y = int(bus::read_u16(0x7e0b06));
+        
+        ei = local.render_sm_label(offset_x - 8, offset_y - 64, ei);
       }
     }
 
