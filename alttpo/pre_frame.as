@@ -330,7 +330,7 @@ void pre_frame() {
         ei = local.renderNotifications(ei);
       }
       
-      if (settings.ShowMyLabel){
+      if (settings.ShowMyLabel && !sm_loading_room){
         int offset_x = int(bus::read_u16(0x7e0b04));
         int offset_y = int(bus::read_u16(0x7e0b06));
         
