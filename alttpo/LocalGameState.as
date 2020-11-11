@@ -1082,11 +1082,11 @@ class LocalGameState : GameState {
     for (int i = 0; i < 0x12; i++) {
       sm_events[i] = bus::read_u8(0x7ED820 + i);
     }
-    for (int i = 0x50; i < 0x70; i++) {
-      sm_events[i - 0x40] = bus::read_u8(0x7ED820 + i);
+    for (int i = 0; i < 0x20; i++) {
+      sm_events[i + 0x12] = bus::read_u8(0x7ED870 + i);
     }
-    for (int i = 0x90; i < 0xB0; i++) {
-      sm_events[i - 0x60] = bus::read_u8(0x7ED820 + i);
+    for (int i = 0; i < 0x20; i++) {
+      sm_events[i + 0x12 + 0x20] = bus::read_u8(0x7ED8B0 + i);
     }
   }
   
@@ -2399,14 +2399,14 @@ class LocalGameState : GameState {
       }
     }
 
-    for (int i = 0; i < 0x10; i++) {
+    for (int i = 0; i < 0x12; i++) {
       bus::write_u8(0x7ED820 + i, sm_events[i]);
     }
-    for (int i = 0x50; i < 0x70; i++) {
-      bus::write_u8(0x7ED820 + i, sm_events[i - 0x40]);
+    for (int i = 0; i < 0x20; i++) {
+      bus::write_u8(0x7ED870 + i, sm_events[i + 0x12]);
     }
-    for (int i = 0x90; i < 0xB0; i++) {
-      bus::write_u8(0x7ED820 + i, sm_events[i - 0x60]);
+    for (int i = 0; i < 0x20; i++) {
+      bus::write_u8(0x7ED8B0 + i, sm_events[i + 0x12 + 0x20]);
     }
   }
   
@@ -2501,11 +2501,27 @@ class LocalGameState : GameState {
     bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
   }
   
+  bool deselect_tunic_sync_sm;
   void update_sm_palette(){
     sm_palette[1] = player_color_dark_33;
     sm_palette[2] = player_color;
     sm_palette[11] = player_color_dark_33;
     sm_palette[10] = player_color_dark_50;
+  }
+  
+  void update_local_suit(){
+    if(!rom.is_alttp()){
+    if(settings.SyncTunic){
+      bus::write_u16(0x7ec182, player_color_dark_33);
+      bus::write_u16(0x7ec184, player_color);
+      bus::write_u16(0x7ec196, player_color_dark_33);
+      bus::write_u16(0x7ec194, player_color_dark_33);
+     } else if(deselect_tunic_sync_sm){
+      bus::write_u16(0x7e0a48, 0x06);
+     }
+  }
+  
+  deselect_tunic_sync_sm = settings.SyncTunic;
   }
 
   // detect attacks from us against all nearby players:

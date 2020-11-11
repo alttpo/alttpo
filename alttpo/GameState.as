@@ -1098,6 +1098,31 @@ class GameState {
 
     return ei;
   }
+  
+  int render_sm_label(int dx, int dy, int ei) {
+
+    // render player name as text:
+    auto @label = ppu::extra[ei++];
+    label.reset();
+    label.index = 127;
+    label.source = 4;
+    label.priority = 0x106;
+
+    // measure player name to set bounds of tile with:
+    auto width = ppu::extra.font.measureText(_name);
+    label.width = width + 2;
+    label.height = ppu::extra.font.height + 2;
+
+    // render player name as text into tile, making room for 1px outline:
+    ppu::extra.color = player_color;
+    ppu::extra.outline_color = player_color_dark_33;
+    label.text(1, 1, _name);
+
+    label.x = (x - xoffs + dx + 8) - (label.width >> 1);
+    label.y = (y - yoffs + 17 + dy) + 8;
+
+    return ei;
+  }
 
   uint8 adjust_sfx_pan(uint8 sfx) {
     // Try to infer the sound's relative(ish) position from the remote player
@@ -1150,11 +1175,11 @@ class GameState {
     
     //initialize tile
     auto @tile = ppu::extra[ei++];
-    tile.index = 0;
-    tile.source = 5;
+    tile.index = 127;
+    tile.source = 4;
     tile.x = x + offsx;
     tile.y = y + offsy;
-    tile.priority = 261;
+    tile.priority = 0x106; //0x106-0x108
     tile.hflip = false;
     tile.vflip = false;
     tile.width = 64;
@@ -1305,6 +1330,8 @@ class GameState {
         case 0x1f: return 4;
         case 0x27: return 2;
         case 0x28: return 2;
+        case 0x29: return 1;
+        case 0x2a: return 1;
         case 0x31: return 4;
         case 0x32: return 4;
         case 0x38: return 3;
@@ -1330,6 +1357,7 @@ class GameState {
         case 0x80: return 4;
         case 0x81: return 5;
         case 0x82: return 5;
+        case 0x9b: return 1;
         case 0xa4: return 7;
         case 0xa5: return 7;
         default: return 0;
@@ -1343,7 +1371,7 @@ class GameState {
         case 0x06: return -22;
         case 0x08: return -22;
         
-        default: return -15;
+        default: return -13;
     }
     
     
