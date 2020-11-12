@@ -1683,7 +1683,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
       if (remote.is_it_a_bad_time()) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.in_sm == 1) continue;
 
       // update crystal switches to latest state among all players in same dungeon:
       if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
