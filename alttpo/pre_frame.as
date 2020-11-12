@@ -74,6 +74,8 @@ void on_main_alttp(uint32 pc) {
       local.update_items(sram);
       if (rom.is_smz3()) {
         local.update_items(sram_buffer, true);
+        local.update_sm_events_buffer();
+        local.update_games_won();
       }
     }
 

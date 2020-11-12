@@ -510,6 +510,10 @@ class LocalGameState : GameState {
     fetch_tilemap_changes();
 
     fetch_torches();
+    
+    if (rom.is_smz3()){
+      fetch_sm_events_buffer();
+    }
   }
 
   void fetch_pvp() {
@@ -1087,6 +1091,22 @@ class LocalGameState : GameState {
     }
     for (int i = 0; i < 0x20; i++) {
       sm_events[i + 0x12 + 0x20] = bus::read_u8(0x7ED8B0 + i);
+    }
+  }
+  
+  void fetch_sm_events_buffer() {
+    if (!in_sm_for_items) return;
+    
+    //$a16070 is the start of the buffer for the super metroid events
+    
+    for (int i = 0; i < 0x12; i++) {
+      sm_events[i] = bus::read_u8(0xa16070 + i);
+    }
+    for (int i = 0; i < 0x20; i++) {
+      sm_events[i + 0x12] = bus::read_u8(0xa160c0 + i);
+    }
+    for (int i = 0; i < 0x20; i++) {
+      sm_events[i + 0x12 + 0x20] = bus::read_u8(0xa16100 + i);
     }
   }
   
@@ -2392,7 +2412,6 @@ class LocalGameState : GameState {
       if (remote is local) continue;
       if (remote.ttl < 0) continue;
       if (remote.team != team) continue;
-      if (!remote.in_sm_for_items) continue;
 
       for (int j = 0; j < 0x52; j++) {
         sm_events[j] = remote.sm_events[j] | sm_events[j];
@@ -2410,9 +2429,38 @@ class LocalGameState : GameState {
     }
   }
   
-  void update_games_won(){
-     uint len = players.length();
+  void update_sm_events_buffer() {
+    uint len = players.length();
+
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl < 0) continue;
+      if (remote.team != team) continue;
+
+      for (int j = 0; j < 0x52; j++) {
+        sm_events[j] = remote.sm_events[j] | sm_events[j];
+      }
+    }
+
+    for (int i = 0; i < 0x12; i++) {
+      bus::write_u8(0xa16070 + i, sm_events[i]);
+    }
+    for (int i = 0; i < 0x20; i++) {
+      bus::write_u8(0xa160c0 + i, sm_events[i + 0x12]);
+    }
+    for (int i = 0; i < 0x20; i++) {
+      bus::write_u8(0xa16100 + i, sm_events[i + 0x12 + 0x20]);
+    }
+  }
   
+  void update_games_won(){
+    uint len = players.length();
+      
+    uint8 temp_sm_clear = sm_clear;
+    uint8 temp_z3_clear = z3_clear;
+      
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
       if (remote is null) continue;
@@ -2425,8 +2473,15 @@ class LocalGameState : GameState {
       z3_clear = z3_clear | remote.z3_clear;
     }
     
-    bus::write_u8(0xa17402, sm_clear);
-    bus::write_u8(0xa17506, z3_clear);
+    if (temp_sm_clear != sm_clear){
+      notify("Quest Kill Mother Brain Completed");
+      bus::write_u8(0xa17402, sm_clear);
+    }
+    
+    if (temp_sm_clear != sm_clear){
+      notify("Quest Kill Gannon Completed");
+      bus::write_u8(0xa17506, z3_clear);
+    }
   }
 
   // Notifications system:

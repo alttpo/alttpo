@@ -1118,8 +1118,8 @@ class GameState {
     ppu::extra.outline_color = player_color_dark_33;
     label.text(1, 1, _name);
 
-    label.x = (x - xoffs + dx + 8) - (label.width >> 1);
-    label.y = (y - yoffs + 17 + dy) + 8;
+    label.x = (dx + 8) - (label.width >> 1);
+    label.y = (17 + dy) + 8;
 
     return ei;
   }
