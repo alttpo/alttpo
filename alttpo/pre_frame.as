@@ -24,6 +24,7 @@ void on_main_alttp(uint32 pc) {
   
   if(rom.is_smz3()){
     local.fetch_games_won();
+    local.fetch_sm_events_buffer();
   }
 
   // NOTE: commented this line out because it causes "X left" "X joined" messages for the local player when in dialogs

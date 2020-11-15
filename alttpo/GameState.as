@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x12;
+const uint8 script_protocol = 0x13;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -184,7 +184,7 @@ class GameState {
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
-  array<uint8> sm_events(0x52);
+  array<uint8> sm_events(0x54);
   array<uint16> sm_palette(0x10);
 
   array<GameSprite@> objects(0x10);
@@ -855,7 +855,7 @@ class GameState {
   }
 
   int deserialize_sm_events(array<uint8> r, int c) {
-    for (int i = 0; i < 0x52; i++) {
+    for (int i = 0; i < 0x54; i++) {
         sm_events[i] = r[c++];
     }
     sm_clear = r[c++];

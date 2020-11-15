@@ -1081,32 +1081,30 @@ class LocalGameState : GameState {
   }
 
   void fetch_sm_events() {
-    if (!in_sm_for_items) return;
-
-    for (int i = 0; i < 0x12; i++) {
+  
+    for (int i = 0; i < 0x14; i++) {
       sm_events[i] = bus::read_u8(0x7ED820 + i);
     }
     for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x12] = bus::read_u8(0x7ED870 + i);
+      sm_events[i + 0x14] = bus::read_u8(0x7ED870 + i);
     }
     for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x12 + 0x20] = bus::read_u8(0x7ED8B0 + i);
+      sm_events[i + 0x14 + 0x20] = bus::read_u8(0x7ED8B0 + i);
     }
   }
   
   void fetch_sm_events_buffer() {
-    if (!in_sm_for_items) return;
     
     //$a16070 is the start of the buffer for the super metroid events
     
-    for (int i = 0; i < 0x12; i++) {
+    for (int i = 0; i < 0x14; i++) {
       sm_events[i] = bus::read_u8(0xa16070 + i);
     }
     for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x12] = bus::read_u8(0xa160c0 + i);
+      sm_events[i + 0x14] = bus::read_u8(0xa160c0 + i);
     }
     for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x12 + 0x20] = bus::read_u8(0xa16100 + i);
+      sm_events[i + 0x14 + 0x20] = bus::read_u8(0xa16100 + i);
     }
   }
   
@@ -1319,7 +1317,7 @@ class LocalGameState : GameState {
   void serialize_sm_events(array<uint8> &r) {
     r.write_u8(uint8(0x0D));
 
-    for (int i = 0; i < 0x52; i++) {
+    for (int i = 0; i < 0x54; i++) {
       r.write_u8(sm_events[i]);
     }
     
@@ -2413,19 +2411,19 @@ class LocalGameState : GameState {
       if (remote.ttl < 0) continue;
       if (remote.team != team) continue;
 
-      for (int j = 0; j < 0x52; j++) {
+      for (int j = 0; j < 0x54; j++) {
         sm_events[j] = remote.sm_events[j] | sm_events[j];
       }
     }
 
-    for (int i = 0; i < 0x12; i++) {
+    for (int i = 0; i < 0x14; i++) {
       bus::write_u8(0x7ED820 + i, sm_events[i]);
     }
     for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0x7ED870 + i, sm_events[i + 0x12]);
+      bus::write_u8(0x7ED870 + i, sm_events[i + 0x14]);
     }
     for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0x7ED8B0 + i, sm_events[i + 0x12 + 0x20]);
+      bus::write_u8(0x7ED8B0 + i, sm_events[i + 0x14 + 0x20]);
     }
   }
   
@@ -2439,19 +2437,19 @@ class LocalGameState : GameState {
       if (remote.ttl < 0) continue;
       if (remote.team != team) continue;
 
-      for (int j = 0; j < 0x52; j++) {
+      for (int j = 0; j < 0x54; j++) {
         sm_events[j] = remote.sm_events[j] | sm_events[j];
       }
     }
 
-    for (int i = 0; i < 0x12; i++) {
+    for (int i = 0; i < 0x14; i++) {
       bus::write_u8(0xa16070 + i, sm_events[i]);
     }
     for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0xa160c0 + i, sm_events[i + 0x12]);
+      bus::write_u8(0xa160c0 + i, sm_events[i + 0x14]);
     }
     for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0xa16100 + i, sm_events[i + 0x12 + 0x20]);
+      bus::write_u8(0xa16100 + i, sm_events[i + 0x14 + 0x20]);
     }
   }
   
@@ -2478,7 +2476,7 @@ class LocalGameState : GameState {
       bus::write_u8(0xa17402, sm_clear);
     }
     
-    if (temp_sm_clear != sm_clear){
+    if (temp_z3_clear !=z3_clear){
       notify("Quest Kill Gannon Completed");
       bus::write_u8(0xa17506, z3_clear);
     }
