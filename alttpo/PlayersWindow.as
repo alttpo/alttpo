@@ -21,9 +21,13 @@ class PlayersWindow {
   
   void update() {
     auto sy5 = sy(5);
+    auto oldvl = vl;
     auto vl = GUI::VerticalLayout();
     vl.setSpacing();
     vl.setPadding(sy5, sy5);
+    if (oldvl !is null) {
+      window.remove(oldvl);
+    }
     window.append(vl);
     {
       auto @hz = GUI::HorizontalLayout();
@@ -98,7 +102,6 @@ class PlayersWindow {
       }
     }
     vl.resize();
-    window.visible = true;
   }
 
   PlayersWindow() {
@@ -110,5 +113,6 @@ class PlayersWindow {
     window.font = GUI::Font("{sans}", 12);
 
     update();
+    window.visible = true;
   }
 }
