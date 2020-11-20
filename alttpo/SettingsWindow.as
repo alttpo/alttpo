@@ -623,6 +623,10 @@ class SettingsWindow {
     window.setFocused();
   }
 
+  void doActivate() {
+    window.doActivate();
+  }
+
   // callback:
   private void chkBridgeChanged() {
     auto enabled = chkBridge.checked;

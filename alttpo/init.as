@@ -17,7 +17,7 @@ bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
 bool enableMap = true;
-bool enablePlayerList = false;
+bool enablePlayerList = true;
 bool enableBgMusic = true;
 
 bool enableRenderToExtra = true;
@@ -74,6 +74,8 @@ void init() {
   if (enablePlayerList) {
     @playersWindow = PlayersWindow();
   }
+
+  settings.doActivate();
 }
 
 void cartridge_loaded() {
