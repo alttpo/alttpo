@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"flag"
+	"github.com/gobwas/ws"
 	"log"
 	"math/big"
 	"net"
@@ -23,6 +24,7 @@ const (
 
 var (
 	listen = flag.String("listen", ":4590", "UDP address to listen on")
+	wsaddr = flag.String("ws", ":4591", "TCP address for websocket server")
 )
 
 type ClientKey struct {
@@ -180,6 +182,10 @@ func main() {
 
 	clientGroups = make(map[string]*ClientGroup)
 
+	if *wsaddr != "" {
+		go websocketMainLoop()
+	}
+
 	secondsTicker := time.Tick(time.Second * 5)
 
 eventloop:
@@ -203,6 +209,57 @@ eventloop:
 	}
 
 	log.Print("main loop done\n")
+}
+
+func websocketMainLoop() {
+	groupName := ""
+
+	log.Printf("listening on tcp %s for websockets\n", *wsaddr)
+	ln, err := net.Listen("tcp", *wsaddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create a Websocket upgrader from raw TCP socket:
+	u := ws.Upgrader{
+		OnRequest: func(uri []byte) (err error) {
+			groupName = string(uri)
+			if !strings.HasPrefix(groupName, "/group/") {
+				return ws.RejectConnectionError(ws.RejectionReason("request must begin with /group/"))
+			}
+
+			// capture group name from request URI:
+			groupName = groupName[len("/group/"):]
+			if len(groupName) > 20 {
+				groupName = groupName[:20]
+			}
+			groupName = strings.ToLower(groupName)
+
+			log.Printf("group: '%s'\n", groupName)
+			return
+		},
+	}
+
+	for {
+		// accept a new TCP connection:
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		// handle the websocket upgrade:
+		_, err = u.Upgrade(conn)
+		if err != nil {
+			log.Println(err)
+			conn.Close()
+			continue
+		}
+
+		// store connection with named group:
+		log.Println(groupName)
+		conn.Close()
+	}
 }
 
 func processMessage(message UDPMessage) (fatalErr error) {
