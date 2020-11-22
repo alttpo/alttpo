@@ -7,6 +7,8 @@ import (
 	"flag"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"io"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -302,6 +304,61 @@ func websocketMainLoop() {
 
 		// store connection with named group:
 		addWebsocketConn(groupName, conn)
+
+		// spawn a goroutine to discard incoming client messages so they can close the connection:
+		go func() {
+			defer disconnectWebsocket(groupName, conn)
+
+			for {
+				// read WS header:
+				hdr, err := ws.ReadHeader(conn)
+				if err != nil {
+					log.Println(err)
+					break
+				}
+
+				// 0-byte length message closes connection:
+				if hdr.Length == 0 {
+					break
+				}
+
+				// discard message:
+				_, err = io.CopyN(ioutil.Discard, conn, hdr.Length)
+				if err != nil {
+					log.Println(err)
+					break
+				}
+				//log.Printf("discarded %d bytes\n", hdr.Length)
+			}
+		}()
+	}
+}
+
+func disconnectWebsocket(group string, conn net.Conn) {
+	wsLock.Lock()
+	defer wsLock.Unlock()
+
+	conn.Close()
+
+	wslist, ok := groupWebSockets[group]
+	if !ok {
+		return
+	}
+
+	openWebSockets := []net.Conn(nil)
+	for _, c := range wslist {
+		if c == conn {
+			// remove the connection from the list:
+			continue
+		}
+		openWebSockets = append(openWebSockets, c)
+	}
+
+	// replace the list:
+	if len(openWebSockets) == 0 {
+		delete(groupWebSockets, group)
+	} else if len(openWebSockets) < len(wslist) {
+		groupWebSockets[group] = openWebSockets
 	}
 }
 
