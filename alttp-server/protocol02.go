@@ -137,6 +137,9 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}
+
+		// broadcast this message to all websocket clients in this group:
+		broadcastToWebsockets(groupKey, payload)
 		break
 	case BroadcastToSector:
 		// broadcast message received to all other clients in the same sector:
@@ -181,6 +184,8 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
 		}
+
+		// NOTE: we don't need to broadcast sector-local messages to websocket clients.
 		break
 	}
 

@@ -6,12 +6,14 @@ import (
 	"encoding/binary"
 	"flag"
 	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"log"
 	"math/big"
 	"net"
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/influxdata/influxdb-client-go"
@@ -58,6 +60,10 @@ var (
 	udpAddr      *net.UDPAddr
 	conn         *net.UDPConn
 	clientGroups map[string]*ClientGroup
+)
+var (
+	groupWebSockets map[string][]net.Conn
+	wsLock          sync.Mutex
 )
 
 var (
@@ -183,6 +189,7 @@ func main() {
 	clientGroups = make(map[string]*ClientGroup)
 
 	if *wsaddr != "" {
+		groupWebSockets = make(map[string][]net.Conn)
 		go websocketMainLoop()
 	}
 
@@ -211,6 +218,43 @@ eventloop:
 	log.Print("main loop done\n")
 }
 
+func addWebsocketConn(groupName string, conn net.Conn) {
+	wsLock.Lock()
+	defer wsLock.Unlock()
+
+	var wslist []net.Conn
+	var ok bool
+	if wslist, ok = groupWebSockets[groupName]; !ok {
+		wslist = make([]net.Conn, 0, 8)
+	}
+
+	wslist = append(wslist, conn)
+	groupWebSockets[groupName] = wslist
+}
+
+func broadcastToWebsockets(group string, payload []byte) {
+	wsLock.Lock()
+	defer wsLock.Unlock()
+
+	//log.Printf("ws: '%s'\n", group)
+	openWebSockets := []net.Conn(nil)
+	socks := groupWebSockets[group]
+	for _, conn := range socks {
+		err := wsutil.WriteServerBinary(conn, payload)
+		if err != nil {
+			conn.Close()
+			continue
+		}
+		openWebSockets = append(openWebSockets, conn)
+	}
+
+	if len(openWebSockets) == 0 {
+		delete(groupWebSockets, group)
+	} else if len(openWebSockets) < len(socks) {
+		groupWebSockets[group] = openWebSockets
+	}
+}
+
 func websocketMainLoop() {
 	groupName := ""
 
@@ -233,9 +277,9 @@ func websocketMainLoop() {
 			if len(groupName) > 20 {
 				groupName = groupName[:20]
 			}
-			groupName = strings.ToLower(groupName)
+			groupName = calcGroupKey(groupName)
 
-			log.Printf("group: '%s'\n", groupName)
+			//log.Printf("group: '%s'\n", groupName)
 			return
 		},
 	}
@@ -257,8 +301,7 @@ func websocketMainLoop() {
 		}
 
 		// store connection with named group:
-		log.Println(groupName)
-		conn.Close()
+		addWebsocketConn(groupName, conn)
 	}
 }
 
@@ -342,7 +385,7 @@ func generateAnonymizedName() string {
 		if r < 10 {
 			b[i] = byte('0') + byte(r)
 		} else {
-			b[i] = byte('a') + byte(r - 10)
+			b[i] = byte('a') + byte(r-10)
 		}
 	}
 	return string(b)
