@@ -113,8 +113,12 @@ class SettingsWindow {
     bridgeState = state;
     bool enabled = (state != 0);
     chkBridge.checked = enabled;
-    raceMode = enabled;
-    chkRaceMode.checked = enabled;
+
+    // only enable race mode when enabling qusb2snes, don't disable it if disconnected:
+    if (enabled) {
+      raceMode = enabled;
+      chkRaceMode.checked = enabled;
+    }
   }
 
   void bridgeMessageUpdated(const string &in msg) {
