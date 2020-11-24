@@ -48,7 +48,7 @@ void init() {
   @CrowdControl::connector = CrowdControl::Connector(
     @StateUpdated(settings.crowdStateUpdated),
     @MessageUpdated(settings.crowdMessageUpdated),
-    @CrowdControl::Notify(local.notify)
+    @Notify(notificationSystem.notify)
   );
 
   if (debug) {

@@ -331,14 +331,14 @@ void pre_frame() {
          && local.module != 0x0d && local.module != 0x0e
          && local.module != 0x0f && local.module != 0x10) {
           // TODO: checkbox to enable/disable
-          ei = local.renderNotifications(ei);
+          ei = notificationSystem.renderNotifications(ei);
         }
       }
     } else {
       // SM:
       sm_state = bus::read_u8(0x7E0998);
       if (sm_is_safe_state()) {
-        ei = local.renderNotifications(ei);
+        ei = notificationSystem.renderNotifications(ei);
       }
       
       if (settings.ShowMyLabel && !sm_loading_room() && !sm_in_menu()){

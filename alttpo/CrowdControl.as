@@ -4,7 +4,6 @@ namespace CrowdControl {
 
   funcdef void StateUpdated(int state);
   funcdef void MessageUpdated(const string &in msg);
-  funcdef void Notify(const string &in msg);
 
   // version:
   const uint8 VERSION_MAJOR = 2;
