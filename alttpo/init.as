@@ -45,6 +45,12 @@ void init() {
     @MessageUpdated(settings.bridgeMessageUpdated)
   );
 
+  @CrowdControl::connector = CrowdControl::Connector(
+    @StateUpdated(settings.crowdStateUpdated),
+    @MessageUpdated(settings.crowdMessageUpdated),
+    @CrowdControl::Notify(local.notify)
+  );
+
   if (debug) {
     //settings.ServerAddress = "127.0.0.1";
     //settings.Group = "debug";

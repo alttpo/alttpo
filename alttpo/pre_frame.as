@@ -215,12 +215,16 @@ void pre_frame() {
     discord::pre_frame();
   }
 
+  if (rom is null) {
+    return;
+  }
+
   if (settings.Bridge) {
     bridge.main();
   }
 
-  if (rom is null) {
-    return;
+  if (settings.Crowd) {
+    CrowdControl::connector.main();
   }
 
   local.ttl = 255;

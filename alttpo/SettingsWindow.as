@@ -29,6 +29,8 @@ class SettingsWindow {
   private GUI::CheckLabel @chkRaceMode;
   private GUI::CheckLabel @chkBridge;
   private GUI::Label @lblBridgeMessage;
+  private GUI::CheckLabel @chkCrowd;
+  private GUI::Label @lblCrowdMessage;
   private GUI::CheckLabel @chkDiscordEnable;
   private GUI::CheckLabel @chkDiscordPrivate;
   private GUI::ComboButton @ddlFont;
@@ -124,7 +126,22 @@ class SettingsWindow {
   void bridgeMessageUpdated(const string &in msg) {
     lblBridgeMessage.text = msg;
   }
-  
+
+  private int crowdState;
+  bool Crowd {
+    get { return crowdState != 0; }
+  }
+
+  void crowdStateUpdated(int state) {
+    crowdState = state;
+    bool enabled = (state != 0);
+    chkCrowd.checked = enabled;
+  }
+
+  void crowdMessageUpdated(const string &in msg) {
+    lblCrowdMessage.text = msg;
+  }
+
   private bool enablePvp;
   bool EnablePvP {
     get { return enablePvP; }
@@ -566,6 +583,25 @@ class SettingsWindow {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, 0));
 
+        @chkCrowd = GUI::CheckLabel();
+        chkCrowd.text = "Crowd Control";
+        chkCrowd.toolTip =
+          "Enable this feature to connect to CrowdControl application.";
+        chkCrowd.checked = false;
+        chkCrowd.onToggle(@GUI::Callback(chkCrowdChanged));
+        hz.append(chkCrowd, GUI::Size(sx150, 0));
+
+        @lblCrowdMessage = GUI::Label();
+        lblCrowdMessage.text = "";
+        lblCrowdMessage.toolTip =
+          "Current status of CrowdControl connection";
+        hz.append(lblCrowdMessage, GUI::Size(-1, 0));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
         @chkDiscordEnable = GUI::CheckLabel();
         chkDiscordEnable.text = "Discord Integration";
         if (discord::enabled) {
@@ -639,6 +675,17 @@ class SettingsWindow {
     } else {
       bridge.stop();
       bridgeMessageUpdated("");
+    }
+  }
+
+  // callback:
+  private void chkCrowdChanged() {
+    auto enabled = chkCrowd.checked;
+    if (enabled) {
+      CrowdControl::connector.start();
+    } else {
+      CrowdControl::connector.stop();
+      crowdMessageUpdated("");
     }
   }
 
