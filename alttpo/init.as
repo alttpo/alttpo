@@ -164,10 +164,6 @@ string padTo(string value, int len) {
   return newValue;
 }
 
-string fmtBool(bool value) {
-  return value ? "true" : "false";
-}
-
 
 LocalGameState@ local = null;
 array<GameState@> players(0);
