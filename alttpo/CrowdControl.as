@@ -35,13 +35,16 @@ namespace CrowdControl {
       @this.dgNotify = notify;
     }
 
-    //txtHost.text = "127.0.0.1";
-    //txtPort.text = "43884";
-
     private void notify(const string &in msg) {
-      ::message(msg);
-      if (dgNotify is null) return;
+      if (dgNotify is null) {
+        ::message(msg);
+        return;
+      }
       dgNotify(msg);
+    }
+
+    private void status(const string &in text) {
+      if (messageUpdated !is null) messageUpdated(text);
     }
 
     int _state;
@@ -49,13 +52,13 @@ namespace CrowdControl {
       get { return _state; }
       set {
         _state = value;
-        if (@stateUpdated !is null) stateUpdated(value);
+        if (stateUpdated !is null) stateUpdated(value);
       }
     }
 
     void fail(string what) {
       message("net::" + what + " error " + net::error_code + "; " + net::error_text);
-      if (@messageUpdated !is null) messageUpdated(net::error_text);
+      status(net::error_text);
       stop();
     }
 
@@ -78,6 +81,7 @@ namespace CrowdControl {
       }
 
       state = 0;
+      status("Disconnected");
     }
 
     array<uint8> sizeUint(4);
@@ -109,6 +113,7 @@ namespace CrowdControl {
 
         // wait for connection success:
         state = 2;
+        status("Connecting...");
         return true;
       } else if (state == 2) {
         // socket writable means connected:
@@ -120,6 +125,7 @@ namespace CrowdControl {
 
         // connected:
         state = 3;
+        status("Connected");
         return true;
       } else if (state == 3) {
         // entry state
@@ -410,5 +416,4 @@ namespace CrowdControl {
   }
 
   Connector@ connector;
-
 }
