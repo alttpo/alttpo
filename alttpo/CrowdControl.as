@@ -16,7 +16,9 @@ namespace CrowdControl {
   const string port = "43884";
 
   class Connector {
-    bool debug = false;   // set to true to see debug messages
+    bool debugJSON = false;   // debug JSON
+    bool debugProto = false;  // debug protocol
+    bool debugState = false;  // debug state transitions and function calls made
 
     private net::Address@ addr = null;
     private net::Socket@ sock = null;
@@ -74,7 +76,7 @@ namespace CrowdControl {
 
     void stop() {
       if (state >= 1) {
-        if (@sock !is null) {
+        if (sock !is null) {
           sock.close();
         }
         @sock = null;
@@ -104,6 +106,10 @@ namespace CrowdControl {
         return false;
       } else if (state == 1) {
         // connect:
+        if (debugState) {
+          message("state " + fmtInt(state) + " connecting...");
+        }
+
         @sock = net::Socket(addr);
         sock.connect(addr);
         if (net::is_error && net::error_code != "EINPROGRESS" && net::error_code != "EWOULDBLOCK") {
@@ -117,6 +123,10 @@ namespace CrowdControl {
         return true;
       } else if (state == 2) {
         // socket writable means connected:
+        if (debugState) {
+          message("state " + fmtInt(state) + " checking is_writable()");
+        }
+
         bool connected = net::is_writable(sock);
         if (!connected && net::is_error) {
           fail("is_writable");
@@ -129,12 +139,18 @@ namespace CrowdControl {
         return true;
       } else if (state == 3) {
         // entry state
+        if (debugState) {
+          message("state " + fmtInt(state) + "");
+        }
         // start expecting JSON messages with 4-byte size prefix:
         sizeN = 0;
         state = 4;
         return true;
       } else if (state == 4) {
         // read 4-byte size prefix:
+        if (debugState) {
+          message("state " + fmtInt(state) + " checking is_readable()");
+        }
         if (!net::is_readable(sock)) {
           if (net::is_error) {
             fail("is_readable");
@@ -143,14 +159,25 @@ namespace CrowdControl {
         }
 
         // receive bytes and delineate NUL-terminated messages:
+        if (debugState) {
+          message("state " + fmtInt(state) + " recv()");
+        }
         int n = sock.recv(sizeN, 4 - sizeN, sizeUint);
         if (net::is_error && net::error_code != "EWOULDBLOCK") {
           fail("recv");
           return false;
         }
+        if (debugState) {
+          message("state " + fmtInt(state) + " recv() n=" + fmtInt(n));
+        }
 
         // no data available:
-        if (n <= 0) {
+        if (n < 0) {
+          return false;
+        }
+        // connection closed:
+        if (n == 0) {
+          stop();
           return false;
         }
 
@@ -179,16 +206,36 @@ namespace CrowdControl {
         return true;
       } else if (state == 5) {
         // read JSON message of size `size`:
+        if (debugState) {
+          message("state " + fmtInt(state) + " checking is_readable()");
+        }
+        if (!net::is_readable(sock)) {
+          if (net::is_error) {
+            fail("is_readable");
+          }
+          return false;
+        }
 
         // async recv; will return instantly if no data available:
+        if (debugState) {
+          message("state " + fmtInt(state) + " recv()");
+        }
         int n = sock.recv(bufN, size - bufN, buf);
         if (net::is_error && net::error_code != "EWOULDBLOCK") {
           fail("recv");
           return false;
         }
+        if (debugState) {
+          message("state " + fmtInt(state) + " recv() n=" + fmtInt(n));
+        }
 
         // no data available:
-        if (n <= 0) {
+        if (n < 0) {
+          return false;
+        }
+        // connection closed:
+        if (n == 0) {
+          stop();
           return false;
         }
 
@@ -203,6 +250,10 @@ namespace CrowdControl {
         return true;
       } else if (state == 6) {
         // make sure socket is writable before sending reply:
+        if (debugState) {
+          message("state " + fmtInt(state) + " checking is_writable()");
+        }
+
         if (!net::is_writable(sock)) {
           if (net::is_error) {
             fail("is_writable");
@@ -236,8 +287,8 @@ namespace CrowdControl {
       //} else if (domain == "SRAM") {
       //  return 0x700000 + offset;
       } else {
-        if (debug) {
-          message("!!!! unhandled domain " + domain + ", offset=$" + fmtHex(offset, 6));
+        if (debugProto) {
+          message("!!!! unhandled domain `" + domain + "`, offset=$" + fmtHex(offset, 6));
         }
         //case "ROM":
         //case "System Bus":
@@ -247,7 +298,7 @@ namespace CrowdControl {
     }
 
     private void processMessage(const string &in t) {
-      if (debug) {
+      if (debugJSON) {
         message("recv: `" + t + "`");
       }
 
@@ -280,7 +331,7 @@ namespace CrowdControl {
 
       switch (commandType) {
         case 0xe3:  // get emulator id
-          if (debug) {
+          if (debugProto) {
             message("< emulator id");
           }
           response["value"]   = JSON::Value(version);
@@ -290,24 +341,24 @@ namespace CrowdControl {
       // reads:
         case 0x00:  // read byte
           response["value"] = JSON::Value(bus::read_u8(busAddress));
-          if (debug) {
+          if (debugProto) {
             message("<  read_u8 ($" + fmtHex(busAddress, 6) + ") > $" + fmtHex(response["value"].natural, 2));
           }
           break;
         case 0x01:  // read short
           response["value"] = JSON::Value(bus::read_u16(busAddress));
-          if (debug) {
+          if (debugProto) {
             message("<  read_u16($" + fmtHex(busAddress, 6) + ") > $" + fmtHex(response["value"].natural, 4));
           }
           break;
         case 0x02:  // read uint32 (jsd: why not uint24 as well?)
           response["value"] = JSON::Value( uint(bus::read_u16(busAddress)) | (uint(bus::read_u16(busAddress+2) << 16)) );
-          if (debug) {
+          if (debugProto) {
             message("<  read_u32($" + fmtHex(busAddress, 6) + ") > $" + fmtHex(response["value"].natural, 8));
           }
           break;
         case 0x0f: { // read block
-          if (debug) {
+          if (debugProto) {
             message("<  read_blk($" + fmtHex(busAddress, 6) + ", size=$" + fmtHex(value, 6) + ")");
           }
           array<uint8> buf(value);
@@ -320,28 +371,28 @@ namespace CrowdControl {
       // writes:
         case 0x10:  // write byte
           // TODO: freezes
-          if (debug) {
+          if (debugProto) {
             message("< write_u8 ($" + fmtHex(busAddress, 6) + ", $" + fmtHex(value, 2) + ")");
           }
           bus::write_u8(busAddress, value);
           break;
         case 0x11:  // write short
           // TODO: freezes
-          if (debug) {
+          if (debugProto) {
             message("< write_u16($" + fmtHex(busAddress, 6) + ", $" + fmtHex(value, 4) + ")");
           }
           bus::write_u16(busAddress, value);
           break;
         case 0x12:  // write uint32
           // TODO: freezes
-          if (debug) {
+          if (debugProto) {
             message("< write_u32($" + fmtHex(busAddress, 6) + ", $" + fmtHex(value, 8) + ")");
           }
           bus::write_u16(busAddress  , value & 0xFFFF);
           bus::write_u16(busAddress+2, (value >> 16) & 0xFFFF);
           break;
         case 0x1f: { // write block
-          if (debug) {
+          if (debugProto) {
             message("< write_blk($" + fmtHex(busAddress, 6) + ", size=$" + fmtHex(size, 6) + ")");
           }
           if (j.containsKey("block") && j["block"].isString) {
@@ -364,7 +415,7 @@ namespace CrowdControl {
           response["value"] = JSON::Value(old);
           auto newval = old | value;
           bus::write_u8(busAddress, newval);
-          if (debug) {
+          if (debugProto) {
             message("<      flip($" + fmtHex(busAddress, 6) + ") > $" + fmtHex(old, 2) + " | $" + fmtHex(value, 2) + " = $" + fmtHex(newval, 2));
           }
           break;
@@ -375,7 +426,7 @@ namespace CrowdControl {
           auto mask = ~uint8(value);
           auto newval = old & mask;
           bus::write_u8(busAddress, newval);
-          if (debug) {
+          if (debugProto) {
             message("<    unflip($" + fmtHex(busAddress, 6) + ") > $" + fmtHex(old, 2) + " & $" + fmtHex(mask, 2) + " = $" + fmtHex(newval, 2));
           }
           break;
@@ -391,7 +442,13 @@ namespace CrowdControl {
           break;
 
         default:
-          message("!!!! UNRECOGNIZED COMMAND 0x" + fmtHex(commandType, 2));
+          if (debugProto) {
+            if (!debugJSON) {
+              message("<!!UNKNOWN `" + t + "`");
+            } else {
+              message("!!!UNKNOWN command 0x" + fmtHex(commandType, 2));
+            }
+          }
           break;
       }
 
@@ -408,7 +465,9 @@ namespace CrowdControl {
         r.insertLast(uint8((dataSize) & 0xFF));
         r.write_str(data);
 
-        //message("send: `" + data + "`");
+        if (debugJSON) {
+          message("send: `" + data + "`");
+        }
 
         sock.send(0, r.length(), r);
         if (net::is_error) {
