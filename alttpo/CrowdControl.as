@@ -230,6 +230,8 @@ namespace CrowdControl {
         //message("CARTROM $" + fmtHex(offset, 6));
         auto offs = offset & 0x7FFF;
         return ((offset >> 15) << 16) | offs | 0x8000;
+      } else if (domain == "") {
+        return offset;
       // TODO: confirm these domain names:
       //} else if (domain == "SRAM") {
       //  return 0x700000 + offset;
@@ -245,7 +247,9 @@ namespace CrowdControl {
     }
 
     private void processMessage(const string &in t) {
-      //message("recv: `" + t + "`");
+      if (debug) {
+        message("recv: `" + t + "`");
+      }
 
       // parse as JSON:
       auto j = JSON::parse(t).object;
@@ -257,7 +261,7 @@ namespace CrowdControl {
       auto address     = j["address"].naturalOr(0);
 
       uint32 busAddress = 0xFFFFFF;
-      if (j.containsKey("address") && j.containsKey("domain")) {
+      if (j.containsKey("address")) {
         busAddress = busAddressFor(domain, address);
       }
 
@@ -304,11 +308,11 @@ namespace CrowdControl {
           break;
         case 0x0f: { // read block
           if (debug) {
-            message("<  read_blk($" + fmtHex(busAddress, 6) + ", size=$" + fmtHex(size, 6) + ")");
+            message("<  read_blk($" + fmtHex(busAddress, 6) + ", size=$" + fmtHex(value, 6) + ")");
           }
-          array<uint8> buf(size);
-          bus::read_block_u8(busAddress, 0, size, buf);
-          auto blockStr = base64::encode(0, size, buf);
+          array<uint8> buf(value);
+          bus::read_block_u8(busAddress, 0, value, buf);
+          auto blockStr = base64::encode(0, value, buf);
           response["block"] = JSON::Value(blockStr);
           break;
         }
