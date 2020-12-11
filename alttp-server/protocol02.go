@@ -12,6 +12,12 @@ const (
 	RequestIndex      = P02Kind(0x00)
 	Broadcast         = P02Kind(0x01)
 	BroadcastToSector = P02Kind(0x02)
+
+	// fact management:
+	FactData   = P02Kind(0x10) // defines a player-specific named fact with a slice of its data specified
+	FactDelete = P02Kind(0x11) // deletes a player-specific named fact
+
+	ListData = P02Kind(0x20) //
 )
 
 func (k P02Kind) String() string {
