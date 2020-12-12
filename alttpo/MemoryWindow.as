@@ -1,6 +1,6 @@
 MemoryWindow @memoryWindow;
 
-const uint memRows = 0x40;
+const uint memRows = 0x20;
 const uint memWindowBytes = 0x10 * memRows;
 
 class MemoryWindow {
@@ -146,18 +146,30 @@ class MemoryWindow {
       auto absAddr = addr + row;
       lblAddrRow[i].text = fmtHex(absAddr, 6);
 
-      for (uint x = 0; x < 0x10; x++, absAddr++) {
-        auto j = row + x;
-        lblData[j].text = fmtHex(page[j], 2) + "\u2007";
-        if ((absAddr >= addrCapture) && (absAddr < addrCapture + memWindowBytes)) {
-          // compare current to snapshot:
-          if (page[j] != base[j+offs]) {
-            lblData[j].foregroundColor = diffColor;
+      if ((absAddr < addrCapture + memWindowBytes) || (absAddr >= addrCapture + memWindowBytes)) {
+        // no capture window overlap:
+        for (uint x = 0; x < 0x10; x++, absAddr++) {
+          auto j = row + x;
+          lblData[j].text = fmtHex(page[j], 2) + "\u2007";
+          lblData[j].foregroundColor = dataColor;
+        }
+      } else {
+        // capture window overlap:
+        for (uint x = 0; x < 0x10; x++, absAddr++) {
+          auto j = row + x;
+          lblData[j].text = fmtHex(page[j], 2) + "\u2007";
+
+          // determine color:
+          if ((absAddr >= addrCapture) && (absAddr < addrCapture + memWindowBytes)) {
+            // compare current to snapshot:
+            if (page[j] != base[j+offs]) {
+              lblData[j].foregroundColor = diffColor;
+            } else {
+              lblData[j].foregroundColor = dataColor;
+            }
           } else {
             lblData[j].foregroundColor = dataColor;
           }
-        } else {
-          lblData[j].foregroundColor = dataColor;
         }
       }
     }
