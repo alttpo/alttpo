@@ -42,7 +42,7 @@ class MemoryWindow {
 
       auto @lbl = GUI::Label();
       lbl.text = "address: ";
-      //lbl.foregroundColor = addrColor;
+      lbl.foregroundColor = addrColor;
       hz.append(lbl, GUI::Size(0, 0), 5);
 
       @txtAddr = GUI::LineEdit();
