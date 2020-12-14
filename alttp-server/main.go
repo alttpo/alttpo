@@ -31,6 +31,45 @@ type ClientKey struct {
 	Zone string // IPv6 scoped addressing zone
 }
 
+type SentPacket struct {
+	Seq   uint16
+	Acked bool
+
+	ClientGroup       *ClientGroup
+	Client            *Client
+	SourceClientIndex uint16
+	Payload           []byte
+
+	RetryFunc func()
+	Retry     *time.Timer
+}
+
+func (sp *SentPacket) Ack() {
+	if sp.Retry != nil {
+		if !sp.Retry.Stop() {
+			<-sp.Retry.C
+		}
+		sp.Retry = nil
+	}
+
+	sp.Acked = true
+	sp.Payload = nil
+	sp.Client = nil
+	sp.ClientGroup = nil
+	sp.RetryFunc = nil
+}
+
+func NewSentPacket(ci uint16, payload []byte, group *ClientGroup, client *Client) *SentPacket {
+	sp := &SentPacket{
+		SourceClientIndex: ci,
+		ClientGroup:       group,
+		Client:            client,
+		Payload:           payload,
+		Acked:             false,
+	}
+	return sp
+}
+
 type Client struct {
 	net.UDPAddr
 
@@ -41,9 +80,14 @@ type Client struct {
 	Sector    uint32
 
 	LastSeen time.Time
+
+	// sent packets:
+	sent struct {
+		seq  uint16
+		pkts []*SentPacket
+	}
 }
 
-//type ClientGroup map[ClientKey]*Client
 type ClientGroup struct {
 	Group          string
 	AnonymizedName string
@@ -217,8 +261,8 @@ func processMessage(message UDPMessage) (fatalErr error) {
 	}
 
 	// 0x651F = 25887 = "ALTTP" on dialpad (T9)
-	if header != 25887 {
-		log.Printf("bad header %04x\n", header)
+	if header != 0x651F {
+		//log.Printf("bad header %04x\n", header)
 		return
 	}
 
@@ -285,7 +329,7 @@ func generateAnonymizedName() string {
 		if r < 10 {
 			b[i] = byte('0') + byte(r)
 		} else {
-			b[i] = byte('a') + byte(r - 10)
+			b[i] = byte('a') + byte(r-10)
 		}
 	}
 	return string(b)

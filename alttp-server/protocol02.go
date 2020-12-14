@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"time"
 )
 
 type P02Kind byte
@@ -13,11 +14,8 @@ const (
 	Broadcast         = P02Kind(0x01)
 	BroadcastToSector = P02Kind(0x02)
 
-	// fact management:
-	FactData   = P02Kind(0x10) // defines a player-specific named fact with a slice of its data specified
-	FactDelete = P02Kind(0x11) // deletes a player-specific named fact
-
-	ListData = P02Kind(0x20) //
+	ReliableBroadcast = P02Kind(0x04)
+	ReliableACK       = P02Kind(0x05)
 )
 
 func (k P02Kind) String() string {
@@ -186,6 +184,110 @@ func processProtocol02(message UDPMessage, buf *bytes.Buffer) (fatalErr error) {
 			networkMetrics.SentBytes(len(rspBytes), kind.String(), clientGroup, client)
 			rsp = nil
 			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
+		}
+		break
+	case ReliableBroadcast:
+		// received a reliable broadcast request from a client:
+		var seq uint16
+		if err := binary.Read(buf, binary.LittleEndian, &seq); err != nil {
+			log.Print(err)
+			return
+		}
+
+		// send the ACK:
+		{
+			rsp := make02Packet(groupBuf, ReliableACK)
+			index := uint16(ci)
+			binary.Write(rsp, binary.LittleEndian, &index)
+			// seq:
+			binary.Write(rsp, binary.LittleEndian, &seq)
+
+			rspBytes := rsp.Bytes()
+			_, fatalErr = conn.WriteToUDP(rspBytes, &client.UDPAddr)
+			if fatalErr != nil {
+				return
+			}
+
+			networkMetrics.SentBytes(len(rspBytes), kind.String(), clientGroup, client)
+			rsp = nil
+			rspBytes = nil
+		}
+
+		// broadcast it reliably to all other clients:
+		payload := buf.Bytes()
+		for i := range clientGroup.Clients {
+			c := &clientGroup.Clients[i]
+			if !c.IsAlive {
+				continue
+			}
+			if c == client {
+				continue
+			}
+
+			seq := c.sent.seq
+			c.sent.seq++
+
+			// construct message:
+			rsp := make02Packet(groupBuf, ReliableBroadcast)
+			index := uint16(ci)
+			binary.Write(rsp, binary.LittleEndian, &index)
+			binary.Write(rsp, binary.LittleEndian, &seq)
+
+			// write the payload:
+			rsp.Write(payload)
+
+			// record the message for later retransmit:
+			rspBytes := rsp.Bytes()
+			sp := NewSentPacket(index, rspBytes, clientGroup, client)
+			sp.RetryFunc = func() {
+				// deliver message:
+				if _, err := conn.WriteToUDP(sp.Payload, &sp.Client.UDPAddr); err != nil {
+					return
+				}
+				networkMetrics.SentBytes(len(sp.Payload), ReliableBroadcast.String(), sp.ClientGroup, sp.Client)
+				sp.Retry = time.AfterFunc(time.Millisecond*17, sp.RetryFunc)
+			}
+			sp.Retry = time.AfterFunc(time.Millisecond*33, sp.RetryFunc)
+			c.sent.pkts = append(c.sent.pkts, sp)
+
+			// send message to this client:
+			if _, fatalErr = conn.WriteToUDP(rspBytes, &c.UDPAddr); fatalErr != nil {
+				return
+			}
+			networkMetrics.SentBytes(len(rspBytes), ReliableBroadcast.String(), clientGroup, client)
+
+			// record the sent packet:
+			rsp = nil
+			rspBytes = nil
+			//log.Printf("[group %s] (%v) sent message to (%v)\n", groupKey, client, other)
+		}
+		break
+	case ReliableACK:
+		var seq uint16
+		if err := binary.Read(buf, binary.LittleEndian, &seq); err != nil {
+			log.Print(err)
+			return
+		}
+
+		// find the packet:
+		f := -1
+		for i, p := range client.sent.pkts {
+			if p.Seq != seq {
+				continue
+			}
+			f = i
+			break
+		}
+
+		// ack and remove the packet:
+		if f != -1 {
+			pa := client.sent.pkts
+			pa[f].Ack()
+			if len(pa) > 1 {
+				pa[f] = pa[len(pa)-1]
+				pa = pa[:len(pa)-1]
+			}
+			client.sent.pkts = pa
 		}
 		break
 	}
