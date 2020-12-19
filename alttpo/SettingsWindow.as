@@ -28,6 +28,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkKeySync;
   private GUI::CheckLabel @chkRaceMode;
   private GUI::CheckLabel @chkBridge;
+  private GUI::CheckLabel @chkDisableHearts;
   private GUI::Label @lblBridgeMessage;
   private GUI::CheckLabel @chkCrowd;
   private GUI::Label @lblCrowdMessage;
@@ -162,6 +163,11 @@ class SettingsWindow {
     get { return discordPrivate; }
   }
 
+  private bool disableHearts;
+  bool DisableHearts {
+    get { return disableHearts; }
+  }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -196,6 +202,7 @@ class SettingsWindow {
     chkRaceMode.checked = raceMode;
     chkDiscordEnable.checked = discordEnable;
     chkDiscordPrivate.checked = discordPrivate;
+    chkDisableHearts.checked = disableHearts;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -234,6 +241,7 @@ class SettingsWindow {
     enablePvP = doc["feature/enablePvP"].booleanOr(true);
     enablePvPFriendlyFire = doc["feature/enablePvPFriendlyFire"].booleanOr(false);
     raceMode = doc["feature/raceMode"].booleanOr(false);
+    disableHearts = doc["feature/disableHearts"].booleanOr(false);
     enableSmallKeySync = doc["feature/enableSmallKeySync"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
@@ -277,6 +285,7 @@ class SettingsWindow {
     doc.create("feature/enablePvPFriendlyFire").value = fmtBool(enablePvPFriendlyFire);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
     doc.create("feature/enableSmallKeySync").value = fmtBool(enableSmallKeySync);
+    doc.create("feature/disableHearts").value = fmtBool(disableHearts);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
     UserSettings::save("alttpo.bml", doc);
@@ -285,7 +294,7 @@ class SettingsWindow {
   SettingsWindow() {
     @window = GUI::Window(140, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(sx(320), sy(18*25));
+    window.size = GUI::Size(sx(320), sy(20*25));
     window.dismissable = false;
 
     auto sx150 = sx(150);
@@ -563,6 +572,19 @@ class SettingsWindow {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, 0));
 
+        @chkDisableHearts = GUI::CheckLabel();
+        chkDisableHearts.text = "Disable hearts sync";
+        chkDisableHearts.toolTip =
+          "Enable this feature to disable synchronization of heart containers and pieces with other players in the group.";
+        chkDisableHearts.checked = false;
+        chkDisableHearts.onToggle(@GUI::Callback(chkDisableHeartsChanged));
+        hz.append(chkDisableHearts, GUI::Size(sx150, 0));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
         @chkBridge = GUI::CheckLabel();
         chkBridge.text = "QUsb2Snes Bridge";
         chkBridge.toolTip =
@@ -749,12 +771,25 @@ class SettingsWindow {
     save();
   }
 
+  // callback:
   private void chkRaceModeChanged() {
     raceModeWasChanged();
   }
 
   private void raceModeWasChanged(bool persist = true) {
     raceMode = chkRaceMode.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkDisableHeartsChanged() {
+    disableHeartsWasChanged();
+  }
+
+  private void disableHeartsWasChanged(bool persist = true) {
+    disableHearts = chkDisableHearts.checked;
 
     if (!persist) return;
     save();
