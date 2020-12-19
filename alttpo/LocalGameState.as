@@ -1780,7 +1780,8 @@ class LocalGameState : GameState {
     if (rom.is_alttp()) {
       if (is_it_a_bad_time()) return;
       // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
-      if (is_frozen()) return;
+      // NOTE: disabled this check so that items sync instantly when you get them during dialogs.
+      //if (is_frozen()) return;
     }
 
     auto @syncables = @rom.syncables;
