@@ -598,7 +598,8 @@ class LocalGameState : GameState {
 
   void fetch_sram() {
     // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
-    if (is_frozen()) return;
+    // NOTE: disabled this check so that items sync instantly when you get them during dialogs.
+    //if (is_frozen()) return;
     local.in_sm_for_items = false;
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
     bus::read_block_u8(0xA17900, 0, 0x40, sram_buffer);
