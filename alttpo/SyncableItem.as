@@ -230,7 +230,7 @@ class SyncableHealthCapacity : SyncableItem {
       }
     }
 
-    if (newValue == oldValue) {
+    if (newValue <= oldValue) {
       return false;
     }
 

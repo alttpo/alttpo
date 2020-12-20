@@ -1802,9 +1802,14 @@ class LocalGameState : GameState {
   void update_items(SRAM@ d, bool is_sram_buffer = false) {
     if (rom.is_alttp()) {
       if (is_it_a_bad_time()) return;
-      // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
-      // NOTE: disabled this check so that items sync instantly when you get them during dialogs.
-      //if (is_frozen()) return;
+
+      // don't update latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
+      // when opening a chest with a heart piece inside and if you have 3 pieces, the piece counter goes from 3 to 0
+      // and then the chest is opened, the animation completes, the dialog opens, and you close it, and THEN the heart
+      // container counter is increased by 8 (one full heart).
+      // we need to not sync in new values while this process is happening (link is frozen in place) otherwise it will
+      // break the final calculation and will not increment heart container count.
+      if (is_frozen()) return;
     }
 
     auto @syncables = @rom.syncables;
