@@ -64,6 +64,8 @@ abstract class ROMMapping {
   uint32 get_fn_overworld_finish_mirror_warp() property { return 0; }
   uint32 get_fn_sprite_load_gfx_properties() property { return 0; }
 
+  uint32 get_fn_overworld_createpyramidhole() property { return 0; } // 0x1BC2A7
+
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
     @SyncableItem(0x340, 1, 1, @nameForBow),         // bow
@@ -355,6 +357,8 @@ class USAROMMapping : ROMMapping {
 
   uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B260; }  // $13260
   uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
+
+  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }
 };
 
 class EURROMMapping : ROMMapping {
@@ -387,6 +391,8 @@ class EURROMMapping : ROMMapping {
   uint32 get_fn_sword_palette() property       { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
   uint32 get_fn_shield_palette() property      { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
+
+  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
 class GER_EURROMMapping : ROMMapping {
@@ -419,6 +425,8 @@ class GER_EURROMMapping : ROMMapping {
   uint32 get_fn_sword_palette() property       { return 0x1BED03; }
   uint32 get_fn_shield_palette() property      { return 0x1BED29; }
   uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
+
+  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }  // TODO: unconfirmed! copied from USROMMapping
 };
 
 class JPROMMapping : ROMMapping {
@@ -459,6 +467,7 @@ class JPROMMapping : ROMMapping {
   uint32 get_table_hitbox_sword_toggle() property { return 0x06F577; }
   uint32 get_table_hitbox_dash_y_hi()    property { return 0x06F58C; }
 
+  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }
 };
 
 class RandomizerMapping : JPROMMapping {

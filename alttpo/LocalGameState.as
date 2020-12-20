@@ -138,6 +138,21 @@ class LocalGameState : GameState {
       });
     }
 
+    // Pyramid bat crash: ([$7EF2DB] | 0x20)
+    @areas[0x5B] = @SyncableItem(0x280 + 0x5B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+      // pyramid hole has just opened:
+      if ( ((oldValue & 0x20) == 0) && ((newValue & 0x20) == 0x20) ) {
+        // local player is on pyramid:
+        if (local.overworld_room == 0x5B) {
+          // JSL to Overworld_CreatePyramidHole to draw the pyramid hole on screen:
+          pb.jsl(rom.fn_overworld_createpyramidhole);
+          local.notify("Pyramid opened");
+        }
+      }
+
+      return oldValue | newValue;
+    });
+
     for (uint i = 0; i < 0x80; i++) {
       @sprs[i] = Sprite();
     }
