@@ -8,6 +8,9 @@ class MemoryWindow {
   private GUI::VerticalLayout @vl;
   private GUI::LineEdit @txtAddr;
   private GUI::Button @btnCapture;
+  private GUI::LineEdit @txtWAddr;
+  private GUI::LineEdit @txtWValue;
+  private GUI::Button @btnWrite;
 
   uint32 addr;
   uint32 addrCapture;
@@ -52,7 +55,7 @@ class MemoryWindow {
       hz.append(txtAddr, GUI::Size(-1, 0), 5);
 
       @btnCapture = GUI::Button();
-      btnCapture.text = "Capture";
+      btnCapture.text = "capture";
       btnCapture.onActivate(@GUI::Callback(btnCaptureClicked));
       hz.append(btnCapture, GUI::Size(0, 0), 5);
     }
@@ -108,6 +111,31 @@ class MemoryWindow {
       }
     }
 
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0), 5);
+
+      auto @lbl = GUI::Label();
+      lbl.text = "address: ";
+      lbl.foregroundColor = addrColor;
+      hz.append(lbl, GUI::Size(0, 0), 5);
+
+      @txtWAddr = GUI::LineEdit();
+      txtWAddr.text = "7ef340";
+      txtWAddr.foregroundColor = GUI::Color(192, 192, 192);
+      hz.append(txtWAddr, GUI::Size(120, 0), 5);
+
+      @txtWValue = GUI::LineEdit();
+      txtWValue.text = "00";
+      txtWValue.foregroundColor = GUI::Color(192, 192, 192);
+      hz.append(txtWValue, GUI::Size(80, 0), 5);
+
+      @btnWrite = GUI::Button();
+      btnWrite.text = "write";
+      btnWrite.onActivate(@GUI::Callback(btnWriteClicked));
+      hz.append(btnWrite, GUI::Size(0, 0), 5);
+    }
+
     vl.resize();
     btnCaptureClicked();
     window.visible = true;
@@ -117,6 +145,14 @@ class MemoryWindow {
     // capture current page:
     addrCapture = addr;
     bus::read_block_u8(addrCapture, 0, memWindowBytes, base);
+
+    update();
+  }
+
+  void btnWriteClicked() {
+    auto waddr = txtWAddr.text.hex();
+    auto wvalue = txtWValue.text.hex();
+    bus::write_u8(waddr, wvalue);
 
     update();
   }
