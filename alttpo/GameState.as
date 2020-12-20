@@ -7,7 +7,9 @@ uint8 rate_limit = 0x00;
 bool locations_equal(uint32 a, uint32 b) {
   // easiest check:
   if (a == b) return true;
+  // if both players in underworld, then ignore light/dark world check:
   if ((a & 0x010000) == 0x010000 && (b & 0x010000) == 0x010000) {
+    // same underworld room?
     if ((a & 0xFFFF) == (b & 0xFFFF)) return true;
     return false;
   }

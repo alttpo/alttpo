@@ -1559,7 +1559,12 @@ class LocalGameState : GameState {
 
       if (kind == 0x02) {
         // broadcast to sector:
-        envelope.write_u32(actual_location);
+        uint16 sector = actual_location;
+        if ((sector & 0x010000) != 0) {
+          // turn off light/dark world bit so that all underworld locations are equal:
+          sector &= 0x01FFFF;
+        }
+        envelope.write_u32(sector);
       }
     }
 
