@@ -29,6 +29,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkRaceMode;
   private GUI::CheckLabel @chkBridge;
   private GUI::CheckLabel @chkDisableHearts;
+  private GUI::CheckLabel @chkDisableTilemap;
   private GUI::Label @lblBridgeMessage;
   private GUI::CheckLabel @chkCrowd;
   private GUI::Label @lblCrowdMessage;
@@ -168,6 +169,11 @@ class SettingsWindow {
     get { return disableHearts; }
   }
 
+  private bool disableTilemap;
+  bool DisableTilemap {
+    get { return disableTilemap; }
+  }
+
   private void setColorSliders() {
     // set the color sliders:
     slRed.position   = ( player_color        & 31);
@@ -203,6 +209,7 @@ class SettingsWindow {
     chkDiscordEnable.checked = discordEnable;
     chkDiscordPrivate.checked = discordPrivate;
     chkDisableHearts.checked = disableHearts;
+    chkDisableTilemap.checked = disableTilemap;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -242,6 +249,7 @@ class SettingsWindow {
     enablePvPFriendlyFire = doc["feature/enablePvPFriendlyFire"].booleanOr(false);
     raceMode = doc["feature/raceMode"].booleanOr(false);
     disableHearts = doc["feature/disableHearts"].booleanOr(false);
+    disableTilemap = doc["feature/disableTilemap"].booleanOr(false);
     enableSmallKeySync = doc["feature/enableSmallKeySync"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
@@ -286,6 +294,7 @@ class SettingsWindow {
     doc.create("feature/raceMode").value = fmtBool(raceMode);
     doc.create("feature/enableSmallKeySync").value = fmtBool(enableSmallKeySync);
     doc.create("feature/disableHearts").value = fmtBool(disableHearts);
+    doc.create("feature/disableTilemap").value = fmtBool(disableTilemap);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
     UserSettings::save("alttpo.bml", doc);
@@ -579,6 +588,15 @@ class SettingsWindow {
         chkDisableHearts.checked = false;
         chkDisableHearts.onToggle(@GUI::Callback(chkDisableHeartsChanged));
         hz.append(chkDisableHearts, GUI::Size(sx150, 0));
+
+        @chkDisableTilemap = GUI::CheckLabel();
+        chkDisableTilemap.text = "Disable tilemap sync";
+        chkDisableTilemap.toolTip =
+          "Enable this feature to disable synchronization of tilemap changes, e.g. bushes, stones, signs, pots "
+          "picked up, chests opened, doors, holes opened, etc.";
+        chkDisableTilemap.checked = false;
+        chkDisableTilemap.onToggle(@GUI::Callback(chkDisableTilemapChanged));
+        hz.append(chkDisableTilemap, GUI::Size(sx150, 0));
       }
 
       {
@@ -790,6 +808,18 @@ class SettingsWindow {
 
   private void disableHeartsWasChanged(bool persist = true) {
     disableHearts = chkDisableHearts.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkDisableTilemapChanged() {
+    disableTilemapWasChanged();
+  }
+
+  private void disableTilemapWasChanged(bool persist = true) {
+    disableTilemap = chkDisableTilemap.checked;
 
     if (!persist) return;
     save();

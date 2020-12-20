@@ -876,6 +876,11 @@ class LocalGameState : GameState {
   }
 
   void fetch_tilemap_changes() {
+    // disable tilemap sync based on settings:
+    if (settings.DisableTilemap) {
+      return;
+    }
+
     if (is_dead()) {
       return;
     }
@@ -1639,7 +1644,9 @@ class LocalGameState : GameState {
 
     if (!settings.RaceMode) {
       // send posisbly multiple packets for tilemaps:
-      p = send_tilemaps(p);
+      if (!settings.DisableTilemap) {
+        p = send_tilemaps(p);
+      }
 
       // send packet every other frame:
       if ((frame & 1) == 0) {
@@ -2098,6 +2105,11 @@ class LocalGameState : GameState {
   }
 
   void update_tilemap() {
+    // disable tilemap sync based on settings:
+    if (settings.DisableTilemap) {
+      return;
+    }
+
     bool write_to_vram = false;
     bool team_check = true;
 
