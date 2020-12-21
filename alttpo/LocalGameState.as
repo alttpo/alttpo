@@ -1581,7 +1581,7 @@ class LocalGameState : GameState {
 
   array<uint16> maxSize(5);
 
-  uint send_packet(array<uint8> &in envelope, uint p) {
+  uint send_packet(array<uint8> @envelope, uint p) {
     uint len = envelope.length();
     if (len > MaxPacketSize) {
       message("packet[" + fmtInt(p) + "] too big to send! " + fmtInt(len) + " > " + fmtInt(MaxPacketSize));
@@ -1613,7 +1613,7 @@ class LocalGameState : GameState {
     // check if we need to detect our local index:
     if (index == -1) {
       // request our index; receive() will take care of the response:
-      array<uint8> request = create_envelope(0x00);
+      auto @request = create_envelope(0x00);
       p = send_packet(request, p);
     }
 
@@ -1625,7 +1625,7 @@ class LocalGameState : GameState {
 
     // send main packet:
     {
-      array<uint8> envelope = create_envelope();
+      auto @envelope = create_envelope();
 
       serialize_location(envelope);
       serialize_name(envelope);
@@ -1655,55 +1655,55 @@ class LocalGameState : GameState {
 
       // send packet every other frame:
       if ((frame & 1) == 0) {
-        array<uint8> envelope = create_envelope(0x02);
+        auto @envelope = create_envelope(0x02);
         serialize_torches(envelope);
         p = send_packet(envelope, p);
       }
 
       // send SRAM updates once every 16 frames:
       if ((frame & 15) == 0) {
-        array<uint8> envelope = create_envelope();
+        auto @envelope = create_envelope();
         rom.serialize_sram_ranges(envelope, serializeSramDelegate);
         p = send_packet(envelope, p);
       }
 
       // send dungeon and overworld SRAM alternating every 16 frames:
       if ((frame & 31) == 0) {
-        array<uint8> envelope = create_envelope();
+        auto @envelope = create_envelope();
         serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
         p = send_packet(envelope, p);
       }
       if ((frame & 31) == 16) {
-        array<uint8> envelope = create_envelope();
+        auto @envelope = create_envelope();
         serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
         p = send_packet(envelope, p);
       }
 
       if (rom.is_smz3()) {
         if ((frame & 31) == 0) {
-          array<uint8> envelope = create_envelope();
+          auto @envelope = create_envelope();
           serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
           p = send_packet(envelope, p);
         }
 
         if ((frame & 31) == 0) {
-          array<uint8> envelope = create_envelope();
+          auto @envelope = create_envelope();
           serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
           p = send_packet(envelope, p);
         }
 
         if ((frame & 31) == 16) {
-          array<uint8> envelope = create_envelope();
+          auto @envelope = create_envelope();
           serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
           p = send_packet(envelope, p);
         }
 
         if (!rom.is_alttp()) {
-          array<uint8> envelope = create_envelope();
+          auto @envelope = create_envelope();
           serialize_sm_location(envelope);
           p = send_packet(envelope, p);
         
-          array<uint8> envelope1 = create_envelope();
+          auto @envelope1 = create_envelope();
           serialize_sm_sprite(envelope1);
           p = send_packet(envelope1, p);
         }

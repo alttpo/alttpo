@@ -41,22 +41,29 @@ class Sprite {
   // b4 must be right-shifted to be the two least significant bits and all other bits cleared.
   void decodeOAMTableBytes() {
     // decode the bytes into actual fields:
-    chr = uint16(b2) | (uint16(b3 & 1) << 8);
+    if (b1 == 0xF0) {
+      is_enabled = false;
+      return;
+    }
 
     x = int32(uint16(b0) | (uint16(b4 & 1) << 8));
     if (x >= 256) x -= 512;
 
+    size = (b4 >> 1) & 1;
+    int px = size == 0 ? 8 : 16;
+
+    is_enabled = (x > -px && x < 256);
+    if (!is_enabled) {
+      return;
+    }
+
     y = int32(b1);
+    chr = uint16(b2) | (uint16(b3 & 1) << 8);
 
     palette = (b3 >> 1) & 7;
     priority = (b3 >> 4) & 3;
     hflip = ((b3 >> 6) & 1) != 0 ? true : false;
     vflip = ((b3 >> 7) & 1) != 0 ? true : false;
-
-    size = (b4 >> 1) & 1;
-    int px = size == 0 ? 8 : 16;
-
-    is_enabled = (b1 != 0xF0) && (x > -px && x < 256);
   }
 
   void decodeOAMTable(uint16 i) {
