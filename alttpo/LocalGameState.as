@@ -87,6 +87,8 @@ class LocalGameState : GameState {
   AncillaTables ancillaTables;
   array<Projectile> projectiles;
 
+  uint16 animation_timer;
+
   LocalGameState() {
     @this.notify = Notify(@notificationSystem.notify);
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
@@ -163,8 +165,10 @@ class LocalGameState : GameState {
 
     small_keys_current.reset();
     last_sent = 0;
-    
+
     gotShield = 0;
+
+    animation_timer = 0;
   }
 
   bool registered = false;
@@ -459,6 +463,8 @@ class LocalGameState : GameState {
 
     dungeon = bus::read_u16(0x7E040C);
     dungeon_entrance = bus::read_u16(0x7E010E);
+
+    animation_timer = bus::read_u16(0x7E0112);
 
     fetch_pvp();
 
@@ -1728,7 +1734,8 @@ class LocalGameState : GameState {
       if (remote.in_sm == 1) continue;
 
       // update crystal switches to latest state among all players in same dungeon:
-      if ((module == 0x07 && sub_module == 0x00) && (remote.module == module) && (remote.dungeon == dungeon)) {
+      // animation_timer check is to prevent soft lock if another animation is occurring.
+      if ((module == 0x07 && sub_module == 0x00 && animation_timer == 0) && (remote.module == module) && (remote.dungeon == dungeon)) {
         crystal.compareTo(remote.crystal);
       }
 
