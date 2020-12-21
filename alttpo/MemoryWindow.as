@@ -182,7 +182,7 @@ class MemoryWindow {
       auto absAddr = addr + row;
       lblAddrRow[i].text = fmtHex(absAddr, 6);
 
-      if ((absAddr < addrCapture + memWindowBytes) || (absAddr >= addrCapture + memWindowBytes)) {
+      if ((absAddr < addrCapture) || (absAddr >= addrCapture + memWindowBytes)) {
         // no capture window overlap:
         for (uint x = 0; x < 0x10; x++, absAddr++) {
           auto j = row + x;
