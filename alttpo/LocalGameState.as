@@ -70,7 +70,7 @@ class SMSRAMArray : SRAMArray {
 
 class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
-  array<SyncableItem@> rooms(0x128);
+  array<SyncableUnderworldRoom@> rooms(0x128);
   array<Sprite@> sprs(0x80);
 
   Notify@ notify;
@@ -96,13 +96,11 @@ class LocalGameState : GameState {
     // create syncable item for each underworld room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
     rooms.resize(0x128);
     for (uint a = 0; a < 0x128; a++) {
-      @rooms[a] = @SyncableItem(a << 1, 2, 2);
+      @rooms[a] = @SyncableUnderworldRoom(a, 0xFFFF);
     }
 
     // desync swamp inner watergate at $7EF06A (supertile $35)
-    @rooms[0x035] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-      return oldValue | (newValue & 0xFF7F);
-    });
+    rooms[0x035].mask = 0xFF7F;
 
     // SRAM [$250..$27f] unused
 
@@ -120,12 +118,8 @@ class LocalGameState : GameState {
       // desync the indoor flags for the swamp palace and the watergate:
       // LDA $7EF216 : AND.b #$7F : STA $7EF216
       // LDA $7EF051 : AND.b #$FE : STA $7EF051
-      @rooms[0x10B] = @SyncableItem(0x10B << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-        return oldValue | (newValue & 0xFF7F);
-      });
-      @rooms[0x028] = @SyncableItem(0x028 << 1, 2, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-        return oldValue | (newValue & 0xFEFF);
-      });
+      rooms[0x10B].mask = 0xFF7F;
+      rooms[0x028].mask = 0xFEFF;
 
       // desync the overlay flags for the swamp palace and its light world counterpart:
       // LDA $7EF2BB : AND.b #$DF : STA $7EF2BB

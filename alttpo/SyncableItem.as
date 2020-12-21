@@ -282,6 +282,60 @@ class SyncableHealthCapacity : SyncableItem {
   }
 }
 
+class SyncableUnderworldRoom {
+  uint16 _room, _offs;
+  uint16 room {
+    get { return _room; }
+    set {
+      _room = value;
+      _offs = value << 1;
+    }
+  }
+  uint16 mask;
+
+  SyncableUnderworldRoom(uint16 room, uint16 mask) {
+    this.room = room;
+    this.mask = mask;
+  }
+
+  // temporary state:
+  uint16 oldValue;
+  uint16 newValue;
+
+  void start(SRAMReader@ localSRAM) {
+    oldValue = localSRAM.read_u16(_offs);
+    newValue = oldValue;
+  }
+
+  void apply(SRAM@ localSRAM, SRAMReader@ remoteSRAM) {
+    auto remoteValue = remoteSRAM.read_u16(_offs);
+    // mask off new bits we don't care about:
+    remoteValue &= mask;
+    newValue = localSRAM.read_u16(_offs) | remoteValue;
+  }
+
+  bool finish(SRAM@ localSRAM, NotifyItemReceived @notifyItemReceived = null) {
+    if (newValue == oldValue) {
+      return false;
+    }
+
+    //if ((notifyNewItems !is null) && (notifyItemReceived !is null)) {
+    //  notifyNewItems(oldValue, newValue, notifyItemReceived);
+    //}
+
+    localSRAM.write_u16(_offs, newValue);
+
+    //if (local.is_in_dungeon_location() && (local.dungeon_room == _room)) {
+    //  // update WRAM copies of door state:
+    //  bus::write_u16(0x7E0400, newValue);
+    //  bus::write_u16(0x7E068C, newValue | 0x0F00);
+    //  bus::write_u16(0x7E0402, (newValue & 0x0FF0) << 4);
+    //  bus::write_u16(0x7E0408, (newValue & 0x000F));
+    //}
+
+    return true;
+  }
+}
 
 // 0x3C5
 uint16 mutateWorldState(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
