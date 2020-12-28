@@ -35,6 +35,7 @@ class SettingsWindow {
   private GUI::Label @lblCrowdMessage;
   private GUI::CheckLabel @chkDiscordEnable;
   private GUI::CheckLabel @chkDiscordPrivate;
+  private GUI::CheckLabel @chkSyncChests;
   private GUI::ComboButton @ddlFont;
   private GUI::Button @btnConnect;
   private GUI::Button @btnDisconnect;
@@ -149,6 +150,11 @@ class SettingsWindow {
     get { return enablePvP; }
   }
 
+  private bool syncChests;
+  bool SyncChests {
+    get { return syncChests; }
+  }
+
   private bool raceMode;
   bool RaceMode {
     get { return raceMode; }
@@ -210,6 +216,7 @@ class SettingsWindow {
     chkDiscordPrivate.checked = discordPrivate;
     chkDisableHearts.checked = disableHearts;
     chkDisableTilemap.checked = disableTilemap;
+    chkSyncChests.checked = syncChests;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -253,6 +260,7 @@ class SettingsWindow {
     enableSmallKeySync = doc["feature/enableSmallKeySync"].booleanOr(false);
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
+    syncChests = doc["feature/syncChests"].booleanOr(true);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -297,6 +305,7 @@ class SettingsWindow {
     doc.create("feature/disableTilemap").value = fmtBool(disableTilemap);
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
+    doc.create("feature/syncChests").value = fmtBool(syncChests);
     UserSettings::save("alttpo.bml", doc);
   }
 
@@ -671,6 +680,19 @@ class SettingsWindow {
 
       {
         auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        @chkSyncChests = GUI::CheckLabel();
+        chkSyncChests.text = "Sync Chests/Keys";
+        chkSyncChests.toolTip =
+        "Enable to sync which chests have been opened and small keys picked up.";
+
+        chkSyncChests.checked = syncChests;
+        chkSyncChests.onToggle(@GUI::Callback(chkSyncChestsChanged));
+        hz.append(chkSyncChests, GUI::Size(sx150, 0));
+      }
+      {
+        auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
 
         @btnConnect = GUI::Button();
@@ -762,6 +784,20 @@ class SettingsWindow {
     enablePvP = chkEnablePvP.checked;
 
     if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncChestsChanged() {
+    syncChestsWasChanged();
+  }
+
+  private void syncChestsWasChanged() {
+    syncChests = chkSyncChests.checked;
+
+    if (local !is null) {
+      local.set_room_masks(syncChests);
+    }
     save();
   }
 

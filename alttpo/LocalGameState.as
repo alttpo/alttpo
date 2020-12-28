@@ -100,7 +100,7 @@ class LocalGameState : GameState {
     for (uint a = 0; a < 0x128; a++) {
       @rooms[a] = @SyncableUnderworldRoom(a, 0xFFFF);
     }
-
+    set_room_masks(settings.SyncChests);
     // desync swamp inner watergate at $7EF06A (supertile $35)
     rooms[0x035].mask = 0xFF7F;
 
@@ -157,6 +157,21 @@ class LocalGameState : GameState {
     @small_keys_current = @SyncableByte(0xF36F);
     for (uint i = 0; i < 0x10; i++) {
       @small_keys[i] = @SyncableByte(small_keys_min_offs + i);
+    }
+  }
+
+  void set_room_masks(bool syncChests) {
+    uint16 mask = 0xFFFF;
+    if (!syncChests) {
+      // chops off the 6 bits that sync chests/keys
+      mask = ~0x3F0;
+    }
+    for (uint a = 0; a < 0x128; a++) {
+      if (a == 0x035) {
+        // keep the inner watergate as is
+        continue;
+      }
+      rooms[a].mask = mask;
     }
   }
 
