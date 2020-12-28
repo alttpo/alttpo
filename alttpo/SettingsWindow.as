@@ -144,7 +144,7 @@ class SettingsWindow {
     lblCrowdMessage.text = msg;
   }
 
-  private bool enablePvp;
+  private bool enablePvP;
   bool EnablePvP {
     get { return enablePvP; }
   }
