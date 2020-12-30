@@ -223,8 +223,8 @@ void pre_frame() {
     bridge.main();
   }
 
-  if (settings.Crowd) {
-    CrowdControl::connector.main();
+  if (settings.ConnectorLibConnected) {
+    ConnectorLib::connector.main();
   }
 
   local.ttl = 255;
