@@ -424,17 +424,18 @@ uint16 mutateSword(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
 }
 
 uint16 mutateShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
-  if(local.gotShield == 0)
-  {
-    local.gotShield = newValue;
-  }
-  if (newValue > oldValue && newValue > local.gotShield) {
+  //if(local.gotShield == 0)
+  //{
+  //  local.gotShield = newValue;
+  //}
+  //if (newValue > oldValue && newValue > local.gotShield) {
+  if (newValue > oldValue) { 
     if (rom.is_alttp()) {
       // JSL DecompShieldGfx
       pb.jsl(rom.fn_decomp_shield_gfx);
       pb.jsl(rom.fn_shield_palette);
     }
-    local.gotShield = newValue;
+    //local.gotShield = newValue;
     return newValue;
   }
   return oldValue;
