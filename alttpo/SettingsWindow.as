@@ -31,8 +31,8 @@ class SettingsWindow {
   private GUI::CheckLabel @chkDisableHearts;
   private GUI::CheckLabel @chkDisableTilemap;
   private GUI::Label @lblBridgeMessage;
-  private GUI::CheckLabel @chkCrowd;
-  private GUI::Label @lblCrowdMessage;
+  private GUI::CheckLabel @chkConnectorLib;
+  private GUI::Label @lblConnectorLibMessage;
   private GUI::CheckLabel @chkDiscordEnable;
   private GUI::CheckLabel @chkDiscordPrivate;
   private GUI::CheckLabel @chkSyncChests;
@@ -130,22 +130,21 @@ class SettingsWindow {
     lblBridgeMessage.text = msg;
   }
 
-  private int crowdState;
-  bool Crowd {
-    get { return crowdState != 0; }
+  private int connectorLibState;
+  bool ConnectorLibConnected {
+    get { return connectorLibState != 0; }
   }
 
-  void crowdStateUpdated(int state) {
-    crowdState = state;
+  void connectorLibStateUpdated(int state) {
+    connectorLibState = state;
     bool enabled = (state != 0);
-    chkCrowd.checked = enabled;
+    chkConnectorLib.checked = enabled;
   }
 
-  void crowdMessageUpdated(const string &in msg) {
-    lblCrowdMessage.text = msg;
+  void connectorLibMessageUpdated(const string &in msg) {
+    lblConnectorLibMessage.text = msg;
   }
 
-  private bool enablePvp;
   bool EnablePvP {
     get { return enablePvP; }
   }
@@ -632,19 +631,21 @@ class SettingsWindow {
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, 0));
 
-        @chkCrowd = GUI::CheckLabel();
-        chkCrowd.text = "Crowd Control";
-        chkCrowd.toolTip =
-          "Enable this feature to connect to CrowdControl application.";
-        chkCrowd.checked = false;
-        chkCrowd.onToggle(@GUI::Callback(chkCrowdChanged));
-        hz.append(chkCrowd, GUI::Size(sx150, 0));
+        @chkConnectorLib = GUI::CheckLabel();
+        chkConnectorLib.text = "ConnectorLib";
+        chkConnectorLib.toolTip =
+          "Enable this feature to connect to CrowdControl, EmoTracker, or any other ConnectorLib server. If it becomes "
+          "unchecked, that means a connection could not be made. Please make sure to enable the ConnectorLib server in "
+          "the application you want to connect to and try checking this box again.";
+        chkConnectorLib.checked = false;
+        chkConnectorLib.onToggle(@GUI::Callback(chkConnectorLibChanged));
+        hz.append(chkConnectorLib, GUI::Size(sx150, 0));
 
-        @lblCrowdMessage = GUI::Label();
-        lblCrowdMessage.text = "";
-        lblCrowdMessage.toolTip =
-          "Current status of CrowdControl connection";
-        hz.append(lblCrowdMessage, GUI::Size(-1, 0));
+        @lblConnectorLibMessage = GUI::Label();
+        lblConnectorLibMessage.text = "";
+        lblConnectorLibMessage.toolTip =
+          "Current status of ConnectorLib connection";
+        hz.append(lblConnectorLibMessage, GUI::Size(-1, 0));
       }
 
       {
@@ -741,13 +742,13 @@ class SettingsWindow {
   }
 
   // callback:
-  private void chkCrowdChanged() {
-    auto enabled = chkCrowd.checked;
+  private void chkConnectorLibChanged() {
+    auto enabled = chkConnectorLib.checked;
     if (enabled) {
-      CrowdControl::connector.start();
+      ConnectorLib::connector.start();
     } else {
-      CrowdControl::connector.stop();
-      crowdMessageUpdated("");
+      ConnectorLib::connector.stop();
+      connectorLibMessageUpdated("");
     }
   }
 

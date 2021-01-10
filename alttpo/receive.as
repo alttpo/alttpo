@@ -12,7 +12,7 @@ void receive() {
     // verify envelope header:
     uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
     if (header != 25887) {
-      message("receive(): bad envelope header!");
+      //message("receive(): bad envelope header!");
       continue;
     }
 
@@ -36,9 +36,11 @@ void receive() {
       uint8 clientType = r[c++];
       // skip messages from non-players (e.g. spectators):
       if (clientType != 1) {
-        message("receive(): ignore non-player message");
+        //message("receive(): ignore non-player message");
         continue;
       }
+
+      process_message(index, r, c);
     } else if (protocol == 0x02) {
       // skip 20 byte group name:
       c += 20;
@@ -70,35 +72,46 @@ void receive() {
 
           players_updated = true;
         }
+
+        continue;
+      } else if (kind == 0x81) {
+        // kind == 0x81 should be response to another player's broadcast.
+        index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        process_message(index, r, c);
+      } else if (kind == 0x82) {
+        // kind == 0x82 should be response to another player's broadcast-to-sector.
+        index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        process_message(index, r, c);
+      } else {
+        // unrecognized message kind, skip it:
         continue;
       }
-
-      // kind == 0x81 should be response to another player's broadcast.
-      index = uint16(r[c++]) | (uint16(r[c++]) << 8);
     } else {
-      message("receive(): unknown protocol 0x" + fmtHex(protocol, 2));
+      //message("receive(): unknown protocol 0x" + fmtHex(protocol, 2));
       continue;
     }
-
-    if (index >= players.length()) {
-      players_updated = true;
-    }
-
-    while (index >= players.length()) {
-      players.insertLast(@GameState());
-    }
-
-    if (players[index] is local) {
-      message("received update from remote player with same index as local player {0}".format({index}));
-      // we're confused; reset:
-      local.index = -1;
-      players.resize(0);
-      players_updated = true;
-      continue;
-    }
-
-    // deserialize data packet:
-    players[index].index = index;
-    players[index].deserialize(r, c);
   }
+}
+
+void process_message(uint16 index, array<uint8> r, int c) {
+  if (index >= players.length()) {
+    players_updated = true;
+  }
+
+  while (index >= players.length()) {
+    players.insertLast(@GameState());
+  }
+
+  if (players[index] is local) {
+    message("received update from remote player with same index as local player {0}".format({index}));
+    // we're confused; reset:
+    local.index = -1;
+    players.resize(0);
+    players_updated = true;
+    return;
+  }
+
+  // deserialize data packet:
+  players[index].index = index;
+  players[index].deserialize(r, c);
 }

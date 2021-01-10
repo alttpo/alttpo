@@ -45,9 +45,9 @@ void init() {
     @MessageUpdated(settings.bridgeMessageUpdated)
   );
 
-  @CrowdControl::connector = CrowdControl::Connector(
-    @StateUpdated(settings.crowdStateUpdated),
-    @MessageUpdated(settings.crowdMessageUpdated),
+  @ConnectorLib::connector = ConnectorLib::Connector(
+    @StateUpdated(settings.connectorLibStateUpdated),
+    @MessageUpdated(settings.connectorLibMessageUpdated),
     @Notify(notificationSystem.notify)
   );
 

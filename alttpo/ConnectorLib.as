@@ -1,5 +1,5 @@
 
-namespace CrowdControl {
+namespace ConnectorLib {
   // funcdefs:
 
   funcdef void StateUpdated(int state);
@@ -11,7 +11,7 @@ namespace CrowdControl {
   const uint8 VERSION_PATCH = 0;
   const uint version = (uint(VERSION_MAJOR) << 16) | (uint(VERSION_MINOR) << 8) | uint(VERSION_PATCH);
 
-  // host:port to connect to CrowdControl app server:
+  // host:port to connect to ConnectorLib app server:
   const string host = "127.0.0.1";
   const string port = "43884";
 
