@@ -164,7 +164,7 @@ class LocalGameState : GameState {
     uint16 mask = 0xFFFF;
     if (!syncChests) {
       // chops off the 6 bits that sync chests/keys
-      mask = ~0x3F0;
+      mask = ~uint16(0x03F0);
     }
     for (uint a = 0; a < 0x128; a++) {
       if (a == 0x035) {
