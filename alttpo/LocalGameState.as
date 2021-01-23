@@ -1712,8 +1712,9 @@ class LocalGameState : GameState {
           serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
           p = send_packet(envelope, p);
         }
-
-        if (!rom.is_alttp()) {
+      }
+    }
+    if (!rom.is_alttp()) {
           auto @envelope = create_envelope();
           serialize_sm_location(envelope);
           p = send_packet(envelope, p);
@@ -1721,8 +1722,6 @@ class LocalGameState : GameState {
           auto @envelope1 = create_envelope();
           serialize_sm_sprite(envelope1);
           p = send_packet(envelope1, p);
-        }
-      }
     }
   }
 
