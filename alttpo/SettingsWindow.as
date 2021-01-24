@@ -671,6 +671,8 @@ class SettingsWindow {
     chkDisableTilemap.checked = false;
     ::enableSmallKeySync = false;
     chkKeySync.checked = ::enableSmallKeySync;
+    chkSyncChests.checked = true;
+    chkSyncChestsChanged();
     ::enablePvP = false;
     chkEnablePvP.checked = ::enablePvP;
     ::enablePvPFriendlyFire = false;
