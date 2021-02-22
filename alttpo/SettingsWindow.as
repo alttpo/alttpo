@@ -28,6 +28,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkPvPFF;
   private GUI::CheckLabel @chkKeySync;
   private GUI::CheckLabel @chkRaceMode;
+  private GUI::CheckLabel @chkDisableWorldSync;
   private GUI::CheckLabel @chkBridge;
   private GUI::CheckLabel @chkDisableHearts;
   private GUI::CheckLabel @chkDisableTilemap;
@@ -164,6 +165,11 @@ class SettingsWindow {
     get { return raceMode; }
   }
 
+  private bool disableWorldSync;
+  bool DisableWorldSync {
+    get { return disableWorldSync; }
+  }
+
   private bool discordEnable;
   bool DiscordEnable {
     get { return discordEnable; }
@@ -216,6 +222,7 @@ class SettingsWindow {
     chkPvPFF.checked = enablePvPFriendlyFire;
     chkKeySync.checked = enableSmallKeySync;
     chkRaceMode.checked = raceMode;
+    chkDisableWorldSync.checked = disableWorldSync;
     chkDiscordEnable.checked = discordEnable;
     chkDiscordPrivate.checked = discordPrivate;
     chkDisableHearts.checked = disableHearts;
@@ -259,6 +266,7 @@ class SettingsWindow {
     enablePvP = doc["feature/enablePvP"].booleanOr(true);
     enablePvPFriendlyFire = doc["feature/enablePvPFriendlyFire"].booleanOr(false);
     raceMode = doc["feature/raceMode"].booleanOr(false);
+    disableWorldSync = doc["feature/disableWorldSync"].booleanOr(false);
     disableHearts = doc["feature/disableHearts"].booleanOr(false);
     disableTilemap = doc["feature/disableTilemap"].booleanOr(false);
     enableSmallKeySync = doc["feature/enableSmallKeySync"].booleanOr(false);
@@ -287,6 +295,7 @@ class SettingsWindow {
     showLabels = chkShowLabels.checked;
     showMyLabel = chkShowMyLabel.checked;
     raceMode = chkRaceMode.checked;
+    disableWorldSync = chkDisableWorldSync.checked;
 
     auto doc = BML::Node();
     doc.create("version").value = "1";
@@ -304,6 +313,7 @@ class SettingsWindow {
     doc.create("feature/enablePvP").value = fmtBool(enablePvP);
     doc.create("feature/enablePvPFriendlyFire").value = fmtBool(enablePvPFriendlyFire);
     doc.create("feature/raceMode").value = fmtBool(raceMode);
+    doc.create("feature/disableWorldSync").value = fmtBool(disableWorldSync);
     doc.create("feature/enableSmallKeySync").value = fmtBool(enableSmallKeySync);
     doc.create("feature/disableHearts").value = fmtBool(disableHearts);
     doc.create("feature/disableTilemap").value = fmtBool(disableTilemap);
@@ -631,6 +641,18 @@ class SettingsWindow {
   }
 
   // callback:
+  private void chkDisableWorldSyncChanged() {
+    disableWorldSyncWasChanged();
+  }
+
+  private void disableWorldSyncWasChanged(bool persist = true) {
+    disableWorldSync = chkDisableWorldSync.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
   private void chkDisableHeartsChanged() {
     disableHeartsWasChanged();
   }
@@ -667,6 +689,7 @@ class SettingsWindow {
     txtTeam.text = "0";
     ddlFont[0].setSelected();
     chkRaceMode.checked = false;
+    chkDisableWorldSync.checked = false;
     chkDisableHearts.checked = false;
     chkDisableTilemap.checked = false;
     ::enableSmallKeySync = false;
@@ -688,6 +711,7 @@ class SettingsWindow {
   private void btnPresetMultiworldClicked(){
     disconnect();
     chkRaceMode.checked = true;
+    chkDisableWorldSync.checked = true;
     chkDisableHearts.checked = true;
     chkDisableTilemap.checked = true;
     syncChests = false;
@@ -816,15 +840,15 @@ class SettingsWindow {
   
   //callback
   private void btnAdvancedClicked(){
-     advancedWindow.visible = true;
+    advancedWindow.visible = true;
   }
   
   private void build_advanced(){
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(300), sy(400));
-    
-    auto sx150 = sx(150);
+    advancedWindow.size = GUI::Size(sx(350), sy(400));
+
+    auto sx150 = sx(175);
     auto sx100 = sx(100);
     auto sx40 = sx(40);
     auto sy20 = sy(20);
@@ -832,298 +856,307 @@ class SettingsWindow {
     auto sy5 = sy(5);
     auto sx64 = sx(64);
     auto sy64 = sy(64);
-    
+
     auto vl = GUI::VerticalLayout();
     vl.setSpacing();
     vl.setPadding(sy5, sy5);
     advancedWindow.append(vl);
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        auto @lbl = GUI::Label();
-        lbl.text = "Server Address:";
-        lbl.toolTip =
-          "Server address (hostname or IP address) to connect to. If unsure, use the default `alttpo.online`.\n\n"
-          "If running your own server, enter its hostname or IP address here. Note that alttpo.online is hosted in "
-          "New Jersey, USA on a Linode VPS.";
-        hz.append(lbl, GUI::Size(sx100, 0));
+      auto @lbl = GUI::Label();
+      lbl.text = "Server Address:";
+      lbl.toolTip =
+        "Server address (hostname or IP address) to connect to. If unsure, use the default `alttpo.online`.\n\n"
+        "If running your own server, enter its hostname or IP address here. Note that alttpo.online is hosted in "
+        "New Jersey, USA on a Linode VPS.";
+      hz.append(lbl, GUI::Size(sx100, 0));
 
-        @txtServerAddress = GUI::LineEdit();
-        txtServerAddress.onChange(@GUI::Callback(save));
-        hz.append(txtServerAddress, GUI::Size(-1, sy20));
+      @txtServerAddress = GUI::LineEdit();
+      txtServerAddress.onChange(@GUI::Callback(save));
+      hz.append(txtServerAddress, GUI::Size(-1, sy20));
     }
-    
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        auto @lbl = GUI::Label();
-        lbl.text = "Team Number:";
-        lbl.toolTip =
-          "Your player's team number which will determine which items and state get synced to you. Only players in the "
-          "same team get the same items and progress synced among themselves. Each team is independent of one another.";
-        hz.append(lbl, GUI::Size(sx100, 0));
+      auto @lbl = GUI::Label();
+      lbl.text = "Team Number:";
+      lbl.toolTip =
+        "Your player's team number which will determine which items and state get synced to you. Only players in the "
+        "same team get the same items and progress synced among themselves. Each team is independent of one another.";
+      hz.append(lbl, GUI::Size(sx100, 0));
 
-        @txtTeam = GUI::LineEdit();
-        txtTeam.onChange(@GUI::Callback(txtTeamChanged));
-        hz.append(txtTeam, GUI::Size(-1, sy20));
+      @txtTeam = GUI::LineEdit();
+      txtTeam.onChange(@GUI::Callback(txtTeamChanged));
+      hz.append(txtTeam, GUI::Size(-1, sy20));
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "Player Color:";
+      lbl.toolTip =
+        "Your player's primary color. Use the Red, Green, Blue sliders below to select your color. This color "
+        "is used as your map marker color as seen on the map window. It can also be used to customize your avatar's "
+        "tunic color if you enable that feature below.\n\n"
+        "If you're a turbo nerd you can enter a 15-bit BGR hex color here. Note that it is NOT a 24-bit RGB hex "
+        "colors.";
+      hz.append(lbl, GUI::Size(sx100, sy20));
+
+      @txtColor = GUI::LineEdit();
+      txtColor.text = "7fff";
+      txtColor.onChange(@GUI::Callback(colorTextChanged));
+      hz.append(txtColor, GUI::Size(-1, sy20));
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "Label Font:";
+      lbl.toolTip =
+        "Choose the on-screen font to render player labels with.";
+      hz.append(lbl, GUI::Size(sx100, 0));
+
+      @ddlFont = GUI::ComboButton();
+      ddlFont.toolTip =
+        "Choose the on-screen font to render player labels with.";
+      hz.append(ddlFont, GUI::Size(0, 0));
+
+      uint len = ppu::fonts_count;
+      for (uint i = 0; i < len; i++) {
+        auto di = GUI::ComboButtonItem();
+        auto @f = ppu::fonts[i];
+        di.text = f.displayName;
+        ddlFont.append(di);
       }
-    
-    {
-          auto @hz = GUI::HorizontalLayout();
-          vl.append(hz, GUI::Size(-1, 0));
+      ddlFont[0].setSelected();
 
-          auto @lbl = GUI::Label();
-          lbl.text = "Player Color:";
-          lbl.toolTip =
-            "Your player's primary color. Use the Red, Green, Blue sliders below to select your color. This color "
-            "is used as your map marker color as seen on the map window. It can also be used to customize your avatar's "
-            "tunic color if you enable that feature below.\n\n"
-            "If you're a turbo nerd you can enter a 15-bit BGR hex color here. Note that it is NOT a 24-bit RGB hex "
-            "colors.";
-          hz.append(lbl, GUI::Size(sx100, sy20));
-
-          @txtColor = GUI::LineEdit();
-          txtColor.text = "7fff";
-          txtColor.onChange(@GUI::Callback(colorTextChanged));
-          hz.append(txtColor, GUI::Size(-1, sy20));
+      ddlFont.onChange(@GUI::Callback(ddlFontChanged));
+      ddlFont.enabled = true;
     }
-    
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        auto @lbl = GUI::Label();
-        lbl.text = "Label Font:";
-        lbl.toolTip =
-          "Choose the on-screen font to render player labels with.";
-        hz.append(lbl, GUI::Size(sx100, 0));
-
-        @ddlFont = GUI::ComboButton();
-        ddlFont.toolTip =
-          "Choose the on-screen font to render player labels with.";
-        hz.append(ddlFont, GUI::Size(0, 0));
-
-        uint len = ppu::fonts_count;
-        for (uint i = 0; i < len; i++) {
-          auto di = GUI::ComboButtonItem();
-          auto @f = ppu::fonts[i];
-          di.text = f.displayName;
-          ddlFont.append(di);
-        }
-        ddlFont[0].setSelected();
-
-        ddlFont.onChange(@GUI::Callback(ddlFontChanged));
-        ddlFont.enabled = true;
+      auto @lbl = GUI::Label();
+      lbl.text = "Sync:";
+      hz.append(lbl, GUI::Size(sx100, 0));
     }
-    
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        auto @lbl = GUI::Label();
-        lbl.text = "Sync:";
-        hz.append(lbl, GUI::Size(sx100, 0));
-        
-        @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      @chkRaceMode = GUI::CheckLabel();
+      chkRaceMode.text = "RaceMode (Disable sync)";
+      chkRaceMode.toolTip =
+        "Enable this feature to disable synchronization with other players in the group. This can be used to have "
+        "one or more players race one player who does not share the others' items, progress, or world state.\n\n"
+        "Specifically, this feature disables item sync, progress sync, overworld sync, underworld sync, and "
+        "real-time screen sync for both overworld and underworld areas.";
+      chkRaceMode.checked = false;
+      chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
+      hz.append(chkRaceMode, GUI::Size(sx150, 0));
 
-        @chkRaceMode = GUI::CheckLabel();
-        chkRaceMode.text = "RaceMode (Disable sync)";
-        chkRaceMode.toolTip =
-          "Enable this feature to disable synchronization with other players in the group. This can be used to have "
-          "one or more players race one player who does not share the others' items, progress, or world state.\n\n"
-          "Specifically, this feature disables item sync, progress sync, overworld sync, underworld sync, and "
-          "real-time screen sync for both overworld and underworld areas.";
-        chkRaceMode.checked = false;
-        chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
-        hz.append(chkRaceMode, GUI::Size(sx150, 0));
-     }
-     
-     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
-
-        @chkDisableHearts = GUI::CheckLabel();
-        chkDisableHearts.text = "Disable hearts sync";
-        chkDisableHearts.toolTip =
-          "Enable this feature to disable synchronization of heart containers and pieces with other players in the group.";
-        chkDisableHearts.checked = false;
-        chkDisableHearts.onToggle(@GUI::Callback(chkDisableHeartsChanged));
-        hz.append(chkDisableHearts, GUI::Size(sx150, 0));
-
-        @chkDisableTilemap = GUI::CheckLabel();
-        chkDisableTilemap.text = "Disable tilemap sync";
-        chkDisableTilemap.toolTip =
-          "Enable this feature to disable synchronization of tilemap changes, e.g. bushes, stones, signs, pots "
-          "picked up, chests opened, doors, holes opened, etc.";
-        chkDisableTilemap.checked = false;
-        chkDisableTilemap.onToggle(@GUI::Callback(chkDisableTilemapChanged));
-        hz.append(chkDisableTilemap, GUI::Size(sx150, 0));
+      @chkDisableWorldSync = GUI::CheckLabel();
+      chkDisableWorldSync.text = "Disable location sync";
+      chkDisableWorldSync.toolTip =
+        "Enable this feature to disable synchronization of location changes, e.g. chests, doors, floor items, "
+        "overworld changes, etc.";
+      chkDisableWorldSync.checked = false;
+      chkDisableWorldSync.onToggle(@GUI::Callback(chkDisableWorldSyncChanged));
+      hz.append(chkDisableWorldSync, GUI::Size(sx150, 0));
     }
-      
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        @chkSyncChests = GUI::CheckLabel();
-        chkSyncChests.text = "Sync Chests/Keys";
-        chkSyncChests.toolTip =
-        "Enable to sync which chests have been opened and small keys picked up.";
+      @chkDisableHearts = GUI::CheckLabel();
+      chkDisableHearts.text = "Disable hearts sync";
+      chkDisableHearts.toolTip =
+        "Enable this feature to disable synchronization of heart containers and pieces with other players in the group.";
+      chkDisableHearts.checked = false;
+      chkDisableHearts.onToggle(@GUI::Callback(chkDisableHeartsChanged));
+      hz.append(chkDisableHearts, GUI::Size(sx150, 0));
 
-        chkSyncChests.checked = syncChests;
-        chkSyncChests.onToggle(@GUI::Callback(chkSyncChestsChanged));
-        hz.append(chkSyncChests, GUI::Size(sx150, 0));
-        
-        @chkKeySync = GUI::CheckLabel();
-        chkKeySync.text = "Small Key Sync (Beta)";
-        chkKeySync.toolTip =
-          "EXPERIMENTAL! Enable this to sync small keys. This may cause small keys to be lost or duplicated.";
-        chkKeySync.checked = ::enableSmallKeySync;
-        chkKeySync.onToggle(@GUI::Callback(chkKeySyncChanged));
-        hz.append(chkKeySync, GUI::Size(sx150, 0));
+      @chkDisableTilemap = GUI::CheckLabel();
+      chkDisableTilemap.text = "Disable tilemap sync";
+      chkDisableTilemap.toolTip =
+        "Enable this feature to disable synchronization of tilemap changes, e.g. bushes, stones, signs, pots "
+        "picked up, chests opened, doors, holes opened, etc.";
+      chkDisableTilemap.checked = false;
+      chkDisableTilemap.onToggle(@GUI::Callback(chkDisableTilemapChanged));
+      hz.append(chkDisableTilemap, GUI::Size(sx150, 0));
     }
-    
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
-        
-        auto @lbl = GUI::Label();
-        lbl.text = "PvP:";
-        hz.append(lbl, GUI::Size(sx100, 0));
-        
-        @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        @chkEnablePvP = GUI::CheckLabel();
-        chkEnablePvP.text = "Enable PvP";
-        chkEnablePvP.toolTip =
-          "Enable this to enable PvP. This will allow you to hit or even kill players in other teams.";
-        chkEnablePvP.checked = ::enablePvP;
-        chkEnablePvP.onToggle(@GUI::Callback(chkEnablePvPChanged));
-        hz.append(chkEnablePvP, GUI::Size(sx150, 0));
+      @chkSyncChests = GUI::CheckLabel();
+      chkSyncChests.text = "Sync Chests/Keys";
+      chkSyncChests.toolTip =
+      "Enable to sync which chests have been opened and small keys picked up.";
 
-        @chkPvPFF = GUI::CheckLabel();
-        chkPvPFF.text = "PvP Friendly Fire";
-        chkPvPFF.toolTip =
-          "Enables friendly-fire mode for PvP.";
-        chkPvPFF.checked = ::enablePvPFriendlyFire;
-        chkPvPFF.onToggle(@GUI::Callback(chkPvPFFChanged));
-        hz.append(chkPvPFF, GUI::Size(sx150, 0));
+      chkSyncChests.checked = syncChests;
+      chkSyncChests.onToggle(@GUI::Callback(chkSyncChestsChanged));
+      hz.append(chkSyncChests, GUI::Size(sx150, 0));
+
+      @chkKeySync = GUI::CheckLabel();
+      chkKeySync.text = "Small Key Sync (Beta)";
+      chkKeySync.toolTip =
+        "EXPERIMENTAL! Enable this to sync small keys. This may cause small keys to be lost or duplicated.";
+      chkKeySync.checked = ::enableSmallKeySync;
+      chkKeySync.onToggle(@GUI::Callback(chkKeySyncChanged));
+      hz.append(chkKeySync, GUI::Size(sx150, 0));
     }
-    
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
-        
-        auto @lbl = GUI::Label();
-        lbl.text = "Discord:";
-        hz.append(lbl, GUI::Size(sx100, 0));
-        
-        @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        @chkDiscordEnable = GUI::CheckLabel();
-        chkDiscordEnable.text = "Discord Integration";
-        if (discord::enabled) {
-          chkDiscordEnable.toolTip =
-          "Enable to integrate ALttPO with Discord so that others can see that you're playing ALttPO, which ROM version, "
-          "and which randomizer seed if applicable. By default, your group name will be shown unless you disable that "
-          "with `Hide Group Name`.";
-        } else {
-          chkDiscordEnable.toolTip =
-          "Discord integration is not supported by this build of bsnes because is was either manually disabled during "
-          "build or because your processor architecture is not supported by the official Discord Game SDK.";
-        }
-        chkDiscordEnable.enabled = discord::enabled;
-        chkDiscordEnable.checked = false;
-        chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
-        hz.append(chkDiscordEnable, GUI::Size(sx150, 0));
+      auto @lbl = GUI::Label();
+      lbl.text = "PvP:";
+      hz.append(lbl, GUI::Size(sx100, 0));
 
-        @chkDiscordPrivate = GUI::CheckLabel();
-        chkDiscordPrivate.text = "Hide Group Name";
-        chkDiscordPrivate.toolTip =
-          "Enable this to hide your group name from Discord if you're playing a private game.";
-        chkDiscordPrivate.enabled = discord::enabled;
-        chkDiscordPrivate.checked = false;
-        chkDiscordPrivate.onToggle(@GUI::Callback(chkDiscordPrivateChanged));
-        hz.append(chkDiscordPrivate, GUI::Size(sx150, 0));
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkEnablePvP = GUI::CheckLabel();
+      chkEnablePvP.text = "Enable PvP";
+      chkEnablePvP.toolTip =
+        "Enable this to enable PvP. This will allow you to hit or even kill players in other teams.";
+      chkEnablePvP.checked = ::enablePvP;
+      chkEnablePvP.onToggle(@GUI::Callback(chkEnablePvPChanged));
+      hz.append(chkEnablePvP, GUI::Size(sx150, 0));
+
+      @chkPvPFF = GUI::CheckLabel();
+      chkPvPFF.text = "PvP Friendly Fire";
+      chkPvPFF.toolTip =
+        "Enables friendly-fire mode for PvP.";
+      chkPvPFF.checked = ::enablePvPFriendlyFire;
+      chkPvPFF.onToggle(@GUI::Callback(chkPvPFFChanged));
+      hz.append(chkPvPFF, GUI::Size(sx150, 0));
     }
-    
+
     {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
-        
-        auto @lbl = GUI::Label();
-        lbl.text = "External Connections:";
-        hz.append(lbl, GUI::Size(sx150, 0));
-        
-        @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        @chkBridge = GUI::CheckLabel();
-        chkBridge.text = "QUsb2Snes Bridge";
-        chkBridge.toolTip =
-          "Enable this feature to connect to QUsb2Snes application to play multi-world games with ALttPO enabled for "
-          "the visual aspect to see other players live in the same world.";
-        chkBridge.checked = false;
-        chkBridge.onToggle(@GUI::Callback(chkBridgeChanged));
-        hz.append(chkBridge, GUI::Size(sx150, 0));
-        
-        @chkConnectorLib = GUI::CheckLabel();
-        chkConnectorLib.text = "ConnectorLib";
-        chkConnectorLib.toolTip =
-          "Enable this feature to connect to CrowdControl, EmoTracker, or any other ConnectorLib server. If it becomes "
-          "unchecked, that means a connection could not be made. Please make sure to enable the ConnectorLib server in "
-          "the application you want to connect to and try checking this box again.";
-        chkConnectorLib.checked = false;
-        chkConnectorLib.onToggle(@GUI::Callback(chkConnectorLibChanged));
-        hz.append(chkConnectorLib, GUI::Size(sx150, 0));
+      auto @lbl = GUI::Label();
+      lbl.text = "Discord:";
+      hz.append(lbl, GUI::Size(sx100, 0));
 
-        @lblBridgeMessage = GUI::Label();
-        lblBridgeMessage.text = "";
-        lblBridgeMessage.toolTip =
-          "Current status of QUsb2Snes connection";
-        hz.append(lblBridgeMessage, GUI::Size(sx150, 0));
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
 
-        @lblConnectorLibMessage = GUI::Label();
-        lblConnectorLibMessage.text = "";
-        lblConnectorLibMessage.toolTip =
-          "Current status of ConnectorLib connection";
-        hz.append(lblConnectorLibMessage, GUI::Size(sx150, 0));
+      @chkDiscordEnable = GUI::CheckLabel();
+      chkDiscordEnable.text = "Discord Integration";
+      if (discord::enabled) {
+        chkDiscordEnable.toolTip =
+        "Enable to integrate ALttPO with Discord so that others can see that you're playing ALttPO, which ROM version, "
+        "and which randomizer seed if applicable. By default, your group name will be shown unless you disable that "
+        "with `Hide Group Name`.";
+      } else {
+        chkDiscordEnable.toolTip =
+        "Discord integration is not supported by this build of bsnes because is was either manually disabled during "
+        "build or because your processor architecture is not supported by the official Discord Game SDK.";
       }
-      
-      {
-        auto @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
-        
-        auto @lbl = GUI::Label();
-        lbl.text = "Presets:";
-        hz.append(lbl, GUI::Size(sx150, 0));
-        
-        @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      chkDiscordEnable.enabled = discord::enabled;
+      chkDiscordEnable.checked = false;
+      chkDiscordEnable.onToggle(@GUI::Callback(chkDiscordEnableChanged));
+      hz.append(chkDiscordEnable, GUI::Size(sx150, 0));
 
-        @btnPresetDefault = GUI::Button();
-        btnPresetDefault.text = "Default";
-        btnPresetDefault.toolTip =
-          "Restore the Default settings for alttpo";
-        btnPresetDefault.onActivate(@GUI::Callback(btnPresetDefaultClicked));
-        hz.append(btnPresetDefault, GUI::Size(-1, -1));
-        
-        @hz = GUI::HorizontalLayout();
-        vl.append(hz, GUI::Size(-1, 0));
+      @chkDiscordPrivate = GUI::CheckLabel();
+      chkDiscordPrivate.text = "Hide Group Name";
+      chkDiscordPrivate.toolTip =
+        "Enable this to hide your group name from Discord if you're playing a private game.";
+      chkDiscordPrivate.enabled = discord::enabled;
+      chkDiscordPrivate.checked = false;
+      chkDiscordPrivate.onToggle(@GUI::Callback(chkDiscordPrivateChanged));
+      hz.append(chkDiscordPrivate, GUI::Size(sx150, 0));
+    }
 
-        @btnPresetMultiworld = GUI::Button();
-        btnPresetMultiworld.text = "Multiworld";
-        btnPresetMultiworld.toolTip =
-          "Settings for multiworld, Enables RaceMode and the QUsb2Snes Bridge.";
-        btnPresetMultiworld.onActivate(@GUI::Callback(btnPresetMultiworldClicked));
-        hz.append(btnPresetMultiworld, GUI::Size(-1, -1));
-      }
-      
-      
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "External Connections:";
+      hz.append(lbl, GUI::Size(sx150, 0));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkBridge = GUI::CheckLabel();
+      chkBridge.text = "QUsb2Snes Bridge";
+      chkBridge.toolTip =
+        "Enable this feature to connect to QUsb2Snes application to play multi-world games with ALttPO enabled for "
+        "the visual aspect to see other players live in the same world.";
+      chkBridge.checked = false;
+      chkBridge.onToggle(@GUI::Callback(chkBridgeChanged));
+      hz.append(chkBridge, GUI::Size(sx150, 0));
+
+      @chkConnectorLib = GUI::CheckLabel();
+      chkConnectorLib.text = "ConnectorLib";
+      chkConnectorLib.toolTip =
+        "Enable this feature to connect to CrowdControl, EmoTracker, or any other ConnectorLib server. If it becomes "
+        "unchecked, that means a connection could not be made. Please make sure to enable the ConnectorLib server in "
+        "the application you want to connect to and try checking this box again.";
+      chkConnectorLib.checked = false;
+      chkConnectorLib.onToggle(@GUI::Callback(chkConnectorLibChanged));
+      hz.append(chkConnectorLib, GUI::Size(sx150, 0));
+
+      @lblBridgeMessage = GUI::Label();
+      lblBridgeMessage.text = "";
+      lblBridgeMessage.toolTip =
+        "Current status of QUsb2Snes connection";
+      hz.append(lblBridgeMessage, GUI::Size(sx150, 0));
+
+      @lblConnectorLibMessage = GUI::Label();
+      lblConnectorLibMessage.text = "";
+      lblConnectorLibMessage.toolTip =
+        "Current status of ConnectorLib connection";
+      hz.append(lblConnectorLibMessage, GUI::Size(sx150, 0));
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "Presets:";
+      hz.append(lbl, GUI::Size(sx150, 0));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @btnPresetDefault = GUI::Button();
+      btnPresetDefault.text = "Default";
+      btnPresetDefault.toolTip =
+        "Restore the Default settings for alttpo";
+      btnPresetDefault.onActivate(@GUI::Callback(btnPresetDefaultClicked));
+      hz.append(btnPresetDefault, GUI::Size(-1, -1));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @btnPresetMultiworld = GUI::Button();
+      btnPresetMultiworld.text = "Multiworld";
+      btnPresetMultiworld.toolTip =
+        "Settings for multiworld, Enables RaceMode and the QUsb2Snes Bridge.";
+      btnPresetMultiworld.onActivate(@GUI::Callback(btnPresetMultiworldClicked));
+      hz.append(btnPresetMultiworld, GUI::Size(-1, -1));
+    }
   }
 
   // callback:
