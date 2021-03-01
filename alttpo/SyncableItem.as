@@ -225,7 +225,7 @@ class SyncableHealthCapacity : SyncableItem {
   bool finish(SRAM@ localSRAM, NotifyItemReceived @notifyItemReceived = null) override {
     // Disable hearts sync based on setting:
     if (settings !is null) {
-      if (settings.DisableHearts) {
+      if (!settings.SyncHearts) {
         return false;
       }
     }

@@ -26,18 +26,26 @@ class SettingsWindow {
   private GUI::CheckLabel @chkShowMyLabel;
   private GUI::CheckLabel @chkEnablePvP;
   private GUI::CheckLabel @chkPvPFF;
-  private GUI::CheckLabel @chkKeySync;
-  private GUI::CheckLabel @chkRaceMode;
-  private GUI::CheckLabel @chkDisableWorldSync;
+
+  private GUI::CheckLabel @chkSyncSprites;
+  private GUI::CheckLabel @chkSyncUnderworld;
+  private GUI::CheckLabel @chkSyncOverworld;
+  private GUI::CheckLabel @chkSyncItems;
+  private GUI::CheckLabel @chkSyncPendants;
+  private GUI::CheckLabel @chkSyncSmallKeys;
+  private GUI::CheckLabel @chkSyncTilemap;
+  private GUI::CheckLabel @chkSyncChests;
+  private GUI::CheckLabel @chkSyncHearts;
+  private GUI::CheckLabel @chkSyncDungeonItems;
+  private GUI::CheckLabel @chkSyncCrystals;
+  private GUI::CheckLabel @chkSyncProgress;
+
   private GUI::CheckLabel @chkBridge;
-  private GUI::CheckLabel @chkDisableHearts;
-  private GUI::CheckLabel @chkDisableTilemap;
   private GUI::Label @lblBridgeMessage;
   private GUI::CheckLabel @chkConnectorLib;
   private GUI::Label @lblConnectorLibMessage;
   private GUI::CheckLabel @chkDiscordEnable;
   private GUI::CheckLabel @chkDiscordPrivate;
-  private GUI::CheckLabel @chkSyncChests;
   private GUI::ComboButton @ddlFont;
   private GUI::ComboButton @preset;
   private GUI::Button @btnConnect;
@@ -126,10 +134,11 @@ class SettingsWindow {
     chkBridge.checked = enabled;
 
     // only enable race mode when enabling qusb2snes, don't disable it if disconnected:
-    if (enabled) {
-      raceMode = enabled;
-      chkRaceMode.checked = enabled;
-    }
+    // TODO: disable all sync instead?
+    //if (enabled) {
+    //  raceMode = enabled;
+    //  chkRaceMode.checked = enabled;
+    //}
   }
 
   void bridgeMessageUpdated(const string &in msg) {
@@ -155,20 +164,30 @@ class SettingsWindow {
     get { return enablePvP; }
   }
 
+  private bool syncSprites;
+  bool SyncSprites { get { return syncSprites; } }
+  private bool syncUnderworld;
+  bool SyncUnderworld { get { return syncUnderworld; } }
+  private bool syncOverworld;
+  bool SyncOverworld { get { return syncOverworld; } }
+  private bool syncItems;
+  bool SyncItems { get { return syncItems; } }
+  private bool syncPendants;
+  bool SyncPendants { get { return syncPendants; } }
+  private bool syncSmallKeys;
+  bool SyncSmallKeys { get { return syncSmallKeys; } }
+  private bool syncTilemap;
+  bool SyncTilemap { get { return syncTilemap; } }
   private bool syncChests;
-  bool SyncChests {
-    get { return syncChests; }
-  }
-
-  private bool raceMode;
-  bool RaceMode {
-    get { return raceMode; }
-  }
-
-  private bool disableWorldSync;
-  bool DisableWorldSync {
-    get { return disableWorldSync; }
-  }
+  bool SyncChests { get { return syncChests; } }
+  private bool syncHearts;
+  bool SyncHearts { get { return syncHearts; } }
+  private bool syncDungeonItems;
+  bool SyncDungeonItems { get { return syncDungeonItems; } }
+  private bool syncCrystals;
+  bool SyncCrystals { get { return syncCrystals; } }
+  private bool syncProgress;
+  bool SyncProgress { get { return syncProgress; } }
 
   private bool discordEnable;
   bool DiscordEnable {
@@ -178,16 +197,6 @@ class SettingsWindow {
   private bool discordPrivate;
   bool DiscordPrivate {
     get { return discordPrivate; }
-  }
-
-  private bool disableHearts;
-  bool DisableHearts {
-    get { return disableHearts; }
-  }
-
-  private bool disableTilemap;
-  bool DisableTilemap {
-    get { return disableTilemap; }
   }
 
   private void setColorSliders() {
@@ -220,14 +229,21 @@ class SettingsWindow {
     chkShowMyLabel.checked = showMyLabel;
     chkEnablePvP.checked = enablePvP;
     chkPvPFF.checked = enablePvPFriendlyFire;
-    chkKeySync.checked = enableSmallKeySync;
-    chkRaceMode.checked = raceMode;
-    chkDisableWorldSync.checked = disableWorldSync;
     chkDiscordEnable.checked = discordEnable;
     chkDiscordPrivate.checked = discordPrivate;
-    chkDisableHearts.checked = disableHearts;
-    chkDisableTilemap.checked = disableTilemap;
+
+    chkSyncSprites.checked = syncSprites;
+    chkSyncUnderworld.checked = syncUnderworld;
+    chkSyncOverworld.checked = syncOverworld;
+    chkSyncItems.checked = syncItems;
+    chkSyncPendants.checked = syncPendants;
+    chkSyncSmallKeys.checked = syncSmallKeys;
+    chkSyncTilemap.checked = syncTilemap;
     chkSyncChests.checked = syncChests;
+    chkSyncHearts.checked = syncHearts;
+    chkSyncDungeonItems.checked = syncDungeonItems;
+    chkSyncCrystals.checked = syncCrystals;
+    chkSyncProgress.checked = syncProgress;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -265,14 +281,22 @@ class SettingsWindow {
     FontIndex = doc["feature/fontIndex"].naturalOr(0);
     enablePvP = doc["feature/enablePvP"].booleanOr(true);
     enablePvPFriendlyFire = doc["feature/enablePvPFriendlyFire"].booleanOr(false);
-    raceMode = doc["feature/raceMode"].booleanOr(false);
-    disableWorldSync = doc["feature/disableWorldSync"].booleanOr(false);
-    disableHearts = doc["feature/disableHearts"].booleanOr(false);
-    disableTilemap = doc["feature/disableTilemap"].booleanOr(false);
-    enableSmallKeySync = doc["feature/enableSmallKeySync"].booleanOr(false);
+
+    syncSprites = doc["feature/syncSprites"].booleanOr(true);
+    syncUnderworld = doc["feature/syncUnderworld"].booleanOr(true);
+    syncOverworld = doc["feature/syncOverworld"].booleanOr(true);
+    syncItems = doc["feature/syncItems"].booleanOr(true);
+    syncPendants = doc["feature/syncPendants"].booleanOr(true);
+    syncSmallKeys = doc["feature/syncSmallKeys"].booleanOr(false);
+    syncTilemap = doc["feature/syncTilemap"].booleanOr(true);
+    syncChests = doc["feature/syncChests"].booleanOr(true);
+    syncHearts = doc["feature/syncHearts"].booleanOr(true);
+    syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
+    syncCrystals = doc["feature/syncCrystals"].booleanOr(true);
+    syncProgress = doc["feature/syncProgress"].booleanOr(true);
+
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
-    syncChests = doc["feature/syncChests"].booleanOr(true);
 
     // set GUI controls from values:
     setServerSettingsGUI();
@@ -294,11 +318,9 @@ class SettingsWindow {
     syncTunic = chkTunic.checked;
     showLabels = chkShowLabels.checked;
     showMyLabel = chkShowMyLabel.checked;
-    raceMode = chkRaceMode.checked;
-    disableWorldSync = chkDisableWorldSync.checked;
 
     auto doc = BML::Node();
-    doc.create("version").value = "1";
+    doc.create("version").value = "2";
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
     doc.create("player/name").value = Name;
@@ -312,14 +334,23 @@ class SettingsWindow {
     doc.create("feature/fontIndex").value = fmtInt(fontIndex);
     doc.create("feature/enablePvP").value = fmtBool(enablePvP);
     doc.create("feature/enablePvPFriendlyFire").value = fmtBool(enablePvPFriendlyFire);
-    doc.create("feature/raceMode").value = fmtBool(raceMode);
-    doc.create("feature/disableWorldSync").value = fmtBool(disableWorldSync);
-    doc.create("feature/enableSmallKeySync").value = fmtBool(enableSmallKeySync);
-    doc.create("feature/disableHearts").value = fmtBool(disableHearts);
-    doc.create("feature/disableTilemap").value = fmtBool(disableTilemap);
+
+    doc.create("feature/syncSprites").value = fmtBool(syncSprites);
+    doc.create("feature/syncUnderworld").value = fmtBool(syncUnderworld);
+    doc.create("feature/syncOverworld").value = fmtBool(syncOverworld);
+    doc.create("feature/syncItems").value = fmtBool(syncItems);
+    doc.create("feature/syncPendants").value = fmtBool(syncPendants);
+    doc.create("feature/syncSmallKeys").value = fmtBool(syncSmallKeys);
+    doc.create("feature/syncTilemap").value = fmtBool(syncTilemap);
+    doc.create("feature/syncChests").value = fmtBool(syncChests);
+    doc.create("feature/syncHearts").value = fmtBool(syncHearts);
+    doc.create("feature/syncDungeonItems").value = fmtBool(syncDungeonItems);
+    doc.create("feature/syncCrystals").value = fmtBool(syncCrystals);
+    doc.create("feature/syncProgress").value = fmtBool(syncProgress);
+
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
-    doc.create("feature/syncChests").value = fmtBool(syncChests);
+
     UserSettings::save("alttpo.bml", doc);
   }
 
@@ -591,20 +622,6 @@ class SettingsWindow {
   }
 
   // callback:
-  private void chkSyncChestsChanged() {
-    syncChestsWasChanged();
-  }
-
-  private void syncChestsWasChanged() {
-    syncChests = chkSyncChests.checked;
-
-    if (local !is null) {
-      local.set_room_masks(syncChests);
-    }
-    save();
-  }
-
-  // callback:
   private void chkPvPFFChanged() {
     enablePvPFFWasChanged();
   }
@@ -616,65 +633,154 @@ class SettingsWindow {
     save();
   }
 
+
   // callback:
-  private void chkKeySyncChanged() {
-    keySyncWasChanged();
+  private void chkSyncSpritesChanged() {
+    syncSpritesChanged();
   }
 
-  private void keySyncWasChanged(bool persist = true) {
-    enableSmallKeySync = chkKeySync.checked;
+  private void syncSpritesChanged(bool persist = true) {
+    syncSprites = chkSyncSprites.checked;
 
     if (!persist) return;
     save();
   }
 
   // callback:
-  private void chkRaceModeChanged() {
-    raceModeWasChanged();
+  private void chkSyncUnderworldChanged() {
+    syncUnderworldChanged();
   }
 
-  private void raceModeWasChanged(bool persist = true) {
-    raceMode = chkRaceMode.checked;
+  private void syncUnderworldChanged(bool persist = true) {
+    syncUnderworld = chkSyncUnderworld.checked;
 
     if (!persist) return;
     save();
   }
 
   // callback:
-  private void chkDisableWorldSyncChanged() {
-    disableWorldSyncWasChanged();
+  private void chkSyncOverworldChanged() {
+    syncOverworldChanged();
   }
 
-  private void disableWorldSyncWasChanged(bool persist = true) {
-    disableWorldSync = chkDisableWorldSync.checked;
+  private void syncOverworldChanged(bool persist = true) {
+    syncOverworld = chkSyncOverworld.checked;
 
     if (!persist) return;
     save();
   }
 
   // callback:
-  private void chkDisableHeartsChanged() {
-    disableHeartsWasChanged();
+  private void chkSyncItemsChanged() {
+    syncItemsChanged();
   }
 
-  private void disableHeartsWasChanged(bool persist = true) {
-    disableHearts = chkDisableHearts.checked;
+  private void syncItemsChanged(bool persist = true) {
+    syncItems = chkSyncItems.checked;
 
     if (!persist) return;
     save();
   }
 
   // callback:
-  private void chkDisableTilemapChanged() {
-    disableTilemapWasChanged();
+  private void chkSyncPendantsChanged() {
+    syncPendantsChanged();
   }
 
-  private void disableTilemapWasChanged(bool persist = true) {
-    disableTilemap = chkDisableTilemap.checked;
+  private void syncPendantsChanged(bool persist = true) {
+    syncPendants = chkSyncPendants.checked;
 
     if (!persist) return;
     save();
   }
+
+  // callback:
+  private void chkSyncSmallKeysChanged() {
+    syncSmallKeysChanged();
+  }
+
+  private void syncSmallKeysChanged(bool persist = true) {
+    syncSmallKeys = chkSyncSmallKeys.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncTilemapChanged() {
+    syncTilemapChanged();
+  }
+
+  private void syncTilemapChanged(bool persist = true) {
+    syncTilemap = chkSyncTilemap.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncChestsChanged() {
+    syncChestsChanged();
+  }
+
+  private void syncChestsChanged(bool persist = true) {
+    syncChests = chkSyncChests.checked;
+
+    if (local !is null) {
+      local.set_room_masks(syncChests);
+    }
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncHeartsChanged() {
+    syncHeartsChanged();
+  }
+
+  private void syncHeartsChanged(bool persist = true) {
+    syncHearts = chkSyncHearts.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncDungeonItemsChanged() {
+    syncDungeonItemsChanged();
+  }
+
+  private void syncDungeonItemsChanged(bool persist = true) {
+    syncDungeonItems = chkSyncDungeonItems.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncCrystalsChanged() {
+    syncCrystalsChanged();
+  }
+
+  private void syncCrystalsChanged(bool persist = true) {
+    syncCrystals = chkSyncCrystals.checked;
+
+    if (!persist) return;
+    save();
+  }
+
+  // callback:
+  private void chkSyncProgressChanged() {
+    syncProgressChanged();
+  }
+
+  private void syncProgressChanged(bool persist = true) {
+    syncProgress = chkSyncProgress.checked;
+
+    if (!persist) return;
+    save();
+  }
+
 
   // callback:
   private void ddlFontChanged() {
@@ -683,19 +789,26 @@ class SettingsWindow {
     fontWasChanged();
   }
   
-  private void btnPresetDefaultClicked(){
+  private void btnPresetDefaultClicked() {
     disconnect();
     txtServerAddress.text = "alttp.online";
     txtTeam.text = "0";
     ddlFont[0].setSelected();
-    chkRaceMode.checked = false;
-    chkDisableWorldSync.checked = false;
-    chkDisableHearts.checked = false;
-    chkDisableTilemap.checked = false;
-    ::enableSmallKeySync = false;
-    chkKeySync.checked = ::enableSmallKeySync;
+
+    chkSyncSprites.checked = true;
+    chkSyncUnderworld.checked = true;
+    chkSyncOverworld.checked = true;
+    chkSyncItems.checked = true;
+    chkSyncPendants.checked = true;
+    chkSyncSmallKeys.checked = false;
+    chkSyncTilemap.checked = true;
     chkSyncChests.checked = true;
     chkSyncChestsChanged();
+    chkSyncHearts.checked = true;
+    chkSyncDungeonItems.checked = true;
+    chkSyncCrystals.checked = true;
+    chkSyncProgress.checked = true;
+
     ::enablePvP = false;
     chkEnablePvP.checked = ::enablePvP;
     ::enablePvPFriendlyFire = false;
@@ -708,16 +821,23 @@ class SettingsWindow {
     chkShowMyLabel.checked = true;
   }
   
-  private void btnPresetMultiworldClicked(){
+  private void btnPresetMultiworldClicked() {
     disconnect();
-    chkRaceMode.checked = true;
-    chkDisableWorldSync.checked = true;
-    chkDisableHearts.checked = true;
-    chkDisableTilemap.checked = true;
-    syncChests = false;
-    chkSyncChests.checked = syncChests;
-    ::enableSmallKeySync = false;
-    chkKeySync.checked = ::enableSmallKeySync;
+
+    chkSyncSprites.checked = true;
+    chkSyncUnderworld.checked = false;
+    chkSyncOverworld.checked = false;
+    chkSyncItems.checked = false;
+    chkSyncPendants.checked = false;
+    chkSyncSmallKeys.checked = false;
+    chkSyncTilemap.checked = false;
+    chkSyncChests.checked = true;
+    chkSyncChestsChanged();
+    chkSyncHearts.checked = false;
+    chkSyncDungeonItems.checked = false;
+    chkSyncCrystals.checked = false;
+    chkSyncProgress.checked = false;
+
     ::enablePvP = false;
     chkEnablePvP.checked = ::enablePvP;
     ::enablePvPFriendlyFire = false;
@@ -842,13 +962,36 @@ class SettingsWindow {
   private void btnAdvancedClicked(){
     advancedWindow.visible = true;
   }
+
+  private void makeCheckboxPair(
+    GUI::VerticalLayout@ vl, GUI::Size sz,
+    GUI::CheckLabel@ &out chk1, GUI::Callback@ cb1, string txt1, string tip1, bool val1,
+    GUI::CheckLabel@ &out chk2, GUI::Callback@ cb2, string txt2, string tip2, bool val2
+  ) {
+    auto @hz = GUI::HorizontalLayout();
+    vl.append(hz, GUI::Size(-1, 0));
+
+    @chk1 = GUI::CheckLabel();
+    chk1.text = txt1;
+    chk1.toolTip = tip1;
+    chk1.checked = val1;
+    chk1.onToggle(cb1);
+    hz.append(chk1, sz);
+
+    @chk2 = GUI::CheckLabel();
+    chk2.text = txt2;
+    chk2.toolTip = tip2;
+    chk2.checked = val2;
+    chk2.onToggle(cb2);
+    hz.append(chk2, sz);
+  }
   
   private void build_advanced(){
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(350), sy(400));
+    advancedWindow.size = GUI::Size(sx(190*2), sy(440));
 
-    auto sx150 = sx(175);
+    auto sx150 = sx(190);
     auto sx100 = sx(100);
     auto sx40 = sx(40);
     auto sy20 = sy(20);
@@ -868,8 +1011,8 @@ class SettingsWindow {
       auto @lbl = GUI::Label();
       lbl.text = "Server Address:";
       lbl.toolTip =
-        "Server address (hostname or IP address) to connect to. If unsure, use the default `alttpo.online`.\n\n"
-        "If running your own server, enter its hostname or IP address here. Note that alttpo.online is hosted in "
+        "Server address (hostname or IP address) to connect to. If unsure, use the default `alttp.online`.\n\n"
+        "If running your own server, enter its hostname or IP address here. Note that alttp.online is hosted in "
         "New Jersey, USA on a Linode VPS.";
       hz.append(lbl, GUI::Size(sx100, 0));
 
@@ -951,74 +1094,77 @@ class SettingsWindow {
       hz.append(lbl, GUI::Size(sx100, 0));
     }
 
-    {
-      auto @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncSprites, @GUI::Callback(chkSyncSpritesChanged),
+      "Sprites",
+      "Enable to allow other players to see your player sprite on their screens",
+      true,
+      chkSyncTilemap, @GUI::Callback(chkSyncTilemapChanged),
+      "Tilemap",
+      "Enable to allow players to observe real-time changes to the current room's tilemap",
+      true
+    );
 
-      @chkRaceMode = GUI::CheckLabel();
-      chkRaceMode.text = "RaceMode (Disable sync)";
-      chkRaceMode.toolTip =
-        "Enable this feature to disable synchronization with other players in the group. This can be used to have "
-        "one or more players race one player who does not share the others' items, progress, or world state.\n\n"
-        "Specifically, this feature disables item sync, progress sync, overworld sync, underworld sync, and "
-        "real-time screen sync for both overworld and underworld areas.";
-      chkRaceMode.checked = false;
-      chkRaceMode.onToggle(@GUI::Callback(chkRaceModeChanged));
-      hz.append(chkRaceMode, GUI::Size(sx150, 0));
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncUnderworld, @GUI::Callback(chkSyncUnderworldChanged),
+      "Underworld",
+      "Enable to sync persistent underworld room changes",
+      true,
+      chkSyncChests, @GUI::Callback(chkSyncChestsChanged),
+      "Chests Opened",
+      "Enable to sync chests opened in underworld rooms",
+      true
+    );
 
-      @chkDisableWorldSync = GUI::CheckLabel();
-      chkDisableWorldSync.text = "Disable location sync";
-      chkDisableWorldSync.toolTip =
-        "Enable this feature to disable synchronization of location changes, e.g. chests, doors, floor items, "
-        "overworld changes, etc.";
-      chkDisableWorldSync.checked = false;
-      chkDisableWorldSync.onToggle(@GUI::Callback(chkDisableWorldSyncChanged));
-      hz.append(chkDisableWorldSync, GUI::Size(sx150, 0));
-    }
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncOverworld, @GUI::Callback(chkSyncOverworldChanged),
+      "Overworld",
+      "Enable to sync persistent overworld area changes",
+      true,
+      chkSyncHearts, @GUI::Callback(chkSyncHeartsChanged),
+      "Hearts",
+      "Enable to sync heart container and piece counts",
+      true
+    );
 
-    {
-      auto @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncItems, @GUI::Callback(chkSyncItemsChanged),
+      "Items",
+      "Enable to sync items (e.g. bow, boomerang, hookshot, powder)",
+      true,
+      chkSyncDungeonItems, @GUI::Callback(chkSyncDungeonItemsChanged),
+      "Dungeon Items",
+      "Enable to sync per-dungeon items (map, compass, big key)",
+      true
+    );
 
-      @chkDisableHearts = GUI::CheckLabel();
-      chkDisableHearts.text = "Disable hearts sync";
-      chkDisableHearts.toolTip =
-        "Enable this feature to disable synchronization of heart containers and pieces with other players in the group.";
-      chkDisableHearts.checked = false;
-      chkDisableHearts.onToggle(@GUI::Callback(chkDisableHeartsChanged));
-      hz.append(chkDisableHearts, GUI::Size(sx150, 0));
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncPendants, @GUI::Callback(chkSyncPendantsChanged),
+      "Pendants",
+      "Enable to sync pendants",
+      true,
+      chkSyncCrystals, @GUI::Callback(chkSyncCrystalsChanged),
+      "Crystals",
+      "Enable to sync crystals",
+      true
+    );
 
-      @chkDisableTilemap = GUI::CheckLabel();
-      chkDisableTilemap.text = "Disable tilemap sync";
-      chkDisableTilemap.toolTip =
-        "Enable this feature to disable synchronization of tilemap changes, e.g. bushes, stones, signs, pots "
-        "picked up, chests opened, doors, holes opened, etc.";
-      chkDisableTilemap.checked = false;
-      chkDisableTilemap.onToggle(@GUI::Callback(chkDisableTilemapChanged));
-      hz.append(chkDisableTilemap, GUI::Size(sx150, 0));
-    }
-
-    {
-      auto @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
-
-      @chkSyncChests = GUI::CheckLabel();
-      chkSyncChests.text = "Sync Chests/Keys";
-      chkSyncChests.toolTip =
-      "Enable to sync which chests have been opened and small keys picked up.";
-
-      chkSyncChests.checked = syncChests;
-      chkSyncChests.onToggle(@GUI::Callback(chkSyncChestsChanged));
-      hz.append(chkSyncChests, GUI::Size(sx150, 0));
-
-      @chkKeySync = GUI::CheckLabel();
-      chkKeySync.text = "Small Key Sync (Beta)";
-      chkKeySync.toolTip =
-        "EXPERIMENTAL! Enable this to sync small keys. This may cause small keys to be lost or duplicated.";
-      chkKeySync.checked = ::enableSmallKeySync;
-      chkKeySync.onToggle(@GUI::Callback(chkKeySyncChanged));
-      hz.append(chkKeySync, GUI::Size(sx150, 0));
-    }
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncSmallKeys, @GUI::Callback(chkSyncSmallKeysChanged),
+      "Small Keys (EXPERIMENTAL)",
+      "Enable to sync small keys (EXPERIMENTAL; MAY LOSE KEYS)",
+      true,
+      chkSyncProgress, @GUI::Callback(chkSyncProgressChanged),
+      "Progress Flags",
+      "Enable to sync world progress flags (rain state, bottle vendor, hobo, aga1, aga2, etc.)",
+      true
+    );
 
     {
       auto @hz = GUI::HorizontalLayout();

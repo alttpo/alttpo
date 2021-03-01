@@ -61,7 +61,7 @@ void on_main_alttp(uint32 pc) {
     return;
   }
 
-  if (!settings.RaceMode) {
+  {
     local.update_tilemap();
 
     local.update_wram();
@@ -71,12 +71,14 @@ void on_main_alttp(uint32 pc) {
     ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
     ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
 
-    if ((local.frame & 15) == 0) {
-      local.update_items(sram);
-      if (rom.is_smz3()) {
-        local.update_items(sram_buffer, true);
-        local.update_sm_events_buffer();
-        local.update_games_won();
+    if (settings.SyncItems) {
+      if ((local.frame & 15) == 0) {
+        local.update_items(sram);
+        if (rom.is_smz3()) {
+          local.update_items(sram_buffer, true);
+          local.update_sm_events_buffer();
+          local.update_games_won();
+        }
       }
     }
 
@@ -176,7 +178,7 @@ void on_main_sm(uint32 pc) {
     return;
   }
 
-  if (!settings.RaceMode) {
+  if (settings.SyncItems) {
     // all we can do is update items:
     if ((local.frame & 15) == 0) {
       if (sm_is_safe_state()) {
