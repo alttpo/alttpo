@@ -37,6 +37,57 @@ funcdef uint16 ItemMutate(SRAM@ localSRAM, uint16 oldValue, uint16 newValue);
 
 funcdef void NotifyItemReceived(const string &in name);
 funcdef void NotifyNewItems(uint16 oldValue, uint16 newValue, NotifyItemReceived @notify);
+funcdef bool CanWriteItem(uint16 offs);
+
+SyncableItem@ whenSyncItems(SyncableItem@ item) {
+  @item.canWriteItem = function(uint16 offs) {
+    if (settings is null) {
+      return true;
+    }
+    return settings.SyncItems;
+  };
+  return item;
+}
+
+SyncableItem@ whenSyncDungeonItems(SyncableItem@ item) {
+  @item.canWriteItem = function(uint16 offs) {
+    if (settings is null) {
+      return true;
+    }
+    return settings.SyncDungeonItems;
+  };
+  return item;
+}
+
+SyncableItem@ whenSyncPendants(SyncableItem@ item) {
+  @item.canWriteItem = function(uint16 offs) {
+    if (settings is null) {
+      return true;
+    }
+    return settings.SyncPendants;
+  };
+  return item;
+}
+
+SyncableItem@ whenSyncCrystals(SyncableItem@ item) {
+  @item.canWriteItem = function(uint16 offs) {
+    if (settings is null) {
+      return true;
+    }
+    return settings.SyncCrystals;
+  };
+  return item;
+}
+
+SyncableItem@ whenSyncProgress(SyncableItem@ item) {
+  @item.canWriteItem = function(uint16 offs) {
+    if (settings is null) {
+      return true;
+    }
+    return settings.SyncProgress;
+  };
+  return item;
+}
 
 // list of SRAM values to sync as items:
 class SyncableItem {
@@ -46,6 +97,7 @@ class SyncableItem {
   bool is_sm;       // whether the syncable is a super metroid item
   ItemMutate @mutate = null;
   NotifyNewItems @notifyNewItems = null;
+  CanWriteItem @canWriteItem = null;
 
   SyncableItem(uint16 offs, uint8 size, uint8 type, NotifyNewItems @notifyNewItems = null, bool is_sm = false) {
     this.offs = offs;
@@ -77,6 +129,12 @@ class SyncableItem {
   }
 
   bool finish(SRAM@ localSRAM, NotifyItemReceived @notifyItemReceived = null) {
+    if (canWriteItem !is null) {
+      if (!canWriteItem(offs)) {
+        return false;
+      }
+    }
+
     if (newValue == oldValue) {
       return false;
     }
@@ -203,7 +261,7 @@ class SyncableItem {
       default: return;
     }
   }
-};
+}
 
 class SyncableHealthCapacity : SyncableItem {
   SyncableHealthCapacity() {

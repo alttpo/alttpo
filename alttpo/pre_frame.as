@@ -147,7 +147,6 @@ void on_main_sm(uint32 pc) {
       local.update_sm_palette();
     }
   }
-  
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -268,6 +267,10 @@ void pre_frame() {
       continue;
     }
     remote.ttl_count();
+
+    if (!settings.SyncSprites) {
+      continue;
+    }
 
     // exit early if game is not ALTTP (for SMZ3):
     if (!rom.is_alttp()) {

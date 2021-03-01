@@ -68,68 +68,68 @@ abstract class ROMMapping {
 
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
-    @SyncableItem(0x340, 1, 1, @nameForBow),         // bow
-    @SyncableItem(0x341, 1, 1, @nameForBoomerang),   // boomerang
-    @SyncableItem(0x342, 1, 1, @nameForHookshot),    // hookshot
+    whenSyncItems(@SyncableItem(0x340, 1, 1, @nameForBow)),         // bow
+    whenSyncItems(@SyncableItem(0x341, 1, 1, @nameForBoomerang)),   // boomerang
+    whenSyncItems(@SyncableItem(0x342, 1, 1, @nameForHookshot)),    // hookshot
     //SyncableItem(0x343, 1, 3),  // bombs (TODO)
-    @SyncableItem(0x344, 1, 1, @nameForMushroom),    // mushroom
-    @SyncableItem(0x345, 1, 1, @nameForFirerod),     // fire rod
-    @SyncableItem(0x346, 1, 1, @nameForIcerod),      // ice rod
-    @SyncableItem(0x347, 1, 1, @nameForBombos),      // bombos
-    @SyncableItem(0x348, 1, 1, @nameForEther),       // ether
-    @SyncableItem(0x349, 1, 1, @nameForQuake),       // quake
-    @SyncableItem(0x34A, 1, 1, @nameForLamp),        // lamp/lantern
-    @SyncableItem(0x34B, 1, 1, @nameForHammer),      // hammer
-    @SyncableItem(0x34C, 1, 1, @nameForFlute),       // flute
-    @SyncableItem(0x34D, 1, 1, @nameForBugnet),      // bug net
-    @SyncableItem(0x34E, 1, 1, @nameForBook),        // book
+    whenSyncItems(@SyncableItem(0x344, 1, 1, @nameForMushroom)),    // mushroom
+    whenSyncItems(@SyncableItem(0x345, 1, 1, @nameForFirerod)),     // fire rod
+    whenSyncItems(@SyncableItem(0x346, 1, 1, @nameForIcerod)),      // ice rod
+    whenSyncItems(@SyncableItem(0x347, 1, 1, @nameForBombos)),      // bombos
+    whenSyncItems(@SyncableItem(0x348, 1, 1, @nameForEther)),       // ether
+    whenSyncItems(@SyncableItem(0x349, 1, 1, @nameForQuake)),       // quake
+    whenSyncItems(@SyncableItem(0x34A, 1, 1, @nameForLamp)),        // lamp/lantern
+    whenSyncItems(@SyncableItem(0x34B, 1, 1, @nameForHammer)),      // hammer
+    whenSyncItems(@SyncableItem(0x34C, 1, 1, @nameForFlute)),       // flute
+    whenSyncItems(@SyncableItem(0x34D, 1, 1, @nameForBugnet)),      // bug net
+    whenSyncItems(@SyncableItem(0x34E, 1, 1, @nameForBook)),        // book
     //SyncableItem(0x34F, 1, 1),  // current bottle selection (1-4); do not sync as it locks the bottle selector in place
-    @SyncableItem(0x350, 1, 1, @nameForCanesomaria), // cane of somaria
-    @SyncableItem(0x351, 1, 1, @nameForCanebyrna),   // cane of byrna
-    @SyncableItem(0x352, 1, 1, @nameForMagiccape),   // magic cape
-    @SyncableItem(0x353, 1, 1, @nameForMagicmirror), // magic mirror
-    @SyncableItem(0x354, 1, @mutateArmorGloves, @nameForGloves),  // gloves
-    @SyncableItem(0x355, 1, 1, @nameForBoots),       // boots
-    @SyncableItem(0x356, 1, 1, @nameForFlippers),    // flippers
-    @SyncableItem(0x357, 1, 1, @nameForMoonpearl),   // moon pearl
+    whenSyncItems(@SyncableItem(0x350, 1, 1, @nameForCanesomaria)), // cane of somaria
+    whenSyncItems(@SyncableItem(0x351, 1, 1, @nameForCanebyrna)),   // cane of byrna
+    whenSyncItems(@SyncableItem(0x352, 1, 1, @nameForMagiccape)),   // magic cape
+    whenSyncItems(@SyncableItem(0x353, 1, 1, @nameForMagicmirror)), // magic mirror
+    whenSyncItems(@SyncableItem(0x354, 1, @mutateArmorGloves, @nameForGloves)),  // gloves
+    whenSyncItems(@SyncableItem(0x355, 1, 1, @nameForBoots)),       // boots
+    whenSyncItems(@SyncableItem(0x356, 1, 1, @nameForFlippers)),    // flippers
+    whenSyncItems(@SyncableItem(0x357, 1, 1, @nameForMoonpearl)),   // moon pearl
     // 0x358 unused
-    @SyncableItem(0x359, 1, @mutateSword, @nameForSword),   // sword
-    @SyncableItem(0x35A, 1, @mutateShield, @nameForShield),  // shield
-    @SyncableItem(0x35B, 1, @mutateArmorGloves, @nameForArmor),   // armor
+    whenSyncItems(@SyncableItem(0x359, 1, @mutateSword, @nameForSword)),   // sword
+    whenSyncItems(@SyncableItem(0x35A, 1, @mutateShield, @nameForShield)),  // shield
+    whenSyncItems(@SyncableItem(0x35B, 1, @mutateArmorGloves, @nameForArmor)),   // armor
 
     // bottle contents 0x35C-0x35F
-    @SyncableItem(0x35C, 1, @mutateBottleItem, @nameForBottle),
-    @SyncableItem(0x35D, 1, @mutateBottleItem, @nameForBottle),
-    @SyncableItem(0x35E, 1, @mutateBottleItem, @nameForBottle),
-    @SyncableItem(0x35F, 1, @mutateBottleItem, @nameForBottle),
+    whenSyncItems(@SyncableItem(0x35C, 1, @mutateBottleItem, @nameForBottle)),
+    whenSyncItems(@SyncableItem(0x35D, 1, @mutateBottleItem, @nameForBottle)),
+    whenSyncItems(@SyncableItem(0x35E, 1, @mutateBottleItem, @nameForBottle)),
+    whenSyncItems(@SyncableItem(0x35F, 1, @mutateBottleItem, @nameForBottle)),
 
-    @SyncableItem(0x364, 1, 2, @nameForCompass1),  // dungeon compasses 1/2
-    @SyncableItem(0x365, 1, 2, @nameForCompass2),  // dungeon compasses 2/2
-    @SyncableItem(0x366, 1, 2, @nameForBigkey1),   // dungeon big keys 1/2
-    @SyncableItem(0x367, 1, 2, @nameForBigkey2),   // dungeon big keys 2/2
-    @SyncableItem(0x368, 1, 2, @nameForMap1),      // dungeon maps 1/2
-    @SyncableItem(0x369, 1, 2, @nameForMap2),      // dungeon maps 2/2
+    whenSyncDungeonItems(@SyncableItem(0x364, 1, 2, @nameForCompass1)),  // dungeon compasses 1/2
+    whenSyncDungeonItems(@SyncableItem(0x365, 1, 2, @nameForCompass2)),  // dungeon compasses 2/2
+    whenSyncDungeonItems(@SyncableItem(0x366, 1, 2, @nameForBigkey1)),   // dungeon big keys 1/2
+    whenSyncDungeonItems(@SyncableItem(0x367, 1, 2, @nameForBigkey2)),   // dungeon big keys 2/2
+    whenSyncDungeonItems(@SyncableItem(0x368, 1, 2, @nameForMap1)),      // dungeon maps 1/2
+    whenSyncDungeonItems(@SyncableItem(0x369, 1, 2, @nameForMap2)),      // dungeon maps 2/2
 
     @SyncableHealthCapacity(),  // heart pieces (out of four) [0x36B], health capacity [0x36C]
 
-    @SyncableItem(0x370, 1, 1),  // bombs capacity
-    @SyncableItem(0x371, 1, 1),  // arrows capacity
+    whenSyncItems(@SyncableItem(0x370, 1, 1)),  // bombs capacity
+    whenSyncItems(@SyncableItem(0x371, 1, 1)),  // arrows capacity
 
-    @SyncableItem(0x374, 1, 2, @nameForPendants),  // pendants
+    whenSyncPendants(@SyncableItem(0x374, 1, 2, @nameForPendants)),  // pendants
     //SyncableItem(0x377, 1, 1),  // arrows
-    @SyncableItem(0x379, 1, 2),  // player ability flags
-    @SyncableItem(0x37A, 1, 2, @nameForCrystals),  // crystals
+    whenSyncItems(@SyncableItem(0x379, 1, 2)),  // player ability flags
+    whenSyncCrystals(@SyncableItem(0x37A, 1, 2, @nameForCrystals)),  // crystals
 
-    @SyncableItem(0x37B, 1, 1, @nameForMagic),  // magic usage
+    whenSyncItems(@SyncableItem(0x37B, 1, 1, @nameForMagic)),  // magic usage
 
-    @SyncableItem(0x3C5, 1, @mutateWorldState, @nameForWorldState),  // general progress indicator
-    @SyncableItem(0x3C6, 1, @mutateProgress1, @nameForProgress1),  // progress event flags 1/2
-    @SyncableItem(0x3C7, 1, 1),  // map icons shown
+    whenSyncProgress(@SyncableItem(0x3C5, 1, @mutateWorldState, @nameForWorldState)),  // general progress indicator
+    whenSyncProgress(@SyncableItem(0x3C6, 1, @mutateProgress1, @nameForProgress1)),  // progress event flags 1/2
+    whenSyncProgress(@SyncableItem(0x3C7, 1, 1)),  // map icons shown
 
     //@SyncableItem(0x3C8, 1, 1),  // start at location… options; DISABLED - causes bugs
 
     // progress event flags 2/2
-    @SyncableItem(0x3C9, 1, @mutateProgress2, @nameForProgress2),
+    whenSyncProgress(@SyncableItem(0x3C9, 1, @mutateProgress2, @nameForProgress2)),
 
     // sentinel null value as last item in array to work around bug where last array item is always nulled out.
     null
@@ -496,13 +496,13 @@ class RandomizerMapping : JPROMMapping {
 
       // bow
       if (syncable.offs == 0x340) {
-        @syncables[i] = SyncableItem(0x340, 1, @mutateZeroToNonZero); // no name here; INVENTORY_SWAP takes care of that
+        @syncables[i] = whenSyncItems(SyncableItem(0x340, 1, @mutateZeroToNonZero)); // no name here; INVENTORY_SWAP takes care of that
         continue;
       }
 
       // boomerang
       if (syncable.offs == 0x341) {
-        @syncables[i] = SyncableItem(0x341, 1, @mutateZeroToNonZero); // no name here; INVENTORY_SWAP takes care of that
+        @syncables[i] = whenSyncItems(SyncableItem(0x341, 1, @mutateZeroToNonZero)); // no name here; INVENTORY_SWAP takes care of that
         continue;
       }
 
@@ -514,7 +514,7 @@ class RandomizerMapping : JPROMMapping {
 
       // replace flute syncable with less strict behavior:
       if (syncable.offs == 0x34C) {
-        @syncables[i] = SyncableItem(0x34C, 1, @mutateFlute); // no name here; INVENTORY_SWAP takes care of that
+        @syncables[i] = whenSyncItems(SyncableItem(0x34C, 1, @mutateFlute)); // no name here; INVENTORY_SWAP takes care of that
         continue;
       }
 
@@ -531,7 +531,7 @@ class RandomizerMapping : JPROMMapping {
         // -
         // -
         // -
-        syncables.insertAt(i, @SyncableItem(0x38E, 1, 2, @nameForRandomizerItems2));
+        syncables.insertAt(i, whenSyncItems(@SyncableItem(0x38E, 1, 2, @nameForRandomizerItems2)));
 
         // INVENTORY_SWAP = "$7EF38C"
         // Item Tracking Slot
@@ -544,45 +544,45 @@ class RandomizerMapping : JPROMMapping {
         // s = shovel
         // k = fake flute
         // f = working flute
-        syncables.insertAt(i, @SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1));
+        syncables.insertAt(i, whenSyncItems(@SyncableItem(0x38C, 1, @mutateRandomizerItems, @nameForRandomizerItems1)));
       }
     }
 
     // track progressive shield:
-    syncables.insertLast(@SyncableItem(0x416, 1, @mutateProgressiveShield));
-	
-		// trying silly coat sync get at me
-	syncables.insertLast(@SyncableItem(0x41A, 1, 1, @nameForCoat));  // coat
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x416, 1, @mutateProgressiveShield)));
+
+    // trying silly coat sync get at me
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x41A, 1, 1, @nameForCoat)));  // coat
   }
 
   void syncShops() {
     // sync !SHOP_PURCHASE_COUNTS for VT randomizer shops, e.g. bomb and arrow upgrades in happiness pond:
     for (int i = 0x3D; i >= 0; i--) {
-      syncables.insertAt(0, @SyncableItem(0x302 + i, 1, 1));
+      syncables.insertAt(0, whenSyncProgress(@SyncableItem(0x302 + i, 1, 1)));
     }
   }
 
   void syncFlags() {
-    syncables.insertLast(@SyncableItem(0x410, 1, 2)); // NPC Flags 1
-    syncables.insertLast(@SyncableItem(0x411, 1, 2)); // NPC Flags 2
+    syncables.insertLast(whenSyncProgress(@SyncableItem(0x410, 1, 2))); // NPC Flags 1
+    syncables.insertLast(whenSyncProgress(@SyncableItem(0x411, 1, 2))); // NPC Flags 2
   }
 
   void syncStats() {
     // item limit counters:
     for (uint i = 0x390; i < 0x3C5; i++) {
-      syncables.insertLast(@SyncableItem(i, 1, 1));
+      syncables.insertLast(whenSyncItems(@SyncableItem(i, 1, 1)));
     }
 
-    syncables.insertLast(@SyncableItem(0x418, 1, 1, @nameForTriforcePieces)); // Current Triforce Count
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x418, 1, 1, @nameForTriforcePieces))); // Current Triforce Count
   }
 
   void syncChestCounters() {
-    syncables.insertLast(@SyncableItem(0x434, 1, 1));                         // hhhhdddd - item locations checked h - HC d - PoD
-    syncables.insertLast(@SyncableItem(0x435, 1, 1));                         // dddhhhaa - item locations checked d - DP h - ToH a - AT
-    syncables.insertLast(@SyncableItem(0x436, 1, 1));                         // gggggeee - item locations checked g - GT e - EP
-    syncables.insertLast(@SyncableItem(0x437, 1, 1));                         // sssstttt - item locations checked s - SW t - TT
-    syncables.insertLast(@SyncableItem(0x438, 1, 1));                         // iiiimmmm - item locations checked i - IP m - MM
-    syncables.insertLast(@SyncableItem(0x439, 1, 1));                         // ttttssss - item locations checked t - TR s - SP
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x434, 1, 1)));                         // hhhhdddd - item locations checked h - HC d - PoD
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x435, 1, 1)));                         // dddhhhaa - item locations checked d - DP h - ToH a - AT
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x436, 1, 1)));                         // gggggeee - item locations checked g - GT e - EP
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x437, 1, 1)));                         // sssstttt - item locations checked s - SW t - TT
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x438, 1, 1)));                         // iiiimmmm - item locations checked i - IP m - MM
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x439, 1, 1)));                         // ttttssss - item locations checked t - TR s - SP
   }
 
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
@@ -613,10 +613,10 @@ class DoorRandomizerMapping : RandomizerMapping {
 
   void syncChestCounters() override {
     for (uint i = 0; i <= 0xC; i++) {
-      syncables.insertLast(@SyncableItem(0x4c0 + i, 1, 1));
+      syncables.insertLast(whenSyncItems(@SyncableItem(0x4c0 + i, 1, 1)));
     }
     for (uint i = 0; i <= 0xC; i++) {
-      syncables.insertLast(@SyncableItem(0x4e0 + i, 1, 1));
+      syncables.insertLast(whenSyncItems(@SyncableItem(0x4e0 + i, 1, 1)));
     }
   }
 
@@ -637,15 +637,15 @@ class SMZ3Mapping : RandomizerMapping {
 
   void update_syncables() {
     //metroid items
-    syncables.insertLast(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true));
-    syncables.insertLast(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true));
-    syncables.insertLast(@SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true));
-    syncables.insertLast(@SyncableItem(0x07, 1, 1, null, true)); // charge beam
-    syncables.insertLast(@SyncableItem(0x26, 1, 1, null, true)); // missile capacity
-    syncables.insertLast(@SyncableItem(0x2a, 1, 1, null, true)); // super missile capacity
-    syncables.insertLast(@SyncableItem(0x2e, 1, 1, null, true)); // power bomb capacity
-    syncables.insertLast(@SyncableItem(0x32, 2, 1, null, true)); // reserve tanks
-    syncables.insertLast(@SyncableItem(0x22, 2, 1, null, true)); // energy tanks
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x07, 1, 1, null, true))); // charge beam
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x26, 1, 1, null, true))); // missile capacity
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x2a, 1, 1, null, true))); // super missile capacity
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x2e, 1, 1, null, true))); // power bomb capacity
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x32, 2, 1, null, true))); // reserve tanks
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x22, 2, 1, null, true))); // energy tanks
   }
 
   void syncAll() override {
@@ -678,15 +678,15 @@ class VanillaSMMappping : ROMMapping{
   
   void update_syncables() {
     //metroid items
-    syncables = {@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true),
-                 @SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true),
-                 @SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true),
-                 @SyncableItem(0x07, 1, 1, null, true), // charge beam
-                 @SyncableItem(0x26, 1, 1, null, true), // missile capacity
-                 @SyncableItem(0x2a, 1, 1, null, true), // super missile capacity
-                 @SyncableItem(0x2e, 1, 1, null, true), // power bomb capacity
-                 @SyncableItem(0x32, 2, 1, null, true), // reserve tanks
-                 @SyncableItem(0x22, 2, 1, null, true), // energy tanks
+    syncables = {whenSyncItems(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true)),
+                 whenSyncItems(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true)),
+                 whenSyncItems(@SyncableItem(0x06, 1, 2, @nameForMetroidBeams, true)),
+                 whenSyncItems(@SyncableItem(0x07, 1, 1, null, true)), // charge beam
+                 whenSyncItems(@SyncableItem(0x26, 1, 1, null, true)), // missile capacity
+                 whenSyncItems(@SyncableItem(0x2a, 1, 1, null, true)), // super missile capacity
+                 whenSyncItems(@SyncableItem(0x2e, 1, 1, null, true)), // power bomb capacity
+                 whenSyncItems(@SyncableItem(0x32, 2, 1, null, true)), // reserve tanks
+                 whenSyncItems(@SyncableItem(0x22, 2, 1, null, true)), // energy tanks
                 };
   }
   
