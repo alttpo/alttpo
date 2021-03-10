@@ -795,19 +795,18 @@ class SettingsWindow {
     txtTeam.text = "0";
     ddlFont[0].setSelected();
 
-    chkSyncSprites.checked = true;
-    chkSyncUnderworld.checked = true;
-    chkSyncOverworld.checked = true;
-    chkSyncItems.checked = true;
-    chkSyncPendants.checked = true;
-    chkSyncSmallKeys.checked = false;
-    chkSyncTilemap.checked = true;
-    chkSyncChests.checked = true;
-    chkSyncChestsChanged();
-    chkSyncHearts.checked = true;
-    chkSyncDungeonItems.checked = true;
-    chkSyncCrystals.checked = true;
-    chkSyncProgress.checked = true;
+    syncSprites = true;
+    syncUnderworld = true;
+    syncOverworld = true;
+    syncItems = true;
+    syncPendants = true;
+    syncSmallKeys = false;
+    syncTilemap = true;
+    syncChests = true;
+    syncHearts = true;
+    syncDungeonItems = true;
+    syncCrystals = true;
+    syncProgress = true;
 
     ::enablePvP = false;
     chkEnablePvP.checked = ::enablePvP;
@@ -819,24 +818,26 @@ class SettingsWindow {
     chkConnectorLib.checked = false;
     chkShowLabels.checked = true;
     chkShowMyLabel.checked = true;
+
+    syncChestsChanged();
+    setFeaturesGUI();
   }
   
   private void btnPresetMultiworldClicked() {
     disconnect();
 
-    chkSyncSprites.checked = true;
-    chkSyncUnderworld.checked = false;
-    chkSyncOverworld.checked = false;
-    chkSyncItems.checked = false;
-    chkSyncPendants.checked = false;
-    chkSyncSmallKeys.checked = false;
-    chkSyncTilemap.checked = false;
-    chkSyncChests.checked = true;
-    chkSyncChestsChanged();
-    chkSyncHearts.checked = false;
-    chkSyncDungeonItems.checked = false;
-    chkSyncCrystals.checked = false;
-    chkSyncProgress.checked = false;
+    syncSprites = true;
+    syncUnderworld = false;
+    syncOverworld = false;
+    syncItems = false;
+    syncPendants = false;
+    syncSmallKeys = false;
+    syncTilemap = false;
+    syncChests = true;
+    syncHearts = false;
+    syncDungeonItems = false;
+    syncCrystals = false;
+    syncProgress = false;
 
     ::enablePvP = false;
     chkEnablePvP.checked = ::enablePvP;
@@ -844,6 +845,9 @@ class SettingsWindow {
     chkPvPFF.checked = ::enablePvPFriendlyFire;
     if(!chkBridge.checked) {chkBridge.checked = true; chkBridgeChanged();}
     chkConnectorLib.checked = false;
+
+    syncChestsChanged();
+    setFeaturesGUI();
   }
 
   private void fontWasChanged(bool persist = true) {
@@ -985,8 +989,8 @@ class SettingsWindow {
     chk2.onToggle(cb2);
     hz.append(chk2, sz);
   }
-  
-  private void build_advanced(){
+
+  private void build_advanced() {
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
     advancedWindow.size = GUI::Size(sx(190*2), sy(440));
@@ -1159,7 +1163,7 @@ class SettingsWindow {
       chkSyncSmallKeys, @GUI::Callback(chkSyncSmallKeysChanged),
       "Small Keys (EXPERIMENTAL)",
       "Enable to sync small keys (EXPERIMENTAL; MAY LOSE KEYS)",
-      true,
+      false,
       chkSyncProgress, @GUI::Callback(chkSyncProgressChanged),
       "Progress Flags",
       "Enable to sync world progress flags (rain state, bottle vendor, hobo, aga1, aga2, etc.)",
