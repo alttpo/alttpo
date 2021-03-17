@@ -2880,7 +2880,7 @@ class LocalGameState : GameState {
         }
 
         // reduce damage by armor bit shift right:
-        if (enablePvPFriendlyFire || (remote.team != team)) {
+        if (settings.EnablePvPFriendlyFire || (remote.team != team)) {
           actual_dmg += attack.damage >> armor_shr;
         }
         recoil_state = true;
