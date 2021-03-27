@@ -24,8 +24,6 @@ bool enableRenderToExtra = true;
 
 // sync control:
 bool enableObjectSync = false;
-bool enablePvP = true;
-bool enablePvPFriendlyFire = false;
 
 void init() {
   //message("init()");

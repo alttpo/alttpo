@@ -160,8 +160,14 @@ class SettingsWindow {
     lblConnectorLibMessage.text = msg;
   }
 
+  private bool enablePvP = false;
   bool EnablePvP {
     get { return enablePvP; }
+  }
+
+  private bool enablePvPFriendlyFire = false;
+  bool EnablePvPFriendlyFire {
+    get { return enablePvPFriendlyFire; }
   }
 
   private bool syncSprites;
@@ -611,24 +617,22 @@ class SettingsWindow {
 
   // callback:
   private void chkEnablePvPChanged() {
+    enablePvP = chkEnablePvP.checked;
     enablePvPWasChanged();
   }
-  
-  private void enablePvPWasChanged(bool persist = true) {
-    enablePvP = chkEnablePvP.checked;
 
+  private void enablePvPWasChanged(bool persist = true) {
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkPvPFFChanged() {
+    enablePvPFriendlyFire = chkPvPFF.checked;
     enablePvPFFWasChanged();
   }
 
   private void enablePvPFFWasChanged(bool persist = true) {
-    enablePvPFriendlyFire = chkPvPFF.checked;
-
     if (!persist) return;
     save();
   }
@@ -636,96 +640,88 @@ class SettingsWindow {
 
   // callback:
   private void chkSyncSpritesChanged() {
+    syncSprites = chkSyncSprites.checked;
     syncSpritesChanged();
   }
 
   private void syncSpritesChanged(bool persist = true) {
-    syncSprites = chkSyncSprites.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncUnderworldChanged() {
+    syncUnderworld = chkSyncUnderworld.checked;
     syncUnderworldChanged();
   }
 
   private void syncUnderworldChanged(bool persist = true) {
-    syncUnderworld = chkSyncUnderworld.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncOverworldChanged() {
+    syncOverworld = chkSyncOverworld.checked;
     syncOverworldChanged();
   }
 
   private void syncOverworldChanged(bool persist = true) {
-    syncOverworld = chkSyncOverworld.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncItemsChanged() {
+    syncItems = chkSyncItems.checked;
     syncItemsChanged();
   }
 
   private void syncItemsChanged(bool persist = true) {
-    syncItems = chkSyncItems.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncPendantsChanged() {
+    syncPendants = chkSyncPendants.checked;
     syncPendantsChanged();
   }
 
   private void syncPendantsChanged(bool persist = true) {
-    syncPendants = chkSyncPendants.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncSmallKeysChanged() {
+    syncSmallKeys = chkSyncSmallKeys.checked;
     syncSmallKeysChanged();
   }
 
   private void syncSmallKeysChanged(bool persist = true) {
-    syncSmallKeys = chkSyncSmallKeys.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncTilemapChanged() {
+    syncTilemap = chkSyncTilemap.checked;
     syncTilemapChanged();
   }
 
   private void syncTilemapChanged(bool persist = true) {
-    syncTilemap = chkSyncTilemap.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncChestsChanged() {
+    syncChests = chkSyncChests.checked;
     syncChestsChanged();
   }
 
   private void syncChestsChanged(bool persist = true) {
-    syncChests = chkSyncChests.checked;
-
     if (local !is null) {
       local.set_room_masks(syncChests);
     }
@@ -735,36 +731,33 @@ class SettingsWindow {
 
   // callback:
   private void chkSyncHeartsChanged() {
+    syncHearts = chkSyncHearts.checked;
     syncHeartsChanged();
   }
 
   private void syncHeartsChanged(bool persist = true) {
-    syncHearts = chkSyncHearts.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncDungeonItemsChanged() {
+    syncDungeonItems = chkSyncDungeonItems.checked;
     syncDungeonItemsChanged();
   }
 
   private void syncDungeonItemsChanged(bool persist = true) {
-    syncDungeonItems = chkSyncDungeonItems.checked;
-
     if (!persist) return;
     save();
   }
 
   // callback:
   private void chkSyncCrystalsChanged() {
+    syncCrystals = chkSyncCrystals.checked;
     syncCrystalsChanged();
   }
 
   private void syncCrystalsChanged(bool persist = true) {
-    syncCrystals = chkSyncCrystals.checked;
-
     if (!persist) return;
     save();
   }
@@ -808,10 +801,10 @@ class SettingsWindow {
     syncCrystals = true;
     syncProgress = true;
 
-    ::enablePvP = false;
-    chkEnablePvP.checked = ::enablePvP;
-    ::enablePvPFriendlyFire = false;
-    chkPvPFF.checked = ::enablePvPFriendlyFire;
+    enablePvP = false;
+    chkEnablePvP.checked = enablePvP;
+    enablePvPFriendlyFire = false;
+    chkPvPFF.checked = enablePvPFriendlyFire;
     chkDiscordEnable.checked = false;
     chkDiscordPrivate.checked = false;
     chkBridge.checked = false;
@@ -819,8 +812,8 @@ class SettingsWindow {
     chkShowLabels.checked = true;
     chkShowMyLabel.checked = true;
 
-    syncChestsChanged();
     setFeaturesGUI();
+    syncChestsChanged();
   }
   
   private void btnPresetMultiworldClicked() {
@@ -839,15 +832,15 @@ class SettingsWindow {
     syncCrystals = false;
     syncProgress = false;
 
-    ::enablePvP = false;
-    chkEnablePvP.checked = ::enablePvP;
-    ::enablePvPFriendlyFire = false;
-    chkPvPFF.checked = ::enablePvPFriendlyFire;
+    enablePvP = false;
+    chkEnablePvP.checked = enablePvP;
+    enablePvPFriendlyFire = false;
+    chkPvPFF.checked = enablePvPFriendlyFire;
     if(!chkBridge.checked) {chkBridge.checked = true; chkBridgeChanged();}
     chkConnectorLib.checked = false;
 
-    syncChestsChanged();
     setFeaturesGUI();
+    syncChestsChanged();
   }
 
   private void fontWasChanged(bool persist = true) {
@@ -1185,7 +1178,7 @@ class SettingsWindow {
       chkEnablePvP.text = "Enable PvP";
       chkEnablePvP.toolTip =
         "Enable this to enable PvP. This will allow you to hit or even kill players in other teams.";
-      chkEnablePvP.checked = ::enablePvP;
+      chkEnablePvP.checked = enablePvP;
       chkEnablePvP.onToggle(@GUI::Callback(chkEnablePvPChanged));
       hz.append(chkEnablePvP, GUI::Size(sx150, 0));
 
@@ -1193,7 +1186,7 @@ class SettingsWindow {
       chkPvPFF.text = "PvP Friendly Fire";
       chkPvPFF.toolTip =
         "Enables friendly-fire mode for PvP.";
-      chkPvPFF.checked = ::enablePvPFriendlyFire;
+      chkPvPFF.checked = enablePvPFriendlyFire;
       chkPvPFF.onToggle(@GUI::Callback(chkPvPFFChanged));
       hz.append(chkPvPFF, GUI::Size(sx150, 0));
     }
