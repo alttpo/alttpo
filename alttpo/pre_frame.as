@@ -124,6 +124,7 @@ bool sm_loading_room() {
   return sm_state == 0x0b;
 }
 
+
 bool sm_in_menu(){
   return (sm_state >= 0x0c && sm_state <= 0x12);
 }
@@ -199,7 +200,10 @@ void on_main_sm(uint32 pc) {
   if (!sm_loading_room()) {
     local.update_enemies();
     local.timeInRoom++;
-  }
+   }
+   else {
+    local.timeInRoom = 0;
+   }
 }
 
 // pre_frame always happens
