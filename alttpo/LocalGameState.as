@@ -3008,17 +3008,10 @@ class LocalGameState : GameState {
       bus::write_u16(0x7E0E4E, bus::read_u16(0x7E0E4E) - 1);
       bus::write_u16(0x7E0E50, bus::read_u16(0x7E0E50) + 1);
      return;
-    } else if(remote.enemies[enemyIndex*32] == 0xd73f){
+    } else if(remote.enemies[enemyIndex*32] == 0xd73f || remote.enemies[enemyIndex*32] == 0xd0BF){
+      //manual exemptions for the ship and for elevators
       return;
     }
-    
-    uint bound = (local.enemies[7] & 0x4000) == 0x4000 ? 24 : 32; //determines how much memory to copy into enemy slot
-	
-    // Get the distances from the players to the enemy
-    uint32 distRemote1 = get_distance_from_enemy(enemyIndex, local.enemies, remote); //remote distance to local enemy
-    uint32 distRemote2 = get_distance_from_enemy(enemyIndex, remote.enemies, remote); // remote distance to remote enemy
-    uint32 distLocal1 = get_distance_from_enemy(enemyIndex, local.enemies, local); // local dinstance to local enemy
-    uint32 distLocal2 = get_distance_from_enemy(enemyIndex, remote.enemies, local); //local distance to remote enemy
     
     
     //give the enemy the minimum of remote and local health
@@ -3027,8 +3020,8 @@ class LocalGameState : GameState {
       bus::write_u16(0x7e0f78 + enemyIndex*64 + 20, min(local.enemies[enemyIndex*32 + 10], remote.enemies[enemyIndex*32 + 10]));
     }
     
-    // give the enemy the maximum freeze time from both players
-    //bus::write_u16(0x7e0f78 + enemyIndex*64 + 38, max(local.enemies[enemyIndex*32 + 19], remote.enemies[enemyIndex*32 + 19]));
+    //give the enemy the maximum freeze time from both players
+    bus::write_u16(0x7e0f78 + enemyIndex*64 + 38, max(local.enemies[enemyIndex*32 + 19], remote.enemies[enemyIndex*32 + 19]));
     
     //load all enemy data from the host
     if(remote.timeInRoom > local.timeInRoom){
