@@ -2996,33 +2996,80 @@ class LocalGameState : GameState {
     return xDiff*xDiff + yDiff*yDiff; //switch to using a euclidean distance metric rather than a taxicab metric
   }
   
-  void update_enemy(uint8 enemyIndex, GameState @remote) {
-    // Does this enemy even have data?
-    if (remote.enemies[enemyIndex*32] == 0) {
-      //Enemy is dead from remote, so delete the enemy here
-      //TODO update the count for number of enemies in the room
-      for(uint i = 0; i < 32; i++){
-        bus::write_u16(0x7e0f78 + enemyIndex*64 + i*2, 0);
-      }
+  void update_enemy(uint8 enemyIndex, GameState @remote) { 
+    uint bound; //determines how much memory to copy into enemy slot
+    
+    // specific behavior for specific enemies
+    // based on the memory pointer for the enemy
+    switch(remote.enemies[enemyIndex*32]){
+        case 0x0000: {
+          //Enemy is dead from remote, so delete the enemy here
+          //TODO update the count for number of enemies in the room
+          for(uint i = 0; i < 32; i++){
+            bus::write_u16(0x7e0f78 + enemyIndex*64 + i*2, 0);
+          }
       
-      bus::write_u16(0x7E0E4E, bus::read_u16(0x7E0E4E) - 1);
-      bus::write_u16(0x7E0E50, bus::read_u16(0x7E0E50) + 1);
-     return;
-    } else if(remote.enemies[enemyIndex*32] == 0xd73f || remote.enemies[enemyIndex*32] == 0xd0BF){
-      //manual exemptions for the ship and for elevators
+          bus::write_u16(0x7E0E4E, bus::read_u16(0x7E0E4E) - 1);
+          bus::write_u16(0x7E0E50, bus::read_u16(0x7E0E50) + 1);
+           return;
+        }
+        case 0xD73F: return; // skip elevators
+        case 0xD0BF: return; // skip ship
+        case 0xD07F: return; // skip ship part 2
+        case 0xE87F: bound = 24; break;
+        case 0xEaFF: bound = 24; break;
+        default: bound = 32;
+        }
+	
+    // Get the distances from the players to the enemy
+    uint32 distRemote1 = get_distance_from_enemy(enemyIndex, local.enemies, remote); //remote distance to local enemy
+    uint32 distRemote2 = get_distance_from_enemy(enemyIndex, remote.enemies, remote); // remote distance to remote enemy
+    uint32 distLocal1 = get_distance_from_enemy(enemyIndex, local.enemies, local); // local dinstance to local enemy
+    uint32 distLocal2 = get_distance_from_enemy(enemyIndex, remote.enemies, local); //local distance to remote enemy
+    
+    // if the "respawn when killed" flag is set, skip syncing this enemy
+    if(local.enemies[enemyIndex*32 + 15] & 0b01000000 == 0b01000000){
       return;
     }
     
-    
     //give the enemy the minimum of remote and local health
-    //only if the "respawn when killed" flag is not set
-    if(remote.enemies[enemyIndex*32 + 15] & 0b01000000 != 0b01000000){
-      bus::write_u16(0x7e0f78 + enemyIndex*64 + 20, min(local.enemies[enemyIndex*32 + 10], remote.enemies[enemyIndex*32 + 10]));
-    }
+    bus::write_u16(0x7e0f78 + enemyIndex*64 + 20, min(local.enemies[enemyIndex*32 + 10], remote.enemies[enemyIndex*32 + 10]));
     
     //give the enemy the maximum freeze time from both players
+    // causes enemies to freeze in place for indeterminate timestamp
+    // and causes tearing when they finally defrost
     bus::write_u16(0x7e0f78 + enemyIndex*64 + 38, max(local.enemies[enemyIndex*32 + 19], remote.enemies[enemyIndex*32 + 19]));
     
+    
+    uint8 boss_number = bus::read_u8(0x7e179c);
+    
+    if (local.timeInRoom < 5) {
+      distLocal1 = 0xffff;
+      distLocal2 = 0xffff;
+    } else if (boss_number != 0){
+      distLocal1 = distRemote1;
+      distLocal2 = distLocal2;
+      //bound = 32;
+    }
+	
+    if (distLocal1 < distRemote1 && distLocal2 < distRemote2) {
+      // We are closer than the remote, so we are the host!
+      // No need to change our local data for this enemy
+      //local.name += fmtInt(enemyIndex) + "_";
+      return;
+    }
+    else if ((distLocal1 > distRemote1 && distLocal2 > distRemote2) || (remote.timeInRoom > local.timeInRoom)) {
+      // This player is closer than we currently have data for!
+      // Or has been in the room longer
+      // Overwrite our data for this enemy based on the remote players data
+      // And update the local array to make the calculation correct for 3+ players
+      for(uint i = 0; i < bound; i++){
+        local.enemies[enemyIndex*32 + i] = remote.enemies[enemyIndex*32 + i];
+        bus::write_u16(0x7e0f78 + enemyIndex*64 + i*2, remote.enemies[enemyIndex*32 + i]);
+      }
+    }
+    
+    /*
     //load all enemy data from the host
     if(remote.timeInRoom > local.timeInRoom){
       for(uint i = 0; i < 32; i++){
@@ -3034,11 +3081,12 @@ class LocalGameState : GameState {
       bus::write_u8(0x7E0f78 + enemyIndex*64 + 17 ,bus::read_u8(0x7E0f78 + enemyIndex*64 + 17) & 0b01111111);
       bus::write_u8(0x7E0f78 + enemyIndex*64 + 16 ,bus::read_u8(0x7E0f78 + enemyIndex*64 + 16) & 0b11111110);
     }
+  */
   }
 
   void update_enemies(){
   
-    load_all_enemies();
+    //load_all_enemies();
   
     //local.name = "p_";
     // First, do a quick check to see if anyone else is even in the same area as you
