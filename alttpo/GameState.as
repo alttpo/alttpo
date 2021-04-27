@@ -230,6 +230,7 @@ class GameState {
 
     index = -1;
     team = 0;
+    justJoined = true;
 
     frame = 0;
     actual_location = 0;
@@ -730,6 +731,11 @@ class GameState {
           @small_keys[i] = @SyncableByte(offs + i);
         }
         c = small_keys[i].deserialize(r, c);
+      }
+    } else {
+      // discard data we don't understand yet:
+      for (uint i = 0; i < count; i++) {
+        c = SyncableByte(offs + i).deserialize(r, c);
       }
     }
 
