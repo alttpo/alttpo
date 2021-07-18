@@ -10,7 +10,7 @@ bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
-bool debugMemory = true;
+bool debugMemory = false;
 
 bool debugRTDScapture = false;
 bool debugRTDScompress = false;

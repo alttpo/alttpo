@@ -111,7 +111,7 @@ class GameState {
   uint8 in_sm;
   uint8 sm_clear, z3_clear;
 
-  array<uint16> enemies(0x400);
+  array<SM_Enemy> enemies(0x20);
   uint16 timeInRoom = 0;
 
   uint8 _module;
@@ -276,6 +276,10 @@ class GameState {
 
     for (uint i = 0; i < 0x50; i++) {
       sm_events[i] = 0;
+    }
+    
+    for (uint i = 0; i < 0x20; i++){
+      enemies[i] = SM_Enemy(i);
     }
 
     //array<GameSprite@> objects(0x10);
@@ -503,7 +507,7 @@ class GameState {
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
         case 0x10: c = deserialize_sm_sprite(r, c); break;
-		case 0x11: c = deserialize_sm_enemies(r, c); break;
+        case 0x11: c = deserialize_sm_enemies(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -590,21 +594,23 @@ class GameState {
   int deserialize_sm_enemies(array<uint8> r, int c){
     //message("deserialize_sm_enemies");
 	
-    uint8 enemyIndex = r[c++];
+    uint8 enemy_index = r[c++];
     
     if(r[c++] == 0){
-      for (uint i = 0; i < 32; i++) {
-        enemies[enemyIndex * 32 + i] = 0;
-      }
-      
+      enemies[enemy_index] = SM_Enemy(enemy_index);
+      enemies[enemy_index].is_new = timeInRoom < 5;
       return c;
     }
     
+    array<uint16> temp(0x20);
+    
     for (uint i = 0; i < 32; i++) {
-      enemies[enemyIndex * 32 + i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      temp[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     }
+    
+    enemies[enemy_index] = SM_Enemy(enemy_index, temp, r[c++], r[c++] == 1, r[c++] == 1);
 	
-	return c;
+    return c;
   }
 
   int deserialize_sfx(array<uint8> r, int c) {
