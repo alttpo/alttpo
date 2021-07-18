@@ -1158,8 +1158,10 @@ class LocalGameState : GameState {
     
     for (uint i = 0; i < 0x20; i++){
         local.enemies[i].read();
-        if (local.is_alone()){local.enemies[i].host_index = local.index;}
-        local.enemies[i].is_active = get_distance_from_enemy(i, local.enemies[i], local) < sm_enemy_active_distance;
+        if (local.is_alone()){
+          local.enemies[i].host_index = local.index;
+          local.enemies[i].is_active = get_distance_from_enemy(i, local.enemies[i], local) < sm_enemy_active_distance;
+        }
         if (bus::read_u8(0x7e179c) != 0){local.enemies[i].is_active = true;} // Checks the Boss number against 0
         if (local.timeInRoom < 5) {
           local.enemies[i].is_new = true;
