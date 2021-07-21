@@ -198,7 +198,7 @@ void on_main_sm(uint32 pc) {
     }
   }
   if (!sm_loading_room()) {
-    local.update_enemies();
+    if (settings.SyncSmEnemies) {local.update_enemies();}
     local.timeInRoom++;
    }
    else {

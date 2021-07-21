@@ -26,6 +26,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkShowMyLabel;
   private GUI::CheckLabel @chkEnablePvP;
   private GUI::CheckLabel @chkPvPFF;
+  private GUI::CheckLabel @chkSyncSmEnemies;
 
   private GUI::CheckLabel @chkSyncSprites;
   private GUI::CheckLabel @chkSyncUnderworld;
@@ -194,6 +195,8 @@ class SettingsWindow {
   bool SyncCrystals { get { return syncCrystals; } }
   private bool syncProgress;
   bool SyncProgress { get { return syncProgress; } }
+  private bool syncsmenemies;
+  bool SyncSmEnemies { get { return syncsmenemies; } }
 
   private bool discordEnable;
   bool DiscordEnable {
@@ -250,6 +253,7 @@ class SettingsWindow {
     chkSyncDungeonItems.checked = syncDungeonItems;
     chkSyncCrystals.checked = syncCrystals;
     chkSyncProgress.checked = syncProgress;
+    chkSyncSmEnemies.checked = syncsmenemies;
 
     // set selected font option:
     ddlFont[fontIndex].setSelected();
@@ -300,6 +304,7 @@ class SettingsWindow {
     syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
     syncCrystals = doc["feature/syncCrystals"].booleanOr(true);
     syncProgress = doc["feature/syncProgress"].booleanOr(true);
+    syncsmenemies = doc["featyre/syncsmenemies"].booleanOr(true);
 
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
@@ -353,6 +358,7 @@ class SettingsWindow {
     doc.create("feature/syncDungeonItems").value = fmtBool(syncDungeonItems);
     doc.create("feature/syncCrystals").value = fmtBool(syncCrystals);
     doc.create("feature/syncProgress").value = fmtBool(syncProgress);
+    doc.create("feature/syncsmenemies").value = fmtBool(syncsmenemies);
 
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
@@ -773,6 +779,18 @@ class SettingsWindow {
     if (!persist) return;
     save();
   }
+  
+  // callback:
+  private void chkSyncSmEnemiesChanged() {
+    syncSmEnemiesChanged();
+  }
+
+  private void syncSmEnemiesChanged(bool persist = true) {
+    syncsmenemies = chkSyncSmEnemies.checked;
+
+    if (!persist) return;
+    save();
+  }
 
 
   // callback:
@@ -984,7 +1002,7 @@ class SettingsWindow {
   }
 
   private void build_advanced() {
-    @advancedWindow = GUI::Window(475, 32, true);;
+    @advancedWindow = GUI::Window(500, 32, true);;
     advancedWindow.title = "Advanced Settings";
     advancedWindow.size = GUI::Size(sx(190*2), sy(440));
 
@@ -1189,6 +1207,26 @@ class SettingsWindow {
       chkPvPFF.checked = enablePvPFriendlyFire;
       chkPvPFF.onToggle(@GUI::Callback(chkPvPFFChanged));
       hz.append(chkPvPFF, GUI::Size(sx150, 0));
+    }
+    
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "Enemies:";
+      hz.append(lbl, GUI::Size(sx100, 0));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkSyncSmEnemies = GUI::CheckLabel();
+      chkSyncSmEnemies.text = "SM  (BETA)";
+      chkSyncSmEnemies.toolTip =
+        "Enable this to sync enemies in metroid only";
+      chkSyncSmEnemies.checked = enablePvP;
+      chkSyncSmEnemies.onToggle(@GUI::Callback(chkSyncSmEnemiesChanged));
+      hz.append(chkSyncSmEnemies, GUI::Size(sx150, 0));
     }
 
     {

@@ -1155,7 +1155,6 @@ class LocalGameState : GameState {
   
     // probably done might edit later
     
-    
     for (uint i = 0; i < 0x20; i++){
         local.enemies[i].read();
         if (local.is_alone()){
@@ -1238,6 +1237,7 @@ class LocalGameState : GameState {
   uint send_one_sm_enemy(uint8 enemy_index, uint p){
     array<uint8> env = create_envelope();
     env.write_u8(uint8(0x11));
+    env.write_u8(settings.SyncSmEnemies ? 1 : 0);
     env.write_u8(enemy_index);
     
     if (enemies[enemy_index].pointer == 0){
@@ -3024,7 +3024,13 @@ class LocalGameState : GameState {
     for (uint i = 0; i < 0x20; i ++){
       bool new_host = true;
       if (local.enemies[i].is_active){
-        local.enemies[i] = players[local.enemies[i].host_index].enemies[i];
+        if (local.enemies[i].host_index < players_len){
+          local.enemies[i] = players[local.enemies[i].host_index].enemies[i];
+        } else {
+          local.enemies[i].is_new = true;
+          local.enemies[i].is_active = false;
+          local.enemies[i].host_index = local.index;
+        }
       } 
       
       for (uint j = 0; j < players_len; j++) {
@@ -3033,6 +3039,7 @@ class LocalGameState : GameState {
         if (remote is local) continue;
         if (remote.ttl <= 0) continue;
         if (remote.team != team) continue;
+        if (!remote.enemySyncEnabled) continue;
         
         if (local.enemies[i].is_new){
           if (!remote.enemies[i].is_new){local.enemies[i] = remote.enemies[i];}

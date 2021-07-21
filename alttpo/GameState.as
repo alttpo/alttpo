@@ -112,6 +112,7 @@ class GameState {
   uint8 sm_clear, z3_clear;
 
   array<SM_Enemy> enemies(0x20);
+  bool enemySyncEnabled;
   uint16 timeInRoom = 0;
 
   uint8 _module;
@@ -593,7 +594,8 @@ class GameState {
 
   int deserialize_sm_enemies(array<uint8> r, int c){
     //message("deserialize_sm_enemies");
-	
+    
+    enemySyncEnabled = r[c++] == 1;
     uint8 enemy_index = r[c++];
     
     if(r[c++] == 0){
