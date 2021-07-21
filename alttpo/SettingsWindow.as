@@ -1002,9 +1002,9 @@ class SettingsWindow {
   }
 
   private void build_advanced() {
-    @advancedWindow = GUI::Window(500, 32, true);;
+    @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(190*2), sy(440));
+    advancedWindow.size = GUI::Size(sx(190*2), sy(490));
 
     auto sx150 = sx(190);
     auto sx100 = sx(100);

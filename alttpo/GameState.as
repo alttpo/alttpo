@@ -595,7 +595,13 @@ class GameState {
   int deserialize_sm_enemies(array<uint8> r, int c){
     //message("deserialize_sm_enemies");
     
-    enemySyncEnabled = r[c++] == 1;
+    uint8 is_enemy = r[c++];
+    if (is_enemy == 34){
+      enemySyncEnabled = false;
+      return c;
+    } else {
+      enemySyncEnabled = true;
+    }
     uint8 enemy_index = r[c++];
     
     if(r[c++] == 0){

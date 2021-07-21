@@ -1227,9 +1227,16 @@ class LocalGameState : GameState {
 
   uint send_sm_enemies(uint p){
     //message("send_sm_enemies");
-	
-    for (uint i = 0; i < 32; i++){
-      p = send_one_sm_enemy(i, p);
+    
+    if (settings.SyncSmEnemies){
+      for (uint i = 0; i < 32; i++){
+        p = send_one_sm_enemy(i, p);
+      }
+    } else {
+      array<uint8> tmpenv = create_envelope();
+      tmpenv.write_u8(uint8(0x11));
+      tmpenv.write_u8(34);
+      p = send_packet(tmpenv, p);
     }
     return p;
   }
@@ -1237,7 +1244,7 @@ class LocalGameState : GameState {
   uint send_one_sm_enemy(uint8 enemy_index, uint p){
     array<uint8> env = create_envelope();
     env.write_u8(uint8(0x11));
-    env.write_u8(settings.SyncSmEnemies ? 1 : 0);
+    env.write_u8(1);
     env.write_u8(enemy_index);
     
     if (enemies[enemy_index].pointer == 0){
