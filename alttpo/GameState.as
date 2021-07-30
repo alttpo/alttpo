@@ -252,6 +252,7 @@ class GameState {
     module = 0;
     sub_module = 0;
     sub_sub_module = 0;
+    timeInRoom = 0;
 
     in_dark_world = 0;
     in_dungeon = 0;
@@ -606,7 +607,6 @@ class GameState {
     
     if(r[c++] == 0){
       enemies[enemy_index] = SM_Enemy(enemy_index);
-      enemies[enemy_index].is_new = timeInRoom < 5;
       return c;
     }
     
@@ -616,8 +616,11 @@ class GameState {
       temp[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
     }
     
-    enemies[enemy_index] = SM_Enemy(enemy_index, temp, r[c++], r[c++] == 1, r[c++] == 1);
-	
+    uint8 constructed_host_index = r[c++];
+    enemies[enemy_index] = SM_Enemy(enemy_index, temp, constructed_host_index, r[c++] == 1);
+    //enemies[enemy_index] = SM_Enemy(enemy_index, temp, r[c++], r[c++] == 1);
+    
+    
     return c;
   }
 

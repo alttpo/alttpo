@@ -787,7 +787,7 @@ class SettingsWindow {
 
   private void syncSmEnemiesChanged(bool persist = true) {
     syncsmenemies = chkSyncSmEnemies.checked;
-
+    local.timeInRoom = 0;
     if (!persist) return;
     save();
   }

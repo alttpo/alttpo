@@ -1157,17 +1157,9 @@ class LocalGameState : GameState {
     
     for (uint i = 0; i < 0x20; i++){
         local.enemies[i].read();
-        if (local.is_alone()){
-          local.enemies[i].host_index = local.index;
-          local.enemies[i].is_active = get_distance_from_enemy(i, local.enemies[i], local) < sm_enemy_active_distance;
-        }
-        if (bus::read_u8(0x7e179c) != 0){local.enemies[i].is_active = true;} // Checks the Boss number against 0
-        if (local.timeInRoom < 5) {
-          local.enemies[i].is_new = true;
-          local.enemies[i].is_active = false;
-        } else {
-          local.enemies[i].is_new = false;
-        }
+        if (local.is_alone()){local.enemies[i].host_index = local.index;}
+        local.enemies[i].is_active = (get_distance_from_enemy(local.enemies[i], local) < sm_enemy_active_distance);
+        if (bus::read_u16(0x7e179c) != 0){local.enemies[i].is_active = true;} // Checks the Boss number against 0
     }
     
     
@@ -1256,7 +1248,6 @@ class LocalGameState : GameState {
       }
       env.write_u8(enemies[enemy_index].host_index);
       env.write_u8(enemies[enemy_index].is_active ? 1 : 0);
-      env.write_u8(enemies[enemy_index].is_new ? 1 : 0);
     }
     
     p = send_packet(env, p);
@@ -3007,16 +2998,18 @@ class LocalGameState : GameState {
     return true;
   }
   
-  uint32 get_distance_from_enemy(uint enemyIndex, SM_Enemy enemy, GameState @player) {
-    uint16 enemyX = enemy.enemy_data[1];
-    uint16 enemyY = enemy.enemy_data[3];
-    uint16 smX = uint16(player.sm_x) * 256 + uint16(player.sm_sub_x);
-    uint16 smY = uint16(player.sm_y) * 256 + uint16(player.sm_sub_y);
+  uint32 get_distance_from_enemy(SM_Enemy enemy, GameState @player) {
+    uint16 enemyX = enemy.Xpos;
+    uint16 enemyY = enemy.Ypos;
+    uint16 smX = (uint16(player.sm_x) << 8) + uint16(player.sm_sub_x);
+    uint16 smY = (uint16(player.sm_y) << 8) + uint16(player.sm_sub_y);
     
     uint32 xDiff = absoluteValue(int(enemyX) - int(smX));//created an abs function to simplify the code here
     uint32 yDiff = absoluteValue(int(enemyY) - int(smY)); //see init.as
-  
-    return xDiff*xDiff + yDiff*yDiff; //switch to using a euclidean distance metric rather than a taxicab metric
+    
+    uint64 dist =  xDiff*xDiff + yDiff*yDiff;
+    //message(fmtInt(dist));
+    return dist; //switch to using a euclidean distance metric rather than a taxicab metric
   }
   
 
@@ -3030,15 +3023,8 @@ class LocalGameState : GameState {
     auto players_len = players.length();
     for (uint i = 0; i < 0x20; i ++){
       bool new_host = true;
-      if (local.enemies[i].is_active){
-        if (local.enemies[i].host_index < players_len){
-          local.enemies[i] = players[local.enemies[i].host_index].enemies[i];
-        } else {
-          local.enemies[i].is_new = true;
-          local.enemies[i].is_active = false;
-          local.enemies[i].host_index = local.index;
-        }
-      } 
+      
+      if (!(local.timeInRoom < 5) && local.enemies[i].pointer == 0){continue;}
       
       for (uint j = 0; j < players_len; j++) {
         auto @remote = players[j];
@@ -3047,45 +3033,78 @@ class LocalGameState : GameState {
         if (remote.ttl <= 0) continue;
         if (remote.team != team) continue;
         if (!remote.enemySyncEnabled) continue;
+        if (remote.timeInRoom < 5) continue;
+        if (!local.can_see_sm(remote)) continue;
         
-        if (local.enemies[i].is_new){
-          if (!remote.enemies[i].is_new){local.enemies[i] = remote.enemies[i];}
+        if (local.timeInRoom < 5){
+          local.enemies[i].clone_to(remote.enemies[i]);
+          local.enemies[i].host_index = remote.index;
+          new_host = false;
           continue;
         }
-          
-        if (local.enemies[i].host_index == uint(local.index) && remote.enemies[i].host_index == uint(remote.index)){
-          // problem case default to player with lower player index
-          if (local.index < remote.index) {continue;}
-          else {
-            local.enemies[i] = remote.enemies[i];
-          }
-        }
-          
-        local.enemies[i].compare_to_remote(remote.enemies[i]);  
-          
-        if (!local.enemies[i].is_active){
-          uint32 distRemote1 = get_distance_from_enemy(i, local.enemies[i], remote); //remote distance to local enemy
-          uint32 distRemote2 = get_distance_from_enemy(i, remote.enemies[i], remote); // remote distance to remote enemy
-          uint32 distLocal1 = get_distance_from_enemy(i, local.enemies[i], local); // local dinstance to local enemy
-          uint32 distLocal2 = get_distance_from_enemy(i, remote.enemies[i], local); //local distance to remote enemy
         
-          if ((distLocal1 > distRemote1 && distLocal2 > distRemote2) || distLocal1 > sm_enemy_active_distance){
-            // we are further than some other player from the enemy
-            // we are certainly not the host
-            // so we use host data, break the loop, and go to next enemy
+        
+        
+        bool A = local.enemies[i].host_index == local.index;
+        bool B = local.enemies[i].is_active;
+        bool C = remote.enemies[i].host_index == remote.index;
+        bool D = remote.enemies[i].is_active;
+        uint8 temp = 0;
+        
+        if (D) {temp += 1;}
+        if (C) {temp += 2;}
+        if (B) {temp += 4;}
+        if (A) {temp += 8;}
+        
+        if (enemies[i].enemy_index == 14){
+          message("stuck in state: " + fmtInt(temp));
+        }
+        
+        switch (temp){
+          
+          
+          case 10:
+          case 15:
+            if (local.index > remote.index){
+              local.enemies[i].clone_to(remote.enemies[i]);
+              local.enemies[i].host_index = remote.index;
+            }
             new_host = false;
-            continue;
-          }
+            break;
+          
+          case 1:
+          case 2:
+          case 3:
+          case 5:
+          case 7:
+          case 9:
+          case 11:
+            // concede control of the enemy
+            local.enemies[i].clone_to(remote.enemies[i]);
+            local.enemies[i].host_index = remote.index;
+            new_host = false;
+            break;
+            
+          case 4: // leave new_host alone
+          case 6:
+            break;
+            
+          case 0:
+            new_host = false;
+            break;
+          
+          case 8:
+          case 12:
+          case 13:
+          case 14:
+          default:
+            local.enemies[i].compare_to_remote(remote.enemies[i]);
         }
       }
       
-      if (new_host && !enemies[i].is_new) {
-        // we are the new host!
-        // update the local enemy accordingly
-        enemies[i].host_index = local.index;
-        enemies[i].is_active = true;
+      if (new_host) {
+        local.enemies[i].host_index = local.index;
       }
-      
       local.enemies[i].write();
     }
     
