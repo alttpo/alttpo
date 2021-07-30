@@ -3057,7 +3057,7 @@ class LocalGameState : GameState {
         if (A) {temp += 8;}
         
         if (enemies[i].enemy_index == 14){
-          message("stuck in state: " + fmtInt(temp));
+          //message("stuck in state: " + fmtInt(temp));
         }
         
         switch (temp){
