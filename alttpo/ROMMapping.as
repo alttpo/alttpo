@@ -787,6 +787,9 @@ ROMMapping@ detect() {
   } else if(title == "      SM RANDOMIZER  ") {
      message("recognized SM randomizer");
      return VanillaSMMappping();
+  } else if(title.slice(0,3) == "SM3") {
+     message("recognized SM randomizer");
+     return VanillaSMMappping();
   } else {
     switch (region) {
       case 0x00:
