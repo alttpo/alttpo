@@ -701,6 +701,10 @@ class VanillaSMMappping : ROMMapping{
 
 }
 
+bool isDigit(int c) {
+  return c >= '0' && c <= '9';
+}
+
 ROMMapping@ detect() {
   array<uint8> sig(21);
   bus::read_block_u8(0x00FFC0, 0, 21, sig);
@@ -781,9 +785,17 @@ ROMMapping@ detect() {
     auto kind = title.slice(0, 3) + " v" + title.slice(3, 4);
     message("Recognized " + kind + " randomized ROM version. Seed: " + seed);
     return SMZ3Mapping(kind, seed);
-  } else if(title.slice(0, 13) == "Super Metroid"){
-      message("recognized vanilla SM");
-      return VanillaSMMappping();
+  } else if (title.slice(0, 2) == "SM" && isDigit(title[2]) && isDigit(title[3]) && isDigit(title[4])) {
+    // Archipelago SM multiworld randomized
+    // e.g. "SM021_5_5433542205421"
+    auto seed = title.slice(8, 13);
+    auto player = title.slice(6, 1);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Archipelago " + kind + " randomized ROM version. Player: " + player + " Seed: " + seed);
+    return VanillaSMMappping();
+  } else if(title.slice(0, 13) == "Super Metroid") {
+    message("recognized vanilla SM");
+    return VanillaSMMappping();
   } else if(title == "      SM RANDOMIZER  ") {
      message("recognized SM randomizer");
      return VanillaSMMappping();
