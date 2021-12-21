@@ -133,9 +133,9 @@ Log in to your server (I'll assume it's Linux or at least has a bash-like shell)
 
 1. `mkdir -p /srv/go`
 1. `export GOPATH=/srv/go`
-1. `go install github.com/alttpo/alttpo/alttp-server@latest`
+1. `go install github.com/alttpo/o2-server@latest`
 
-Create this systemd service unit file at `/etc/systemd/system/alttp-server.service`:
+Create this systemd service unit file at `/etc/systemd/system/o2-server.service`:
 
 ```
 [Unit]
@@ -143,7 +143,7 @@ Description=ALTTP UDP multiplayer group server on port 4590
 
 [Service]
 WorkingDirectory=/tmp
-ExecStart=/srv/go/bin/alttp-server
+ExecStart=/srv/go/bin/o2-server
 User=nobody
 Group=nogroup
 Restart=always
@@ -154,12 +154,21 @@ WantedBy=multi-user.target
  
 To start the service immediately, run:
 ```
-$ sudo systemctl start alttp-server
+$ sudo systemctl start o2-server
 ```
 
 To enable the service to have it always start on boot, run:
 ```
-$ sudo systemctl enable alttp-server
+$ sudo systemctl enable o2-server
 ```
 
-The main takeaways here are that you just need a nice place to store the compiled binary `alttp-server` and you should be able to run it as `nobody` UID with `nogroup` GID to limit its access to the rest of your system. Definitely DO NOT run it as a privileged user of any kind. The less privileges it has, the better. All it needs to do is bind to UDP port 4590 and send UDP messages and nothing else.
+The main takeaways here are that you just need a nice place to store the compiled binary `o2-server` and you should be able to run it as `nobody` UID with `nogroup` GID to limit its access to the rest of your system. Definitely DO NOT run it as a privileged user of any kind. The less privileges it has, the better. All it needs to do is bind to UDP port 4590 and send UDP messages and nothing else.
+
+InfluxDB 1.8 is supported for logging time-series metrics and is configured via environment variables:
+
+| Environment Variable | Description                                       |
+| -------------------- | ------------------------------------------------- |
+| INFLUX_URL           | influxdb host e.g. `http://localhost:8086`        |
+| INFLUX_TOKEN         | influxdb token access code or `username:password` |
+| INFLUX_ORG           | influxdb org name e.g. `alttpo`                   |
+| INFLUX_BUCKET        | influxdb bucket name e.g. `alttpo`                |
