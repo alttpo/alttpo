@@ -133,7 +133,7 @@ Log in to your server (I'll assume it's Linux or at least has a bash-like shell)
 
 1. `mkdir -p /srv/go`
 1. `export GOPATH=/srv/go`
-1. `go get github.com/JamesDunne/alttpo/alttpo`
+1. `go install github.com/alttpo/alttpo/alttp-server@latest`
 
 Create this systemd service unit file at `/etc/systemd/system/alttp-server.service`:
 
