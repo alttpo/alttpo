@@ -3022,7 +3022,7 @@ class LocalGameState : GameState {
 	
     auto players_len = players.length();
     for (uint i = 0; i < 0x20; i ++){
-      bool new_host = true;
+      bool take_host = true;
       
       if (!(local.timeInRoom < 5) && local.enemies[i].pointer == 0){continue;}
       
@@ -3039,7 +3039,7 @@ class LocalGameState : GameState {
         if (local.timeInRoom < 5){
           local.enemies[i].clone_to(remote.enemies[i]);
           local.enemies[i].host_index = remote.index;
-          new_host = false;
+          take_host = false;
           continue;
         }
         
@@ -3065,44 +3065,48 @@ class LocalGameState : GameState {
           
           case 10:
           case 15:
+            message("error case 15/10");
             if (local.index > remote.index){
               local.enemies[i].clone_to(remote.enemies[i]);
               local.enemies[i].host_index = remote.index;
+              take_host = false;
             }
-            new_host = false;
             break;
           
-          case 1:
+          case 11:
+            message("error case 11");
           case 2:
           case 3:
-          case 5:
           case 7:
           case 9:
-          case 11:
             // concede control of the enemy
             local.enemies[i].clone_to(remote.enemies[i]);
             local.enemies[i].host_index = remote.index;
-            new_host = false;
+            take_host = false;
             break;
-            
+           
+          
+          case 5:
+            if (local.index > remote.index){take_host = false;}
           case 4: // leave new_host alone
           case 6:
             break;
-            
-          case 0:
-            new_host = false;
-            break;
           
+          
+          case 14:
+            message("error case 14");
+          case 0:
+          case 1:
           case 8:
           case 12:
           case 13:
-          case 14:
           default:
             local.enemies[i].compare_to_remote(remote.enemies[i]);
+            take_host = false;
         }
       }
       
-      if (new_host) {
+      if (take_host) {
         local.enemies[i].host_index = local.index;
       }
       local.enemies[i].write();

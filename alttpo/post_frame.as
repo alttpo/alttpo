@@ -80,6 +80,7 @@ void post_frame() {
     }
   }
   
+  
   if (sprites !is null) {
     for (int i = 0; i < 16; i++) {
       palette7[i] = ppu::cgram[(15 << 4) + i];
