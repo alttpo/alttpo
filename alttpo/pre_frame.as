@@ -93,8 +93,9 @@ void on_main_alttp(uint32 pc) {
       local.update_objects();
     }
 
-    // synchronize torches:
-    update_torches();
+    if (settings.SyncUnderworld) {
+      update_torches();
+    }
   }
 
   if (settings.EnablePvP) {
