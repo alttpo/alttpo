@@ -632,6 +632,7 @@ class LocalGameState : GameState {
     //if (is_frozen()) return;
     local.in_sm_for_items = false;
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
+    bus::read_block_u8(0x7F6000, 0x500, 0x1000, sram);
     bus::read_block_u8(0xA17900, 0, 0x40, sram_buffer);
   }
 

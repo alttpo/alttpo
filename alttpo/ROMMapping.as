@@ -21,6 +21,7 @@ abstract class ROMMapping {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
   }
+  void update_extras() {}
 
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
@@ -598,6 +599,21 @@ class MultiworldMapping : RandomizerMapping {
   }
 };
 
+// door randomizer pot shuffle:
+// aerinon: Current locations 2022-03-27 for pot shuffle items:
+//    PotItemSRAM = $7F6600 (length $250)
+// SpriteItemSRAM = $7F6850 (length $250)
+// upcoming change:
+//    PotItemSRAM = $7F6018
+// SpriteItemSRAM = $7F6268
+const uint32 exsramStart = 0x7F6000;
+const uint32    potItems = 0x7F6600;
+const uint32    sprItems = 0x7F6850;
+
+// offsets 0x500 and above in sram[] array are mapped into extra SRAM starting at $7F:6000
+const uint32 potOffs = 0x500 + potItems - exsramStart;
+const uint32 sprOffs = 0x500 + sprItems - exsramStart;
+
 class DoorRandomizerMapping : RandomizerMapping {
   DoorRandomizerMapping(const string &in kind, const string &in seed) {
     super(kind, seed);
@@ -626,6 +642,42 @@ class DoorRandomizerMapping : RandomizerMapping {
     serialize(r, 0x3C5, 0x43A); // progress made
     serialize(r, 0x4C0, 0x4CD); // chests
     serialize(r, 0x4E0, 0x4ED); // chest-keys
+
+    // for pottery shuffle modes:
+    if (settings.SyncUnderworld) {
+      // alternate serializing pots vs sprites on each frame:
+      if ((local.frame & 1) == 0) {
+        serialize(r, potOffs, potOffs + 0x250);
+      } else {
+        serialize(r, sprOffs, sprOffs + 0x250);
+      }
+    }
+  }
+
+  void update_extras() override {
+    if (!settings.SyncUnderworld) {
+      return;
+    }
+
+    auto len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl <= 0) continue;
+      if (remote.team != local.team) continue;
+      if (remote.in_sm_for_items) continue;
+
+      // mix all the pot-picked-up bits across players into ours:
+      for (uint32 j = 0; j < 0x250; j++) {
+        local.sram[potOffs + j] |= remote.sram[potOffs + j];
+        local.sram[sprOffs + j] |= remote.sram[sprOffs + j];
+      }
+    }
+
+    // update local WRAM:
+    bus::write_block_u8(potItems, potOffs, 0x250, local.sram);
+    bus::write_block_u8(sprItems, sprOffs, 0x250, local.sram);
   }
 };
 

@@ -68,6 +68,8 @@ void on_main_alttp(uint32 pc) {
 
     local.update_ancillae();
 
+    rom.update_extras();
+
     ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
     ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
 

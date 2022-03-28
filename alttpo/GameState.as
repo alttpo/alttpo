@@ -182,7 +182,7 @@ class GameState {
   uint8 sfx1_ttl = 0;
   uint8 sfx2_ttl = 0;
 
-  array<uint8> sram(0x500);
+  array<uint8> sram(0x1500);
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
