@@ -215,6 +215,11 @@ class Projectile {
         }
         break;
 
+      case 0x30:  // byrna windup spark
+      case 0x31:  // byrna spark
+        // don't destroy byrna sparks since that'd leave the player in an invincible state
+        break;
+
       default:    // all else
         ancillaTables.mode[index] = 0x00;
         break;
