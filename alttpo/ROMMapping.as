@@ -142,6 +142,9 @@ abstract class ROMMapping {
     serialize(r, 0x3C5, 0x3CA); // progress made
   }
 
+  bool get_has_extras() property { return false; }
+  void serialize_extras(array<uint8> &r, SerializeSRAMDelegate @serialize) {}
+
   uint32 get_table_hitbox_pose_x_addr() property { return 0x06F46D; }                         // 0x06F46D
   uint32 get_table_hitbox_pose_w_addr() property { return table_hitbox_pose_x_addr + 0x41; }  // 0x06F4AE
   uint32 get_table_hitbox_pose_y_addr() property { return table_hitbox_pose_x_addr + 0x82; }  // 0x06F4EF
@@ -642,7 +645,10 @@ class DoorRandomizerMapping : RandomizerMapping {
     serialize(r, 0x3C5, 0x43A); // progress made
     serialize(r, 0x4C0, 0x4CD); // chests
     serialize(r, 0x4E0, 0x4ED); // chest-keys
+  }
 
+  bool get_has_extras() property { return true; }
+  void serialize_extras(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     // for pottery shuffle modes:
     if (settings.SyncUnderworld) {
       // alternate serializing pots vs sprites on each frame:

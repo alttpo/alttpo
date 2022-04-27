@@ -1704,6 +1704,12 @@ class LocalGameState : GameState {
         }
       }
 
+      if (rom.has_extras) {
+        auto @envelope = create_envelope();
+        rom.serialize_extras(envelope, serializeSramDelegate);
+        p = send_packet(envelope, p);
+      }
+
       if (rom.is_smz3()) {
         if ((frame & 31) == 0) {
           auto @envelope = create_envelope();

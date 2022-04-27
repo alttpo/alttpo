@@ -270,6 +270,9 @@ class GameState {
       sram[i] = 0;
       sram_buffer[i] = 0;
     }
+    for (uint i = 0x500; i < 0x1500; i++) {
+      sram[i] = 0;
+    }
 
     for (uint i = 0; i < 0x50; i++) {
       sm_events[i] = 0;
