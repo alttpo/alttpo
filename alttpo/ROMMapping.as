@@ -610,8 +610,8 @@ class MultiworldMapping : RandomizerMapping {
 //    PotItemSRAM = $7F6018
 // SpriteItemSRAM = $7F6268
 const uint32 exsramStart = 0x7F6000;
-const uint32    potItems = 0x7F6600;
-const uint32    sprItems = 0x7F6850;
+const uint32    potItems = 0x7F6018;
+const uint32    sprItems = 0x7F6268;
 
 // offsets 0x500 and above in sram[] array are mapped into extra SRAM starting at $7F:6000
 const uint32 potOffs = 0x500 + potItems - exsramStart;
