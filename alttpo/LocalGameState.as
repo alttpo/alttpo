@@ -2604,7 +2604,7 @@ class LocalGameState : GameState {
         bus::write_u16(0x7ec182, player_color_dark_33);
         bus::write_u16(0x7ec184, player_color);
         bus::write_u16(0x7ec196, player_color_dark_33);
-        bus::write_u16(0x7ec194, player_color_dark_33);
+        bus::write_u16(0x7ec194, player_color_dark_50);
       } else if(deselect_tunic_sync_sm){
         bus::write_u16(0x7e0a48, 0x06);
       }
