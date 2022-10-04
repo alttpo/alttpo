@@ -139,7 +139,6 @@ void on_main_sm(uint32 pc) {
   sm_state = bus::read_u8(0x7E0998);
 
   local.get_sm_coords();
-  local.fetch_sm_events();
   local.fetch_games_won();
   if (!sm_in_menu()){ 
     local.get_sm_sprite_data();
@@ -162,6 +161,7 @@ void on_main_sm(uint32 pc) {
     local.in_sm_for_items = true;
     bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
     bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
+	local.fetch_sm_events();
   } else {
     return;
   }
