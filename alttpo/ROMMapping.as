@@ -21,6 +21,7 @@ abstract class ROMMapping {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
   }
+  void update_extras() {}
 
   uint32 get_tilemap_lightWorldMap() property { return 0; }
   uint32 get_tilemap_darkWorldMap()  property { return 0; }
@@ -140,6 +141,9 @@ abstract class ROMMapping {
     serialize(r, 0x340, 0x37C); // items earned
     serialize(r, 0x3C5, 0x3CA); // progress made
   }
+
+  bool get_has_extras() property { return false; }
+  void serialize_extras(array<uint8> &r, SerializeSRAMDelegate @serialize) {}
 
   uint32 get_table_hitbox_pose_x_addr() property { return 0x06F46D; }                         // 0x06F46D
   uint32 get_table_hitbox_pose_w_addr() property { return table_hitbox_pose_x_addr + 0x41; }  // 0x06F4AE
@@ -598,6 +602,21 @@ class MultiworldMapping : RandomizerMapping {
   }
 };
 
+// door randomizer pot shuffle:
+// aerinon: Current locations 2022-03-27 for pot shuffle items:
+//    PotItemSRAM = $7F6600 (length $250)
+// SpriteItemSRAM = $7F6850 (length $250)
+// upcoming change:
+//    PotItemSRAM = $7F6018
+// SpriteItemSRAM = $7F6268
+const uint32 exsramStart = 0x7F6000;
+const uint32    potItems = 0x7F6018;
+const uint32    sprItems = 0x7F6268;
+
+// offsets 0x500 and above in sram[] array are mapped into extra SRAM starting at $7F:6000
+const uint32 potOffs = 0x500 + potItems - exsramStart;
+const uint32 sprOffs = 0x500 + sprItems - exsramStart;
+
 class DoorRandomizerMapping : RandomizerMapping {
   DoorRandomizerMapping(const string &in kind, const string &in seed) {
     super(kind, seed);
@@ -626,6 +645,45 @@ class DoorRandomizerMapping : RandomizerMapping {
     serialize(r, 0x3C5, 0x43A); // progress made
     serialize(r, 0x4C0, 0x4CD); // chests
     serialize(r, 0x4E0, 0x4ED); // chest-keys
+  }
+
+  bool get_has_extras() property { return true; }
+  void serialize_extras(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
+    // for pottery shuffle modes:
+    if (settings.SyncUnderworld) {
+      // alternate serializing pots vs sprites on each frame:
+      if ((local.frame & 1) == 0) {
+        serialize(r, potOffs, potOffs + 0x250);
+      } else {
+        serialize(r, sprOffs, sprOffs + 0x250);
+      }
+    }
+  }
+
+  void update_extras() override {
+    if (!settings.SyncUnderworld) {
+      return;
+    }
+
+    auto len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl <= 0) continue;
+      if (remote.team != local.team) continue;
+      if (remote.in_sm_for_items) continue;
+
+      // mix all the pot-picked-up bits across players into ours:
+      for (uint32 j = 0; j < 0x250; j++) {
+        local.sram[potOffs + j] |= remote.sram[potOffs + j];
+        local.sram[sprOffs + j] |= remote.sram[sprOffs + j];
+      }
+    }
+
+    // update local WRAM:
+    bus::write_block_u8(potItems, potOffs, 0x250, local.sram);
+    bus::write_block_u8(sprItems, sprOffs, 0x250, local.sram);
   }
 };
 
@@ -699,6 +757,10 @@ class VanillaSMMappping : ROMMapping{
     cpu::register_pc_interceptor(0x828948, @on_main_sm);
   }
 
+}
+
+bool isDigit(int c) {
+  return c >= '0' && c <= '9';
 }
 
 ROMMapping@ detect() {
@@ -781,9 +843,23 @@ ROMMapping@ detect() {
     auto kind = title.slice(0, 3) + " v" + title.slice(3, 4);
     message("Recognized " + kind + " randomized ROM version. Seed: " + seed);
     return SMZ3Mapping(kind, seed);
-  } else if(title.slice(0, 13) == "Super Metroid"){
-      message("recognized vanilla SM");
-      return VanillaSMMappping();
+  } else if (title.slice(0, 2) == "SM" && isDigit(title[2]) && isDigit(title[3]) && isDigit(title[4])) {
+    // Archipelago SM multiworld randomized
+    // e.g. "SM021_5_5433542205421"
+    auto seed = title.slice(8, 13);
+    auto player = title.slice(6, 1);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Archipelago " + kind + " randomized ROM version. Player: " + player + " Seed: " + seed);
+    return VanillaSMMappping();
+  } else if(title.slice(0, 13) == "Super Metroid") {
+    message("recognized vanilla SM");
+    return VanillaSMMappping();
+  } else if(title == "      SM RANDOMIZER  ") {
+     message("recognized SM randomizer");
+     return VanillaSMMappping();
+  } else if(title.slice(0,3) == "SM3") {
+     message("recognized SM randomizer");
+     return VanillaSMMappping();
   } else {
     switch (region) {
       case 0x00:

@@ -186,7 +186,7 @@ class GameState {
   uint8 sfx1_ttl = 0;
   uint8 sfx2_ttl = 0;
 
-  array<uint8> sram(0x500);
+  array<uint8> sram(0x1500);
   array<uint8> sram_buffer(0x500);
   bool in_sm_for_items;
 
@@ -274,6 +274,9 @@ class GameState {
     for (uint i = 0; i < 0x500; i++) {
       sram[i] = 0;
       sram_buffer[i] = 0;
+    }
+    for (uint i = 0x500; i < 0x1500; i++) {
+      sram[i] = 0;
     }
 
     for (uint i = 0; i < 0x50; i++) {

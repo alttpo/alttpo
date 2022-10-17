@@ -64,14 +64,14 @@ class PatchBuffer : CodeWriter {
 
     restore();
 
-    // map 8000-8fff in bank bf to our code array:
-    bus::map("ff:8000-80ff", 0, 0x00ff, 0, code);
+    // map 7f00-7fff in bank bf to our code array:
+    bus::map("ff:7f00-7fff", 0, 0x00ff, 0, code);
 
     // patch ROM to JSL to our code:
-    // JSL 0xBF8000
+    // JSL 0xFF7F00
     auto @bw = @BusWriter(rom.fn_patch);
     setWriter(@bw);
-    jsl(0xFF8000);
+    jsl(0xFF7F00);
     setWriter(@aw);
 
     //message(fmtHex(bus::read_u8(rom.fn_patch+1), 2));

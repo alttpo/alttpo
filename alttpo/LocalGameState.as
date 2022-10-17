@@ -632,6 +632,7 @@ class LocalGameState : GameState {
     //if (is_frozen()) return;
     local.in_sm_for_items = false;
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
+    bus::read_block_u8(0x7F6000, 0x500, 0x1000, sram);
     bus::read_block_u8(0xA17900, 0, 0x40, sram_buffer);
   }
 
@@ -1755,6 +1756,12 @@ class LocalGameState : GameState {
         }
       }
 
+      if (rom.has_extras) {
+        auto @envelope = create_envelope();
+        rom.serialize_extras(envelope, serializeSramDelegate);
+        p = send_packet(envelope, p);
+      }
+
       if (rom.is_smz3()) {
         if ((frame & 31) == 0) {
           auto @envelope = create_envelope();
@@ -2658,7 +2665,7 @@ class LocalGameState : GameState {
         bus::write_u16(0x7ec182, player_color_dark_33);
         bus::write_u16(0x7ec184, player_color);
         bus::write_u16(0x7ec196, player_color_dark_33);
-        bus::write_u16(0x7ec194, player_color_dark_33);
+        bus::write_u16(0x7ec194, player_color_dark_50);
       } else if(deselect_tunic_sync_sm){
         bus::write_u16(0x7e0a48, 0x06);
       }
