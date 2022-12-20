@@ -557,6 +557,9 @@ class RandomizerMapping : JPROMMapping {
 
     // trying silly coat sync get at me
     syncables.insertLast(whenSyncItems(@SyncableItem(0x41A, 1, 1, @nameForCoat)));  // coat
+
+    // crystal counter:
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x471, 1, 1, null)));
   }
 
   void syncShops() {
