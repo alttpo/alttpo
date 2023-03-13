@@ -499,13 +499,6 @@ uint16 mutateShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   return oldValue;
 }
 
-uint16 mutateProgressiveShield(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
-  if (newValue > oldValue) {
-    return newValue;
-  }
-  return oldValue;
-}
-
 // NOTE: this is called for both gloves and armor separately so could JSL twice in succession for one frame.
 uint16 mutateArmorGloves(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   if (newValue > oldValue) {

@@ -552,14 +552,20 @@ class RandomizerMapping : JPROMMapping {
       }
     }
 
+    // track progressive sword:
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x417, 1, 1)));
     // track progressive shield:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x416, 1, @mutateProgressiveShield)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x422, 1, 1)));
+    // track progressive mail / armor:
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x46E, 1, 1)));
 
     // trying silly coat sync get at me
     syncables.insertLast(whenSyncItems(@SyncableItem(0x41A, 1, 1, @nameForCoat)));  // coat
 
     // crystal counter:
     syncables.insertLast(whenSyncItems(@SyncableItem(0x471, 1, 1, null)));
+    // dungeon counter:
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x472, 1, 1, null)));
   }
 
   void syncShops() {
