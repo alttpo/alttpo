@@ -804,6 +804,15 @@ ROMMapping@ detect() {
     auto seed = title.slice(3, 10);
     message("Recognized ALTTPR VT randomized JP ROM version. Seed: " + seed);
     return RandomizerMapping("VT", seed);
+  } else if ( (title.slice(0, 2) == "AP") && (title[5] == '_') ) {
+    // Archipelago MultiWorld randomizer.
+    //  0123456789
+    // "AP250_1_1_16070690178"
+    // "250" represents the __version__ string with '.'s removed.
+    auto seed = title.slice(6, 13);
+    auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
+    message("Recognized Archipelago MultiWorld " + kind + " randomized JP ROM version. Seed: " + seed);
+    return MultiworldMapping(kind, seed);
   } else if ( (title.slice(0, 2) == "BM") && (title[5] == '_') ) {
     // Berserker MultiWorld randomizer.
     //  0123456789
