@@ -5,10 +5,19 @@ funcdef void SerializeSRAMDelegate(array<uint8> &r, uint16 start, uint16 endExcl
 // Lookup table of ROM addresses depending on version:
 abstract class ROMMapping {
   ROMMapping() {
+    // read slowrom vs fastrom bit from header and adjust rom addresses accordingly:
+    if ((bus::read_u8(0x00FFD5) & 0x10) != 0) {
+      message("Detected FastROM speed");
+      fastrom = 0x800000;
+    } else {
+      message("Detected SlowROM speed");
+      fastrom = 0x000000;
+    }
     // loads document from `alttpo/lttp_names.bml` or returns an empty `Node@`:
     lttp_names = ScriptFiles::loadBML("lttp_names.bml");
   }
 
+  protected uint32 fastrom = 0x000000;
   protected string _title;
   string get_title() property {
     return _title;
@@ -145,7 +154,7 @@ abstract class ROMMapping {
   bool get_has_extras() property { return false; }
   void serialize_extras(array<uint8> &r, SerializeSRAMDelegate @serialize) {}
 
-  uint32 get_table_hitbox_pose_x_addr() property { return 0x06F46D; }                         // 0x06F46D
+  uint32 get_table_hitbox_pose_x_addr() property { return fastrom + 0x06F46D; }                         // 0x06F46D
   uint32 get_table_hitbox_pose_w_addr() property { return table_hitbox_pose_x_addr + 0x41; }  // 0x06F4AE
   uint32 get_table_hitbox_pose_y_addr() property { return table_hitbox_pose_x_addr + 0x82; }  // 0x06F4EF
   uint32 get_table_hitbox_pose_h_addr() property { return table_hitbox_pose_x_addr + 0xC3; }  // 0x06F530
@@ -196,12 +205,12 @@ abstract class ROMMapping {
     //}));
   }
 
-  uint32 get_table_hitbox_dash_y_hi() property { return 0x06F586; }                       // 0x06F586
+  uint32 get_table_hitbox_dash_y_hi() property { return fastrom + 0x06F586; }                       // 0x06F586
   uint32 get_table_hitbox_dash_x_lo() property { return table_hitbox_dash_y_hi + 0x02; }  // 0x06F588
   uint32 get_table_hitbox_dash_x_hi() property { return table_hitbox_dash_y_hi + 0x06; }  // 0x06F58C
   uint32 get_table_hitbox_dash_y_lo() property { return table_hitbox_dash_y_hi + 0x0A; }  // 0x06F590
 
-  uint32 get_table_hitbox_sword_toggle() property { return 0x06F571; } // 0x06F571
+  uint32 get_table_hitbox_sword_toggle() property { return fastrom + 0x06F571; } // 0x06F571
 
   void calc_action_hitbox() {
     if (bus::read_u8(0x7E0372) != 0) {
@@ -299,7 +308,7 @@ abstract class ROMMapping {
   }
 
   // address of the ancilla hitbox tables: (x, w, y, h) * 12 items each
-  uint32 get_table_hitbox_ancilla() const property { return 0x088E7D; }
+  uint32 get_table_hitbox_ancilla() const property { return fastrom + 0x088E7D; }
 
   // fetch the hitbox values:
    int8 get_hitbox_ancilla_x(int n) const property { return  int8(bus::read_u8(table_hitbox_ancilla + 12*0 + n)); }    // 0x088E7D
@@ -333,36 +342,36 @@ class USAROMMapping : ROMMapping {
     _title = "USA v1." + fmtInt(bus::read_u8(0x00FFDB));
   }
 
-  uint32 get_tilemap_lightWorldMap() property { return 0x0AC727; }
-  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD727; }
-  uint32 get_palette_lightWorldMap() property { return 0x0ADB27; }
-  uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
+  uint32 get_tilemap_lightWorldMap() property { return fastrom + 0x0AC727; }
+  uint32 get_tilemap_darkWorldMap()  property { return fastrom + 0x0AD727; }
+  uint32 get_palette_lightWorldMap() property { return fastrom + 0x0ADB27; }
+  uint32 get_palette_darkWorldMap()  property { return fastrom + 0x0ADC27; }
 
   // entrance & exit tables:
-  uint32 get_entrance_table_room()    property { return 0x02C813; }
-  uint32 get_exit_table_room()        property { return 0x02DD8A; }
-  uint32 get_exit_table_link_y()      property { return 0x02E051; }
-  uint32 get_exit_table_link_x()      property { return 0x02E0EF; }
+  uint32 get_entrance_table_room()    property { return fastrom + 0x02C813; }
+  uint32 get_exit_table_room()        property { return fastrom + 0x02DD8A; }
+  uint32 get_exit_table_link_y()      property { return fastrom + 0x02E051; }
+  uint32 get_exit_table_link_x()      property { return fastrom + 0x02E0EF; }
 
-  uint32 get_fn_pre_main_loop() property               { return 0x008053; }
-  uint32 get_fn_patch() property                       { return 0x008056; }
-  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+  uint32 get_fn_pre_main_loop() property               { return fastrom + 0x008053; }
+  uint32 get_fn_patch() property                       { return fastrom + 0x008056; }
+  //uint32 get_fn_main_routing() property                { return fastrom + 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EC; }
-  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48D; }
-  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A6; }
-  uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
+  uint32 get_fn_dungeon_light_torch() property         { return fastrom + 0x01F3EC; }
+  uint32 get_fn_dungeon_light_torch_success() property { return fastrom + 0x01F48D; }
+  uint32 get_fn_dungeon_extinguish_torch() property    { return fastrom + 0x01F4A6; }
+  uint32 get_fn_sprite_init() property                 { return fastrom + 0x0DB818; }
 
-  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }
-  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }
-  uint32 get_fn_sword_palette() property       { return 0x1BED03; }
-  uint32 get_fn_shield_palette() property      { return 0x1BED29; }
-  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
+  uint32 get_fn_decomp_sword_gfx() property    { return fastrom + 0x00D2C8; }
+  uint32 get_fn_decomp_shield_gfx() property   { return fastrom + 0x00D308; }
+  uint32 get_fn_sword_palette() property       { return fastrom + 0x1BED03; }
+  uint32 get_fn_shield_palette() property      { return fastrom + 0x1BED29; }
+  uint32 get_fn_armor_glove_palette() property { return fastrom + 0x1BEDF9; }
 
-  uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B260; }  // $13260
-  uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
+  uint32 get_fn_overworld_finish_mirror_warp() property { return fastrom + 0x02B260; }  // $13260
+  uint32 get_fn_sprite_load_gfx_properties() property { return fastrom + 0x00FC62; }  // $7C62 (lightWorld)
 
-  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }
+  uint32 get_fn_overworld_createpyramidhole() property { return fastrom + 0x1BC2A7; }
 };
 
 class EURROMMapping : ROMMapping {
@@ -438,40 +447,40 @@ class JPROMMapping : ROMMapping {
     _title = "JP v1." + fmtInt(bus::read_u8(0x00FFDB));
   }
 
-  uint32 get_tilemap_lightWorldMap() property { return 0x0AC739; }
-  uint32 get_tilemap_darkWorldMap()  property { return 0x0AD739; }
-  uint32 get_palette_lightWorldMap() property { return 0x0ADB39; }
-  uint32 get_palette_darkWorldMap()  property { return 0x0ADC39; }
+  uint32 get_tilemap_lightWorldMap() property { return fastrom + 0x0AC739; }
+  uint32 get_tilemap_darkWorldMap()  property { return fastrom + 0x0AD739; }
+  uint32 get_palette_lightWorldMap() property { return fastrom + 0x0ADB39; }
+  uint32 get_palette_darkWorldMap()  property { return fastrom + 0x0ADC39; }
 
   // entrance & exit tables:
-  uint32 get_entrance_table_room()    property { return 0x02C577; } // 0x14577 in ROM file
-  uint32 get_exit_table_room()        property { return 0x02DAEE; }
-  uint32 get_exit_table_link_y()      property { return 0x02DDB5; }
-  uint32 get_exit_table_link_x()      property { return 0x02DE53; }
+  uint32 get_entrance_table_room()    property { return fastrom + 0x02C577; } // 0x14577 in ROM file
+  uint32 get_exit_table_room()        property { return fastrom + 0x02DAEE; }
+  uint32 get_exit_table_link_y()      property { return fastrom + 0x02DDB5; }
+  uint32 get_exit_table_link_x()      property { return fastrom + 0x02DE53; }
 
-  uint32 get_fn_pre_main_loop() property               { return 0x008053; }
-  uint32 get_fn_patch() property                       { return 0x008056; }
-  //uint32 get_fn_main_routing() property                { return 0x0080B5; }
+  uint32 get_fn_pre_main_loop() property               { return fastrom + 0x008053; }
+  uint32 get_fn_patch() property                       { return fastrom + 0x008056; }
+  //uint32 get_fn_main_routing() property                { return fastrom + 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3EA; }
-  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F48B; }
-  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F4A4; }
-  uint32 get_fn_sprite_init() property                 { return 0x0DB818; }
+  uint32 get_fn_dungeon_light_torch() property         { return fastrom + 0x01F3EA; }
+  uint32 get_fn_dungeon_light_torch_success() property { return fastrom + 0x01F48B; }
+  uint32 get_fn_dungeon_extinguish_torch() property    { return fastrom + 0x01F4A4; }
+  uint32 get_fn_sprite_init() property                 { return fastrom + 0x0DB818; }
 
-  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D308; }
-  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D348; }
-  uint32 get_fn_sword_palette() property       { return 0x1BED03; }
-  uint32 get_fn_shield_palette() property      { return 0x1BED29; }
-  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }
+  uint32 get_fn_decomp_sword_gfx() property    { return fastrom + 0x00D308; }
+  uint32 get_fn_decomp_shield_gfx() property   { return fastrom + 0x00D348; }
+  uint32 get_fn_sword_palette() property       { return fastrom + 0x1BED03; }
+  uint32 get_fn_shield_palette() property      { return fastrom + 0x1BED29; }
+  uint32 get_fn_armor_glove_palette() property { return fastrom + 0x1BEDF9; }
 
-  uint32 get_fn_overworld_finish_mirror_warp() property { return 0x02B186; }  // $13186
-  uint32 get_fn_sprite_load_gfx_properties() property { return 0x00FC62; }  // $7C62 (lightWorld)
+  uint32 get_fn_overworld_finish_mirror_warp() property { return fastrom + 0x02B186; }  // $13186
+  uint32 get_fn_sprite_load_gfx_properties() property { return fastrom + 0x00FC62; }  // $7C62 (lightWorld)
 
-  uint32 get_table_hitbox_pose_x_addr()  property { return 0x06F473; }
-  uint32 get_table_hitbox_sword_toggle() property { return 0x06F577; }
-  uint32 get_table_hitbox_dash_y_hi()    property { return 0x06F58C; }
+  uint32 get_table_hitbox_pose_x_addr()  property { return fastrom + 0x06F473; }
+  uint32 get_table_hitbox_sword_toggle() property { return fastrom + 0x06F577; }
+  uint32 get_table_hitbox_dash_y_hi()    property { return fastrom + 0x06F58C; }
 
-  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }
+  uint32 get_fn_overworld_createpyramidhole() property { return fastrom + 0x1BC2A7; }
 };
 
 class RandomizerMapping : JPROMMapping {
