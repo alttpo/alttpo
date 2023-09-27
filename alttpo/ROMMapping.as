@@ -5,12 +5,13 @@ funcdef void SerializeSRAMDelegate(array<uint8> &r, uint16 start, uint16 endExcl
 // Lookup table of ROM addresses depending on version:
 abstract class ROMMapping {
   ROMMapping() {
-    // read slowrom vs fastrom bit from header and adjust rom addresses accordingly:
-    if ((bus::read_u8(0x00FFD5) & 0x10) != 0) {
-      message("Detected FastROM speed");
+    // test bank byte of `#_00F82A: JSL Sprite_Main` to see if fastrom patching was done
+    // the JSL chosen here must NOT be patched out by alttpr/VT randomizer based games.
+    if ((bus::read_u8(0x00F82A+3) & 0x80) != 0) {
+      message("Detected FastROM patched ROM");
       fastrom = 0x800000;
     } else {
-      message("Detected SlowROM speed");
+      message("Defaulting to SlowROM assumption");
       fastrom = 0x000000;
     }
     // loads document from `alttpo/lttp_names.bml` or returns an empty `Node@`:
