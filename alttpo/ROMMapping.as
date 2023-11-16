@@ -575,7 +575,9 @@ class RandomizerMapping : JPROMMapping {
     // pendant counter:
     syncables.insertLast(whenSyncItems(@SyncableItem(0x429, 1, 1, null)));
     // crystal counter:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x471, 1, 1, null)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x476, 1, 1, null)));
+    // dungeons completed:
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x472, 1, 1, null)));
   }
 
   void syncShops() {
@@ -611,7 +613,7 @@ class RandomizerMapping : JPROMMapping {
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
     serialize(r, 0x390, 0x3C5); // item limit counters
-    serialize(r, 0x3C5, 0x472); // progress made
+    serialize(r, 0x3C5, 0x476); // progress made
   }
 };
 
