@@ -613,7 +613,7 @@ class RandomizerMapping : JPROMMapping {
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
     serialize(r, 0x390, 0x3C5); // item limit counters
-    serialize(r, 0x3C5, 0x476); // progress made
+    serialize(r, 0x3C5, 0x476+1); // progress made
   }
 };
 
