@@ -386,27 +386,27 @@ class EURROMMapping : ROMMapping {
   uint32 get_palette_darkWorldMap()  property { return 0x0ADC27; }
 
   // entrance & exit tables:
-  uint32 get_entrance_table_room()    property { return 0x02C813; } // TODO
-  uint32 get_exit_table_room()        property { return 0x02DD8A; } // TODO
-  uint32 get_exit_table_link_y()      property { return 0x02E051; } // TODO
-  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // TODO
+  uint32 get_entrance_table_room()    property { return 0x02C813; } // unused
+  uint32 get_exit_table_room()        property { return 0x02DD8A; } // unused
+  uint32 get_exit_table_link_y()      property { return 0x02E051; } // unused
+  uint32 get_exit_table_link_x()      property { return 0x02E0EF; } // unused
 
-  uint32 get_fn_pre_main_loop() property               { return 0x008053; } // TODO
-  uint32 get_fn_patch() property                       { return 0x008056; } // TODO
+  uint32 get_fn_pre_main_loop() property               { return 0x008053; }
+  uint32 get_fn_patch() property                       { return 0x008056; }
   //uint32 get_fn_main_routing() property                { return 0x0080B5; }
 
-  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3C6; } // TODO: unconfirmed! copied from GER_EURROMMapping
-  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F3E3; } // TODO: unconfirmed! copied from GER_EURROMMapping
-  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F480; } // TODO: unconfirmed! copied from GER_EURROMMapping
-  uint32 get_fn_sprite_init() property                 { return 0x0DB818; } // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_dungeon_light_torch() property         { return 0x01F3D3; } // confirmed
+  uint32 get_fn_dungeon_light_torch_success() property { return 0x01F481; } // confirmed
+  uint32 get_fn_dungeon_extinguish_torch() property    { return 0x01F49A; } // confirmed
+  uint32 get_fn_sprite_init() property                 { return 0x0DB810; } // confirmed
 
-  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_sword_palette() property       { return 0x1BED03; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_shield_palette() property      { return 0x1BED29; }  // TODO: unconfirmed! copied from USROMMapping
-  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF9; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_decomp_sword_gfx() property    { return 0x00D2C8; }  // confirmed
+  uint32 get_fn_decomp_shield_gfx() property   { return 0x00D308; }  // confirmed
+  uint32 get_fn_sword_palette() property       { return 0x1BECFB; }  // confirmed
+  uint32 get_fn_shield_palette() property      { return 0x1BED21; }  // confirmed
+  uint32 get_fn_armor_glove_palette() property { return 0x1BEDF1; }  // confirmed
 
-  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC2A7; }  // TODO: unconfirmed! copied from USROMMapping
+  uint32 get_fn_overworld_createpyramidhole() property { return 0x1BC29F; }  // confirmed
 };
 
 class GER_EURROMMapping : ROMMapping {
