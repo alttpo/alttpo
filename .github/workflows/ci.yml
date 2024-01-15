@@ -1,0 +1,119 @@
+
+on: push
+
+jobs:
+  package:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        include:
+          - arch: win64
+            ext: .zip
+          - arch: linux
+            ext: .tar.xz
+            extract: tar xJf
+            compress: tar cJf
+          - arch: macos
+            ext: .tar.xz
+            extract: tar xJf
+            compress: tar cJf
+
+    name: Build ${{matrix.arch}}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: robinraju/release-downloader@v1.8
+        with:
+          repository: "alttpo/bsnes-as"
+          tag: "v20240115"
+          fileName: 'bsnes-as-${{matrix.arch}}${{matrix.ext}}'
+
+      - if: ${{ (matrix.arch == 'win64') }}
+        name: Extract bsnes-as (windows)
+        shell: pwsh
+        run: Expand-Archive -Path "bsnes-as-${{matrix.arch}}${{matrix.ext}}"
+
+      - if: ${{ !(matrix.arch == 'win64') }}
+        name: Extract bsnes-as (not windows)
+        shell: bash
+        run: ${{matrix.extract}} "bsnes-as-${{matrix.arch}}${{matrix.ext}}"
+
+      - run: |
+          set -e
+
+          # determine our own commit:
+          alttpo_commit=${{github.sha}}
+          alttpo_commit=${alttpo_commit:0:8}
+          echo "Determined alttpo_commit=${alttpo_commit}"
+
+          # find our nightly folder name:
+          alttpo_nightly=alttpo-client-${{matrix.arch}}-${alttpo_commit}
+          echo "Determined alttpo_nightly=${alttpo_nightly}"
+
+          # rename the bsnes folder:
+          mv bsnes-as-${{matrix.arch}} ${alttpo_nightly}
+
+          # package alttpo folder:
+          mkdir ${alttpo_nightly}/alttpo
+          cp -a alttpo/*.as ${alttpo_nightly}/alttpo/
+          cp -a alttpo/*.png ${alttpo_nightly}/alttpo/
+          cp -a alttpo/*.bml ${alttpo_nightly}/alttpo/
+
+          cp -a README.md ${alttpo_nightly}/
+          cp -a static ${alttpo_nightly}/
+
+          # output variable for the nightly build path:
+          echo "nightly=${alttpo_nightly}" >> $GITHUB_ENV
+        shell: bash
+        name: 'Package alttpo'
+
+      - if: ${{ (matrix.arch == 'win64') }}
+        name: Compress alttpo (windows)
+        shell: pwsh
+        run: Compress-Archive -DestinationPath "${{env.nightly}}${{matrix.ext}}" -Path ${{env.nightly}}
+
+      - if: ${{ !(matrix.arch == 'win64') }}
+        name: Compress alttpo (not windows)
+        shell: bash
+        run: ${{matrix.compress}} "${{env.nightly}}${{matrix.ext}}" ${{env.nightly}}
+
+      - uses: actions/upload-artifact@v3
+        name: Upload artifact
+        with:
+          name: '${{env.nightly}}${{matrix.ext}}'
+          path: '${{env.nightly}}${{matrix.ext}}'
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        with:
+          files: '${{env.nightly}}${{matrix.ext}}'
+
+  discord:
+    needs: package
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      # Post a link to latest build artifacts on success to channels in Discord:
+      - name: "Discord notify #stable-builds"
+        shell: bash
+        if: ${{ startsWith(github.ref, 'refs/tags/stable-') }}
+        run: |
+          tag=${{github.ref}}
+          tag=${tag#refs/tags/}
+          dlurl="${{github.server_url}}/${{github.repository}}/releases/tag/${tag}"
+          curl -X POST ${{secrets.DISCORD_STABLE_BUILDS_WEBHOOK_URL}} -H "Content-Type: application/json" -d "{\"content\":\"A new stable build is available! Download it here:\\n${dlurl}\"}"
+
+      - name: "Discord notify #developer-builds"
+        shell: bash
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref, 'refs/tags/stable-') }}
+        run: |
+          tag=${{github.ref}}
+          tag=${tag#refs/tags/}
+          dlurl="${{github.server_url}}/${{github.repository}}/releases/tag/${tag}"
+          curl -X POST ${{secrets.DISCORD_DEVELOPER_BUILDS_WEBHOOK_URL}} -H "Content-Type: application/json" -d "{\"content\":\"A new developer build is available! Download it here:\\n${dlurl}\"}"
