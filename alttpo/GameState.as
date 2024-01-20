@@ -122,6 +122,10 @@ const array<uint16> enemy_data_ptrs = {
 };
 const int enemy_data_size = enemy_data_ptrs.length() * 0x10;
 
+// 0x7FFB00[$80], 0x7FFB80[$80], 0x7FFC00[$80], 0x7FFC80[$80], ..., 0x7FFE80[$80]
+// careful: $7FFE00 is race game timer and dig game counter
+const int enemy_segment_data_size = 8 * 0x80;
+
 bool players_updated = false;
 
 class GameState {
@@ -322,6 +326,7 @@ class GameState {
   array<PvPAttack> pvp_attacks;
 
   array<uint8> enemyData(enemy_data_size);
+  array<uint8> enemySegmentData(enemy_segment_data_size);
 
   GameState() {
     torchOwner.resize(0x10);
@@ -609,6 +614,7 @@ class GameState {
         case 0x0F: c = deserialize_sm_location(r, c); break;
         case 0x10: c = deserialize_sm_sprite(r, c); break;
         case 0x11: c = deserialize_enemy_data(r, c); break;
+        case 0x12: c = deserialize_enemy_segment_data(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -961,6 +967,13 @@ class GameState {
   int deserialize_enemy_data(array<uint8> r, int c) {
     for (int i = 0; i < enemy_data_size; i++) {
       enemyData[i] = r[c++];
+    }
+    return c;
+  }
+
+  int deserialize_enemy_segment_data(array<uint8> r, int c) {
+    for (int i = 0; i < enemy_segment_data_size; i++) {
+      enemySegmentData[i] = r[c++];
     }
     return c;
   }

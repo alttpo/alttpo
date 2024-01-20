@@ -1125,6 +1125,7 @@ class LocalGameState : GameState {
       uint o = enemy_data_ptrs[i];
       bus::read_block_u8(0x7E0000 + o, i << 4, 0x10, enemyData);
     }
+    bus::read_block_u8(0x7FFB00, 0, enemy_segment_data_size, enemySegmentData);
   }
 
   void fetch_sm_events() {
@@ -1365,6 +1366,12 @@ class LocalGameState : GameState {
     r.write_u8(uint8(0x11));
 
     r.write_arr(enemyData);
+  }
+
+  void serialize_enemy_segment_data(array<uint8> &r) {
+    r.write_u8(uint8(0x12));
+    // TODO: RLE compress or select out only data for used sprites
+    r.write_arr(enemySegmentData);
   }
 
   void serialize_sm_events(array<uint8> &r) {
@@ -1728,6 +1735,11 @@ class LocalGameState : GameState {
         // enemy data in current sector only:
         auto @envelope = create_envelope(0x02);
         serialize_enemy_data(envelope);
+        p = send_packet(envelope, p);
+
+        // enemy segment data in current sector only:
+        @envelope = create_envelope(0x02);
+        serialize_enemy_segment_data(envelope);
         p = send_packet(envelope, p);
       }
 
@@ -2580,7 +2592,10 @@ class LocalGameState : GameState {
     }
 
     // prevent applying owner's sprite data if modules dont match:
-    if (owner.module != module && owner.sub_module != sub_module) {
+    if (owner.module != module) {
+      return;
+    }
+    if (owner.sub_module != sub_module) {
       return;
     }
 
@@ -2591,6 +2606,9 @@ class LocalGameState : GameState {
       // copy in remote sprite's data to local:
       apply_remote_sprite_data(s, s, d);
     }
+
+    // copy in data for segmented enemies (lanmolas, moldorms, swamolas):
+    bus::write_block_u8(0x7FFB00, 0, enemy_segment_data_size, owner.enemySegmentData);
   }
 
   void update_sm_events() {
