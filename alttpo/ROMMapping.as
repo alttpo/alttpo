@@ -30,6 +30,12 @@ abstract class ROMMapping {
   void register_pc_intercepts() {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+
+    // JP 1.0 and US confirmed addresses:
+    // Sprite_Main#_068328
+    // Sprite_Main_RTL#_0683C1
+    cpu::register_pc_interceptor(0x068328, @on_sprite_main_alttp);
+    cpu::register_pc_interceptor(0x0683C1, @on_sprite_main_end_alttp);
   }
   void update_extras() {}
 

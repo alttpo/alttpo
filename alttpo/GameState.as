@@ -19,6 +19,109 @@ bool locations_equal(uint32 a, uint32 b) {
 const uint16 small_keys_min_offs = 0xF37C;
 const uint16 small_keys_max_offs = 0xF38C;
 
+const uint spr_stun = 0;
+const uint spr_tiledie = 1;
+const uint spr_prio = 2;
+const uint spr_bpf = 3;
+const uint spr_ancid = 4;
+const uint spr_slot = 5;
+const uint spr_prize = 7;
+const uint spr_scr = 8;
+const uint spr_defl = 9;
+const uint spr_drop = 10;
+const uint spr_bump = 11;
+const uint spr_dmg = 12;
+const uint spr_yl = 13;
+const uint spr_xl = 14;
+const uint spr_yh = 15;
+const uint spr_xh = 16;
+const uint spr_vy = 17;
+const uint spr_vx = 18;
+const uint spr_subvy = 19;
+const uint spr_subvx = 20;
+const uint spr_gfxstep = 25;
+const uint spr_aimode = 26;
+const uint spr_timer_a = 28;
+const uint spr_timer_b = 29;
+const uint spr_timer_c = 30;
+const uint spr_id = 31;
+const uint spr_auxs = 32;
+const uint spr_oamharm = 33;
+const uint spr_hp = 34;
+const uint spr_props = 35;
+const uint spr_collide = 36;
+const uint spr_timer_d = 43;
+const uint spr_dmgtimer = 44;
+const uint spr_halt = 45;
+const uint spr_timer_e = 46;
+const uint spr_layer = 47;
+const uint spr_recoily = 48;
+const uint spr_recoilx = 49;
+const uint spr_oamprop = 50;
+const uint spr_colprop = 51;
+const uint spr_z = 52;
+const uint spr_vz = 53;
+const uint spr_subz = 54;
+
+const array<uint16> enemy_data_ptrs = {
+  0x0B58, // [ 0] stun
+  0x0B6B, // [ 1] tiledie
+  0x0B89, // [ 2] prio
+  0x0BA0, // [ 3] bpf
+  0x0BB0, // [ 4] ancid
+  0x0BC0, // [ 5] slot *** (underworld); uint16 OWDEATH index (overworld)
+  0x0BD0, // [ 6] 2nd half of OWDEATH array (overworld)
+  0x0BE0, // [ 7] prize
+  0x0C9A, // [ 8] scr (overworld)
+  0x0CAA, // [ 9] defl
+  0x0CBA, // [10] drop
+  0x0CD2, // [11] bump
+  0x0CE2, // [12] dmg
+  0x0D00, // [13] yl
+  0x0D10, // [14] xl
+  0x0D20, // [15] yh
+  0x0D30, // [16] xh
+  0x0D40, // [17] vy
+  0x0D50, // [18] vx
+  0x0D60, // [19] subvy
+  0x0D70, // [20] subvx
+  0x0D80, // [21]
+  0x0D90, // [22]
+  0x0DA0, // [23]
+  0x0DB0, // [24]
+  0x0DC0, // [25] gfxstep
+  0x0DD0, // [26] aimode ***
+  0x0DE0, // [27]
+  0x0DF0, // [28] timer_a
+  0x0E00, // [29] timer_b
+  0x0E10, // [30] timer_c
+  0x0E20, // [31] id ***
+  0x0E30, // [32] auxs
+  0x0E40, // [33] oamharm
+  0x0E50, // [34] hp
+  0x0E60, // [35] props
+  0x0E70, // [36] collide
+  0x0E80, // [37]
+  0x0E90, // [38]
+  0x0EA0, // [39]
+  0x0EB0, // [40]
+  0x0EC0, // [41]
+  0x0ED0, // [42]
+  0x0EE0, // [43] timer_d
+  0x0EF0, // [44] dmgtimer
+  0x0F00, // [45] halt ***
+  0x0F10, // [46] timer_e
+  0x0F20, // [47] layer
+  0x0F30, // [48] recoily
+  0x0F40, // [49] recoilx
+  0x0F50, // [50] oamprop
+  0x0F60, // [51] colprop
+  0x0F70, // [52] z
+  0x0F80, // [53] vz
+  0x0F90  // [54] subz
+};
+const int enemy_data_size = enemy_data_ptrs.length() * 0x10;
+
 bool players_updated = false;
 
 class GameState {
@@ -217,6 +320,8 @@ class GameState {
   uint8 action_room_level;    //     $EE = level in room
 
   array<PvPAttack> pvp_attacks;
+
+  array<uint8> enemyData(enemy_data_size);
 
   GameState() {
     torchOwner.resize(0x10);
@@ -503,6 +608,7 @@ class GameState {
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
         case 0x10: c = deserialize_sm_sprite(r, c); break;
+        case 0x11: c = deserialize_enemy_data(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -849,6 +955,13 @@ class GameState {
       torchOwner[t] = index;
     }
 
+    return c;
+  }
+
+  int deserialize_enemy_data(array<uint8> r, int c) {
+    for (int i = 0; i < enemy_data_size; i++) {
+      enemyData[i] = r[c++];
+    }
     return c;
   }
 

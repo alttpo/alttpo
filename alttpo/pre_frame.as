@@ -21,7 +21,7 @@ void on_main_alttp(uint32 pc) {
   local.set_in_sm(!rom.is_alttp());
 
   local.fetch();
-  
+
   if(rom.is_smz3()){
     local.fetch_games_won();
     local.fetch_sm_events_buffer();
@@ -108,6 +108,20 @@ void on_main_alttp(uint32 pc) {
     // end the patch buffer:
     pb.jsl(rom.fn_main_routing);  // JSL MainRouting
     pb.rtl();                     // RTL
+  }
+}
+
+// This function is called when alttp's Sprite_Main routine begins:
+void on_sprite_main_alttp(uint32 pc) {
+  if (true) {
+    local.update_enemy_data();
+  }
+}
+
+// This function is called when alttp's Sprint_Main routine ends (on RTL):
+void on_sprite_main_end_alttp(uint32 pc) {
+  if (true) {
+    local.fetch_enemy_data();
   }
 }
 

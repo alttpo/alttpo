@@ -542,7 +542,7 @@ class LocalGameState : GameState {
     fetch_tilemap_changes();
 
     fetch_torches();
-    
+
     if (rom.is_smz3()){
       fetch_sm_events_buffer();
     }
@@ -1119,6 +1119,14 @@ class LocalGameState : GameState {
     return (tm & 0x8000) == 0x8000;
   }
 
+  void fetch_enemy_data() {
+    uint len = enemy_data_ptrs.length();
+    for (uint i = 0; i < len; i++) {
+      uint o = enemy_data_ptrs[i];
+      bus::read_block_u8(0x7E0000 + o, i << 4, 0x10, enemyData);
+    }
+  }
+
   void fetch_sm_events() {
   
     for (int i = 0; i < 0x14; i++) {
@@ -1351,6 +1359,12 @@ class LocalGameState : GameState {
     r.write_u8(uint8(0x0C));
 
     r.write_str(namePadded);
+  }
+
+  void serialize_enemy_data(array<uint8> &r) {
+    r.write_u8(uint8(0x11));
+
+    r.write_arr(enemyData);
   }
 
   void serialize_sm_events(array<uint8> &r) {
@@ -1707,6 +1721,13 @@ class LocalGameState : GameState {
       if (rom.has_extras) {
         auto @envelope = create_envelope();
         rom.serialize_extras(envelope, serializeSramDelegate);
+        p = send_packet(envelope, p);
+      }
+
+      if (true) {
+        // enemy data in current sector only:
+        auto @envelope = create_envelope(0x02);
+        serialize_enemy_data(envelope);
         p = send_packet(envelope, p);
       }
 
@@ -2484,6 +2505,80 @@ class LocalGameState : GameState {
           }
         }
       }
+    }
+  }
+
+  void update_enemy_data() {
+    if (module != 0x07 && module != 0x09 && module != 0x0b) return;
+
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote.ttl < 0) continue;
+      if (!is_really_in_same_location(remote.location)) continue;
+
+      // TODO: for now the lowest-indexed player owns enemy data for the room:
+      if (remote is local) break;
+
+      for (uint s = 0; s < 0x10; s++) {
+        uint l;
+        array<uint8> @d = @remote.enemyData;
+
+        if (module == 0x07) {
+          // underworld:
+
+          // grab remote sprite's slot:
+          uint8 slot = d[(spr_slot << 4) + s];
+          // unused sprite:
+          if (slot == 0xFF) continue;
+
+          // look up corresponding local slot:
+          for (l = 0; l < 16; l++) {
+            if (enemyData[(spr_slot << 4) + l] == slot) {
+              break;
+            }
+          }
+
+          //message("uw: " + fmtHex(slot) + " -> " + fmtHex(l));
+          if (l >= 16) continue;
+        } else {
+          // overworld:
+
+          // grab remote sprite's OWDEATH pointer:
+          uint8 owdeath0 = d[(spr_slot << 4) + (s << 1)];
+          uint8 owdeath1 = d[(spr_slot << 4) + (s << 1) + 1];
+          // unused sprite:
+          if (owdeath0 == 0xFF && owdeath1 == 0xFF) continue;
+
+          // look up corresponding local slot:
+          for (l = 0; l < 16; l++) {
+            if (enemyData[(spr_slot << 4) + (l << 1)] == owdeath0) {
+              if (enemyData[(spr_slot << 4) + (l << 1) + 1] == owdeath1) {
+                break;
+              }
+            }
+          }
+
+          //message("ow: " + fmtHex(owdeath1) + fmtHex(owdeath0) + " -> " + fmtHex(l));
+          if (l >= 16) continue;
+        }
+
+        // copy in remote sprite's data to local:
+        for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
+          // special handling of SLOT table for overworld:
+          if (x == spr_slot && module != 0x07) {
+            // overworld:
+            bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1), d[(x << 4) + (l << 1)]);
+            bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (l << 1) + 1]);
+            continue;
+          }
+
+          bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + l]);
+        }
+      }
+
+      break;
     }
   }
 
