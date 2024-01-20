@@ -2521,6 +2521,18 @@ class LocalGameState : GameState {
   }
 
   void apply_remote_sprite_data(uint l, uint s, array<uint8> @d) {
+    uint8 l_aimode = enemyData[(spr_aimode << 4) + l];
+    if (l_aimode == 0xA) {
+      // sprite is carried by local player:
+      return;
+    }
+
+    uint8 r_aimode = d[(spr_aimode << 4) + s];
+    if (r_aimode == 0xA) {
+      // sprite is carried by owner:
+      return;
+    }
+
     // copy in remote sprite's data to local:
     for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
       // special handling of SLOT table for overworld:
@@ -2562,7 +2574,9 @@ class LocalGameState : GameState {
       array<uint8> @d = @owner.enemyData;
       for (uint s = 0; s < 0x10; s++) {
         // skip inactive:
-        if (d[(spr_aimode << 4) + s] == 0) continue;
+        uint8 aimode = d[(spr_aimode << 4) + s];
+        if (aimode == 0x0) continue;
+        if (aimode == 0xA) continue;
 
         uint8 dmgtimer = d[(spr_dmgtimer << 4) + s];
         // sprite already taking damage:

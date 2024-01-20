@@ -114,6 +114,7 @@ void on_main_alttp(uint32 pc) {
 // This function is called when alttp's Sprite_Main routine begins:
 void on_sprite_main_alttp(uint32 pc) {
   if (true) {
+    local.fetch_enemy_data();
     local.update_enemy_data();
   }
 }
