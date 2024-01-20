@@ -2573,6 +2573,10 @@ class LocalGameState : GameState {
             bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (l << 1) + 1]);
             continue;
           }
+          if (x == spr_slot + 1) {
+            // skip 2nd half of SLOT table:
+            continue;
+          }
 
           bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + l]);
         }
