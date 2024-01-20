@@ -2511,6 +2511,8 @@ class LocalGameState : GameState {
   void update_enemy_data() {
     if (module != 0x07 && module != 0x09 && module != 0x0b) return;
 
+    // find the owner of enemies:
+    GameState @owner = null;
     uint len = players.length();
     for (uint i = 0; i < len; i++) {
       auto @remote = players[i];
@@ -2519,70 +2521,98 @@ class LocalGameState : GameState {
       if (!is_really_in_same_location(remote.location)) continue;
 
       // TODO: for now the lowest-indexed player owns enemy data for the room:
-      if (remote is local) break;
+      if (remote is local) {
+        break;
+      }
+      if (@owner == null) {
+        @owner = @remote;
+      }
+      break;
+    }
+    if (@owner == null) return;
 
-      for (uint s = 0; s < 0x10; s++) {
-        uint l;
-        array<uint8> @d = @remote.enemyData;
+    for (uint s = 0; s < 0x10; s++) {
+      uint l;
+      array<uint8> @d = @owner.enemyData;
 
-        if (module == 0x07) {
-          // underworld:
+      if (module == 0x07) {
+        // underworld:
 
-          // grab remote sprite's slot:
-          uint8 slot = d[(spr_slot << 4) + s];
-          // unused sprite:
-          if (slot == 0xFF) continue;
+        // grab remote sprite's slot:
+        uint8 slot = d[(spr_slot << 4) + s];
+        // unused sprite:
+        if (slot == 0xFF) continue;
 
-          // look up corresponding local slot:
-          for (l = 0; l < 16; l++) {
-            if (enemyData[(spr_slot << 4) + l] == slot) {
+        // look up corresponding local slot:
+        for (l = 0; l < 16; l++) {
+          if (enemyData[(spr_slot << 4) + l] == slot) {
+            break;
+          }
+        }
+
+        //message("uw: " + fmtHex(slot) + " -> " + fmtHex(l));
+        if (l == 16) {
+          // find a free slot:
+          for (; l > 0; l--) {
+            if (enemyData[(spr_slot << 4) + (l - 1)] == 0xFF) {
               break;
             }
           }
+          // no free slots? weird.
+          if (l == 0) continue;
+          l--;
+          message("uw: assign owner " + fmtHex(s) + " to local " + fmtHex(l));
+        }
+      } else {
+        // overworld:
 
-          //message("uw: " + fmtHex(slot) + " -> " + fmtHex(l));
-          if (l >= 16) continue;
-        } else {
-          // overworld:
+        // grab remote sprite's OWDEATH pointer:
+        uint8 owdeath0 = d[(spr_slot << 4) + (s << 1)    ];
+        uint8 owdeath1 = d[(spr_slot << 4) + (s << 1) + 1];
+        // unused sprite:
+        if (owdeath0 == 0xFF && owdeath1 == 0xFF) continue;
 
-          // grab remote sprite's OWDEATH pointer:
-          uint8 owdeath0 = d[(spr_slot << 4) + (s << 1)];
-          uint8 owdeath1 = d[(spr_slot << 4) + (s << 1) + 1];
-          // unused sprite:
-          if (owdeath0 == 0xFF && owdeath1 == 0xFF) continue;
-
-          // look up corresponding local slot:
-          for (l = 0; l < 16; l++) {
-            if (enemyData[(spr_slot << 4) + (l << 1)] == owdeath0) {
-              if (enemyData[(spr_slot << 4) + (l << 1) + 1] == owdeath1) {
-                break;
-              }
-            }
+        // look up corresponding local slot:
+        for (l = 0; l < 16; l++) {
+          uint8 l_owdeath0 = enemyData[(spr_slot << 4) + (l << 1)    ];
+          uint8 l_owdeath1 = enemyData[(spr_slot << 4) + (l << 1) + 1];
+          if (l_owdeath0 == owdeath0 && l_owdeath1 == owdeath1) {
+            break;
           }
-
-          //message("ow: " + fmtHex(owdeath1) + fmtHex(owdeath0) + " -> " + fmtHex(l));
-          if (l >= 16) continue;
         }
 
-        // copy in remote sprite's data to local:
-        for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
-          // special handling of SLOT table for overworld:
-          if (x == spr_slot && module != 0x07) {
-            // overworld:
-            bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1), d[(x << 4) + (l << 1)]);
-            bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (l << 1) + 1]);
-            continue;
+        if (l == 16) {
+          // find a free slot:
+          for (; l > 0; l--) {
+            uint8 l_owdeath0 = enemyData[(spr_slot << 4) + ((l-1) << 1)    ];
+            uint8 l_owdeath1 = enemyData[(spr_slot << 4) + ((l-1) << 1) + 1];
+            if (l_owdeath0 == 0xFF && l_owdeath1 == 0xFF) {
+              break;
+            }
           }
-          if (x == spr_slot + 1) {
-            // skip 2nd half of SLOT table:
-            continue;
-          }
-
-          bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + l]);
+          // no free slots? weird.
+          if (l == 0) continue;
+          l--;
+          message("ow: assign owner " + fmtHex(s) + " to local " + fmtHex(l));
         }
       }
 
-      break;
+      // copy in remote sprite's data to local:
+      for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
+        // special handling of SLOT table for overworld:
+        if (x == spr_slot && module != 0x07) {
+          // overworld:
+          bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1)    , d[(x << 4) + (s << 1)    ]);
+          bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (s << 1) + 1]);
+          continue;
+        }
+        if (x == spr_slot + 1 && module != 0x07) {
+          // skip 2nd half of SLOT table since we just copied it:
+          continue;
+        }
+
+        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + s]);
+      }
     }
   }
 
