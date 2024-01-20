@@ -2521,81 +2521,60 @@ class LocalGameState : GameState {
       if (!is_really_in_same_location(remote.location)) continue;
 
       // TODO: for now the lowest-indexed player owns enemy data for the room:
-      if (remote is local) {
-        break;
-      }
-      if (@owner == null) {
-        @owner = @remote;
-      }
+      @owner = @remote;
       break;
     }
     if (@owner == null) return;
 
-    for (uint s = 0; s < 0x10; s++) {
-      uint l;
+    // local player is the owner:
+    if (@owner is local) {
       array<uint8> @d = @owner.enemyData;
+      for (uint s = 0; s < 0x10; s++) {
+        // skip inactive:
+        if (d[(spr_aimode << 4) + s] == 0) continue;
 
-      if (module == 0x07) {
-        // underworld:
+        bool struck = false;
+        uint8 dmg = d[(spr_dmg << 4) + s];
+        uint8 dmgtimer = d[(spr_dmgtimer << 4) + s];
+        uint8 dmgtimer_n = dmgtimer;
 
-        // grab remote sprite's slot:
-        uint8 slot = d[(spr_slot << 4) + s];
-        // unused sprite:
-        if (slot == 0xFF) continue;
+        // find any damage applied by remote players:
+        for (uint i = 0; i < len; i++) {
+          auto @remote = players[i];
+          if (remote is null) continue;
+          if (remote is local) continue;
+          if (remote.ttl < 0) continue;
+          if (!is_really_in_same_location(remote.location)) continue;
 
-        // look up corresponding local slot:
-        for (l = 0; l < 16; l++) {
-          if (enemyData[(spr_slot << 4) + l] == slot) {
-            break;
-          }
-        }
-
-        //message("uw: " + fmtHex(slot) + " -> " + fmtHex(l));
-        if (l == 16) {
-          // find a free slot:
-          for (; l > 0; l--) {
-            if (enemyData[(spr_slot << 4) + (l - 1)] == 0xFF) {
-              break;
+          array<uint8> @r = @remote.enemyData;
+          uint8 r_dmgtimer = r[(spr_dmgtimer << 4) + s];
+          if (r_dmgtimer > dmgtimer) {
+            // a fresh hit:
+            struck = true;
+            // sum the damage across players? why not.
+            dmg += r[(spr_dmg << 4) + s];
+            if (r_dmgtimer > dmgtimer_n) {
+              dmgtimer_n = r_dmgtimer;
             }
           }
-          // no free slots? weird.
-          if (l == 0) continue;
-          l--;
-          message("uw: assign owner " + fmtHex(s) + " to local " + fmtHex(l));
-        }
-      } else {
-        // overworld:
-
-        // grab remote sprite's OWDEATH pointer:
-        uint8 owdeath0 = d[(spr_slot << 4) + (s << 1)    ];
-        uint8 owdeath1 = d[(spr_slot << 4) + (s << 1) + 1];
-        // unused sprite:
-        if (owdeath0 == 0xFF && owdeath1 == 0xFF) continue;
-
-        // look up corresponding local slot:
-        for (l = 0; l < 16; l++) {
-          uint8 l_owdeath0 = enemyData[(spr_slot << 4) + (l << 1)    ];
-          uint8 l_owdeath1 = enemyData[(spr_slot << 4) + (l << 1) + 1];
-          if (l_owdeath0 == owdeath0 && l_owdeath1 == owdeath1) {
-            break;
-          }
         }
 
-        if (l == 16) {
-          // find a free slot:
-          for (; l > 0; l--) {
-            uint8 l_owdeath0 = enemyData[(spr_slot << 4) + ((l-1) << 1)    ];
-            uint8 l_owdeath1 = enemyData[(spr_slot << 4) + ((l-1) << 1) + 1];
-            if (l_owdeath0 == 0xFF && l_owdeath1 == 0xFF) {
-              break;
-            }
-          }
-          // no free slots? weird.
-          if (l == 0) continue;
-          l--;
-          message("ow: assign owner " + fmtHex(s) + " to local " + fmtHex(l));
+        if (struck) {
+          // update local values:
+          d[(spr_dmg << 4) + s] = dmg;
+          d[(spr_dmgtimer << 4) + s] = dmgtimer_n;
+          bus::write_u8(0x7E0000 + enemy_data_ptrs[spr_dmg] + s, d[(spr_dmg << 4) + s]);
+          bus::write_u8(0x7E0000 + enemy_data_ptrs[spr_dmgtimer] + s, d[(spr_dmgtimer << 4) + s]);
         }
       }
+
+      return;
+    }
+
+    // we are not owner so we just accept all sprite data from owner:
+    for (uint s = 0; s < 0x10; s++) {
+      uint l = s;
+      array<uint8> @d = @owner.enemyData;
 
       // copy in remote sprite's data to local:
       for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
