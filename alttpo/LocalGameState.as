@@ -2508,6 +2508,25 @@ class LocalGameState : GameState {
     }
   }
 
+  void apply_remote_sprite_data(uint l, uint s, array<uint8> @d) {
+    // copy in remote sprite's data to local:
+    for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
+      // special handling of SLOT table for overworld:
+      if (x == spr_slot && module != 0x07) {
+        // overworld:
+        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1)    , d[(x << 4) + (s << 1)    ]);
+        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (s << 1) + 1]);
+        continue;
+      }
+      if (x == spr_slot + 1 && module != 0x07) {
+        // skip 2nd half of SLOT table since we just copied it:
+        continue;
+      }
+
+      bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + s]);
+    }
+  }
+
   void update_enemy_data() {
     if (module != 0x07 && module != 0x09 && module != 0x0b) return;
 
@@ -2533,10 +2552,11 @@ class LocalGameState : GameState {
         // skip inactive:
         if (d[(spr_aimode << 4) + s] == 0) continue;
 
-        bool struck = false;
-        uint8 dmg = d[(spr_dmg << 4) + s];
         uint8 dmgtimer = d[(spr_dmgtimer << 4) + s];
-        uint8 dmgtimer_n = dmgtimer;
+        // sprite already taking damage:
+        if (dmgtimer > 0) continue;
+
+        uint8 dmg = d[(spr_dmg << 4) + s];
 
         // find any damage applied by remote players:
         for (uint i = 0; i < len; i++) {
@@ -2549,49 +2569,27 @@ class LocalGameState : GameState {
           array<uint8> @r = @remote.enemyData;
           uint8 r_dmgtimer = r[(spr_dmgtimer << 4) + s];
           if (r_dmgtimer > dmgtimer) {
-            // a fresh hit:
-            struck = true;
-            // sum the damage across players? why not.
-            dmg += r[(spr_dmg << 4) + s];
-            if (r_dmgtimer > dmgtimer_n) {
-              dmgtimer_n = r_dmgtimer;
-            }
+            // a fresh hit; copy in remote sprite's data to local:
+            apply_remote_sprite_data(s, s, r);
+            break;
           }
-        }
-
-        if (struck) {
-          // update local values:
-          d[(spr_dmg << 4) + s] = dmg;
-          d[(spr_dmgtimer << 4) + s] = dmgtimer_n;
-          bus::write_u8(0x7E0000 + enemy_data_ptrs[spr_dmg] + s, d[(spr_dmg << 4) + s]);
-          bus::write_u8(0x7E0000 + enemy_data_ptrs[spr_dmgtimer] + s, d[(spr_dmgtimer << 4) + s]);
         }
       }
 
       return;
     }
 
+    // prevent applying owner's sprite data if modules dont match:
+    if (owner.module != module && owner.sub_module != sub_module) {
+      return;
+    }
+
     // we are not owner so we just accept all sprite data from owner:
     for (uint s = 0; s < 0x10; s++) {
-      uint l = s;
       array<uint8> @d = @owner.enemyData;
 
       // copy in remote sprite's data to local:
-      for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
-        // special handling of SLOT table for overworld:
-        if (x == spr_slot && module != 0x07) {
-          // overworld:
-          bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1)    , d[(x << 4) + (s << 1)    ]);
-          bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (s << 1) + 1]);
-          continue;
-        }
-        if (x == spr_slot + 1 && module != 0x07) {
-          // skip 2nd half of SLOT table since we just copied it:
-          continue;
-        }
-
-        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + s]);
-      }
+      apply_remote_sprite_data(s, s, d);
     }
   }
 
