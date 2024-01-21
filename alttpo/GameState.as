@@ -965,9 +965,25 @@ class GameState {
   }
 
   int deserialize_enemy_data(array<uint8> r, int c) {
-    for (int i = 0; i < enemy_data_size; i++) {
-      enemyData[i] = r[c++];
+    uint16 mask = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint8 in_dungeon = r[c++];
+
+    uint len = enemy_data_ptrs.length();
+    for (uint s = 0; s < 16; s++) {
+      if ((mask & (1 << s)) == 0) continue;
+
+      for (uint x = 0; x < len; x++) {
+        // handle spr_slot specially for overworld:
+        if (x == spr_slot && in_dungeon == 0) {
+          enemyData[(spr_slot<<4)+(s<<1)] = r[c++];
+          enemyData[(spr_slot<<4)+(s<<1)+1] = r[c++];
+        }
+        if (x == spr_slot+1 && in_dungeon == 0) continue;
+
+        enemyData[(x<<4)+s] = r[c++];
+      }
     }
+
     return c;
   }
 

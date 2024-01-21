@@ -1365,12 +1365,37 @@ class LocalGameState : GameState {
   void serialize_enemy_data(array<uint8> &r) {
     r.write_u8(uint8(0x11));
 
-    r.write_arr(enemyData);
+    // create a bitmask of which sprite slots are filled:
+    uint16 mask = 0;
+    for (uint s = 0; s < 16; s++) {
+      uint8 aimode = enemyData[(spr_aimode << 4) + s];
+      if (aimode == 0) continue;
+
+      mask |= 1 << s;
+    }
+
+    r.write_u16(mask);
+    r.write_u8 (in_dungeon);
+    uint len = enemy_data_ptrs.length();
+    for (uint s = 0; s < 16; s++) {
+      if ((mask & (1 << s)) == 0) continue;
+
+      for (uint x = 0; x < len; x++) {
+        // handle spr_slot specially for overworld:
+        if (x == spr_slot && in_dungeon == 0) {
+          r.write_u8(enemyData[(spr_slot<<4)+(s<<1)]);
+          r.write_u8(enemyData[(spr_slot<<4)+(s<<1)+1]);
+        }
+        if (x == spr_slot+1 && in_dungeon == 0) continue;
+
+        r.write_u8(enemyData[(x<<4)+s]);
+      }
+    }
   }
 
   void serialize_enemy_segment_data(array<uint8> &r) {
     r.write_u8(uint8(0x12));
-    // TODO: RLE compress or select out only data for used sprites
+    // TODO: compress, or select only data for used sprites
     r.write_arr(enemySegmentData);
   }
 
@@ -2536,13 +2561,13 @@ class LocalGameState : GameState {
     // copy in remote sprite's data to local:
     for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
       // special handling of SLOT table for overworld:
-      if (x == spr_slot && module != 0x07) {
+      if (x == spr_slot && in_dungeon == 0) {
         // overworld:
         bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1)    , d[(x << 4) + (s << 1)    ]);
         bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (s << 1) + 1]);
         continue;
       }
-      if (x == spr_slot + 1 && module != 0x07) {
+      if (x == spr_slot + 1 && in_dungeon == 0) {
         // skip 2nd half of SLOT table since we just copied it:
         continue;
       }

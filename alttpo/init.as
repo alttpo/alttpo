@@ -70,10 +70,6 @@ void init() {
     @gameSpriteWindow = GameSpriteWindow();
   }
 
-  if (debugMemory) {
-    @memoryWindow = MemoryWindow();
-  }
-
   if (enablePlayerList) {
     @playersWindow = PlayersWindow();
   }
@@ -97,6 +93,10 @@ void cartridge_loaded() {
       }
       dbgData("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
     }
+  }
+
+  if (debugMemory) {
+    @memoryWindow = MemoryWindow();
   }
 
   // read the JSL target address from the RESET vector code:
