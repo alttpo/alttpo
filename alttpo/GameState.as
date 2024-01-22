@@ -63,6 +63,7 @@ const uint spr_z = 52;
 const uint spr_vz = 53;
 const uint spr_subz = 54;
 
+// offsets from $7E0000
 const array<uint16> enemy_data_ptrs = {
   0x0B58, // [ 0] stun
   0x0B6B, // [ 1] tiledie
@@ -125,6 +126,41 @@ const int enemy_data_size = enemy_data_ptrs.length() * 0x10;
 // 0x7FFB00[$80], 0x7FFB80[$80], 0x7FFC00[$80], 0x7FFC80[$80], ..., 0x7FFE80[$80]
 // careful: $7FFE00 is race game timer and dig game counter
 const int enemy_segment_data_size = 8 * 0x80;
+
+// offsets from $7F0000 for
+//   u8[7 properties][8 segments][16 sprites];
+const array<uint16> enemy_segments_data_ptrs = {
+  0xFC00,
+  0xFC80,
+  0xFD00,
+  0xFD80,
+  0xFE00,
+  0xFE80,
+  0xFF00,
+};
+const int enemy_segments_data_size = enemy_segments_data_ptrs.length() * 0x80;
+
+// offsets from $7F0000 for properties of swamola segmented enemies:
+//   u8[4 properties][6 sprites][20 points];
+const array<uint16> swamola_segments_data_ptrs = {
+  0xFA5C,
+  0xFB1C,
+  0xFBDC,
+  0xFC9C,
+};
+const int swamola_segments_data_size = swamola_segments_data_ptrs.length() * 0xC0;
+
+bool is_segmented_enemy_id(uint8 id) {
+  return id == 0x09 // moldorm
+      || id == 0x18 // mini moldorm
+      || id == 0x54 // lanmolas
+      || id == 0x6A // chain chomp
+      || id == 0xCB // trinexx rock head
+      || id == 0xCC // trinexx fire head
+      || id == 0xCD // trinexx ice head
+      || id == 0xCF // swamolas (special case; uses overlapping $7FFA5C..7FFD5C region)
+    ;
+}
 
 bool players_updated = false;
 
@@ -326,7 +362,8 @@ class GameState {
   array<PvPAttack> pvp_attacks;
 
   array<uint8> enemyData(enemy_data_size);
-  array<uint8> enemySegmentData(enemy_segment_data_size);
+  array<uint8> enemySegments(enemy_segments_data_size);
+  array<uint8> swamolaSegments(swamola_segments_data_size);
 
   GameState() {
     torchOwner.resize(0x10);
@@ -970,7 +1007,10 @@ class GameState {
 
     uint len = enemy_data_ptrs.length();
     for (uint s = 0; s < 16; s++) {
-      if ((mask & (1 << s)) == 0) continue;
+      if ((mask & (1 << s)) == 0) {
+        enemyData[(spr_aimode<<4)+s] = 0;
+        continue;
+      }
 
       for (uint x = 0; x < len; x++) {
         // handle spr_slot specially for overworld:
@@ -988,9 +1028,44 @@ class GameState {
   }
 
   int deserialize_enemy_segment_data(array<uint8> r, int c) {
-    for (int i = 0; i < enemy_segment_data_size; i++) {
-      enemySegmentData[i] = r[c++];
+    // mask determines what subset of 16 sprites have segmented data available:
+    uint16 mask = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    for (uint s = 0; s < 16; s++) {
+      if ((mask & (1 << s)) == 0) {
+        continue;
+      }
+
+      // sprite id affects serialization of data:
+      uint8 id = r[c++];
+      switch (id) {
+        case 0xCF: // swamola special case:
+          if (s >= 6) continue;
+          for (uint x = 0; x < swamola_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x20; i++) {
+              swamolaSegments[(x * 0xC0) + (s * 0x20) + i] = r[c++];
+            }
+          }
+          break;
+        case 0x09: // moldorm
+          // moldorm uses all $80 bytes per segment:
+          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x80; i++) {
+              enemySegments[(x * 0x80) + i] = r[c++];
+            }
+          }
+          break;
+        default: // assume all other enemies use all 7 properties
+          if (s >= 8) continue;
+          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x10; i++) {
+              enemySegments[(x*0x80)+(s*0x10)+i] = r[c++];
+            }
+          }
+          break;
+      }
     }
+
     return c;
   }
 

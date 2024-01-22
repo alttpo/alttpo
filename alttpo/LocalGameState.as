@@ -1122,10 +1122,18 @@ class LocalGameState : GameState {
   void fetch_enemy_data() {
     uint len = enemy_data_ptrs.length();
     for (uint i = 0; i < len; i++) {
-      uint o = enemy_data_ptrs[i];
-      bus::read_block_u8(0x7E0000 + o, i << 4, 0x10, enemyData);
+      bus::read_block_u8(0x7E0000 + enemy_data_ptrs[i], i << 4, 0x10, enemyData);
     }
-    bus::read_block_u8(0x7FFB00, 0, enemy_segment_data_size, enemySegmentData);
+
+    // enemy segment data:
+    len = enemy_segments_data_ptrs.length();
+    for (uint i = 0; i < len; i++) {
+      bus::read_block_u8(0x7F0000 + enemy_segments_data_ptrs[i], i * 0x80, 0x80, enemySegments);
+    }
+    len = swamola_segments_data_ptrs.length();
+    for (uint i = 0; i < len; i++) {
+      bus::read_block_u8(0x7F0000 + swamola_segments_data_ptrs[i], i * 0xC0, 0xC0, swamolaSegments);
+    }
   }
 
   void fetch_sm_events() {
@@ -1395,8 +1403,58 @@ class LocalGameState : GameState {
 
   void serialize_enemy_segment_data(array<uint8> &r) {
     r.write_u8(uint8(0x12));
-    // TODO: compress, or select only data for used sprites
-    r.write_arr(enemySegmentData);
+
+    // create a bitmask of which sprite slots are filled for "segmented" enemies:
+    // segmented here refers to an enemy with segmented body parts
+    uint16 mask = 0;
+    for (uint s = 0; s < 16; s++) {
+      // skip inactive sprites:
+      uint8 aimode = enemyData[(spr_aimode << 4) + s];
+      if (aimode == 0) continue;
+
+      // check for segmented enemy:
+      // these are all sprite ids i could find based on a code search for $7FFC00
+      uint8 id = enemyData[(spr_id << 4) + s];
+      if (is_segmented_enemy_id(id)) {
+        mask |= 1 << s;
+      }
+    }
+
+    r.write_u16(mask);
+    for (uint s = 0; s < 16; s++) {
+      if ((mask & (1 << s)) == 0) continue;
+      uint8 id = enemyData[(spr_id << 4) + s];
+
+      // sprite id affects serialization of data:
+      r.write_u8(id);
+      switch (id) {
+        case 0xCF: // swamola special case:
+          if (s >= 6) continue;
+          for (uint x = 0; x < swamola_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x20; i++) {
+              r.write_u8(swamolaSegments[(x * 0xC0) + (s * 0x20) + i]);
+            }
+          }
+          break;
+        case 0x09: // moldorm
+          // moldorm uses all $80 bytes per segment:
+          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x80; i++) {
+              r.write_u8(enemySegments[(x * 0x80) + i]);
+            }
+          }
+          break;
+        default:
+          // assume all other enemies use all 7 properties
+          if (s >= 8) continue;
+          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x10; i++) {
+              r.write_u8(enemySegments[(x * 0x80) + (s * 0x10) + i]);
+            }
+          }
+          break;
+      }
+    }
   }
 
   void serialize_sm_events(array<uint8> &r) {
@@ -2545,8 +2603,10 @@ class LocalGameState : GameState {
     }
   }
 
-  void apply_remote_sprite_data(uint l, uint s, array<uint8> @d) {
-    uint8 l_aimode = enemyData[(spr_aimode << 4) + l];
+  void apply_enemy_data(uint s, GameState @owner) {
+    array<uint8> @d = @owner.enemyData;
+
+    uint8 l_aimode = enemyData[(spr_aimode << 4) + s];
     if (l_aimode == 0xA) {
       // sprite is carried by local player:
       return;
@@ -2563,8 +2623,8 @@ class LocalGameState : GameState {
       // special handling of SLOT table for overworld:
       if (x == spr_slot && in_dungeon == 0) {
         // overworld:
-        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1)    , d[(x << 4) + (s << 1)    ]);
-        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (l << 1) + 1, d[(x << 4) + (s << 1) + 1]);
+        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (s << 1)    , d[(x << 4) + (s << 1)    ]);
+        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (s << 1) + 1, d[(x << 4) + (s << 1) + 1]);
         continue;
       }
       if (x == spr_slot + 1 && in_dungeon == 0) {
@@ -2572,7 +2632,32 @@ class LocalGameState : GameState {
         continue;
       }
 
-      bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + l, d[(x << 4) + s]);
+      bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + s, d[(x << 4) + s]);
+    }
+
+    uint8 id = d[(spr_id << 4) + s];
+    if (is_segmented_enemy_id(id)) {
+      // copy in segment data:
+      switch (id) {
+        case 0xCF: // swamola
+          if (s >= 6) return;
+          for (uint x = 0; x < swamola_segments_data_ptrs.length(); x++) {
+            bus::write_block_u8(0x7F0000 + swamola_segments_data_ptrs[x] + (s * 0x20), (x * 0xC0) + (s * 0x20), 0x20, owner.swamolaSegments);
+          }
+          break;
+        case 0x09: // moldorm
+          // moldorm uses all $80 bytes per segment:
+          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+            bus::write_block_u8(0x7F0000 + enemy_segments_data_ptrs[x], (x * 0x80), 0x80, owner.enemySegments);
+          }
+          break;
+        default:
+          if (s >= 8) return;
+          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+            bus::write_block_u8(0x7F0000 + enemy_segments_data_ptrs[x] + (s * 0x10), (x * 0x80) + (s * 0x10), 0x10, owner.enemySegments);
+          }
+          break;
+      }
     }
   }
 
@@ -2621,7 +2706,7 @@ class LocalGameState : GameState {
           uint8 r_dmgtimer = r[(spr_dmgtimer << 4) + s];
           if (r_dmgtimer > dmgtimer) {
             // a fresh hit; copy in remote sprite's data to local:
-            apply_remote_sprite_data(s, s, r);
+            apply_enemy_data(s, remote);
             break;
           }
         }
@@ -2640,14 +2725,9 @@ class LocalGameState : GameState {
 
     // we are not owner so we just accept all sprite data from owner:
     for (uint s = 0; s < 0x10; s++) {
-      array<uint8> @d = @owner.enemyData;
-
       // copy in remote sprite's data to local:
-      apply_remote_sprite_data(s, s, d);
+      apply_enemy_data(s, owner);
     }
-
-    // copy in data for segmented enemies (lanmolas, moldorms, swamolas):
-    bus::write_block_u8(0x7FFB00, 0, enemy_segment_data_size, owner.enemySegmentData);
   }
 
   void update_sm_events() {

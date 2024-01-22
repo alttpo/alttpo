@@ -10,13 +10,13 @@ bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
-bool debugMemory = false;
+bool debugMemory = true;
 
 bool debugRTDScapture = false;
 bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
-bool enableMap = true;
+bool enableMap = false;
 bool enablePlayerList = false;
 bool enableBgMusic = true;
 
