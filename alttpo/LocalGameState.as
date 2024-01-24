@@ -2678,22 +2678,22 @@ class LocalGameState : GameState {
     if (module != 0x07 && module != 0x09 && module != 0x0b) return;
 
     // find the owner of enemies:
-    GameState @owner = null;
+    GameState@ owner = null;
     uint len = players.length();
     for (uint i = 0; i < len; i++) {
-      auto @remote = players[i];
+      auto@ remote = players[i];
       if (remote is null) continue;
-      if (remote.ttl < 0) continue;
+      if (remote.ttl <= 0) continue;
       if (!is_really_in_same_location(remote.location)) continue;
 
       // TODO: for now the lowest-indexed player owns enemy data for the room:
       @owner = @remote;
       break;
     }
-    if (@owner == null) return;
+    if (owner is null) return;
 
     // local player is the owner:
-    if (@owner is local) {
+    if (owner is local) {
       array<uint8> @d = @owner.enemyData;
       for (uint s = 0; s < 0x10; s++) {
         // skip inactive:
@@ -2712,7 +2712,7 @@ class LocalGameState : GameState {
           auto @remote = players[i];
           if (remote is null) continue;
           if (remote is local) continue;
-          if (remote.ttl < 0) continue;
+          if (remote.ttl <= 0) continue;
           if (!is_really_in_same_location(remote.location)) continue;
 
           array<uint8> @r = @remote.enemyData;
@@ -2750,7 +2750,7 @@ class LocalGameState : GameState {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is local) continue;
-      if (remote.ttl < 0) continue;
+      if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
 
       for (int j = 0; j < 0x54; j++) {
@@ -2776,7 +2776,7 @@ class LocalGameState : GameState {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is local) continue;
-      if (remote.ttl < 0) continue;
+      if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
 
       for (int j = 0; j < 0x54; j++) {
@@ -2805,7 +2805,7 @@ class LocalGameState : GameState {
       auto @remote = players[i];
       if (remote is null) continue;
       if (remote is local) continue;
-      if (remote.ttl < 0) continue;
+      if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
       if (!remote.in_sm_for_items) continue;
 
