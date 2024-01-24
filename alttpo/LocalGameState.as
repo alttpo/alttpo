@@ -2632,6 +2632,14 @@ class LocalGameState : GameState {
       return;
     }
 
+    // dont overwrite local sprite for these types:
+    uint8 l_id = enemyData[(spr_id << 4) + s];
+    if (l_id == 0xEC) return; // thrown item
+
+    // check if the remote sprite type is ok to sync in:
+    uint8 r_id = d[(spr_id << 4) + s];
+    if (r_id == 0xEC) return; // thrown item
+
     // copy in remote sprite's data to local:
     for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
       // special handling of SLOT table for overworld:
@@ -2649,10 +2657,9 @@ class LocalGameState : GameState {
       bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + s, d[(x << 4) + s]);
     }
 
-    uint8 id = d[(spr_id << 4) + s];
-    if (is_segmented_enemy_id(id)) {
+    if (is_segmented_enemy_id(r_id)) {
       // copy in segment data:
-      switch (id) {
+      switch (r_id) {
         case 0xCF: // swamola
           if (s >= 6) return;
           for (uint x = 0; x < swamola_segments_data_ptrs.length(); x++) {
@@ -2716,26 +2723,26 @@ class LocalGameState : GameState {
         if (aimode == 0xA) continue;
 
         uint8 dmgtimer = d[(spr_dmgtimer << 4) + s];
-        // sprite already taking damage:
-        if (dmgtimer > 0) continue;
+        if (dmgtimer == 0) {
+          uint8 dmg = d[(spr_dmg << 4) + s];
 
-        uint8 dmg = d[(spr_dmg << 4) + s];
+          // find any damage applied by remote players:
+          for (uint i = 0; i < len; i++) {
+            auto @remote = players[i];
+            if (remote is null) continue;
+            if (remote is local) continue;
+            if (remote.ttl <= 0) continue;
+            if (!is_really_in_same_location(remote.location)) continue;
 
-        // find any damage applied by remote players:
-        for (uint i = 0; i < len; i++) {
-          auto @remote = players[i];
-          if (remote is null) continue;
-          if (remote is local) continue;
-          if (remote.ttl <= 0) continue;
-          if (!is_really_in_same_location(remote.location)) continue;
-
-          array<uint8> @r = @remote.enemyData;
-          uint8 r_dmgtimer = r[(spr_dmgtimer << 4) + s];
-          if (r_dmgtimer > dmgtimer) {
-            // a fresh hit; copy in remote sprite's data to local:
-            apply_enemy_data(s, remote);
-            break;
+            array<uint8> @r = @remote.enemyData;
+            uint8 r_dmgtimer = r[(spr_dmgtimer << 4) + s];
+            if (r_dmgtimer > dmgtimer) {
+              // a fresh hit; copy in remote sprite's data to local:
+              apply_enemy_data(s, remote);
+              break;
+            }
           }
+          continue;
         }
       }
 
