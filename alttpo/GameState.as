@@ -1058,9 +1058,17 @@ class GameState {
           break;
         case 0x09: // moldorm
           // moldorm uses all $80 bytes per segment:
-          for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
+          for (uint x = 0; x < 4; x++) {
             for (uint i = 0; i < 0x80; i++) {
               enemySegments[(x * 0x80) + i] = r[c++];
+            }
+          }
+          break;
+        case 0x18: // mini moldorm:
+          if (s >= 4) continue;
+          for (uint x = 0; x < 4; x++) {
+            for (uint i = 0; i < 0x20; i++) {
+              enemySegments[(x * 0x80) + (s * 0x20) + i] = r[c++];
             }
           }
           break;
