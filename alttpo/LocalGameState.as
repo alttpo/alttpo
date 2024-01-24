@@ -2718,12 +2718,14 @@ class LocalGameState : GameState {
       array<uint8> @d = @owner.enemyData;
       for (uint s = 0; s < 0x10; s++) {
         // skip inactive:
-        uint8 aimode = d[(spr_aimode << 4) + s];
-        if (aimode == 0x0) continue;
-        if (aimode == 0xA) continue;
+        uint8 l_aimode = d[(spr_aimode << 4) + s];
+        if (l_aimode == 0x0) continue; // inactive
+        if (l_aimode == 0xA) continue; // carried
 
-        uint8 dmgtimer = d[(spr_dmgtimer << 4) + s];
-        if (dmgtimer == 0) {
+        uint8 l_id = d[(spr_id << 4) + s];
+
+        uint8 l_dmgtimer = d[(spr_dmgtimer << 4) + s];
+        if (l_dmgtimer == 0) {
           uint8 dmg = d[(spr_dmg << 4) + s];
 
           // find any damage applied by remote players:
@@ -2735,14 +2737,43 @@ class LocalGameState : GameState {
             if (!is_really_in_same_location(remote.location)) continue;
 
             array<uint8> @r = @remote.enemyData;
+            // sanity check:
+            uint8 r_id = r[(spr_id << 4) + s];
+            if (r_id != l_id) continue;
+
             uint8 r_dmgtimer = r[(spr_dmgtimer << 4) + s];
-            if (r_dmgtimer > dmgtimer) {
+            if (r_dmgtimer > l_dmgtimer) {
               // a fresh hit; copy in remote sprite's data to local:
               apply_enemy_data(s, remote);
               break;
             }
           }
-          continue;
+        }
+
+        if (l_id >= 0xD8 && l_id <= 0xEC && l_id != 0xE9) {
+          // range of items that can be "collected" by player (heart, rupee, bomb, magic, arrow, fairy,
+          // small key, big key, mushroom, heart container, heart piece)
+          // excluded: E9 - MAGIC SHOP ASSISTANT
+
+          // find out if any remote player collected this item:
+          for (uint i = 0; i < len; i++) {
+            auto @remote = players[i];
+            if (remote is null) continue;
+            if (remote is local) continue;
+            if (remote.ttl <= 0) continue;
+            if (!is_really_in_same_location(remote.location)) continue;
+
+            array<uint8> @r = @remote.enemyData;
+            // sanity check:
+            uint8 r_id = r[(spr_id << 4) + s];
+            if (r_id != l_id) continue;
+
+            uint8 r_aimode = r[(spr_aimode << 4) + s];
+            if (r_aimode == 0) {
+              apply_enemy_data(s, remote);
+              break;
+            }
+          }
         }
       }
 
