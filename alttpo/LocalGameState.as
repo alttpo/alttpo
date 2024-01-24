@@ -1126,10 +1126,7 @@ class LocalGameState : GameState {
     }
 
     // enemy segment data:
-    len = enemy_segments_data_ptrs.length();
-    for (uint i = 0; i < len; i++) {
-      bus::read_block_u8(0x7F0000 + enemy_segments_data_ptrs[i], i * 0x80, 0x80, enemySegments);
-    }
+    bus::read_block_u8(0x7FFC00, 0, 8 * 0x80, enemySegments);
     len = swamola_segments_data_ptrs.length();
     for (uint i = 0; i < len; i++) {
       bus::read_block_u8(0x7F0000 + swamola_segments_data_ptrs[i], i * 0xC0, 0xC0, swamolaSegments);
@@ -1441,6 +1438,15 @@ class LocalGameState : GameState {
           for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
             for (uint i = 0; i < 0x80; i++) {
               r.write_u8(enemySegments[(x * 0x80) + i]);
+            }
+          }
+          break;
+        case 0x54: // lanmolas
+          if (s >= 4) continue;
+          // lanmolas uses $40 bytes per segment:
+          for (uint x = 0; x < lanmolas_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x40; i++) {
+              r.write_u8(enemySegments[(x * 0x100) + (s * 0x40) + i]);
             }
           }
           break;
@@ -2649,6 +2655,13 @@ class LocalGameState : GameState {
           // moldorm uses all $80 bytes per segment:
           for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
             bus::write_block_u8(0x7F0000 + enemy_segments_data_ptrs[x], (x * 0x80), 0x80, owner.enemySegments);
+          }
+          break;
+        case 0x54: // lanmolas
+          if (s >= 4) return;
+          // lanmolas uses $40 bytes per segment:
+          for (uint x = 0; x < lanmolas_segments_data_ptrs.length(); x++) {
+            bus::write_block_u8(0x7F0000 + lanmolas_segments_data_ptrs[x] + (s * 0x40), (x * 0x100) + (s * 0x40), 0x40, owner.enemySegments);
           }
           break;
         default:

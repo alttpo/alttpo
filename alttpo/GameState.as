@@ -136,9 +136,18 @@ const array<uint16> enemy_segments_data_ptrs = {
   0xFD80,
   0xFE00,
   0xFE80,
-  0xFF00,
+  0xFF00
 };
-const int enemy_segments_data_size = enemy_segments_data_ptrs.length() * 0x80;
+const int enemy_segments_data_size = 0x400;
+
+// offsets from $7F0000 for properties of lanmolas segmented enemies:
+const array<uint16> lanmolas_segments_data_ptrs = {
+  0xFC00,
+  0xFD00,
+  0xFE00,
+  0xFF00
+};
+
 
 // offsets from $7F0000 for properties of swamola segmented enemies:
 //   u8[4 properties][6 sprites][20 points];
@@ -146,7 +155,7 @@ const array<uint16> swamola_segments_data_ptrs = {
   0xFA5C,
   0xFB1C,
   0xFBDC,
-  0xFC9C,
+  0xFC9C
 };
 const int swamola_segments_data_size = swamola_segments_data_ptrs.length() * 0xC0;
 
@@ -1052,6 +1061,15 @@ class GameState {
           for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
             for (uint i = 0; i < 0x80; i++) {
               enemySegments[(x * 0x80) + i] = r[c++];
+            }
+          }
+          break;
+        case 0x54: // lanmolas
+          if (s >= 4) continue;
+          // lanmolas uses $40 bytes per segment:
+          for (uint x = 0; x < lanmolas_segments_data_ptrs.length(); x++) {
+            for (uint i = 0; i < 0x40; i++) {
+              enemySegments[(x * 0x100) + (s * 0x40) + i] = r[c++];
             }
           }
           break;
