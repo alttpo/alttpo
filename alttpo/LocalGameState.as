@@ -1405,6 +1405,7 @@ class LocalGameState : GameState {
         if (x == spr_slot && in_dungeon == 0) {
           r.write_u8(enemyData[(spr_slot<<4)+(s<<1)]);
           r.write_u8(enemyData[(spr_slot<<4)+(s<<1)+1]);
+          continue;
         }
         if (x == spr_slot+1 && in_dungeon == 0) continue;
 
@@ -2762,8 +2763,6 @@ class LocalGameState : GameState {
 
         uint8 l_dmgtimer = d[(spr_dmgtimer << 4) + s];
         if (l_dmgtimer == 0) {
-          uint8 dmg = d[(spr_dmg << 4) + s];
-
           // find any damage applied by remote players:
           for (uint i = 0; i < len; i++) {
             auto @remote = players[i];
@@ -2790,7 +2789,7 @@ class LocalGameState : GameState {
           }
         }
 
-        if (l_id >= 0xD8 && l_id <= 0xEC && l_id != 0xE9) {
+        if (l_id >= 0xD8 && l_id <= 0xEB && l_id != 0xE9) {
           // range of items that can be "collected" by player (heart, rupee, bomb, magic, arrow, fairy,
           // small key, big key, mushroom, heart container, heart piece)
           // excluded: E9 - MAGIC SHOP ASSISTANT
@@ -2814,6 +2813,7 @@ class LocalGameState : GameState {
 
             uint8 r_aimode = r[(spr_aimode << 4) + s];
             if (r_aimode == 0) {
+              //message("delete spr " + fmtHex(s));
               apply_enemy_data(s, remote);
               break;
             }

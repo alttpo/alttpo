@@ -1057,6 +1057,7 @@ class GameState {
         if (x == spr_slot && in_dungeon == 0) {
           enemyData[(spr_slot<<4)+(s<<1)] = r[c++];
           enemyData[(spr_slot<<4)+(s<<1)+1] = r[c++];
+          continue;
         }
         if (x == spr_slot+1 && in_dungeon == 0) continue;
 
