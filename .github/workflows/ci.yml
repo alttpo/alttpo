@@ -81,7 +81,7 @@ jobs:
         shell: bash
         run: ${{matrix.compress}} "${{env.nightly}}${{matrix.ext}}" ${{env.nightly}}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         name: Upload artifact
         with:
           name: '${{env.nightly}}${{matrix.ext}}'
