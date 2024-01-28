@@ -430,11 +430,7 @@ class LocalGameState : GameState {
 
   bool sprites_need_vram = false;
 
-  void fetch() {
-    sprites_need_vram = false;
-
-    fetch_sram();
-
+  void fetch_basics() {
     // player state:
     // 0x00 - ground state
     // 0x01 - falling into a hole
@@ -532,6 +528,14 @@ class LocalGameState : GameState {
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
     yoffs = int16(bus::read_u16(0x7E00E8)) - int16(bus::read_u16(0x7E011C));
+  }
+
+  void fetch() {
+    sprites_need_vram = false;
+
+    fetch_sram();
+
+    fetch_basics();
 
     fetch_sprites();
 
@@ -1828,18 +1832,6 @@ class LocalGameState : GameState {
         p = send_packet(envelope, p);
       }
 
-      if (true) {
-        // enemy data in current sector only:
-        auto @envelope = create_envelope(0x02);
-        serialize_enemy_data(envelope);
-        p = send_packet(envelope, p);
-
-        // enemy segment data in current sector only:
-        @envelope = create_envelope(0x02);
-        serialize_enemy_segment_data(envelope);
-        p = send_packet(envelope, p);
-      }
-
       if (rom.is_smz3()) {
         if ((frame & 31) == 0) {
           auto @envelope = create_envelope();
@@ -2647,6 +2639,8 @@ class LocalGameState : GameState {
         // overworld:
         bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (s << 1)    , d[(x << 4) + (s << 1)    ]);
         bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (s << 1) + 1, d[(x << 4) + (s << 1) + 1]);
+        enemyData[(x << 4) + (s << 1)    ] = d[(x << 4) + (s << 1)    ];
+        enemyData[(x << 4) + (s << 1) + 1] = d[(x << 4) + (s << 1) + 1];
         continue;
       }
       if (x == spr_slot + 1 && in_dungeon == 0) {
@@ -2655,6 +2649,7 @@ class LocalGameState : GameState {
       }
 
       bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + s, d[(x << 4) + s]);
+      enemyData[(x << 4) + s] = d[(x << 4) + s];
     }
 
     if (is_segmented_enemy_id(r_id)) {
@@ -2793,6 +2788,28 @@ class LocalGameState : GameState {
       // copy in remote sprite's data to local:
       apply_enemy_data(s, owner);
     }
+  }
+
+  void send_enemy_data() {
+    // not connected:
+    if (index < 0) return;
+    // rate limit outgoing packets to 60fps:
+    if (timestamp_now - last_sent < 16) {
+      return;
+    }
+
+    // since this is pulled out of LocalGameState::send(), make up a start index:
+    auto p = 20;
+
+    // enemy data send to current sector only:
+    auto @envelope = create_envelope(0x02);
+    serialize_enemy_data(envelope);
+    p = send_packet(envelope, p);
+
+    // enemy segment data send to current sector only:
+    @envelope = create_envelope(0x02);
+    serialize_enemy_segment_data(envelope);
+    p = send_packet(envelope, p);
   }
 
   void update_sm_events() {
