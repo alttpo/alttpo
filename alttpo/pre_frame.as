@@ -281,7 +281,12 @@ void pre_frame() {
     playerCount++;
     if (remote is local) continue;
     if (remote.ttl <= 0) {
+      // erase player:
       remote.ttl = 0;
+      if (remote.index >= 0) {
+        @players[remote.index] = @GameState();
+        players_updated = true;
+      }
       playerCount--;
       continue;
     }
