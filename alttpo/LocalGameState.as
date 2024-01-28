@@ -1123,17 +1123,28 @@ class LocalGameState : GameState {
     return (tm & 0x8000) == 0x8000;
   }
 
+  void fetch_overlord_data() {
+    // fetch overlord data:
+    for (uint i = 0; i < overlord_u8_ptrs.length(); i++) {
+      bus::read_block_u8(0x7E0000 + uint(overlord_u8_ptrs[i]), i << 3, 0x08, overlordU8Data);
+    }
+    for (uint i = 0; i < overlord_u16_ptrs.length(); i++) {
+      bus::read_block_u8(0x7E0000 + uint(overlord_u16_ptrs[i]), i << 4, 0x10, overlordU16Data);
+    }
+  }
+
   void fetch_enemy_data() {
+    // fetch enemy data:
     uint len = enemy_data_ptrs.length();
     for (uint i = 0; i < len; i++) {
-      bus::read_block_u8(0x7E0000 + enemy_data_ptrs[i], i << 4, 0x10, enemyData);
+      bus::read_block_u8(0x7E0000 + uint(enemy_data_ptrs[i]), i << 4, 0x10, enemyData);
     }
 
     // enemy segment data:
     bus::read_block_u8(0x7FFC00, 0, 8 * 0x80, enemySegments);
     len = swamola_segments_data_ptrs.length();
     for (uint i = 0; i < len; i++) {
-      bus::read_block_u8(0x7F0000 + swamola_segments_data_ptrs[i], i * 0xC0, 0xC0, swamolaSegments);
+      bus::read_block_u8(0x7F0000 + uint(swamola_segments_data_ptrs[i]), i * 0xC0, 0xC0, swamolaSegments);
     }
   }
 
@@ -1471,6 +1482,36 @@ class LocalGameState : GameState {
             }
           }
           break;
+      }
+    }
+  }
+
+  void serialize_overlord_data(array<uint8> &r) {
+    r.write_u8(uint8(0x13));
+
+    // create a bitmask of which overlord slots are filled:
+    uint8 mask = 0;
+    for (uint s = 0; s < 8; s++) {
+      uint8 id = overlordU8Data[(ol8_id << 3) + s];
+      if (id == 0) continue;
+      if (id == 0x19) {
+        // armos knights are hard-coded to slots 0..5:
+        mask |= 0x3F;
+      }
+
+      mask |= 1 << s;
+    }
+
+    r.write_u8(mask);
+    for (uint s = 0; s < 8; s++) {
+      if ((mask & (1 << s)) == 0) continue;
+
+      for (uint x = 0; x < overlord_u8_ptrs.length(); x++) {
+        r.write_u8(overlordU8Data[(x<<3)+s]);
+      }
+      for (uint x = 0; x < overlord_u16_ptrs.length(); x++) {
+        r.write_u8(overlordU16Data[(x<<4)+(s<<1)  ]);
+        r.write_u8(overlordU16Data[(x<<4)+(s<<1)+1]);
       }
     }
   }
@@ -2637,8 +2678,8 @@ class LocalGameState : GameState {
       // special handling of SLOT table for overworld:
       if (x == spr_slot && in_dungeon == 0) {
         // overworld:
-        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (s << 1)    , d[(x << 4) + (s << 1)    ]);
-        bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + (s << 1) + 1, d[(x << 4) + (s << 1) + 1]);
+        bus::write_u8(0x7E0000 + uint(enemy_data_ptrs[x]) + (s << 1)    , d[(x << 4) + (s << 1)    ]);
+        bus::write_u8(0x7E0000 + uint(enemy_data_ptrs[x]) + (s << 1) + 1, d[(x << 4) + (s << 1) + 1]);
         enemyData[(x << 4) + (s << 1)    ] = d[(x << 4) + (s << 1)    ];
         enemyData[(x << 4) + (s << 1) + 1] = d[(x << 4) + (s << 1) + 1];
         continue;
@@ -2648,7 +2689,7 @@ class LocalGameState : GameState {
         continue;
       }
 
-      bus::write_u8(0x7E0000 + enemy_data_ptrs[x] + s, d[(x << 4) + s]);
+      bus::write_u8(0x7E0000 + uint(enemy_data_ptrs[x]) + s, d[(x << 4) + s]);
       enemyData[(x << 4) + s] = d[(x << 4) + s];
     }
 
@@ -2658,32 +2699,32 @@ class LocalGameState : GameState {
         case 0xCF: // swamola
           if (s >= 6) return;
           for (uint x = 0; x < swamola_segments_data_ptrs.length(); x++) {
-            bus::write_block_u8(0x7F0000 + swamola_segments_data_ptrs[x] + (s * 0x20), (x * 0xC0) + (s * 0x20), 0x20, owner.swamolaSegments);
+            bus::write_block_u8(0x7F0000 + uint(swamola_segments_data_ptrs[x]) + (s * 0x20), (x * 0xC0) + (s * 0x20), 0x20, owner.swamolaSegments);
           }
           break;
         case 0x09: // moldorm
           // moldorm uses all $80 bytes per segment:
           for (uint x = 0; x < 4; x++) {
-            bus::write_block_u8(0x7F0000 + enemy_segments_data_ptrs[x], (x * 0x80), 0x80, owner.enemySegments);
+            bus::write_block_u8(0x7F0000 + uint(enemy_segments_data_ptrs[x]), (x * 0x80), 0x80, owner.enemySegments);
           }
           break;
         case 0x18: // mini-moldorm
           if (s >= 4) return;
           for (uint x = 0; x < 4; x++) {
-            bus::write_block_u8(0x7F0000 + enemy_segments_data_ptrs[x] + (s * 0x20), (x * 0x80) + (s * 0x20), 0x20, owner.enemySegments);
+            bus::write_block_u8(0x7F0000 + uint(enemy_segments_data_ptrs[x]) + (s * 0x20), (x * 0x80) + (s * 0x20), 0x20, owner.enemySegments);
           }
           break;
         case 0x54: // lanmolas
           if (s >= 4) return;
           // lanmolas uses $40 bytes per segment:
           for (uint x = 0; x < lanmolas_segments_data_ptrs.length(); x++) {
-            bus::write_block_u8(0x7F0000 + lanmolas_segments_data_ptrs[x] + (s * 0x40), (x * 0x100) + (s * 0x40), 0x40, owner.enemySegments);
+            bus::write_block_u8(0x7F0000 + uint(lanmolas_segments_data_ptrs[x]) + (s * 0x40), (x * 0x100) + (s * 0x40), 0x40, owner.enemySegments);
           }
           break;
         default:
           if (s >= 8) return;
           for (uint x = 0; x < enemy_segments_data_ptrs.length(); x++) {
-            bus::write_block_u8(0x7F0000 + enemy_segments_data_ptrs[x] + (s * 0x10), (x * 0x80) + (s * 0x10), 0x10, owner.enemySegments);
+            bus::write_block_u8(0x7F0000 + uint(enemy_segments_data_ptrs[x]) + (s * 0x10), (x * 0x80) + (s * 0x10), 0x10, owner.enemySegments);
           }
           break;
       }
@@ -2731,6 +2772,10 @@ class LocalGameState : GameState {
             if (remote.ttl <= 0) continue;
             if (!is_really_in_same_location(remote.location)) continue;
 
+            // prevent applying owner's sprite data if modules dont match:
+            if (remote.module != module) continue;
+            if (remote.sub_module != sub_module) continue;
+
             array<uint8> @r = @remote.enemyData;
             // sanity check:
             uint8 r_id = r[(spr_id << 4) + s];
@@ -2757,6 +2802,10 @@ class LocalGameState : GameState {
             if (remote is local) continue;
             if (remote.ttl <= 0) continue;
             if (!is_really_in_same_location(remote.location)) continue;
+
+            // prevent applying owner's sprite data if modules dont match:
+            if (remote.module != module) continue;
+            if (remote.sub_module != sub_module) continue;
 
             array<uint8> @r = @remote.enemyData;
             // sanity check:
@@ -2790,6 +2839,62 @@ class LocalGameState : GameState {
     }
   }
 
+  void apply_overlord_data(uint s, GameState @owner) {
+    for (uint x = 0; x < overlord_u8_ptrs.length(); x++) {
+      bus::write_u8(0x7E0000 + uint(overlord_u8_ptrs[x]) + s, owner.overlordU8Data[(x<<3)+s]);
+    }
+    for (uint x = 0; x < overlord_u16_ptrs.length(); x++) {
+      bus::write_u8(0x7E0000 + uint(overlord_u16_ptrs[x]) + (s<<1)    , owner.overlordU16Data[(x<<4)+(s<<1)  ]);
+      bus::write_u8(0x7E0000 + uint(overlord_u16_ptrs[x]) + (s<<1) + 1, owner.overlordU16Data[(x<<4)+(s<<1)+1]);
+    }
+  }
+
+  void update_overlord_data() {
+    if (module != 0x07 && module != 0x09 && module != 0x0b) return;
+
+    // find the owner of enemies:
+    GameState@ owner = null;
+    uint len = players.length();
+    //message("uo: find owner");
+    for (uint i = 0; i < len; i++) {
+      auto@ remote = players[i];
+      if (remote is null) continue;
+      if (remote.ttl <= 0) continue;
+      if (!is_really_in_same_location(remote.location)) continue;
+
+      // TODO: for now the lowest-indexed player owns enemy data for the room:
+      @owner = @remote;
+      break;
+    }
+    if (owner is null) {
+      //message("uo: no owner");
+      return;
+    }
+
+    // local player is the owner:
+    if (owner is local) {
+      //message("uo: owner is local");
+      return;
+    }
+
+    // prevent applying owner's overlord data if modules dont match:
+    if (owner.module != module) {
+      //message("uo: bad module");
+      return;
+    }
+    if (owner.sub_module != sub_module) {
+      //message("uo: bad submodule");
+      return;
+    }
+
+    // we are not owner so we just accept all overlord data from owner:
+    for (uint s = 0; s < 8; s++) {
+      // copy in remote overlord's data to local:
+      //message("uo: apply " + fmtInt(s));
+      apply_overlord_data(s, owner);
+    }
+  }
+
   void send_enemy_data() {
     // not connected:
     if (index < 0) return;
@@ -2809,6 +2914,11 @@ class LocalGameState : GameState {
     // enemy segment data send to current sector only:
     @envelope = create_envelope(0x02);
     serialize_enemy_segment_data(envelope);
+    p = send_packet(envelope, p);
+
+    // overlord data send to current sector only:
+    @envelope = create_envelope(0x02);
+    serialize_overlord_data(envelope);
     p = send_packet(envelope, p);
   }
 

@@ -19,6 +19,34 @@ bool locations_equal(uint32 a, uint32 b) {
 const uint16 small_keys_min_offs = 0xF37C;
 const uint16 small_keys_max_offs = 0xF38C;
 
+const uint ol8_id = 0;
+const uint ol8_xl = 1;
+const uint ol8_xh = 2;
+const uint ol8_yl = 3;
+const uint ol8_yh = 4;
+const uint ol8_ta = 5;
+const uint ol8_tb = 6;
+const uint ol8_tc = 7;
+const uint ol8_layer = 8;
+
+const array<uint16> overlord_u8_ptrs = {
+  0x0B00, // [ 0] id
+  0x0B08, // [ 1] xl
+  0x0B10, // [ 2] xh
+  0x0B18, // [ 3] yl
+  0x0B20, // [ 4] yh
+  0x0B28, // [ 5] ta
+  0x0B30, // [ 6] tb
+  0x0B38, // [ 7] tc
+  0x0B40  // [ 8] layer
+};
+
+const uint ol16_scr = 0;
+
+const array<uint16> overlord_u16_ptrs = {
+  0x0B48  // [ 9] scr
+};
+
 const uint spr_stun = 0;
 const uint spr_tiledie = 1;
 const uint spr_prio = 2;
@@ -370,6 +398,8 @@ class GameState {
 
   array<PvPAttack> pvp_attacks;
 
+  array<uint8> overlordU8Data(overlord_u8_ptrs.length() * 0x08);
+  array<uint8> overlordU16Data(overlord_u16_ptrs.length() * 0x10);
   array<uint8> enemyData(enemy_data_size);
   array<uint8> enemySegments(enemy_segments_data_size);
   array<uint8> swamolaSegments(swamola_segments_data_size);
@@ -661,6 +691,7 @@ class GameState {
         case 0x10: c = deserialize_sm_sprite(r, c); break;
         case 0x11: c = deserialize_enemy_data(r, c); break;
         case 0x12: c = deserialize_enemy_segment_data(r, c); break;
+        case 0x13: c = deserialize_overlord_data(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -1089,6 +1120,26 @@ class GameState {
             }
           }
           break;
+      }
+    }
+
+    return c;
+  }
+
+  int deserialize_overlord_data(array<uint8> r, int c) {
+    uint8 mask = r[c++];
+    for (uint s = 0; s < 8; s++) {
+      if ((mask & (1 << s)) == 0) {
+        overlordU8Data[(ol8_id<<3)+s] = 0;
+        continue;
+      }
+
+      for (uint x = 0; x < overlord_u8_ptrs.length(); x++) {
+        overlordU8Data[(x<<3)+s] = r[c++];
+      }
+      for (uint x = 0; x < overlord_u16_ptrs.length(); x++) {
+        overlordU16Data[(x<<4)+(s<<1)  ] = r[c++];
+        overlordU16Data[(x<<4)+(s<<1)+1] = r[c++];
       }
     }
 

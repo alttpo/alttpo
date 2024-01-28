@@ -115,6 +115,7 @@ void on_main_alttp(uint32 pc) {
 void on_sprite_main_alttp(uint32 pc) {
   if (true) {
     local.fetch_basics();
+    local.update_overlord_data();
     local.update_enemy_data();
   }
 }
@@ -122,6 +123,7 @@ void on_sprite_main_alttp(uint32 pc) {
 // This function is called when alttp's Sprint_Main routine ends (on RTL):
 void on_sprite_main_end_alttp(uint32 pc) {
   if (true) {
+    local.fetch_overlord_data();
     local.fetch_enemy_data();
     local.send_enemy_data();
   }
