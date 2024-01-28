@@ -23,6 +23,7 @@ class MemoryWindow {
 
   GUI::Color gridColor = GUI::Color( 80,  80,  80);
   GUI::Color addrColor = GUI::Color(220, 220,   0);
+  GUI::Color zeroColor = GUI::Color( 80,  80,  80);
   GUI::Color dataColor = GUI::Color(160, 160, 160);
   GUI::Color diffColor = GUI::Color(255,  20,  20);
 
@@ -187,7 +188,11 @@ class MemoryWindow {
         for (uint x = 0; x < 0x10; x++, absAddr++) {
           auto j = row + x;
           lblData[j].text = fmtHex(page[j], 2) + "\u2007";
-          lblData[j].foregroundColor = dataColor;
+          if (page[j] == 0) {
+            lblData[j].foregroundColor = zeroColor;
+          } else {
+            lblData[j].foregroundColor = dataColor;
+          }
         }
       } else {
         // capture window overlap:
@@ -201,10 +206,18 @@ class MemoryWindow {
             if (page[j] != base[j+offs]) {
               lblData[j].foregroundColor = diffColor;
             } else {
-              lblData[j].foregroundColor = dataColor;
+              if (page[j] == 0) {
+                lblData[j].foregroundColor = zeroColor;
+              } else {
+                lblData[j].foregroundColor = dataColor;
+              }
             }
           } else {
-            lblData[j].foregroundColor = dataColor;
+            if (page[j] == 0) {
+              lblData[j].foregroundColor = zeroColor;
+            } else {
+              lblData[j].foregroundColor = dataColor;
+            }
           }
         }
       }
