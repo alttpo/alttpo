@@ -153,6 +153,7 @@ bool sm_loading_room() {
   return sm_state == 0x0b;
 }
 
+
 bool sm_in_menu(){
   return (sm_state >= 0x0c && sm_state <= 0x12);
 }
@@ -161,6 +162,8 @@ bool sm_in_menu(){
 void on_main_sm(uint32 pc) {
   //message("main_sm");
   main_called = true;
+  
+  ppu::frame.text(  0,  10, "sm main called");
 
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
@@ -171,6 +174,7 @@ void on_main_sm(uint32 pc) {
   local.fetch_games_won();
   if (!sm_in_menu()){ 
     local.get_sm_sprite_data();
+    local.fetch_enemies();
     if (settings.SyncTunic){
       local.update_sm_palette();
     }
@@ -222,6 +226,13 @@ void on_main_sm(uint32 pc) {
       }
     }
   }
+  if (!sm_loading_room()) {
+    if (settings.SyncSmEnemies) {local.update_enemies();}
+    local.timeInRoom++;
+   }
+   else {
+    local.timeInRoom = 0;
+   }
 }
 
 // pre_frame always happens

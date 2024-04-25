@@ -189,3 +189,14 @@ uint16 min(uint16 a, uint16 b) {
   if (a < b) return a;
   return b;
 }
+
+uint16 max(uint16 a, uint16 b) {
+  if (a > b) return a;
+  return b;
+}
+
+int absoluteValue(int a){
+  if (a > 0)
+    return a;
+  return -a;
+}

@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x13;
+const uint8 script_protocol = 0x14;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -291,6 +291,10 @@ class GameState {
   uint8 in_sm;
   uint8 sm_clear, z3_clear;
 
+  array<SM_Enemy> enemies(0x20);
+  bool enemySyncEnabled;
+  uint16 timeInRoom = 0;
+
   uint8 _module;
   uint8 module {
     get const { return _module; }
@@ -434,6 +438,7 @@ class GameState {
     module = 0;
     sub_module = 0;
     sub_sub_module = 0;
+    timeInRoom = 0;
 
     in_dark_world = 0;
     in_dungeon = 0;
@@ -462,6 +467,10 @@ class GameState {
 
     for (uint i = 0; i < 0x50; i++) {
       sm_events[i] = 0;
+    }
+
+    for (uint i = 0; i < 0x20; i++){
+      enemies[i] = SM_Enemy(i);
     }
 
     //array<GameSprite@> objects(0x10);
@@ -689,9 +698,10 @@ class GameState {
         case 0x0E: c = deserialize_sram_buffer(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
         case 0x10: c = deserialize_sm_sprite(r, c); break;
-        case 0x11: c = deserialize_enemy_data(r, c); break;
-        case 0x12: c = deserialize_enemy_segment_data(r, c); break;
-        case 0x13: c = deserialize_overlord_data(r, c); break;
+        case 0x11: c = deserialize_sm_enemies(r, c); break;
+        case 0x12: c = deserialize_enemy_data(r, c); break;
+        case 0x13: c = deserialize_enemy_segment_data(r, c); break;
+        case 0x14: c = deserialize_overlord_data(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -758,6 +768,7 @@ class GameState {
     sm_room_x = r[c++];
     sm_room_y = r[c++];
     sm_pose = r[c++];
+    timeInRoom = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     return c;
   }
@@ -773,6 +784,37 @@ class GameState {
     
     return c;
     }
+
+  int deserialize_sm_enemies(array<uint8> r, int c){
+    //message("deserialize_sm_enemies");
+
+    uint8 is_enemy = r[c++];
+    if (is_enemy == 34){
+      enemySyncEnabled = false;
+      return c;
+    } else {
+      enemySyncEnabled = true;
+    }
+    uint8 enemy_index = r[c++];
+
+    if(r[c++] == 0){
+      enemies[enemy_index] = SM_Enemy(enemy_index);
+      return c;
+    }
+
+    array<uint16> temp(0x20);
+
+    for (uint i = 0; i < 32; i++) {
+      temp[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
+
+    uint8 constructed_host_index = r[c++];
+    enemies[enemy_index] = SM_Enemy(enemy_index, temp, constructed_host_index, r[c++] == 1);
+    //enemies[enemy_index] = SM_Enemy(enemy_index, temp, r[c++], r[c++] == 1);
+
+
+    return c;
+  }
 
   int deserialize_sfx(array<uint8> r, int c) {
     uint8 tx1, tx2;

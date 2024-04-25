@@ -285,7 +285,7 @@ class LocalGameState : GameState {
       //}
       return true;
     }
-
+    
     // pre-dungeon, so we need to forget our last state:
     if (module == 0x06) {
       crystal.resetTo(newValue);
@@ -1180,6 +1180,20 @@ class LocalGameState : GameState {
     sm_clear = bus::read_u8(0xa17402);
     z3_clear = bus::read_u8(0xa17506);
   }
+  
+  void fetch_enemies(){
+  
+    // probably done might edit later
+    
+    for (uint i = 0; i < 0x20; i++){
+        local.enemies[i].read();
+        if (local.is_alone()){local.enemies[i].host_index = local.index;}
+        local.enemies[i].is_active = (get_distance_from_enemy(local.enemies[i], local) < sm_enemy_active_distance);
+        if (bus::read_u16(0x7e179c) != 0){local.enemies[i].is_active = true;} // Checks the Boss number against 0
+    }
+    
+    
+  }
 
   void serialize_location(array<uint8> &r) {
     r.write_u8(uint8(0x01));
@@ -1219,7 +1233,8 @@ class LocalGameState : GameState {
     r.write_u8(sm_room_x);
     r.write_u8(sm_room_y);
     r.write_u8(sm_pose);
-  }
+    r.write_u16(timeInRoom);
+  } 
   
   void serialize_sm_sprite(array<uint8> &r){
     r.write_u8(uint8(0x10));
@@ -1230,6 +1245,43 @@ class LocalGameState : GameState {
     for(int i = 0; i < 0x10; i++){
       r.write_u16(sm_palette[i]);
     }
+  }
+
+  uint send_sm_enemies(uint p){
+    //message("send_sm_enemies");
+    
+    if (settings.SyncSmEnemies){
+      for (uint i = 0; i < 32; i++){
+        p = send_one_sm_enemy(i, p);
+      }
+    } else {
+      array<uint8> tmpenv = create_envelope();
+      tmpenv.write_u8(uint8(0x11));
+      tmpenv.write_u8(34);
+      p = send_packet(tmpenv, p);
+    }
+    return p;
+  }
+  
+  uint send_one_sm_enemy(uint8 enemy_index, uint p){
+    array<uint8> env = create_envelope();
+    env.write_u8(uint8(0x11));
+    env.write_u8(1);
+    env.write_u8(enemy_index);
+    
+    if (enemies[enemy_index].pointer == 0){
+      env.write_u8(0);
+    } else {
+      env.write_u8(1);
+      for (uint i = 0; i < 32; i++){
+        env.write_u16(enemies[enemy_index].enemy_data[i]);
+      }
+      env.write_u8(enemies[enemy_index].host_index);
+      env.write_u8(enemies[enemy_index].is_active ? 1 : 0);
+    }
+    
+    p = send_packet(env, p);
+    return p;
   }
 
   void serialize_sfx(array<uint8> &r) {
@@ -1383,7 +1435,7 @@ class LocalGameState : GameState {
   }
 
   void serialize_enemy_data(array<uint8> &r) {
-    r.write_u8(uint8(0x11));
+    r.write_u8(uint8(0x12));
 
     // create a bitmask of which sprite slots are filled:
     uint16 mask = 0;
@@ -1415,7 +1467,7 @@ class LocalGameState : GameState {
   }
 
   void serialize_enemy_segment_data(array<uint8> &r) {
-    r.write_u8(uint8(0x12));
+    r.write_u8(uint8(0x13));
 
     // create a bitmask of which sprite slots are filled for "segmented" enemies:
     // segmented here refers to an enemy with segmented body parts
@@ -1488,7 +1540,7 @@ class LocalGameState : GameState {
   }
 
   void serialize_overlord_data(array<uint8> &r) {
-    r.write_u8(uint8(0x13));
+    r.write_u8(uint8(0x14));
 
     // create a bitmask of which overlord slots are filled:
     uint8 mask = 0;
@@ -1895,14 +1947,15 @@ class LocalGameState : GameState {
       }
     }
     if (!rom.is_alttp()) {
-      auto @envelope = create_envelope();
-      serialize_sm_location(envelope);
-      p = send_packet(envelope, p);
-
-      auto @envelope1 = create_envelope();
-      serialize_sm_sprite(envelope1);
-      p = send_packet(envelope1, p);
-    }
+          auto @envelope = create_envelope();
+          serialize_sm_location(envelope);
+          p = send_packet(envelope, p);
+        
+          auto @envelope1 = create_envelope();
+          serialize_sm_sprite(envelope1);
+          p = send_packet(envelope1, p);
+          p = send_sm_enemies(p);
+        }
   }
 
   void update_wram() {
@@ -3009,14 +3062,22 @@ class LocalGameState : GameState {
 
   void get_sm_coords() {
     if (sm_loading_room()) return;
-    sm_area = bus::read_u8(0x7E079f);
+    uint8 tempArea = bus::read_u8(0x7E079f);
+    uint8 tempX = bus::read_u8(0x7E07A1);
+    uint8 tempY = bus::read_u8(0x7E07A3);
+    bool changedRoom = (tempArea != sm_area) || (tempX != sm_room_x) || (tempY != sm_room_y);
+  
+    sm_area = tempArea;
+    sm_room_x = tempX;
+    sm_room_y = tempY;
     sm_x = bus::read_u8(0x7E0AF7);
     sm_y = bus::read_u8(0x7E0AFB);
     sm_sub_x = bus::read_u8(0x7E0AF6);
     sm_sub_y = bus::read_u8(0x7E0AFA);
-    sm_room_x = bus::read_u8(0x7E07A1);
-    sm_room_y = bus::read_u8(0x7E07A3);
     sm_pose = bus::read_u8(0x7E0A1C);
+    if (changedRoom) {
+      timeInRoom = 0;
+    }
   }
 
   void get_sm_sprite_data(){
@@ -3362,5 +3423,138 @@ class LocalGameState : GameState {
       // reset Z offset:
       bus::write_u16(0x7E0024, 0);
     }
+  }
+  
+  bool is_alone(){
+    auto len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is local) continue;
+      if (remote.ttl <= 0) continue;
+      if (remote.team != team) continue;
+
+      if (local.can_see_sm(remote)) { return false; }
+    }
+
+    return true;
+  }
+  
+  uint32 get_distance_from_enemy(SM_Enemy enemy, GameState @player) {
+    uint16 enemyX = enemy.Xpos;
+    uint16 enemyY = enemy.Ypos;
+    uint16 smX = (uint16(player.sm_x) << 8) + uint16(player.sm_sub_x);
+    uint16 smY = (uint16(player.sm_y) << 8) + uint16(player.sm_sub_y);
+    
+    uint32 xDiff = absoluteValue(int(enemyX) - int(smX));//created an abs function to simplify the code here
+    uint32 yDiff = absoluteValue(int(enemyY) - int(smY)); //see init.as
+    
+    uint64 dist =  xDiff*xDiff + yDiff*yDiff;
+    //message(fmtInt(dist));
+    return dist; //switch to using a euclidean distance metric rather than a taxicab metric
+  }
+  
+
+  void update_enemies(){
+    // First, do a quick check to see if anyone else is even in the same area as you
+    if (local.is_alone()) {
+      // No need to do anything here, simply exit!
+      return;
+    }
+	
+    auto players_len = players.length();
+    for (uint i = 0; i < 0x20; i ++){
+      bool take_host = true;
+      
+      if (!(local.timeInRoom < 5) && local.enemies[i].pointer == 0){continue;}
+      
+      for (uint j = 0; j < players_len; j++) {
+        auto @remote = players[j];
+        if (remote is null) continue;
+        if (remote is local) continue;
+        if (remote.ttl <= 0) continue;
+        if (remote.team != team) continue;
+        if (!remote.enemySyncEnabled) continue;
+        if (remote.timeInRoom < 5) continue;
+        if (!local.can_see_sm(remote)) continue;
+        
+        if (local.timeInRoom < 5){
+          local.enemies[i].clone_to(remote.enemies[i]);
+          local.enemies[i].host_index = remote.index;
+          take_host = false;
+          continue;
+        }
+        
+        
+        
+        bool A = local.enemies[i].host_index == local.index;
+        bool B = local.enemies[i].is_active;
+        bool C = remote.enemies[i].host_index == remote.index;
+        bool D = remote.enemies[i].is_active;
+        uint8 temp = 0;
+        
+        if (D) {temp += 1;}
+        if (C) {temp += 2;}
+        if (B) {temp += 4;}
+        if (A) {temp += 8;}
+        
+        if (enemies[i].enemy_index == 14){
+          //message("stuck in state: " + fmtInt(temp));
+        }
+        
+        switch (temp){
+          
+          
+          case 10:
+          case 15:
+            message("error case 15/10");
+            if (local.index > remote.index){
+              local.enemies[i].clone_to(remote.enemies[i]);
+              local.enemies[i].host_index = remote.index;
+              take_host = false;
+            }
+            break;
+          
+          case 11:
+            message("error case 11");
+          case 2:
+          case 3:
+          case 7:
+          case 9:
+            // concede control of the enemy
+            local.enemies[i].clone_to(remote.enemies[i]);
+            local.enemies[i].host_index = remote.index;
+            take_host = false;
+            break;
+           
+          
+          case 5:
+            if (local.index > remote.index){take_host = false;}
+          case 4: // leave new_host alone
+          case 6:
+            break;
+          
+          
+          case 14:
+            message("error case 14");
+          case 0:
+          case 1:
+          case 8:
+          case 12:
+          case 13:
+          default:
+            local.enemies[i].compare_to_remote(remote.enemies[i]);
+            take_host = false;
+        }
+      }
+      
+      if (take_host) {
+        local.enemies[i].host_index = local.index;
+      }
+      local.enemies[i].write();
+    }
+    
+    
+    // write the enemies into the game
   }
 };
