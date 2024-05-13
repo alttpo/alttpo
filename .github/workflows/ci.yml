@@ -29,7 +29,7 @@ jobs:
       - uses: robinraju/release-downloader@v1.9
         with:
           repository: "alttpo/bsnes-as"
-          tag: "v20240115"
+          tag: "v20240512"
           fileName: 'bsnes-as-${{matrix.arch}}${{matrix.ext}}'
 
       - if: ${{ (matrix.arch == 'win64') }}
