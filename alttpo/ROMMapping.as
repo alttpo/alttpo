@@ -746,7 +746,8 @@ class SMZ3Mapping : RandomizerMapping {
   bool is_smz3() override { return true;}
 
   void register_pc_intercepts() override {
-    cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
+    // call base class method for LTTP interceptors (enables enemy sync):
+    ROMMapping::register_pc_intercepts();
 
     // SM main is at 0x82893D (PHK; PLB)
     // SM main @loop (PHP; REP #$30) https://github.com/strager/supermetroid/blob/master/src/bank82.asm#L1066
