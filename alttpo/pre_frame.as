@@ -118,7 +118,7 @@ void on_sprite_main_alttp(uint32 pc) {
     receive();
   }
 
-  if (true) {
+  if (settings.SyncLttpEnemies) {
     local.fetch_basics(); // for in_dungeon and location checks
     local.fetch_enemy_data(); // to not overwrite picked up sprites
 
@@ -129,7 +129,7 @@ void on_sprite_main_alttp(uint32 pc) {
 
 // This function is called when alttp's Sprint_Main routine ends (on RTL):
 void on_sprite_main_end_alttp(uint32 pc) {
-  if (true) {
+  if (settings.SyncLttpEnemies) {
     local.fetch_overlord_data();
     local.fetch_enemy_data();
 
