@@ -891,6 +891,10 @@ ROMMapping@ detect() {
   } else if(title.slice(0, 13) == "Super Metroid") {
     message("recognized vanilla SM");
     return VanillaSMMappping();
+  } else if(title.slice(0, 4) == "SMMR") {
+    // AP-branded map randomizer for Super Metroid:
+    message("recognized vanilla SM");
+    return VanillaSMMappping();
   } else if(title == "      SM RANDOMIZER  ") {
      message("recognized SM randomizer");
      return VanillaSMMappping();
