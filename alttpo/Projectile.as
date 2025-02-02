@@ -117,7 +117,7 @@ class Projectile {
         // sram[0x340] = arrow type
         if (attacker.sram[0x340] >= 0x03) {
           // silver arrow:
-          damage = 20*8;
+          damage = 4*8;
         } else {
           // regular arrow:
           damage = 2*8;
@@ -136,16 +136,19 @@ class Projectile {
 
       case 0x0B:  // ice rod
       case 0x02:  // fire rod
-        damage = 4 * 8;
+        damage = 2 * 8;
+        damage >>= armor_shr;
         break;
 
       case 0x01:  // somaria blast
       case 0x1F:  // hookshot
         damage = 2 * 8;
+        damage >>= armor_shr;
         break;
 
       case 0x31:  // Cane of Byrna sparkle
-        damage = 2 * 8;
+        damage = 1 * 8;
+        damage >>= armor_shr;
         // set recoil direction away from attacker player:
         dx = float(x) - attacker.hitbox.mx;
         dy = float(y) - attacker.hitbox.my;

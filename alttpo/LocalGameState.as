@@ -3255,9 +3255,9 @@ class LocalGameState : GameState {
             }
           }
 
-          // if using hammer, apply 10 hearts damage regardless of armor:
+          // if using hammer, apply 2 hearts damage regardless of armor:
           if ((action_item_used & 0x02) != 0) {
-            curr_dmg = 10 * 8;
+            curr_dmg = 2 * 8;
           }
 
           // minimum 1/4 heart damage; let's not mess with 1/8th hearts:
