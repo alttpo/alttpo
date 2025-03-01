@@ -1175,7 +1175,42 @@ class LocalGameState : GameState {
       sm_events[i + 0x14 + 0x20] = bus::read_u8(0xa16100 + i);
     }
   }
-  
+
+  void fetch_sm_sprites() {
+    numsprites = 0;
+    sprites.resize(0);
+    sprites_need_vram = true;
+
+    // read in relevant sprites from OAM:
+    array<uint8> oam(0x220);
+    ppu::oam.read_block_u8(0, 0, 0x220, oam);
+
+    // extract OAM sprites to class instances:
+    sprites.reserve(128);
+    for (int i = 0x00; i <= 0x7f; i++) {
+      sprs[i].decodeOAMArray(oam, i);
+    }
+
+    // only find Samus sprites:
+    for (int j = 0x00; j <= 0x7f; j++) {
+      auto i = j;
+
+      auto @spr = sprs[i];
+      // skip OAM sprite if not enabled:
+      if (!spr.is_enabled) continue;
+
+      //message("[" + fmtInt(spr.index) + "] " + fmtInt(spr.x) + "," + fmtInt(spr.y) + "=" + fmtInt(spr.chr));
+
+      auto chr = spr.chr;
+      // based on very loose and quick research, Samus's body uses CHRs 00-0F
+      if (chr > 0x0f) continue;
+
+      // append the sprite to our array:
+      sprites.resize(++numsprites);
+      @sprites[numsprites-1] = spr;
+    }
+  }
+
   void fetch_games_won(){
     sm_clear = bus::read_u8(0xa17402);
     z3_clear = bus::read_u8(0xa17506);
@@ -1234,6 +1269,8 @@ class LocalGameState : GameState {
     r.write_u8(sm_room_y);
     r.write_u8(sm_pose);
     r.write_u16(timeInRoom);
+    r.write_u16(sm_screen_x);
+    r.write_u16(sm_screen_y);
   } 
   
   void serialize_sm_sprite(array<uint8> &r){
@@ -1582,21 +1619,27 @@ class LocalGameState : GameState {
 
   uint send_sprites(uint p) {
     uint len = sprites.length();
+    if (len == 0) {
+      return p;
+    }
 
     uint start = 0;
     uint end = len;
 
-    // never send the shadow sprite or bomb sprite data (or anything for chr >= 0x80):
     array<bool> paletteSent(8);
     array<bool> chrSent(0x80);
-    chrSent[0x6c] = true;
-    chrSent[0x6d] = true;
-    chrSent[0x6e] = true;
-    chrSent[0x6f] = true;
-    chrSent[0x7c] = true;
-    chrSent[0x7d] = true;
-    chrSent[0x7e] = true;
-    chrSent[0x7f] = true;
+
+    if (rom.is_alttp()) {
+      // never send the shadow sprite or bomb sprite data (or anything for chr >= 0x80):
+      chrSent[0x6c] = true;
+      chrSent[0x6d] = true;
+      chrSent[0x6e] = true;
+      chrSent[0x6f] = true;
+      chrSent[0x7c] = true;
+      chrSent[0x7d] = true;
+      chrSent[0x7e] = true;
+      chrSent[0x7f] = true;
+    }
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
@@ -1947,15 +1990,15 @@ class LocalGameState : GameState {
       }
     }
     if (!rom.is_alttp()) {
-          auto @envelope = create_envelope();
-          serialize_sm_location(envelope);
-          p = send_packet(envelope, p);
-        
-          auto @envelope1 = create_envelope();
-          serialize_sm_sprite(envelope1);
-          p = send_packet(envelope1, p);
-          p = send_sm_enemies(p);
-        }
+      auto @envelope = create_envelope();
+      serialize_sm_location(envelope);
+      p = send_packet(envelope, p);
+    
+      auto @envelope1 = create_envelope();
+      serialize_sm_sprite(envelope1);
+      p = send_packet(envelope1, p);
+      p = send_sm_enemies(p);
+    }
   }
 
   void update_wram() {
@@ -3074,6 +3117,8 @@ class LocalGameState : GameState {
     sm_y = bus::read_u8(0x7E0AFB);
     sm_sub_x = bus::read_u8(0x7E0AF6);
     sm_sub_y = bus::read_u8(0x7E0AFA);
+    sm_screen_x = bus::read_u16(0x7e0911);
+    sm_screen_y = bus::read_u16(0x7e0915);
     sm_pose = bus::read_u8(0x7E0A1C);
     if (changedRoom) {
       timeInRoom = 0;

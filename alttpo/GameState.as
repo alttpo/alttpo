@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x14;
+const uint8 script_protocol = 0x15;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -287,6 +287,7 @@ class GameState {
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
   uint8 sm_room_x, sm_room_y, sm_pose;
+  uint16 sm_screen_x, sm_screen_y;
   uint16 offsm1, offsm2;
   uint8 in_sm;
   uint8 sm_clear, z3_clear;
@@ -769,6 +770,8 @@ class GameState {
     sm_room_y = r[c++];
     sm_pose = r[c++];
     timeInRoom = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    sm_screen_x = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    sm_screen_y = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
     return c;
   }
@@ -1341,6 +1344,7 @@ class GameState {
 
   int renderToExtra(int dx, int dy, int ei) {
     uint len = sprites.length();
+    // message("renderToExtra " + fmtInt(len));
     for (uint i = 0; i < len; i++) {
       auto @sprite = sprites[i];
       if (sprite is null) continue;
@@ -1448,6 +1452,8 @@ class GameState {
   }
   
   int render_sm_label(int dx, int dy, int ei) {
+    uint16 abs_x = (uint16(sm_x) << 8) + uint16(sm_sub_x);
+    uint16 abs_y = (uint16(sm_y) << 8) + uint16(sm_sub_y);
 
     // render player name as text:
     auto @label = ppu::extra[ei++];
@@ -1466,8 +1472,8 @@ class GameState {
     ppu::extra.outline_color = player_color_dark_33;
     label.text(1, 1, _name);
 
-    label.x = (dx + 8) - (label.width >> 1);
-    label.y = (17 + dy) + 8;
+    label.x = (abs_x - sm_screen_x + dx + 8) - (label.width >> 1);
+    label.y = (abs_y - sm_screen_y + 17 + dy) + 8;
 
     return ei;
   }

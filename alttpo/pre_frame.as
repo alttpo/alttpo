@@ -154,7 +154,7 @@ bool sm_loading_room() {
 }
 
 
-bool sm_in_menu(){
+bool sm_in_menu() {
   return (sm_state >= 0x0c && sm_state <= 0x12);
 }
 
@@ -162,23 +162,13 @@ bool sm_in_menu(){
 void on_main_sm(uint32 pc) {
   //message("main_sm");
   main_called = true;
-  
-  ppu::frame.text(  0,  10, "sm main called");
+
+  // ppu::frame.text(  0,  10, "sm main called");
 
   rom.check_game();
   local.set_in_sm(!rom.is_alttp());
 
   sm_state = bus::read_u8(0x7E0998);
-
-  local.get_sm_coords();
-  local.fetch_games_won();
-  if (!sm_in_menu()){ 
-    local.get_sm_sprite_data();
-    local.fetch_enemies();
-    if (settings.SyncTunic){
-      local.update_sm_palette();
-    }
-  }
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -188,27 +178,45 @@ void on_main_sm(uint32 pc) {
   local.sprites.resize(0);
   local.actual_location = 0;
 
-  if (sm_is_safe_state()) {
-    // read ALTTP temporary item buffer from SM SRAM
-    //message("read SM");
-    local.in_sm_for_items = true;
-    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
-    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
-	local.fetch_sm_events();
-  } else {
+  if (!sm_is_safe_state()) {
     return;
   }
 
-  if (settings.started && (sock !is null)) {
-    //message("SM send&recieve");
-    // send updated state for our Link to server:
-    local.send();
+  local.get_sm_coords();
+  local.fetch_games_won();
+  if (!sm_in_menu()) {
+    local.get_sm_sprite_data();
+    local.fetch_sm_sprites();
 
-    // receive network updates from remote players:
-    receive();
-  } else {
+    // fetch local VRAM data for sprites:
+    local.capture_sprites_vram();
+
+    local.fetch_enemies();
+    if (settings.SyncTunic){
+      local.update_sm_palette();
+    }
+  }
+
+  // read ALTTP temporary item buffer from SM SRAM
+  //message("read SM");
+  local.in_sm_for_items = true;
+  bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
+  bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
+  local.fetch_sm_events();
+
+  if (!settings.started) {
     return;
   }
+  if (sock is null) {
+    return;
+  }
+
+  //message("SM send&recieve");
+  // send updated state for our Link to server:
+  local.send();
+
+  // receive network updates from remote players:
+  receive();
 
   if (settings.SyncItems) {
     // all we can do is update items:
@@ -226,13 +234,16 @@ void on_main_sm(uint32 pc) {
       }
     }
   }
+
   if (!sm_loading_room()) {
-    if (settings.SyncSmEnemies) {local.update_enemies();}
+    if (settings.SyncSmEnemies) {
+      local.update_enemies();
+    }
     local.timeInRoom++;
-   }
-   else {
+  }
+  else {
     local.timeInRoom = 0;
-   }
+  }
 }
 
 // pre_frame always happens
@@ -317,51 +328,53 @@ void pre_frame() {
       continue;
     }
 
-    // exit early if game is not ALTTP (for SMZ3):
     if (!rom.is_alttp()) {
-    //tests if both players are in the same room
+      // SM:
+
+      //tests if both players are in the same room
       if (!local.can_see_sm(remote)) continue;
       if (sm_state > 0x0c && sm_state < 0x12) continue;
-      
-      
-      uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
-      uint16 local_offset_x = bus::read_u16(0x7e0911);
-      uint16 remote_offset_y = (uint16(remote.sm_y) << 8) + uint16(remote.sm_sub_y);
-      uint16 local_offset_y = bus::read_u16(0x7e0915);
+
+      uint16 remote_offset_x = remote.sm_screen_x;
+      uint16 local_offset_x = local.sm_screen_x;
+      uint16 remote_offset_y = remote.sm_screen_y;
+      uint16 local_offset_y = local.sm_screen_y;
       int rx = int(remote_offset_x) - int(local_offset_x);
       int ry = int(remote_offset_y) - int(local_offset_y);
-      
-      
-      ei = remote.draw_samus(rx, ry, ei);
-      
-      if (settings.ShowLabels){
-          ei = remote.render_sm_label(rx - 8, ry - 64, ei);
+
+      // message("SM local " + fmtInt(local_offset_x) + "," + fmtInt(local_offset_y) + "; remote " + fmtInt(remote_offset_x) + "," + fmtInt(remote_offset_y));
+      // message("SM rx,ry " + fmtInt(rx) + "," + fmtInt(ry) + "; remoteabs " + fmtInt(remote_abs_x) + "," + fmtInt(remote_abs_y));
+      ei = remote.renderToExtra(rx, ry, ei);
+      // ei = remote.draw_samus(rx, ry, ei);
+
+      if (settings.ShowLabels && !sm_in_menu()) {
+        ei = remote.render_sm_label(rx - 8, ry - 64, ei);
       }
-    
-      continue;
-    }
+    } else {
+      // alttp:
 
-    // don't render players or labels in pre-game modules:
-    if (local.is_it_a_bad_time()) continue;
+      // don't render players or labels in pre-game modules:
+      if (local.is_it_a_bad_time()) continue;
 
-    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location)) {
-      // don't render player if remote player is in pre-game modules:
-      if (remote.is_it_a_bad_time()) continue;
+      // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+      if (local.can_see(remote.location)) {
+        // don't render player if remote player is in pre-game modules:
+        if (remote.is_it_a_bad_time()) continue;
 
-      // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
-      int rx = int(remote.xoffs - local.xoffs);
-      int ry = int(remote.yoffs - local.yoffs);
+        // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
+        int rx = int(remote.xoffs - local.xoffs);
+        int ry = int(remote.yoffs - local.yoffs);
 
-      // draw remote player relative to current BG offsets:
-      if (enableRenderToExtra) {
-        ei = remote.renderToExtra(rx, ry, ei);
+        // draw remote player relative to current BG offsets:
+        if (enableRenderToExtra) {
+          ei = remote.renderToExtra(rx, ry, ei);
 
-        if (settings.ShowLabels && ! sm_in_menu()) {
-          ei = remote.renderLabel(rx, ry, ei);
+          if (settings.ShowLabels) {
+            ei = remote.renderLabel(rx, ry, ei);
+          }
+        } else {
+          remote.renderToPPU(rx, ry);
         }
-      } else {
-        remote.renderToPPU(rx, ry);
       }
     }
   }
@@ -390,12 +403,12 @@ void pre_frame() {
       if (sm_is_safe_state()) {
         ei = notificationSystem.renderNotifications(ei);
       }
-      
+
       if (settings.ShowMyLabel && !sm_loading_room() && !sm_in_menu()){
-        int offset_x = int(bus::read_u16(0x7e0b04));
-        int offset_y = int(bus::read_u16(0x7e0b06));
+        // int offset_x = int(bus::read_u16(0x7e0b04) & 0x00FF);
+        // int offset_y = int(bus::read_u16(0x7e0b06) & 0x00FF);
         
-        ei = local.render_sm_label(offset_x - 8, offset_y - 64, ei);
+        ei = local.render_sm_label(0 - 8, 0 - 64, ei);
       }
     }
 
