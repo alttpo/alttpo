@@ -1202,8 +1202,9 @@ class LocalGameState : GameState {
       //message("[" + fmtInt(spr.index) + "] " + fmtInt(spr.x) + "," + fmtInt(spr.y) + "=" + fmtInt(spr.chr));
 
       auto chr = spr.chr;
-      // based on very loose and quick research, Samus's body uses CHRs 00-0F
-      if (chr > 0x0f) continue;
+      // based on very loose and quick research, Samus's body uses CHRs 00-1F
+      if (chr > 0x6f) continue;
+      if (chr == 0x20) continue;
 
       // append the sprite to our array:
       sprites.resize(++numsprites);
