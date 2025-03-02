@@ -1495,17 +1495,6 @@ class LocalGameState : GameState {
     r.write_u16(sm_screen_y);
   }
 
-  void serialize_sm_sprite(array<uint8> &r){
-    r.write_u8(uint8(0x10));
-
-    r.write_u16(offsm1);
-    r.write_u16(offsm2);
-
-    for(int i = 0; i < 0x10; i++){
-      r.write_u16(sm_palette[i]);
-    }
-  }
-
   uint send_sm_enemies(uint p){
     //message("send_sm_enemies");
     
@@ -2241,9 +2230,6 @@ class LocalGameState : GameState {
       serialize_sm_location(envelope);
       p = send_packet(envelope, p);
 
-      auto @envelope1 = create_envelope();
-      serialize_sm_sprite(envelope1);
-      p = send_packet(envelope1, p);
       p = send_sm_enemies(p);
     }
 
@@ -3398,19 +3384,7 @@ class LocalGameState : GameState {
     sm_anim_frame = bus::read_u8(0x7E0A96);
   }
 
-  void get_sm_sprite_data(){
-    offsm1 = bus::read_u16(0x7e071f);
-    offsm2 = bus::read_u16(0x7e0721);
-    bus::read_block_u16(0x7eC180, 0, sm_palette.length(), sm_palette);
-  }
-
   bool deselect_tunic_sync_sm;
-  void update_sm_palette(){
-    sm_palette[1] = player_color_dark_33;
-    sm_palette[2] = player_color;
-    sm_palette[11] = player_color_dark_33;
-    sm_palette[10] = player_color_dark_50;
-  }
 
   void update_local_suit(){
     if(!rom.is_alttp()){

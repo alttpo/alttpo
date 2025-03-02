@@ -186,16 +186,12 @@ void on_main_sm(uint32 pc) {
   local.fetch_games_won();
   if (!sm_in_menu()) {
     local.fetch_sm_pose();
-    local.get_sm_sprite_data();
     local.fetch_sm_sprites();
 
     // fetch local VRAM data for sprites:
     local.capture_sprites_vram();
 
     local.fetch_enemies();
-    if (settings.SyncTunic){
-      local.update_sm_palette();
-    }
   }
 
   // read ALTTP temporary item buffer from SM SRAM
