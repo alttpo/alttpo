@@ -282,7 +282,6 @@ void pre_frame() {
     //dbgData("pre_frame send/recv");
     if (settings.started && (sock !is null)) {
       // send updated state for our Link to server:
-      //message("send");
       local.send();
 
       // receive network updates from remote players:
@@ -294,7 +293,7 @@ void pre_frame() {
     if (playersWindow !is null) {
       playersWindow.update();
     }
-    local.reset_uniqtiles();
+    //local.reset_uniqtiles();
   }
   players_updated = false;
 
@@ -343,7 +342,6 @@ void pre_frame() {
       // message("SM local " + fmtInt(local_offset_x) + "," + fmtInt(local_offset_y) + "; remote " + fmtInt(remote_offset_x) + "," + fmtInt(remote_offset_y));
       // message("SM rx,ry " + fmtInt(rx) + "," + fmtInt(ry) + "; remoteabs " + fmtInt(remote_abs_x) + "," + fmtInt(remote_abs_y));
       ei = remote.renderToExtra(rx, ry, ei);
-      // ei = remote.draw_samus(rx, ry, ei);
 
       if (settings.ShowLabels && !sm_in_menu()) {
         ei = remote.render_sm_label(rx - 8, ry - 64, ei);

@@ -16,6 +16,17 @@ bool locations_equal(uint32 a, uint32 b) {
   return false;
 }
 
+void insertUnique(array<uint16> &a, uint16 v) {
+  int i;
+  for (i = a.length() - 1; i >= 0; i--) {
+    // don't insert duplicate value:
+    if (a[i] == v) return;
+    if (a[i] < v) break;
+  }
+
+  a.insertAt(i + 1, v);
+}
+
 const uint16 small_keys_min_offs = 0xF37C;
 const uint16 small_keys_max_offs = 0xF38C;
 
@@ -223,6 +234,9 @@ class GameState {
   array<array<uint16>> lttp_uniqtile_4bpp(lttp_uniq4bpptile_count);
   //   sm: unique tiles' 4bpp data ($20 uint8s | $10 uint16s, each):
   array<array<uint16>>   sm_uniqtile_4bpp(  sm_uniq4bpptile_count);
+
+  // currently missing unique tiles:
+  array<uint16> missing_uniq_absidx;
 
   array<uint16> @uniqtile_get(uint16 absidx) {
     if (absidx < 0x1000) {
@@ -525,6 +539,9 @@ class GameState {
     for (uint i = 0; i < 0x0A; i++) {
       small_keys[i].reset();
     }
+
+    missing_uniq_absidx.reserve(64);
+    missing_uniq_absidx.resize(0);
   }
 
   void calculate_player_color_dark() {
@@ -724,6 +741,7 @@ class GameState {
         case 0x13: c = deserialize_enemy_segment_data(r, c); break;
         case 0x14: c = deserialize_overlord_data(r, c); break;
         case 0x15: c = deserialize_uniqtiles(r, c); break;
+        case 0x16: c = deserialize_nak_uniqtiles(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -1232,9 +1250,9 @@ class GameState {
   }
 
   int deserialize_uniqtiles(array<uint8> r, int c) {
-    int len = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint len = r[c++];
 
-    for (int i = 0; i < len; i++) {
+    for (uint i = 0; i < len; i++) {
       // read absidx of tile:
       uint16 absidx = uint16(r[c++]) | (uint16(r[c++]) << 8);
 
@@ -1244,6 +1262,26 @@ class GameState {
       for (int k = 0; k < 16; k++) {
         tiles[k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
       }
+    }
+
+    return c;
+  }
+
+  int deserialize_nak_uniqtiles(array<uint8> r, int c) {
+    // who is this NAK for?
+    int player_index = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    uint len = r[c++];
+    if (local.index != player_index) {
+      // discard NAK if not for our local player:
+      c += len * 2;
+      return c;
+    }
+
+    // read the NAK contents and add to our list to send out:
+    for (uint i = 0; i < len; i++) {
+      uint16 idx = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      local.uniqtile_new_insertLast(idx);
     }
 
     return c;
@@ -1420,6 +1458,9 @@ class GameState {
         }
       } else {
         @t = uniqtile_get(sprite.uniq_absidx_0);
+        if (t.length() == 0) {
+          insertUnique(missing_uniq_absidx, sprite.uniq_absidx_0);
+        }
       }
       if (t.length() > 0) {
         tile.draw_sprite_4bpp(0, 0, p, t, palettes);
@@ -1434,6 +1475,9 @@ class GameState {
           }
         } else {
           @t = uniqtile_get(sprite.uniq_absidx_1);
+          if (t.length() == 0) {
+            insertUnique(missing_uniq_absidx, sprite.uniq_absidx_1);
+          }
         }
         if (t.length() > 0) {
           tile.draw_sprite_4bpp(8, 0, p, t, palettes);
@@ -1447,6 +1491,9 @@ class GameState {
           }
         } else {
           @t = uniqtile_get(sprite.uniq_absidx_2);
+          if (t.length() == 0) {
+            insertUnique(missing_uniq_absidx, sprite.uniq_absidx_2);
+          }
         }
         if (t.length() > 0) {
           tile.draw_sprite_4bpp(0, 8, p, t, palettes);
@@ -1460,6 +1507,9 @@ class GameState {
           }
         } else {
           @t = uniqtile_get(sprite.uniq_absidx_3);
+          if (t.length() == 0) {
+            insertUnique(missing_uniq_absidx, sprite.uniq_absidx_3);
+          }
         }
         if (t.length() > 0) {
           tile.draw_sprite_4bpp(8, 8, p, t, palettes);

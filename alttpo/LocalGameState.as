@@ -77,6 +77,15 @@ class LocalGameState : GameState {
   array<int>   lttp_uniqtile_new;
   array<int>     sm_uniqtile_new;
 
+  void uniqtile_new_insertLast(uint16 absidx) {
+    if (absidx < 0x1000) {
+      lttp_uniqtile_new.insertLast(absidx);
+    } else if (absidx < 0x2000) {
+      sm_uniqtile_new.insertLast(absidx - 0x1000);
+    }
+  }
+
+
   Notify@ notify;
   NotifyItemReceived@ itemReceivedDelegate;
   SerializeSRAMDelegate@ serializeSramDelegate;
@@ -194,6 +203,12 @@ class LocalGameState : GameState {
     gotShield = 0;
 
     animation_timer = 0;
+
+    lttp_uniqtile_new.reserve(0x200);
+    lttp_uniqtile_new.resize(0);
+      sm_uniqtile_new.reserve(0x200);
+      sm_uniqtile_new.resize(0);
+
   }
 
   bool registered = false;
@@ -1098,7 +1113,6 @@ class LocalGameState : GameState {
   }
 
   void reset_uniqtiles() {
-    // clear out our captured uniqtiles since a new player joined:
     for (int i = 0; i < lttp_uniq4bpptile_count; i++) {
       lttp_uniqtile_4bpp[i].resize(0);
     }
@@ -1829,36 +1843,100 @@ class LocalGameState : GameState {
   }
 
   uint send_uniqtiles(uint p, uint8 g, array<int> @uniqtile_new, array<array<uint16>> @uniqtile_4bpp) {
-    int len = uniqtile_new.length();
+    uint len = uniqtile_new.length();
     if (len == 0) {
       return p;
     }
 
-    // create a new packet to deliver these new uniqtiles:
-    array<uint8> r = create_envelope(0x02);
-    r.write_u8(0x15); // uniqtiles
-    // TODO: break up into smaller packets if too large
-    r.write_u16(len);
-    for (int i = 0; i < len; i++) {
-      // send uniqtile index:
-      int idx = uniqtile_new[i];
-      // message(fmtInt(idx));
+    uint start = 0;
+    while (start < len) {
+      // create a packet to broadcast these uniqtiles:
+      array<uint8> r = create_envelope();
+      r.write_u8(0x15); // uniqtiles
 
-      r.write_u16(uniqtile_absidx(g, idx));
-
-      // send 4bpp tile data:
-      auto @tiles = @uniqtile_4bpp[idx];
-      if (tiles.length() == 0) {
-        message("BUG: unexpected empty uniqtile_4bpp["+fmtInt(g)+"]["+fmtHex(idx)+"]");
+      // dont overflow a uint8 (255) in length:
+      uint end = len;
+      if ((end - start) > 255) {
+        end = start + 255;
       }
-      r.write_arr(tiles);
-    }
 
-    // send this packet:
-    p = send_packet(r, p);
+      // patch this length if we short it:
+      uint markLen = r.length();
+      r.write_u8(end - start);
+
+      uint mark;
+      uint i;
+      for (i = start; i < end; i++) {
+        // send uniqtile index:
+        int idx = uniqtile_new[i];
+        // message(fmtInt(idx));
+
+        mark = r.length();
+        r.write_u16(uniqtile_absidx(g, idx));
+
+        // send 4bpp tile data:
+        auto @tiles = @uniqtile_4bpp[idx];
+        if (tiles.length() == 0) {
+          message("BUG: unexpected empty uniqtile_4bpp["+fmtInt(g)+"]["+fmtHex(idx)+"]");
+        }
+        r.write_arr(tiles);
+
+        if (r.length() > MaxPacketSize) {
+          // back out the last entry:
+          r.removeRange(mark, r.length() - mark);
+          break;
+        }
+      }
+
+      r[markLen] = uint8(i - start);
+      start = i;
+
+      // send this packet:
+      p = send_packet(r, p);
+    }
 
     // clear out the list for next delivery:
     uniqtile_new.resize(0);
+
+    return p;
+  }
+
+  uint send_nak_uniqtiles(uint p) {
+    uint plen = players.length();
+    for (uint i = 0; i < plen; i++) {
+      auto @remote = players[i];
+      if (remote is null) continue;
+      if (remote is this) continue;
+      if (remote.ttl <= 0) continue;
+
+      uint nlen = remote.missing_uniq_absidx.length();
+      if (nlen == 0) continue;
+
+      // send NAK to player about uniqtiles:
+      uint start = 0;
+      while (start < nlen) {
+        array<uint8> r = create_envelope();
+        r.write_u8(0x16); // nak_uniqtiles
+        r.write_u16(remote.index);
+
+        uint end = nlen;
+        if ((end - start) > 255) {
+          end = start + 255;
+        }
+        r.write_u8(end - start);
+
+        uint j;
+        for (j = start; j < end; j++) {
+          r.write_u16(remote.missing_uniq_absidx[j]);
+        }
+
+        start = j;
+        p = send_packet(r, p);
+      }
+
+      // clear NAK:
+      remote.missing_uniq_absidx.resize(0);
+    }
 
     return p;
   }
@@ -1868,7 +1946,7 @@ class LocalGameState : GameState {
       // message("send_uniqtiles lttp");
       p = send_uniqtiles(p, 0, @lttp_uniqtile_new, @lttp_uniqtile_4bpp);
     }
-    if (sm_uniqtile_new.length() > 0) {
+    if (  sm_uniqtile_new.length() > 0) {
       // message("send_uniqtiles   sm");
       p = send_uniqtiles(p, 1,   @sm_uniqtile_new,   @sm_uniqtile_4bpp);
     }
@@ -2143,11 +2221,14 @@ class LocalGameState : GameState {
     }
 
     // rate limit outgoing packets to 60fps:
-    if (timestamp_now - last_sent < 16) {
-      // message("rate limit");
-      return;
+    {
+      uint32 right_meow = uint32(chrono::realtime::millisecond);
+      if (right_meow - last_sent < 16) {
+        // message("rate limit");
+        return;
+      }
+      last_sent = right_meow;
     }
-    last_sent = timestamp_now;
 
     // send main packet:
     {
@@ -2179,6 +2260,7 @@ class LocalGameState : GameState {
 
     // send possibly multiple packets for sprites:
     if (settings.SyncSprites) {
+      p = send_nak_uniqtiles(p);
       p = send_sprites(p);
     }
 
