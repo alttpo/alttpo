@@ -6,7 +6,6 @@ bool debug = false;
 bool debugReadout = false;
 bool debugData = false;
 bool debugSRAM = false;
-bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
@@ -19,6 +18,9 @@ bool debugRTDSapply = false;
 bool enableMap = true;
 bool enablePlayerList = false;
 bool enableBgMusic = true;
+
+bool enableNetRateLimiting = false;
+bool enableNetReporting = false;
 
 bool enableRenderToExtra = true;
 

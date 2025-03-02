@@ -368,7 +368,6 @@ class LocalGameState : GameState {
       default:
         return true;
     }
-    return true;
   }
 
   void fetch_module() {
@@ -1567,7 +1566,7 @@ class LocalGameState : GameState {
         p = send_one_sm_enemy(i, p);
       }
     } else {
-      array<uint8> tmpenv = create_envelope();
+      array<uint8> tmpenv = make_packet_broadcast();
       tmpenv.write_u8(uint8(0x11));
       tmpenv.write_u8(34);
       p = send_packet(tmpenv, p);
@@ -1576,7 +1575,7 @@ class LocalGameState : GameState {
   }
   
   uint send_one_sm_enemy(uint8 enemy_index, uint p){
-    array<uint8> env = create_envelope();
+    array<uint8> env = make_packet_broadcast();
     env.write_u8(uint8(0x11));
     env.write_u8(1);
     env.write_u8(enemy_index);
@@ -1901,7 +1900,7 @@ class LocalGameState : GameState {
     uint start = 0;
     while (start < len) {
       // create a packet to broadcast these uniqtiles:
-      array<uint8> r = create_envelope();
+      array<uint8> r = make_packet_broadcast();
       r.write_u8(0x15); // uniqtiles
 
       // dont overflow a uint8 (255) in length:
@@ -1965,7 +1964,7 @@ class LocalGameState : GameState {
       // send NAK to player about uniqtiles:
       uint start = 0;
       while (start < nlen) {
-        array<uint8> r = create_envelope();
+        array<uint8> r = make_packet_broadcast();
         r.write_u8(0x16); // nak_uniqtiles
         r.write_u16(remote.index);
 
@@ -2026,7 +2025,7 @@ class LocalGameState : GameState {
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
-      array<uint8> r = create_envelope(0x02);
+      array<uint8> r = make_packet_broadcast_to_sector(broadcast_sector());
 
       // serialize_sprites:
       if (start == 0) {
@@ -2148,7 +2147,7 @@ class LocalGameState : GameState {
 
     // degenerate case to clear out tilemap:
     if (len == 0) {
-      array<uint8> r = create_envelope(0x02);
+      array<uint8> r = make_packet_broadcast_to_sector(broadcast_sector());
 
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
@@ -2164,7 +2163,7 @@ class LocalGameState : GameState {
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
-      array<uint8> r = create_envelope(0x02);
+      array<uint8> r = make_packet_broadcast_to_sector(broadcast_sector());
 
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
@@ -2205,43 +2204,80 @@ class LocalGameState : GameState {
     return p;
   }
 
-  array<uint8> @create_envelope(uint8 kind = 0x01) {
+  array<uint8> @make_server_envelope(uint8 kind) {
     array<uint8> @envelope = {};
     envelope.reserve(MaxPacketSize);
 
-    // server envelope:
-    {
-      // header:
-      envelope.write_u16(uint16(25887));
-      // server protocol 2:
-      envelope.write_u8(uint8(0x02));
-      // group name: (20 bytes exactly)
-      envelope.write_str(settings.GroupPadded);
-      // message kind:
-      envelope.write_u8(kind);
-      // what we think our index is:
-      envelope.write_u16(uint16(index));
+    // write a (possibly partial) server envelope:
+    // header:
+    envelope.write_u16(uint16(25887));
+    // server protocol 2:
+    envelope.write_u8(uint8(0x02));
+    // group name: (20 bytes exactly)
+    envelope.write_str(settings.GroupPadded);
+    // message kind:
+    envelope.write_u8(kind);
+    // what we think our index is:
+    envelope.write_u16(uint16(index));
 
-      if (kind == 0x02) {
-        // broadcast to sector:
-        uint16 sector = actual_location;
-        if ((sector & 0x010000) != 0) {
-          // turn off light/dark world bit so that all underworld locations are equal:
-          sector &= 0x01FFFF;
-        }
-        envelope.write_u32(sector);
-      }
-    }
-
-    // script protocol:
-    envelope.write_u8(uint8(script_protocol));
-
-    // protocol starts with team number:
-    envelope.write_u8(team);
-    // frame number to correlate separate packets together:
-    envelope.write_u8(frame);
+    // plus any kind-specific data...
 
     return envelope;
+  }
+
+  void write_game_packet_header(array<uint8> &envelope) {
+    // our game header:
+    {
+      // script protocol:
+      envelope.write_u8(uint8(script_protocol));
+
+      // protocol starts with team number:
+      envelope.write_u8(team);
+      // frame number to correlate separate packets together:
+      envelope.write_u8(frame);
+    }
+  }
+
+  array<uint8> @make_packet_request_index() {
+    array<uint8> @envelope = make_server_envelope(0x00);
+
+    write_game_packet_header(envelope);
+
+    return envelope;
+  }
+
+  array<uint8> @make_packet_broadcast() {
+    array<uint8> @envelope = make_server_envelope(0x01);
+
+    write_game_packet_header(envelope);
+
+    return envelope;
+  }
+
+  array<uint8> @make_packet_broadcast_to_sector(uint32 sector) {
+    array<uint8> @envelope = make_server_envelope(0x02);
+
+    // broadcast to sector:
+    envelope.write_u32(sector);
+
+    write_game_packet_header(envelope);
+
+    return envelope;
+  }
+
+  uint32 broadcast_sector() {
+    if (rom.is_alttp()) {
+      // LTTP:
+      uint32 sector = actual_location;
+      if ((sector & 0x010000) != 0) {
+        // turn off light/dark world bit so that all underworld locations are equal:
+        sector &= 0x01FFFF;
+      }
+      return sector;
+    } else {
+      // SM:
+      return (uint32(sm_area) << 24) | (uint32(sm_room_y) << 16) | (uint32(sm_room_x));
+    }
   }
 
   uint send_packet(array<uint8> @envelope, uint p) {
@@ -2255,6 +2291,10 @@ class LocalGameState : GameState {
     // message("sent " + fmtInt(len) + " bytes");
     sock.send(0, len, envelope);
 
+    if (enableNetReporting) {
+      net_bytes_sent += len;
+    }
+
     p++;
 
     return p;
@@ -2266,12 +2306,12 @@ class LocalGameState : GameState {
     // check if we need to detect our local index:
     if (index == -1) {
       // request our index; receive() will take care of the response:
-      auto @request = create_envelope(0x00);
+      auto @request = make_packet_request_index();
       p = send_packet(request, p);
     }
 
     // rate limit outgoing packets to 60fps:
-    {
+    if (enableNetRateLimiting) {
       uint32 right_meow = uint32(chrono::realtime::millisecond);
       if (right_meow - last_sent < 16) {
         // message("rate limit");
@@ -2282,7 +2322,7 @@ class LocalGameState : GameState {
 
     // send main packet:
     {
-      auto @envelope = create_envelope();
+      auto @envelope = make_packet_broadcast();
 
       serialize_location(envelope);
       serialize_name(envelope);
@@ -2317,13 +2357,13 @@ class LocalGameState : GameState {
     if (rom.is_alttp()) {
       // send SRAM updates once every 16 frames:
       if ((frame & 15) == 0) {
-        auto @envelope = create_envelope();
+        auto @envelope = make_packet_broadcast();
         rom.serialize_sram_ranges(envelope, serializeSramDelegate);
         p = send_packet(envelope, p);
       }
 
       if (rom.has_extras) {
-        auto @envelope = create_envelope();
+        auto @envelope = make_packet_broadcast();
         rom.serialize_extras(envelope, serializeSramDelegate);
         p = send_packet(envelope, p);
       }
@@ -2331,7 +2371,7 @@ class LocalGameState : GameState {
       // send dungeon and overworld SRAM alternating every 16 frames:
       if (settings.SyncUnderworld) {
         if ((frame & 31) == 0) {
-          auto @envelope = create_envelope();
+          auto @envelope = make_packet_broadcast();
           serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
           p = send_packet(envelope, p);
         }
@@ -2339,7 +2379,7 @@ class LocalGameState : GameState {
 
       if (settings.SyncOverworld) {
         if ((frame & 31) == 16) {
-          auto @envelope = create_envelope();
+          auto @envelope = make_packet_broadcast();
           serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
           p = send_packet(envelope, p);
         }
@@ -2352,13 +2392,13 @@ class LocalGameState : GameState {
 
       // send packet every other frame:
       if ((frame & 1) == 0) {
-        auto @envelope = create_envelope(0x02);
+        auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
         serialize_torches(envelope);
         p = send_packet(envelope, p);
       }
     } else {
       // SM:
-      auto @envelope = create_envelope();
+      auto @envelope = make_packet_broadcast();
       serialize_sm_location(envelope);
       p = send_packet(envelope, p);
 
@@ -2369,19 +2409,19 @@ class LocalGameState : GameState {
       // SMZ3 only:
 
       if ((frame & 31) == 0) {
-        auto @envelope = create_envelope();
+        auto @envelope = make_packet_broadcast();
         serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
         p = send_packet(envelope, p);
       }
 
       if ((frame & 31) == 0) {
-        auto @envelope = create_envelope();
+        auto @envelope = make_packet_broadcast();
         serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
         p = send_packet(envelope, p);
       }
 
       if ((frame & 31) == 16) {
-        auto @envelope = create_envelope();
+        auto @envelope = make_packet_broadcast();
         serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
         p = send_packet(envelope, p);
       }
@@ -3381,26 +3421,29 @@ class LocalGameState : GameState {
   void send_enemy_data() {
     // not connected:
     if (index < 0) return;
-    // rate limit outgoing packets to 60fps:
-    if (timestamp_now - last_sent < 16) {
-      return;
+
+    if (enableNetRateLimiting) {
+      // rate limit outgoing packets to 60fps:
+      if (timestamp_now - last_sent < 16) {
+        return;
+      }
     }
 
     // since this is pulled out of LocalGameState::send(), make up a start index:
     auto p = 20;
 
     // enemy data send to current sector only:
-    auto @envelope = create_envelope(0x02);
+    auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
     serialize_enemy_data(envelope);
     p = send_packet(envelope, p);
 
     // enemy segment data send to current sector only:
-    @envelope = create_envelope(0x02);
+    @envelope = make_packet_broadcast_to_sector(broadcast_sector());
     serialize_enemy_segment_data(envelope);
     p = send_packet(envelope, p);
 
     // overlord data send to current sector only:
-    @envelope = create_envelope(0x02);
+    @envelope = make_packet_broadcast_to_sector(broadcast_sector());
     serialize_overlord_data(envelope);
     p = send_packet(envelope, p);
   }
@@ -3886,7 +3929,7 @@ class LocalGameState : GameState {
       return;
     }
 	
-    auto players_len = players.length();
+    uint players_len = players.length();
     for (uint i = 0; i < 0x20; i ++){
       bool take_host = true;
       
@@ -3911,9 +3954,9 @@ class LocalGameState : GameState {
         
         
         
-        bool A = local.enemies[i].host_index == local.index;
+        bool A = int(local.enemies[i].host_index) == local.index;
         bool B = local.enemies[i].is_active;
-        bool C = remote.enemies[i].host_index == remote.index;
+        bool C = int(remote.enemies[i].host_index) == remote.index;
         bool D = remote.enemies[i].is_active;
         uint8 temp = 0;
         

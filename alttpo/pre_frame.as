@@ -243,6 +243,9 @@ void on_main_sm(uint32 pc) {
   }
 }
 
+uint32 last_net_report = 0;
+uint32 net_bytes_sent = 0;
+
 // pre_frame always happens
 void pre_frame() {
   //message("pre_frame");
@@ -250,6 +253,18 @@ void pre_frame() {
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
   timestamp_now = uint32(chrono::realtime::millisecond);
+
+  if (enableNetReporting) {
+    if (last_net_report == 0) {
+      last_net_report = timestamp_now;
+    }
+    if ((timestamp_now - last_net_report) >= 1000) {
+      double delta = (timestamp_now - last_net_report);
+      message(fmtInt(int(double(net_bytes_sent) * 1000.0 / delta)));
+      net_bytes_sent = 0;
+      last_net_report = timestamp_now;
+    }
+  }
 
   if (enableRenderToExtra) {
     ppu::extra.count = 0;
