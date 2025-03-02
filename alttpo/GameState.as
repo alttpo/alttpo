@@ -215,7 +215,7 @@ bool players_updated = false;
 // LTTP Link  uses $04F0 uniq tiles
 //   SM Samus uses $0F00 uniq tiles
 // total tiles  =  $13F0
-const uint lttp_uniq4bpptile_count = 0x4F0;
+const uint lttp_uniq4bpptile_count = 0x4F0 + 4;
 const uint   sm_uniq4bpptile_count = 0xF00;
 
 class GameState {

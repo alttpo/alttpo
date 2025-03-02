@@ -891,8 +891,58 @@ class LocalGameState : GameState {
     return uint16(idx + (g * 0x1000));
   }
 
+  void lttp_uniqtile_clear_sword() {
+    for (uint addr = 0; addr < 0x18; addr++) {
+      lttp_uniqtile_4bpp[0x380 + addr].resize(0);
+    }
+  }
+
+  void lttp_uniqtile_clear_shield() {
+    for (uint addr = 0; addr < 0x0C; addr++) {
+      lttp_uniqtile_4bpp[0x380 + 0x18 + addr].resize(0);
+    }
+  }
+
   int lttp_uniqtile_index(uint16 chr) {
-    // TODO
+    // $000..$37F = ROM  Link sprites
+    // $380..$4EF = WRAM Sword, shield, etc.
+    // $4F0..?    = static
+
+    if (chr >= 0x100) {
+      return -1;
+    }
+
+    uint chrX = chr & 0x0F;
+    uint chrY = chr >> 4;
+    if (chrY <= 0x01) {
+      uint16 offs;
+      // ROM:
+      if (chrX <= 0x01) {
+        // Link head:
+        offs = bus::read_u16(0x7E0ACC + (chrY<<1));
+        return (offs - 0x8000 + (chrX << 5)) >> 5;
+      } else if (chrX <= 0x03) {
+        // Link body:
+        offs = bus::read_u16(0x7E0AD0 + (chrY<<1));
+        return (offs - 0x8000 + ((chrX - 2) << 5)) >> 5;
+      } else if (chrX == 0x04) {
+        // Link aux (hands):
+        offs = bus::read_u16(0x7E0AD4 + (chrY<<1));
+        return (offs - 0x8000) >> 5;
+      }
+      // WRAM:
+      // // TODO: need to figure out how to invalidate these cached gfx when they get decompressed/replaced
+      // else if (chrX <= 0x06) {
+      //   // Sword:
+      //   offs = bus::read_u16(0x7E0AC0 + (chrY<<1));
+      //   return ((offs - 0x9000 + ((chrX - 5) << 5)) >> 5) + 0x380;
+      // } else if (chrX <= 0x08) {
+      //   // Shield:
+      //   offs = bus::read_u16(0x7E0AC4 + (chrY<<1));
+      //   return ((offs - 0x9000 + ((chrX - 7) << 5)) >> 5) + 0x380;
+      // }
+    }
+
     return -1;
   }
 
