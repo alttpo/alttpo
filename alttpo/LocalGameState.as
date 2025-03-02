@@ -73,6 +73,10 @@ class LocalGameState : GameState {
   array<SyncableUnderworldRoom@> rooms(0x128);
   array<Sprite@> sprs(0x80);
 
+  array<uint16> chr_uniqtile_absidx(0x200);
+  array<int>   lttp_uniqtile_new;
+  array<int>     sm_uniqtile_new;
+
   Notify@ notify;
   NotifyItemReceived@ itemReceivedDelegate;
   SerializeSRAMDelegate@ serializeSramDelegate;
@@ -93,6 +97,12 @@ class LocalGameState : GameState {
     @this.notify = Notify(@notificationSystem.notify);
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
+
+    // at most 512 new tiles to capture per frame:
+    lttp_uniqtile_new.reserve(0x200);
+    lttp_uniqtile_new.resize(0);
+      sm_uniqtile_new.reserve(0x200);
+      sm_uniqtile_new.resize(0);
 
     // SRAM [$000..$24f] underworld rooms:
     // create syncable item for each underworld room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
@@ -846,14 +856,215 @@ class LocalGameState : GameState {
       return;
     }
 
+    // reset which chr uniqtile indexes for current frame:
+    for (int i = 0; i < 0x200; i++) {
+      chr_uniqtile_absidx[i] = 0xFFFF;
+    }
+
+    // capture any uniq tiles:
     for (int i = 0; i < numsprites; i++) {
       auto @spr = @sprites[i];
-      capture_sprite(spr);
+      capture_uniqtiles(spr);
     }
 
     sprites_need_vram = false;
   }
 
+  uint16 uniqtile_absidx(int g, int idx) {
+    // LTTP (g=0) gets indexes 0000..0FFF
+    //   SM (g=1) gets indexes 1000..1FFF
+    return uint16(idx + (g * 0x1000));
+  }
+
+  int lttp_uniqtile_index(uint16 chr) {
+    // TODO
+    return -1;
+  }
+
+  int   sm_uniqtile_index(uint16 chr) {
+    if (chr >= 0x20) {
+      // not a uniq tile:
+      return -1;
+    }
+
+    uint chrX = chr & 0x0F;
+    uint chrY = chr >> 4;
+
+    uint32 anim_table_offs = bus::read_u16(0x92D94E + (uint32(sm_pose) << 1));
+    uint32 anim_frame_addr = 0x920000 + anim_table_offs + (uint32(sm_anim_frame) << 2);
+    uint32 tiledef_addr;
+    uint16 part1_size;
+    uint16 part2_size;
+    uint16 romaddr_offs;
+    uint8  romaddr_bank;
+
+    if (chrX < 8) {
+      // top half of Samus body (left half of page):
+      uint32 tiledef_ptr_idx = uint32(bus::read_u8(anim_frame_addr + 0));
+      uint32 tiledef_idx     = uint32(bus::read_u8(anim_frame_addr + 1));
+      tiledef_addr    = 0x920000 + uint32(bus::read_u16(0x92D91E + (tiledef_ptr_idx << 1)));
+      tiledef_addr += (tiledef_idx * 7);
+      romaddr_offs = bus::read_u16(tiledef_addr + 0);
+      romaddr_bank = bus::read_u8 (tiledef_addr + 2);
+      part1_size = bus::read_u16(tiledef_addr + 3);
+      part2_size = bus::read_u16(tiledef_addr + 5);
+      if (chrY == 1) {
+        romaddr_offs += part1_size;
+      }
+      romaddr_offs += chrX << 5;
+    } else {
+      // bottom half of Samus body (right half of page):
+      uint32 tiledef_ptr_idx = uint32(bus::read_u8(anim_frame_addr + 2));
+      uint32 tiledef_idx     = uint32(bus::read_u8(anim_frame_addr + 3));
+      tiledef_addr    = 0x920000 + uint32(bus::read_u16(0x92D938 + (tiledef_ptr_idx << 1)));
+      tiledef_addr += (tiledef_idx * 7);
+      romaddr_offs = bus::read_u16(tiledef_addr + 0);
+      romaddr_bank = bus::read_u8 (tiledef_addr + 2);
+      part1_size = bus::read_u16(tiledef_addr + 3);
+      part2_size = bus::read_u16(tiledef_addr + 5);
+      if (chrY == 1) {
+        romaddr_offs += part1_size;
+      }
+      romaddr_offs += (chrX - 8) << 5;
+    }
+
+    // message(fmtHex(romaddr_bank) + ":" + fmtHex(romaddr_offs));
+    // (x >> 5) to divide by $20 bytes
+    if (romaddr_bank == 0x9C) {
+      return 0x000 + ((romaddr_offs - 0x8000) >> 5);
+    } else if (romaddr_bank == 0x9D) {
+      return 0x3D4 + ((romaddr_offs - 0x8000) >> 5);
+    } else if (romaddr_bank == 0x9E) {
+      return 0x790 + ((romaddr_offs - 0x8000) >> 5);
+    } else if (romaddr_bank == 0x9F) {
+      return 0xB46 + ((romaddr_offs - 0x8000) >> 5);
+    } else {
+      return -1;
+    }
+  }
+
+  // captures uniq tile data the first time
+  void capture_uniqtiles(Sprite &sprite) {
+    uint16 ch;
+    int i0 = -1, i1 = -1, i2 = -1, i3 = -1;
+    bool c0 = false, c1 = false, c2 = false, c3 = false;
+    array<uint16> @t0;
+    array<uint16> @t1;
+    array<uint16> @t2;
+    array<uint16> @t3;
+
+    if (rom.is_alttp()) {
+      // LTTP:
+      ch = sprite.chr;
+      i0 = lttp_uniqtile_index(ch);
+      // not a uniq tile?
+      if (i0 < 0) {
+        capture_sprite(sprite);
+        return;
+      }
+
+      @t0 = @lttp_uniqtile_4bpp[i0];
+      chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i0);
+      if (sprite.size != 0) {
+        ch = sprite.chr + 0x01;
+        i1 = lttp_uniqtile_index(ch);
+        if (i1 < 0) { message("BUG: expected i1 >= 0; chr=" + fmtHex(ch)); }
+        @t1 = @lttp_uniqtile_4bpp[i1];
+        chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i1);
+
+        ch = sprite.chr + 0x10;
+        i2 = lttp_uniqtile_index(ch);
+        if (i2 < 0) { message("BUG: expected i2 >= 0; chr=" + fmtHex(ch)); }
+        @t2 = @lttp_uniqtile_4bpp[i2];
+        chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i2);
+
+        ch = sprite.chr + 0x11;
+        i3 = lttp_uniqtile_index(ch);
+        if (i3 < 0) { message("BUG: expected i3 >= 0; chr=" + fmtHex(ch)); }
+        @t3 = @lttp_uniqtile_4bpp[i3];
+        chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i3);
+      }
+    } else {
+      // SM:
+      ch = sprite.chr;
+      i0 =   sm_uniqtile_index(ch);
+      // not a uniq tile?
+      if (i0 < 0) {
+        capture_sprite(sprite);
+        return;
+      }
+
+      @t0 =   @sm_uniqtile_4bpp[i0];
+      chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i0);
+      if (sprite.size != 0) {
+        ch = sprite.chr + 0x01;
+        i1 =   sm_uniqtile_index(ch);
+        if (i1 < 0) { message("BUG: expected i1 >= 0; chr=" + fmtHex(ch)); }
+        @t1 =   @sm_uniqtile_4bpp[i1];
+        chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i1);
+
+        ch = sprite.chr + 0x10;
+        i2 =   sm_uniqtile_index(ch);
+        if (i2 < 0) { message("BUG: expected i2 >= 0; chr=" + fmtHex(ch)); }
+        @t2 =   @sm_uniqtile_4bpp[i2];
+        chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i2);
+
+        ch = sprite.chr + 0x11;
+        i3 =   sm_uniqtile_index(ch);
+        if (i3 < 0) { message("BUG: expected i3 >= 0; chr=" + fmtHex(ch)); }
+        @t3 =   @sm_uniqtile_4bpp[i3];
+        chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i3);
+      }
+    }
+
+    // capture the 4bpp tile data:
+    if (t0.length() == 0) {
+      // message("capture " + fmtHex(i0));
+      t0.resize(0x10);
+      ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, t0);
+      c0 = true;
+    }
+    if (sprite.size != 0) {
+      // 16x16 sprite:
+      if (t1.length() == 0) {
+        // message("capture " + fmtHex(i1));
+        t1.resize(0x10);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, t1);
+        c1 = true;
+      }
+
+      if (t2.length() == 0) {
+        // message("capture " + fmtHex(i2));
+        t2.resize(0x10);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, t2);
+        c2 = true;
+      }
+
+      if (t3.length() == 0) {
+        // message("capture " + fmtHex(i3));
+        t3.resize(0x10);
+        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, t3);
+        c3 = true;
+      }
+    }
+
+    if (rom.is_alttp()) {
+      // LTTP:
+      if (c0) { lttp_uniqtile_new.insertLast(i0); }
+      if (c1) { lttp_uniqtile_new.insertLast(i1); }
+      if (c2) { lttp_uniqtile_new.insertLast(i2); }
+      if (c3) { lttp_uniqtile_new.insertLast(i3); }
+    } else {
+      // SM:
+      if (c0) {   sm_uniqtile_new.insertLast(i0); }
+      if (c1) {   sm_uniqtile_new.insertLast(i1); }
+      if (c2) {   sm_uniqtile_new.insertLast(i2); }
+      if (c3) {   sm_uniqtile_new.insertLast(i3); }
+      // message("sm_uniqtile_new.length = " + fmtInt(sm_uniqtile_new.length()));
+    }
+  }
+
+  // this is now a fallback case to capture VRAM tile data scoped to the current frame only.
   void capture_sprite(Sprite &sprite) {
     //message("capture_sprite " + fmtInt(sprite.index));
     // load character(s) from VRAM:
@@ -883,6 +1094,16 @@ class LocalGameState : GameState {
         chrs[sprite.chr + 0x11].resize(16);
         ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
       }
+    }
+  }
+
+  void reset_uniqtiles() {
+    // clear out our captured uniqtiles since a new player joined:
+    for (int i = 0; i < lttp_uniq4bpptile_count; i++) {
+      lttp_uniqtile_4bpp[i].resize(0);
+    }
+    for (int i = 0; i <   sm_uniq4bpptile_count; i++) {
+        sm_uniqtile_4bpp[i].resize(0);
     }
   }
 
@@ -1272,14 +1493,14 @@ class LocalGameState : GameState {
     r.write_u16(timeInRoom);
     r.write_u16(sm_screen_x);
     r.write_u16(sm_screen_y);
-  } 
-  
+  }
+
   void serialize_sm_sprite(array<uint8> &r){
     r.write_u8(uint8(0x10));
-    
+
     r.write_u16(offsm1);
     r.write_u16(offsm2);
-    
+
     for(int i = 0; i < 0x10; i++){
       r.write_u16(sm_palette[i]);
     }
@@ -1618,7 +1839,51 @@ class LocalGameState : GameState {
     r.write_u8(z3_clear);
   }
 
+  uint send_uniqtiles(uint p, uint8 g, array<int> @uniqtile_new, array<array<uint16>> @uniqtile_4bpp) {
+    int len = uniqtile_new.length();
+    if (len == 0) {
+      return p;
+    }
+
+    // create a new packet to deliver these new uniqtiles:
+    array<uint8> r = create_envelope(0x02);
+    r.write_u8(0x15); // uniqtiles
+    // TODO: break up into smaller packets if too large
+    r.write_u16(len);
+    for (int i = 0; i < len; i++) {
+      // send uniqtile index:
+      int idx = uniqtile_new[i];
+      // message(fmtInt(idx));
+
+      r.write_u16(uniqtile_absidx(g, idx));
+
+      // send 4bpp tile data:
+      auto @tiles = @uniqtile_4bpp[idx];
+      if (tiles.length() == 0) {
+        message("BUG: unexpected empty uniqtile_4bpp["+fmtInt(g)+"]["+fmtHex(idx)+"]");
+      }
+      r.write_arr(tiles);
+    }
+
+    // send this packet:
+    p = send_packet(r, p);
+
+    // clear out the list for next delivery:
+    uniqtile_new.resize(0);
+
+    return p;
+  }
+
   uint send_sprites(uint p) {
+    if (lttp_uniqtile_new.length() > 0) {
+      // message("send_uniqtiles lttp");
+      p = send_uniqtiles(p, 0, @lttp_uniqtile_new, @lttp_uniqtile_4bpp);
+    }
+    if (sm_uniqtile_new.length() > 0) {
+      // message("send_uniqtiles   sm");
+      p = send_uniqtiles(p, 1,   @sm_uniqtile_new,   @sm_uniqtile_4bpp);
+    }
+
     uint len = sprites.length();
     if (len == 0) {
       return p;
@@ -1671,7 +1936,8 @@ class LocalGameState : GameState {
         auto b4 = spr.b4;
 
         // do we need to send the VRAM data?
-        if ((chr < 0x80) && !chrSent[chr]) {
+        uint16 uniq_absidx_0 = chr_uniqtile_absidx[chr];
+        if ((chr < 0x80) && !chrSent[chr] && (uniq_absidx_0 == 0xFFFF)) {
           index |= 0x80;
         }
         // do we need to send the palette data?
@@ -1689,6 +1955,12 @@ class LocalGameState : GameState {
         r.write_u8(spr.b2);
         r.write_u8(spr.b3);
         r.write_u8(b4);
+        r.write_u16(uniq_absidx_0);
+        if (spr.size != 0) {
+          r.write_u16(chr_uniqtile_absidx[chr+0x01]);
+          r.write_u16(chr_uniqtile_absidx[chr+0x10]);
+          r.write_u16(chr_uniqtile_absidx[chr+0x11]);
+        }
 
         // send VRAM data along:
         if ((index & 0x80) != 0) {
@@ -1855,8 +2127,6 @@ class LocalGameState : GameState {
     return envelope;
   }
 
-  array<uint16> maxSize(5);
-
   uint send_packet(array<uint8> @envelope, uint p) {
     uint len = envelope.length();
     if (len > MaxPacketSize) {
@@ -1865,19 +2135,9 @@ class LocalGameState : GameState {
     }
 
     // send packet to server:
-    //message("sent " + fmtInt(envelope.length()) + " bytes");
+    // message("sent " + fmtInt(len) + " bytes");
     sock.send(0, len, envelope);
 
-    // stats on max packet size per 128 frames:
-    if (debugNet) {
-      if (len > maxSize[p]) {
-        maxSize[p] = len;
-      }
-      if ((frame & 0x7F) == 0) {
-        message("["+fmtInt(p)+"] = " + fmtInt(maxSize[p]));
-        maxSize[p] = 0;
-      }
-    }
     p++;
 
     return p;
@@ -1895,6 +2155,7 @@ class LocalGameState : GameState {
 
     // rate limit outgoing packets to 60fps:
     if (timestamp_now - last_sent < 16) {
+      // message("rate limit");
       return;
     }
     last_sent = timestamp_now;
@@ -1905,19 +2166,23 @@ class LocalGameState : GameState {
 
       serialize_location(envelope);
       serialize_name(envelope);
-      serialize_sfx(envelope);
 
-      if (settings.EnablePvP) {
-        serialize_pvp(envelope);
-      }
+      if (rom.is_alttp()) {
+        serialize_sfx(envelope);
 
-      if (settings.SyncTilemap) {
-        serialize_ancillae(envelope);
-        serialize_objects(envelope);
-        serialize_crystals(envelope);
-      }
-      if (settings.SyncSmallKeys) {
-        serialize_smallKeys(envelope);
+        if (settings.EnablePvP) {
+          serialize_pvp(envelope);
+        }
+
+        if (settings.SyncTilemap) {
+          serialize_ancillae(envelope);
+          serialize_objects(envelope);
+          serialize_crystals(envelope);
+        }
+
+        if (settings.SyncSmallKeys) {
+          serialize_smallKeys(envelope);
+        }
       }
 
       p = send_packet(envelope, p);
@@ -1928,23 +2193,17 @@ class LocalGameState : GameState {
       p = send_sprites(p);
     }
 
-    {
-      // send posisbly multiple packets for tilemaps:
-      if (settings.SyncTilemap) {
-        p = send_tilemaps(p);
-      }
-
-      // send packet every other frame:
-      if ((frame & 1) == 0) {
-        auto @envelope = create_envelope(0x02);
-        serialize_torches(envelope);
-        p = send_packet(envelope, p);
-      }
-
+    if (rom.is_alttp()) {
       // send SRAM updates once every 16 frames:
       if ((frame & 15) == 0) {
         auto @envelope = create_envelope();
         rom.serialize_sram_ranges(envelope, serializeSramDelegate);
+        p = send_packet(envelope, p);
+      }
+
+      if (rom.has_extras) {
+        auto @envelope = create_envelope();
+        rom.serialize_extras(envelope, serializeSramDelegate);
         p = send_packet(envelope, p);
       }
 
@@ -1956,6 +2215,7 @@ class LocalGameState : GameState {
           p = send_packet(envelope, p);
         }
       }
+
       if (settings.SyncOverworld) {
         if ((frame & 31) == 16) {
           auto @envelope = create_envelope();
@@ -1964,41 +2224,49 @@ class LocalGameState : GameState {
         }
       }
 
-      if (rom.has_extras) {
-        auto @envelope = create_envelope();
-        rom.serialize_extras(envelope, serializeSramDelegate);
+      // send posisbly multiple packets for tilemaps:
+      if (settings.SyncTilemap) {
+        p = send_tilemaps(p);
+      }
+
+      // send packet every other frame:
+      if ((frame & 1) == 0) {
+        auto @envelope = create_envelope(0x02);
+        serialize_torches(envelope);
         p = send_packet(envelope, p);
       }
-
-      if (rom.is_smz3()) {
-        if ((frame & 31) == 0) {
-          auto @envelope = create_envelope();
-          serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
-          p = send_packet(envelope, p);
-        }
-
-        if ((frame & 31) == 0) {
-          auto @envelope = create_envelope();
-          serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
-          p = send_packet(envelope, p);
-        }
-
-        if ((frame & 31) == 16) {
-          auto @envelope = create_envelope();
-          serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
-          p = send_packet(envelope, p);
-        }
-      }
-    }
-    if (!rom.is_alttp()) {
+    } else {
+      // SM:
       auto @envelope = create_envelope();
       serialize_sm_location(envelope);
       p = send_packet(envelope, p);
-    
+
       auto @envelope1 = create_envelope();
       serialize_sm_sprite(envelope1);
       p = send_packet(envelope1, p);
       p = send_sm_enemies(p);
+    }
+
+    if (rom.is_smz3()) {
+      // SMZ3 only:
+
+      if ((frame & 31) == 0) {
+        auto @envelope = create_envelope();
+        serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
+        p = send_packet(envelope, p);
+      }
+
+      if ((frame & 31) == 0) {
+        auto @envelope = create_envelope();
+        serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
+        p = send_packet(envelope, p);
+      }
+
+      if ((frame & 31) == 16) {
+        auto @envelope = create_envelope();
+        serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
+        p = send_packet(envelope, p);
+      }
     }
   }
 
@@ -3120,10 +3388,14 @@ class LocalGameState : GameState {
     sm_sub_y = bus::read_u8(0x7E0AFA);
     sm_screen_x = bus::read_u16(0x7e0911);
     sm_screen_y = bus::read_u16(0x7e0915);
-    sm_pose = bus::read_u8(0x7E0A1C);
     if (changedRoom) {
       timeInRoom = 0;
     }
+  }
+
+  void fetch_sm_pose() {
+    sm_pose = bus::read_u8(0x7E0A1C);
+    sm_anim_frame = bus::read_u8(0x7E0A96);
   }
 
   void get_sm_sprite_data(){

@@ -4,6 +4,11 @@ class Sprite {
   uint8 index;
   // actual data stored in bit-compressed format:
   uint8 b0, b1, b2, b3, b4;
+  // absolute index for uniqtile (or 0xFFFF if not uniq):
+  uint16 uniq_absidx_0;
+  uint16 uniq_absidx_1;
+  uint16 uniq_absidx_2;
+  uint16 uniq_absidx_3;
 
   // computed properties:
   uint16 chr;

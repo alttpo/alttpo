@@ -185,6 +185,7 @@ void on_main_sm(uint32 pc) {
   local.get_sm_coords();
   local.fetch_games_won();
   if (!sm_in_menu()) {
+    local.fetch_sm_pose();
     local.get_sm_sprite_data();
     local.fetch_sm_sprites();
 
@@ -297,6 +298,7 @@ void pre_frame() {
     if (playersWindow !is null) {
       playersWindow.update();
     }
+    local.reset_uniqtiles();
   }
   players_updated = false;
 

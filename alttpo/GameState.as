@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x15;
+const uint8 script_protocol = 0x16;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -201,6 +201,12 @@ bool is_segmented_enemy_id(uint8 id) {
 
 bool players_updated = false;
 
+// LTTP Link  uses $04F0 uniq tiles
+//   SM Samus uses $0F00 uniq tiles
+// total tiles  =  $13F0
+const uint lttp_uniq4bpptile_count = 0x4F0;
+const uint   sm_uniq4bpptile_count = 0xF00;
+
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -212,6 +218,21 @@ class GameState {
   array<uint16> palettes(8 * 16);
   // lookup remote chr number to find local chr number mapped to:
   array<uint16> reloc(512);
+
+  // lttp: unique tiles' 4bpp data ($20 uint8s | $10 uint16s, each):
+  array<array<uint16>> lttp_uniqtile_4bpp(lttp_uniq4bpptile_count);
+  //   sm: unique tiles' 4bpp data ($20 uint8s | $10 uint16s, each):
+  array<array<uint16>>   sm_uniqtile_4bpp(  sm_uniq4bpptile_count);
+
+  array<uint16> @uniqtile_get(uint16 absidx) {
+    if (absidx < 0x1000) {
+      return @lttp_uniqtile_4bpp[absidx];
+    } else if (absidx < 0x2000) {
+      return   @sm_uniqtile_4bpp[absidx - 0x1000];
+    } else {
+      return null;
+    }
+  }
 
   // $3D9-$3E4: 6x uint16 characters for player name
 
@@ -286,7 +307,7 @@ class GameState {
 
   //coordinates for super metroid game
   uint8 sm_area, sm_sub_x, sm_sub_y, sm_x, sm_y;
-  uint8 sm_room_x, sm_room_y, sm_pose;
+  uint8 sm_room_x, sm_room_y, sm_pose, sm_anim_frame;
   uint16 sm_screen_x, sm_screen_y;
   uint16 offsm1, offsm2;
   uint8 in_sm;
@@ -703,6 +724,7 @@ class GameState {
         case 0x12: c = deserialize_enemy_data(r, c); break;
         case 0x13: c = deserialize_enemy_segment_data(r, c); break;
         case 0x14: c = deserialize_overlord_data(r, c); break;
+        case 0x15: c = deserialize_uniqtiles(r, c); break;
         default:
           message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
           break;
@@ -860,6 +882,14 @@ class GameState {
       auto b4 = r[c++];
       spr.b4 = b4 & 0x7f;
       spr.decodeOAMTableBytes();
+
+      spr.uniq_absidx_0 = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      if (spr.size != 0) {
+        spr.uniq_absidx_1 = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        spr.uniq_absidx_2 = uint16(r[c++]) | (uint16(r[c++]) << 8);
+        spr.uniq_absidx_3 = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      }
+
       //message("oam " + fmtHex(spr.index, 2));
 
       // read VRAM for chrs:
@@ -1214,6 +1244,24 @@ class GameState {
     return c;
   }
 
+  int deserialize_uniqtiles(array<uint8> r, int c) {
+    int len = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+    for (int i = 0; i < len; i++) {
+      // read absidx of tile:
+      uint16 absidx = uint16(r[c++]) | (uint16(r[c++]) << 8);
+
+      // read tile data:
+      array<uint16> @tiles = uniqtile_get(absidx);
+      tiles.resize(16);
+      for (int k = 0; k < 16; k++) {
+        tiles[k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      }
+    }
+
+    return c;
+  }
+
   void renderToPPU(int dx, int dy) {
     for (uint i = 0; i < 512; i++) {
       reloc[i] = 0;
@@ -1376,29 +1424,59 @@ class GameState {
       auto p = sprite.palette;
 
       // draw sprite:
-      if (chrs[k + 0x00].length() == 0) {
-        chrs[k + 0x00].resize(16);
-        ppu::vram.read_block(ppu::vram.chr_address(k + 0x00), 0, 16, chrs[k + 0x00]);
+      array<uint16> @t;
+      if (sprite.uniq_absidx_0 == 0xFFFF) {
+        @t = @chrs[k + 0x00];
+        if (t.length() == 0) {
+          t.resize(16);
+          ppu::vram.read_block(ppu::vram.chr_address(k + 0x00), 0, 16, t);
+        }
+      } else {
+        @t = uniqtile_get(sprite.uniq_absidx_0);
       }
-      tile.draw_sprite_4bpp(0, 0, p, chrs[k + 0x00], palettes);
+      if (t.length() > 0) {
+        tile.draw_sprite_4bpp(0, 0, p, t, palettes);
+      }
+
       if (sprite.size != 0) {
-        if (chrs[k + 0x01].length() == 0) {
-          chrs[k + 0x01].resize(16);
-          ppu::vram.read_block(ppu::vram.chr_address(k + 0x01), 0, 16, chrs[k + 0x01]);
+        if (sprite.uniq_absidx_1 == 0xFFFF) {
+          @t = @chrs[k + 0x01];
+          if (t.length() == 0) {
+            t.resize(16);
+            ppu::vram.read_block(ppu::vram.chr_address(k + 0x01), 0, 16, t);
+          }
+        } else {
+          @t = uniqtile_get(sprite.uniq_absidx_1);
         }
-        tile.draw_sprite_4bpp(8, 0, p, chrs[k + 0x01], palettes);
+        if (t.length() > 0) {
+          tile.draw_sprite_4bpp(8, 0, p, t, palettes);
+        }
 
-        if (chrs[k + 0x10].length() == 0) {
-          chrs[k + 0x10].resize(16);
-          ppu::vram.read_block(ppu::vram.chr_address(k + 0x10), 0, 16, chrs[k + 0x10]);
+        if (sprite.uniq_absidx_2 == 0xFFFF) {
+          @t = @chrs[k + 0x10];
+          if (t.length() == 0) {
+            t.resize(16);
+            ppu::vram.read_block(ppu::vram.chr_address(k + 0x10), 0, 16, t);
+          }
+        } else {
+          @t = uniqtile_get(sprite.uniq_absidx_2);
         }
-        tile.draw_sprite_4bpp(0, 8, p, chrs[k + 0x10], palettes);
+        if (t.length() > 0) {
+          tile.draw_sprite_4bpp(0, 8, p, t, palettes);
+        }
 
-        if (chrs[k + 0x11].length() == 0) {
-          chrs[k + 0x11].resize(16);
-          ppu::vram.read_block(ppu::vram.chr_address(k + 0x11), 0, 16, chrs[k + 0x11]);
+        if (sprite.uniq_absidx_3 == 0xFFFF) {
+          @t = @chrs[k + 0x11]; 
+          if (t.length() == 0) {
+            t.resize(16);
+            ppu::vram.read_block(ppu::vram.chr_address(k + 0x11), 0, 16, t);
+          }
+        } else {
+          @t = uniqtile_get(sprite.uniq_absidx_3);
         }
-        tile.draw_sprite_4bpp(8, 8, p, chrs[k + 0x11], palettes);
+        if (t.length() > 0) {
+          tile.draw_sprite_4bpp(8, 8, p, t, palettes);
+        }
       }
     }
 

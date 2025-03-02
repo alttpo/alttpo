@@ -83,8 +83,10 @@ void post_frame() {
   
   if (sprites !is null) {
     for (int i = 0; i < 16; i++) {
+      // lttp:
       //palette7[i] = ppu::cgram[(15 << 4) + i];
-      palette7[i] = ppu::cgram[(14 << 4) + i];
+      // sm:
+      palette7[i] = ppu::cgram[((8 + 4) << 4) + i];
     }
     sprites.render(palette7);
     sprites.update();
