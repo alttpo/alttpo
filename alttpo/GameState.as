@@ -816,7 +816,7 @@ class GameState {
   }
 
   int deserialize_sm_enemies(array<uint8> r, int c){
-    //message("deserialize_sm_enemies");
+    // message("deserialize_sm_enemies");
 
     uint8 is_enemy = r[c++];
     if (is_enemy == 34){
@@ -840,8 +840,6 @@ class GameState {
 
     uint8 constructed_host_index = r[c++];
     enemies[enemy_index] = SM_Enemy(enemy_index, temp, constructed_host_index, r[c++] == 1);
-    //enemies[enemy_index] = SM_Enemy(enemy_index, temp, r[c++], r[c++] == 1);
-
 
     return c;
   }

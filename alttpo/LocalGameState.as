@@ -1559,11 +1559,11 @@ class LocalGameState : GameState {
   }
 
   uint send_sm_enemies(uint p){
-    //message("send_sm_enemies");
+    // message("send_sm_enemies");
     if (!settings.SyncSmEnemies) {
       // only send a disabled message ~once per second:
       if (frame & 63 == 0) {
-        array<uint8> tmpenv = make_packet_broadcast();
+        array<uint8> @tmpenv = make_packet_broadcast();
         tmpenv.write_u8(uint8(0x11));
         tmpenv.write_u8(34);
         p = send_packet(tmpenv, p);
@@ -1572,12 +1572,13 @@ class LocalGameState : GameState {
     }
 
     // deliver enemy data in two packets because one is not enough:
-    array<uint8> env = make_packet_broadcast();
+    array<uint8> @env = make_packet_broadcast_to_sector(broadcast_sector());
     for (uint i = 0; i < 16; i++) {
       serialize_sm_enemy(i, env);
     }
     p = send_packet(env, p);
-    env = make_packet_broadcast();
+
+    @env = make_packet_broadcast_to_sector(broadcast_sector());
     for (uint i = 16; i < 32; i++) {
       serialize_sm_enemy(i, env);
     }
@@ -1585,7 +1586,7 @@ class LocalGameState : GameState {
     return p;
   }
 
-  void serialize_sm_enemy(uint8 enemy_index, array<uint8> env){
+  void serialize_sm_enemy(uint8 enemy_index, array<uint8> @env){
     env.write_u8(uint8(0x11));
     env.write_u8(1);
     env.write_u8(enemy_index);
@@ -1907,7 +1908,7 @@ class LocalGameState : GameState {
     uint start = 0;
     while (start < len) {
       // create a packet to broadcast these uniqtiles:
-      array<uint8> r = make_packet_broadcast();
+      array<uint8> @r = make_packet_broadcast();
       r.write_u8(0x15); // uniqtiles
 
       // dont overflow a uint8 (255) in length:
@@ -1971,7 +1972,7 @@ class LocalGameState : GameState {
       // send NAK to player about uniqtiles:
       uint start = 0;
       while (start < nlen) {
-        array<uint8> r = make_packet_broadcast();
+        array<uint8> @r = make_packet_broadcast();
         r.write_u8(0x16); // nak_uniqtiles
         r.write_u16(remote.index);
 
@@ -2032,7 +2033,7 @@ class LocalGameState : GameState {
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
-      array<uint8> r = make_packet_broadcast_to_sector(broadcast_sector());
+      array<uint8> @r = make_packet_broadcast_to_sector(broadcast_sector());
 
       // serialize_sprites:
       if (start == 0) {
@@ -2154,7 +2155,7 @@ class LocalGameState : GameState {
 
     // degenerate case to clear out tilemap:
     if (len == 0) {
-      array<uint8> r = make_packet_broadcast_to_sector(broadcast_sector());
+      array<uint8> @r = make_packet_broadcast_to_sector(broadcast_sector());
 
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
@@ -2170,7 +2171,7 @@ class LocalGameState : GameState {
 
     // send out possibly multiple packets to cover all sprites:
     while (start < end) {
-      array<uint8> r = make_packet_broadcast_to_sector(broadcast_sector());
+      array<uint8> @r = make_packet_broadcast_to_sector(broadcast_sector());
 
       r.write_u8(uint8(0x07));
       // truncating 64-bit timestamp to 32-bit value (in milliseconds):
@@ -3935,7 +3936,7 @@ class LocalGameState : GameState {
       // No need to do anything here, simply exit!
       return;
     }
-	
+
     uint players_len = players.length();
     for (uint i = 0; i < 0x20; i ++){
       bool take_host = true;
