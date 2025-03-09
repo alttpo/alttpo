@@ -178,28 +178,26 @@ void on_main_sm(uint32 pc) {
   local.sprites.resize(0);
   local.actual_location = 0;
 
-  if (!sm_is_safe_state()) {
-    return;
+  if (sm_is_safe_state()) {
+    local.get_sm_coords();
+    local.fetch_games_won();
+    if (!sm_in_menu() && !sm_loading_room()) {
+      local.fetch_sm_pose();
+      local.fetch_sm_sprites();
+
+      // fetch local VRAM data for sprites:
+      local.capture_sprites_vram();
+
+      local.fetch_enemies();
+    }
+
+    // read ALTTP temporary item buffer from SM SRAM
+    //message("read SM");
+    local.in_sm_for_items = true;
+    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
+    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
+    local.fetch_sm_events();
   }
-
-  local.get_sm_coords();
-  local.fetch_games_won();
-  if (!sm_in_menu()) {
-    local.fetch_sm_pose();
-    local.fetch_sm_sprites();
-
-    // fetch local VRAM data for sprites:
-    local.capture_sprites_vram();
-
-    local.fetch_enemies();
-  }
-
-  // read ALTTP temporary item buffer from SM SRAM
-  //message("read SM");
-  local.in_sm_for_items = true;
-  bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
-  bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
-  local.fetch_sm_events();
 
   if (!settings.started) {
     return;
@@ -253,6 +251,7 @@ void pre_frame() {
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
   timestamp_now = uint32(chrono::realtime::millisecond);
+  // message(fmtUint(timestamp_now));
 
   if (enableNetReporting) {
     if (last_net_report == 0) {
