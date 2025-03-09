@@ -761,7 +761,7 @@ class VanillaSMMappping : ROMMapping{
     super();
     update_syncables();
   }
-  
+
   void update_syncables() {
     //metroid items
     syncables = {whenSyncItems(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true)),
@@ -775,9 +775,9 @@ class VanillaSMMappping : ROMMapping{
                  whenSyncItems(@SyncableItem(0x22, 2, 1, null, true)), // energy tanks
                 };
   }
-  
+
   bool is_alttp() override { return false; }
-  bool is_smz3() override { return true;}
+  bool is_smz3() override { return false; }
 
   void register_pc_intercepts() override {
     // SM main is at 0x82893D (PHK; PLB)
