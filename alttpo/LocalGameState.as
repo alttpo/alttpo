@@ -1571,8 +1571,14 @@ class LocalGameState : GameState {
       return p;
     }
 
+    // deliver enemy data in two packets because one is not enough:
     array<uint8> env = make_packet_broadcast();
-    for (uint i = 0; i < 32; i++) {
+    for (uint i = 0; i < 16; i++) {
+      serialize_sm_enemy(i, env);
+    }
+    p = send_packet(env, p);
+    env = make_packet_broadcast();
+    for (uint i = 16; i < 32; i++) {
       serialize_sm_enemy(i, env);
     }
     p = send_packet(env, p);
