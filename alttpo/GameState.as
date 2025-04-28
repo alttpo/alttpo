@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x16;
+const uint8 script_protocol = 0x17;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -403,8 +403,7 @@ class GameState {
   uint8 sfx2_ttl = 0;
 
   array<uint8> sram(0x1500);
-  array<uint8> sram_buffer(0x500);
-  bool in_sm_for_items;
+  array<uint8> sm_sram(0x40);
 
   array<uint8> sm_events(0x54);
 
@@ -492,12 +491,11 @@ class GameState {
     sfx1_ttl = 0;
     sfx2_ttl = 0;
 
-    for (uint i = 0; i < 0x500; i++) {
+    for (uint i = 0; i < 0x1500; i++) {
       sram[i] = 0;
-      sram_buffer[i] = 0;
     }
-    for (uint i = 0x500; i < 0x1500; i++) {
-      sram[i] = 0;
+    for (uint i = 0; i < 0x40; i++) {
+      sm_sram[i] = 0;
     }
 
     for (uint i = 0; i < 0x50; i++) {
@@ -597,6 +595,10 @@ class GameState {
     return false;
   }
 
+  bool get_in_sm(){
+    return in_sm == 1;
+  }
+
   bool is_dead() const {
     // death handled entirely in module 12:
     if (module == 0x12) {
@@ -646,7 +648,7 @@ class GameState {
   
   // tests if the remote sm player is in the same room as the local one
   bool can_see_sm(GameState @remote){
-    if(remote.in_sm != 1) return false;
+    if(!remote.get_in_sm()) return false;
     return (remote.sm_room_x == this.sm_room_x && remote.sm_room_y == this.sm_room_y && remote.sm_area == this.sm_area);
   }
 
@@ -733,7 +735,7 @@ class GameState {
         case 0x0B: c = deserialize_pvp(r, c); break;
         case 0x0C: c = deserialize_name(r, c); break;
         case 0x0D: c = deserialize_sm_events(r, c); break;
-        case 0x0E: c = deserialize_sram_buffer(r, c); break;
+        case 0x0E: c = deserialize_sm_sram(r, c); break;
         case 0x0F: c = deserialize_sm_location(r, c); break;
         /*case 0x10: c = deserialize_sm_sprite(r, c); break;*/
         case 0x11: c = deserialize_sm_enemies(r, c); break;
@@ -1036,12 +1038,7 @@ class GameState {
   }
 
   int deserialize_sram(array<uint8> r, int c) {
-    bool temp = r[c++] == 1 ? true : false;
-    if (temp) {
-      in_sm_for_items = r[c++] == 1 ? true : false;
-    } else {
-      c++;
-    }
+    in_sm = r[c++];
 
     uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
     uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -1056,15 +1053,11 @@ class GameState {
     return c;
   }
   
-  int deserialize_sram_buffer(array<uint8> r, int c) {
-    uint16 start = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    uint16 count = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-    for (uint i = 0; i < count; i++) {
-      auto offs = start + i;
+  int deserialize_sm_sram(array<uint8> r, int c) {
+    for (uint i = 0; i < 0x40; i++) {
       auto b = r[c++];
 
-      sram_buffer[offs] = b;
+      sm_sram[i] = b;
     }
 
     return c;

@@ -24,9 +24,8 @@ abstract class ROMMapping {
     return _title;
   }
 
-  void check_game() {}
   bool is_alttp() { return true; }
-  bool is_smz3()  { return false;}
+  bool is_sm()  { return false;}
   void register_pc_intercepts() {
     // intercept at PC=`JSR ClearOamBuffer; JSL MainRouting`:
     cpu::register_pc_interceptor(rom.fn_pre_main_loop, @on_main_alttp);
@@ -699,7 +698,7 @@ class DoorRandomizerMapping : RandomizerMapping {
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != local.team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       // mix all the pot-picked-up bits across players into ours:
       for (uint32 j = 0; j < 0x250; j++) {
@@ -737,13 +736,8 @@ class SMZ3Mapping : RandomizerMapping {
     RandomizerMapping::syncAll();
   }
 
-  uint8 game = 0;
-  void check_game() override {
-    game = bus::read_u8(0xA173FE);
-  }
-
-  bool is_alttp() override { return game == 0; }
-  bool is_smz3() override { return true;}
+  bool is_alttp() override { return true; }
+  bool is_sm() override { return true;}
 
   void register_pc_intercepts() override {
     // call base class method for LTTP interceptors (enables enemy sync):
@@ -777,7 +771,7 @@ class VanillaSMMappping : ROMMapping{
   }
 
   bool is_alttp() override { return false; }
-  bool is_smz3() override { return false; }
+  bool is_sm() override { return true; }
 
   void register_pc_intercepts() override {
     // SM main is at 0x82893D (PHK; PLB)

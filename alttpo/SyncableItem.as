@@ -138,7 +138,7 @@ class SyncableItem {
     if (newValue == oldValue) {
       return false;
     }
-
+    
     if ((notifyNewItems !is null) && (notifyItemReceived !is null)) {
       notifyNewItems(oldValue, newValue, notifyItemReceived);
     }
@@ -186,7 +186,7 @@ class SyncableItem {
 
   void update_sm_counts() {
     int base = 0;
-    if (local.in_sm_for_items) {
+    if (local.get_in_sm()) {
       base = 0x7E09A2;
     } else {
       base = 0xA17900;

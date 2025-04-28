@@ -4,66 +4,37 @@ const uint MaxPacketSize = 1452;
 const uint OverworldAreaCount = 0x82;
 
 class ALTTPSRAMArray : SRAMArray {
-  bool is_buffer;
 
-  ALTTPSRAMArray(array<uint8>@ sram, bool is_buffer = false) {
+  ALTTPSRAMArray(array<uint8>@ sram) {
     super(sram);
-    this.is_buffer = is_buffer;
   }
 
   void write_u8 (uint16 offs, uint8 value) {
-    if (is_buffer) {
-      write_u8_buffer(offs, value);
-      return;
-    }
     if (sram[offs] == value) {
       return;
     }
 
-    bus::write_u8(0x7EF000 + offs, value);
-    sram[offs] = value;
-  }
-
-  void write_u8_buffer (uint16 offs, uint8 value) {
-    if (sram[offs] == value) {
-      return;
-    }
-    if (offs < 0x40) {
-      bus::write_u8(0xA17900 + offs, value);
-    }
+    uint mem_loc = local.get_in_sm()? 0xA17B00-0x300 : 0x7EF000;
+    if(local.get_in_sm() && (offs > 0x400 || offs < 0x300)){return;}
+    bus::write_u8(mem_loc + offs, value);
     sram[offs] = value;
   }
 }
 
 class SMSRAMArray : SRAMArray {
-  bool is_buffer;
 
-  SMSRAMArray(array<uint8>@ sram, bool is_buffer = false) {
+  SMSRAMArray(array<uint8>@ sram) {
     super(sram);
-    this.is_buffer = is_buffer;
   }
 
   void write_u8 (uint16 offs, uint8 value) override {
-    if (is_buffer) {
-      write_u8_buffer(offs, value);
-      return;
-    }
     if (sram[offs] == value) {
       return;
     }
 
-    bus::write_u8(0x7E09A2 + offs, value);
-    sram[offs] = value;
-  }
-
-  void write_u8_buffer (uint16 offs, uint8 value) {
-    if (sram[offs] == value) {
-      return;
-    }
-
-    if (offs >= 0x300 && offs < 0x400) {
-      bus::write_u8(0xA17B00 + offs - 0x300, value);
-    }
+    uint mem_loc = local.get_in_sm()? 0x7E09A2 : 0xA17900;
+    
+    bus::write_u8(mem_loc + offs, value);
     sram[offs] = value;
   }
 }
@@ -571,8 +542,10 @@ class LocalGameState : GameState {
 
     fetch_torches();
 
-    if (rom.is_smz3()){
-      fetch_sm_events_buffer();
+    if (rom.is_sm()){
+      bus::read_block_u8(0xA17900, 0, 0x40, sm_sram); // load sram from the temp storage
+      fetch_sm_events();
+      fetch_games_won();
     }
   }
 
@@ -658,10 +631,9 @@ class LocalGameState : GameState {
     // don't fetch latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
     // NOTE: disabled this check so that items sync instantly when you get them during dialogs.
     //if (is_frozen()) return;
-    local.in_sm_for_items = false;
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
     bus::read_block_u8(0x7F6000, 0x500, 0x1000, sram);
-    bus::read_block_u8(0xA17900, 0, 0x40, sram_buffer);
+    bus::read_block_u8(0xA17900, 0, 0x40, sm_sram);
   }
 
   void fetch_objects() {
@@ -1017,7 +989,7 @@ class LocalGameState : GameState {
     array<uint16> @t2;
     array<uint16> @t3;
 
-    if (rom.is_alttp()) {
+    if (!get_in_sm()) {
       // LTTP:
       ch = sprite.chr;
       i0 = lttp_uniqtile_index(ch);
@@ -1112,7 +1084,7 @@ class LocalGameState : GameState {
       }
     }
 
-    if (rom.is_alttp()) {
+    if (!get_in_sm()) {
       // LTTP:
       if (c0) { lttp_uniqtile_new.insertLast(i0); }
       if (c1) { lttp_uniqtile_new.insertLast(i1); }
@@ -1433,30 +1405,16 @@ class LocalGameState : GameState {
   }
 
   void fetch_sm_events() {
+    uint32 start = get_in_sm()? 0x7ED820 : 0xa16070;
   
     for (int i = 0; i < 0x14; i++) {
-      sm_events[i] = bus::read_u8(0x7ED820 + i);
+      sm_events[i] = bus::read_u8(start + i);
     }
     for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x14] = bus::read_u8(0x7ED870 + i);
+      sm_events[i + 0x14] = bus::read_u8(start + 0x50 + i);
     }
     for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x14 + 0x20] = bus::read_u8(0x7ED8B0 + i);
-    }
-  }
-  
-  void fetch_sm_events_buffer() {
-    
-    //$a16070 is the start of the buffer for the super metroid events
-    
-    for (int i = 0; i < 0x14; i++) {
-      sm_events[i] = bus::read_u8(0xa16070 + i);
-    }
-    for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x14] = bus::read_u8(0xa160c0 + i);
-    }
-    for (int i = 0; i < 0x20; i++) {
-      sm_events[i + 0x14 + 0x20] = bus::read_u8(0xa16100 + i);
+      sm_events[i + 0x14 + 0x20] = bus::read_u8(start + 0x90 + i);
     }
   }
 
@@ -1560,6 +1518,7 @@ class LocalGameState : GameState {
 
   uint send_sm_enemies(uint p){
     // message("send_sm_enemies");
+    if (timeInRoom < 5){return p;}
     if (!settings.SyncSmEnemies) {
       // only send a disabled message ~once per second:
       if (frame & 63 == 0) {
@@ -1613,8 +1572,7 @@ class LocalGameState : GameState {
   void serialize_sram(array<uint8> &r, uint16 start, uint16 endExclusive) {
     r.write_u8(uint8(0x06));
 
-    r.write_u8(start == 0 ? 1 : 0);
-    r.write_u8(in_sm_for_items ? 1 : 0);
+    r.write_u8(in_sm);
 
     r.write_u16(start);
     uint16 count = uint16(endExclusive - start);
@@ -1626,16 +1584,11 @@ class LocalGameState : GameState {
     }
   }
 
-  void serialize_sram_buffer(array<uint8> &r, uint16 start, uint16 endExclusive) {
+  void serialize_sm_sram(array<uint8> &r) {
     r.write_u8(uint8(0x0E));
 
-    r.write_u16(start);
-    uint16 count = uint16(endExclusive - start);
-    r.write_u16(count);
-    for (uint i = 0; i < count; i++) {
-      auto offs = start + i;
-      auto b = sram_buffer[offs];
-      r.write_u8(b);
+    for (uint8 i = 0; i < 0x40; i++) {
+      r.write_u8(sm_sram[i]);
     }
   }
 
@@ -2019,7 +1972,7 @@ class LocalGameState : GameState {
     array<bool> paletteSent(8);
     array<bool> chrSent(0x80);
 
-    if (rom.is_alttp()) {
+    if (!get_in_sm()) {
       // never send the shadow sprite or bomb sprite data (or anything for chr >= 0x80):
       chrSent[0x6c] = true;
       chrSent[0x6d] = true;
@@ -2274,7 +2227,7 @@ class LocalGameState : GameState {
   }
 
   uint32 broadcast_sector() {
-    if (rom.is_alttp()) {
+    if (!get_in_sm()) {
       // LTTP:
       uint32 sector = actual_location;
       if ((sector & 0x010000) != 0) {
@@ -2335,7 +2288,7 @@ class LocalGameState : GameState {
       serialize_location(envelope);
       serialize_name(envelope);
 
-      if (rom.is_alttp()) {
+      if (!get_in_sm()) {
         serialize_sfx(envelope);
 
         if (settings.EnablePvP) {
@@ -2370,68 +2323,66 @@ class LocalGameState : GameState {
         p = send_packet(envelope, p);
       }
 
-      if (rom.has_extras) {
-        auto @envelope = make_packet_broadcast();
-        rom.serialize_extras(envelope, serializeSramDelegate);
-        p = send_packet(envelope, p);
-      }
-
-      // send dungeon and overworld SRAM alternating every 16 frames:
-      if (settings.SyncUnderworld) {
-        if ((frame & 31) == 0) {
+        if (!get_in_sm()){
+          if (rom.has_extras) {
           auto @envelope = make_packet_broadcast();
-          serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
+          rom.serialize_extras(envelope, serializeSramDelegate);
+          p = send_packet(envelope, p);
+        }
+
+        // send dungeon and overworld SRAM alternating every 16 frames:
+        if (settings.SyncUnderworld) {
+          if ((frame & 31) == 0) {
+            auto @envelope = make_packet_broadcast();
+            serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
+            p = send_packet(envelope, p);
+          }
+        }
+
+        if (settings.SyncOverworld) {
+          if ((frame & 31) == 16) {
+            auto @envelope = make_packet_broadcast();
+            serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
+            p = send_packet(envelope, p);
+          }
+        }
+
+        // send posisbly multiple packets for tilemaps:
+        if (settings.SyncTilemap) {
+          p = send_tilemaps(p);
+        }
+
+        // send packet every other frame:
+        if ((frame & 1) == 0) {
+          auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
+          serialize_torches(envelope);
           p = send_packet(envelope, p);
         }
       }
-
-      if (settings.SyncOverworld) {
-        if ((frame & 31) == 16) {
-          auto @envelope = make_packet_broadcast();
-          serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
-          p = send_packet(envelope, p);
-        }
-      }
-
-      // send posisbly multiple packets for tilemaps:
-      if (settings.SyncTilemap) {
-        p = send_tilemaps(p);
-      }
-
-      // send packet every other frame:
-      if ((frame & 1) == 0) {
-        auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
-        serialize_torches(envelope);
-        p = send_packet(envelope, p);
-      }
-    } else {
-      // SM:
-      auto @envelope = make_packet_broadcast();
-      serialize_sm_location(envelope);
-      p = send_packet(envelope, p);
-
-      p = send_sm_enemies(p);
     }
+    if (rom.is_sm()){
+      // SM:
 
-    if (rom.is_smz3()) {
-      // SMZ3 only:
-
+      if (frame & 15 == 0){
+        auto @envelope = make_packet_broadcast();
+        serialize_sm_sram(envelope); // items
+        p = send_packet(envelope, p);
+      }
+      
       if ((frame & 31) == 0) {
         auto @envelope = make_packet_broadcast();
         serialize_sm_events(envelope); // item checks, bosses killed, and doors opened
         p = send_packet(envelope, p);
       }
 
-      if ((frame & 31) == 0) {
-        auto @envelope = make_packet_broadcast();
-        serialize_sram_buffer(envelope, 0x0, 0x40); // sram buffer, only sent if the rom is an smz3
-        p = send_packet(envelope, p);
-      }
 
-      if ((frame & 31) == 16) {
+      if (get_in_sm()){
         auto @envelope = make_packet_broadcast();
-        serialize_sram_buffer(envelope, 0x300, 0x400); // sram buffer, only sent if the rom is an smz3
+        serialize_sm_location(envelope);
         p = send_packet(envelope, p);
+
+        p = send_sm_enemies(p);
+
       }
     }
   }
@@ -2458,7 +2409,7 @@ class LocalGameState : GameState {
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
       if (remote.is_it_a_bad_time()) continue;
-      if (remote.in_sm == 1) continue;
+      if (remote.get_in_sm()) continue;
 
       if (settings.SyncTilemap) {
         // update crystal switches to latest state among all players in same dungeon:
@@ -2536,8 +2487,8 @@ class LocalGameState : GameState {
     received_items.insertLast(name);
   }
 
-  void update_items(SRAM@ d, bool is_sram_buffer = false) {
-    if (rom.is_alttp()) {
+  void update_items(SRAM@ d, bool is_sm_sram) {
+    if (!get_in_sm()) {
       if (is_it_a_bad_time()) return;
 
       // don't update latest SRAM when Link is frozen e.g. opening item chest for heart piece -> heart container:
@@ -2563,7 +2514,8 @@ class LocalGameState : GameState {
       auto @syncable = @syncables[k];
       // TODO: for some reason syncables.length() is one higher than it should be.
       if (syncable is null) continue;
-      if ((in_sm_for_items == syncable.is_sm) == is_sram_buffer) continue;
+      // TODO: replace the is_sm property with a new SMSyncableItem class
+      if (is_sm_sram != syncable.is_sm) continue;
 
       // start the sync process for each syncable item in SRAM:
       syncable.start(d);
@@ -2575,14 +2527,10 @@ class LocalGameState : GameState {
         if (remote is this) continue;
         if (remote.ttl <= 0) continue;
         if (remote.team != team) continue;
-        //if (remote.is_it_a_bad_time()) continue;
 
         // apply the remote values:
-        if (remote.in_sm_for_items == syncable.is_sm) {
-          syncable.apply(d, @SRAMArray(remote.sram));
-        } else {
-          syncable.apply(d, @SRAMArray(remote.sram_buffer));
-        }
+        if (!syncable.is_sm){syncable.apply(d, @SRAMArray(remote.sram));}
+        else {syncable.apply(d, @SRAMArray(remote.sm_sram));}
       }
 
       // write back any new updates:
@@ -2616,7 +2564,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       // read current state from SRAM:
       for (uint a = 0; a < OverworldAreaCount; a++) {
@@ -2630,7 +2578,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
         areas[a].apply(d, @SRAMArray(remote.sram));
@@ -2643,7 +2591,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       for (uint a = 0; a < OverworldAreaCount; a++) {
         // write new state to SRAM:
@@ -2679,7 +2627,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       // read current state from SRAM:
       for (uint a = 0; a < 0x128; a++) {
@@ -2693,7 +2641,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       for (uint a = 0; a < 0x128; a++) {
         rooms[a].apply(d, @SRAMArray(remote.sram));
@@ -2706,7 +2654,7 @@ class LocalGameState : GameState {
       if (remote is this) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       // write new state to SRAM:
       for (uint a = 0; a < 0x128; a++) {
@@ -2942,7 +2890,7 @@ class LocalGameState : GameState {
       if (!is_really_in_same_location(remote.location)) {
         continue;
       }
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       if (!locations_equal(actual_location, remote.tilemapLocation)) {
         if (debugRTDSapply) {
@@ -2991,7 +2939,7 @@ class LocalGameState : GameState {
       // NOTE: allow bombs to sync across team boundaries for teh lulz
       //if (remote.team != team) continue;
       if (!is_really_in_same_location(remote.location)) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
 
       //message("[" + fmtInt(i) + "].ancillae.len = " + fmtInt(remote.ancillae.length()));
       if (remote is this) {
@@ -3082,7 +3030,7 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
-      if (remote.in_sm_for_items) continue;
+      if (remote.get_in_sm()) continue;
       if (!is_really_in_same_location(remote.location)) {
         // free ownership of any objects left behind:
         for (uint j = 0; j < 0x10; j++) {
@@ -3471,40 +3419,16 @@ class LocalGameState : GameState {
       }
     }
 
-    for (int i = 0; i < 0x14; i++) {
-      bus::write_u8(0x7ED820 + i, sm_events[i]);
-    }
-    for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0x7ED870 + i, sm_events[i + 0x14]);
-    }
-    for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0x7ED8B0 + i, sm_events[i + 0x14 + 0x20]);
-    }
-  }
-  
-  void update_sm_events_buffer() {
-    uint len = players.length();
-
-    for (uint i = 0; i < len; i++) {
-      auto @remote = players[i];
-      if (remote is null) continue;
-      if (remote is local) continue;
-      if (remote.ttl <= 0) continue;
-      if (remote.team != team) continue;
-
-      for (int j = 0; j < 0x54; j++) {
-        sm_events[j] = remote.sm_events[j] | sm_events[j];
-      }
-    }
+    uint start = get_in_sm() ? 0x7ED820 : 0xa16070;
 
     for (int i = 0; i < 0x14; i++) {
-      bus::write_u8(0xa16070 + i, sm_events[i]);
+      bus::write_u8(start + i, sm_events[i]);
     }
     for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0xa160c0 + i, sm_events[i + 0x14]);
+      bus::write_u8(start + 0x50 + i, sm_events[i + 0x14]);
     }
     for (int i = 0; i < 0x20; i++) {
-      bus::write_u8(0xa16100 + i, sm_events[i + 0x14 + 0x20]);
+      bus::write_u8(start + 0x90 + i, sm_events[i + 0x14 + 0x20]);
     }
   }
   
@@ -3520,7 +3444,7 @@ class LocalGameState : GameState {
       if (remote is local) continue;
       if (remote.ttl <= 0) continue;
       if (remote.team != team) continue;
-      if (!remote.in_sm_for_items) continue;
+      if (!remote.get_in_sm()) continue;
 
       sm_clear = sm_clear | remote.sm_clear;
       z3_clear = z3_clear | remote.z3_clear;
@@ -3539,6 +3463,14 @@ class LocalGameState : GameState {
 
   void set_in_sm(bool b) {
     in_sm = b ? 1 : 0;
+  }
+
+  void fetch_smz3_game(){
+    if(!rom.is_alttp()){set_in_sm(true); return;}
+    if(!rom.is_sm()){set_in_sm(false); return;}
+    //the address at 0xA173FE is 0x00 if in alttp and 0xFF in SM
+    // so we just mask for the last bit
+    in_sm = bus::read_u8(0xA173FE) & 1; 
   }
 
   void get_sm_coords() {
@@ -3570,7 +3502,7 @@ class LocalGameState : GameState {
   bool deselect_tunic_sync_sm;
 
   void update_local_suit(){
-    if(!rom.is_alttp()){
+    if(get_in_sm()){
       if(settings.SyncTunic){
         bus::write_u16(0x7ec182, player_color_dark_33);
         bus::write_u16(0x7ec184, player_color);
@@ -3960,6 +3892,7 @@ class LocalGameState : GameState {
           continue;
         }
         
+
         
         
         bool A = int(local.enemies[i].host_index) == local.index;
@@ -3982,7 +3915,7 @@ class LocalGameState : GameState {
           
           case 10:
           case 15:
-            message("error case 15/10");
+            // message("error case 15/10");
             if (local.index > remote.index){
               local.enemies[i].clone_to(remote.enemies[i]);
               local.enemies[i].host_index = remote.index;
@@ -3991,7 +3924,7 @@ class LocalGameState : GameState {
             break;
           
           case 11:
-            message("error case 11");
+            // message("error case 11");
           case 2:
           case 3:
           case 7:
@@ -4011,7 +3944,7 @@ class LocalGameState : GameState {
           
           
           case 14:
-            message("error case 14");
+            // message("error case 14");
           case 0:
           case 1:
           case 8:

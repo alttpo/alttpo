@@ -15,7 +15,7 @@ bool debugRTDScapture = false;
 bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
-bool enableMap = true;
+bool enableMap = false;
 bool enablePlayerList = false;
 bool enableBgMusic = true;
 
@@ -125,7 +125,7 @@ void cartridge_loaded() {
   if (worldMapWindow !is null) {
     worldMapWindow.loadMap(true);
     worldMapWindow.drawMap();
-    if (rom.is_smz3()) {
+    if (rom.is_sm()) {
       worldMapWindow.add_sm_button();
     }
   }

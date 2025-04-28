@@ -17,15 +17,9 @@ void on_main_alttp(uint32 pc) {
     localFrameState.reset_owners();
   }
 
-  rom.check_game();
-  local.set_in_sm(!rom.is_alttp());
+  local.fetch_smz3_game();
 
   local.fetch();
-
-  if(rom.is_smz3()){
-    local.fetch_games_won();
-    local.fetch_sm_events_buffer();
-  }
 
   // NOTE: commented this line out because it causes "X left" "X joined" messages for the local player when in dialogs
   // or cut-scenes.
@@ -71,14 +65,14 @@ void on_main_alttp(uint32 pc) {
     rom.update_extras();
 
     ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
-    ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
+    SMSRAMArray @sm_sram = @SMSRAMArray(@local.sm_sram);
 
     if (settings.SyncItems) {
       if ((local.frame & 15) == 0) {
-        local.update_items(sram);
-        if (rom.is_smz3()) {
-          local.update_items(sram_buffer, true);
-          local.update_sm_events_buffer();
+        local.update_items(sram, false);
+        if (rom.is_sm()) {
+          local.update_items(sm_sram, true);
+          local.update_sm_events();
           local.update_games_won();
         }
       }
@@ -165,8 +159,7 @@ void on_main_sm(uint32 pc) {
 
   // ppu::frame.text(  0,  10, "sm main called");
 
-  rom.check_game();
-  local.set_in_sm(!rom.is_alttp());
+  local.fetch_smz3_game();
 
   sm_state = bus::read_u8(0x7E0998);
 
@@ -191,11 +184,10 @@ void on_main_sm(uint32 pc) {
       local.fetch_enemies();
     }
 
-    // read ALTTP temporary item buffer from SM SRAM
+    // read ALTTP temporary item buffer from SRAM
     //message("read SM");
-    local.in_sm_for_items = true;
-    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
-    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
+    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sm_sram);
+    if (rom.is_alttp()){bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);}
     local.fetch_sm_events();
   }
 
@@ -218,11 +210,11 @@ void on_main_sm(uint32 pc) {
     if ((local.frame & 15) == 0) {
       if (sm_is_safe_state()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
-        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
-        SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
+        SMSRAMArray@ sm_sram = @SMSRAMArray(@local.sm_sram);
+        ALTTPSRAMArray@ sram = @ALTTPSRAMArray(@local.sram);
 
-        local.update_items(sram);
-        local.update_items(sram_buffer, true);
+        local.update_items(sm_sram, true);
+        local.update_items(sram, false);
 
         local.update_sm_events();
         local.update_games_won();
@@ -339,7 +331,7 @@ void pre_frame() {
       continue;
     }
 
-    if (!rom.is_alttp()) {
+    if (local.get_in_sm()) {
       // SM:
 
       //tests if both players are in the same room
@@ -390,14 +382,14 @@ void pre_frame() {
   }
 
   if (enableRenderToExtra) {
-    if (settings.ShowMyLabel && rom.is_alttp()) {
+    if (settings.ShowMyLabel && !local.get_in_sm()) {
       // don't render on in-game map:
       if ((local.module >= 0x06) && !( local.module == 0x0e && local.sub_module == 0x07 )) {
         ei = local.renderLabel(0, 0, ei);
       }
     }
 
-    if (rom.is_alttp()) {
+    if (!local.get_in_sm()) {
       // don't render notifications during spotlight open/close:
       if (local.module >= 0x07 && local.module <= 0x18) {
         if (local.module != 0x08 && local.module != 0x0a

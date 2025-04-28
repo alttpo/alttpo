@@ -100,6 +100,7 @@ class SM_Enemy {
         bus::write_u16(0x7E0E50, bus::read_u16(0x7E0E50) + 1);
         return;
       }
+
       case 0xD73F: return; // skip elevators
       case 0xD0BF: return; // skip ship
       case 0xD07F: return; // skip ship part 2
