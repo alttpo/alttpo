@@ -35,8 +35,14 @@ class SpritesWindow {
 
   void render(const array<uint16> &palette) {
     // read VRAM:
-    ppu::vram.read_block(0x4000, 0, 0x1000, page0);
-    ppu::vram.read_block(0x5000, 0, 0x1000, page1);
+
+    // NOTE: these offets are true for ALTTP specifically...
+    // ppu::vram.read_block(0x4000, 0, 0x1000, page0);
+    // ppu::vram.read_block(0x5000, 0, 0x1000, page1);
+
+    // ...but let's use chr_address function to figure out dynamically where chr page 0 and 1 are:
+    ppu::vram.read_block(ppu::vram.chr_address(0x000), 0, 0x1000, page0);
+    ppu::vram.read_block(ppu::vram.chr_address(0x100), 0, 0x1000, page1);
 
     // draw VRAM as 4bpp tiles:
     canvas.fill(0x0000);

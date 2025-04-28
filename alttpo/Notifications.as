@@ -15,7 +15,7 @@ class NotificationSystem {
     if (notifications.length() == 0) return ei;
 
     // pop off the first notification if its timer is expired:
-    if (notificationFrameTimer++ >= 170) {
+    if (notificationFrameTimer++ >= 60) {
       notifications.removeAt(0);
       notificationFrameTimer = 0;
     }

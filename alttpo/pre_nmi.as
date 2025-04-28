@@ -37,7 +37,6 @@ void pre_nmi() {
   }
 
   // exit early if game is not ALTTP (for SMZ3):
-  rom.check_game();
   if (!rom.is_alttp()) {
     return;
   }

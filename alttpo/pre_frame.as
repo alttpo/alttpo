@@ -17,15 +17,9 @@ void on_main_alttp(uint32 pc) {
     localFrameState.reset_owners();
   }
 
-  rom.check_game();
-  local.set_in_sm(!rom.is_alttp());
+  local.fetch_smz3_game();
 
   local.fetch();
-  
-  if(rom.is_smz3()){
-    local.fetch_games_won();
-    local.fetch_sm_events_buffer();
-  }
 
   // NOTE: commented this line out because it causes "X left" "X joined" messages for the local player when in dialogs
   // or cut-scenes.
@@ -71,14 +65,14 @@ void on_main_alttp(uint32 pc) {
     rom.update_extras();
 
     ALTTPSRAMArray @sram = @ALTTPSRAMArray(@local.sram);
-    ALTTPSRAMArray @sram_buffer = @ALTTPSRAMArray(@local.sram_buffer, true);
+    SMSRAMArray @sm_sram = @SMSRAMArray(@local.sm_sram);
 
     if (settings.SyncItems) {
       if ((local.frame & 15) == 0) {
-        local.update_items(sram);
-        if (rom.is_smz3()) {
-          local.update_items(sram_buffer, true);
-          local.update_sm_events_buffer();
+        local.update_items(sram, false);
+        if (rom.is_sm()) {
+          local.update_items(sm_sram, true);
+          local.update_sm_events();
           local.update_games_won();
         }
       }
@@ -111,6 +105,32 @@ void on_main_alttp(uint32 pc) {
   }
 }
 
+// This function is called when alttp's Sprite_Main routine begins:
+void on_sprite_main_alttp(uint32 pc) {
+  if (settings.started && (sock !is null)) {
+    // receive network updates from remote players:
+    receive();
+  }
+
+  if (settings.SyncLttpEnemies) {
+    local.fetch_basics(); // for in_dungeon and location checks
+    local.fetch_enemy_data(); // to not overwrite picked up sprites
+
+    local.update_overlord_data();
+    local.update_enemy_data();
+  }
+}
+
+// This function is called when alttp's Sprint_Main routine ends (on RTL):
+void on_sprite_main_end_alttp(uint32 pc) {
+  if (settings.SyncLttpEnemies) {
+    local.fetch_overlord_data();
+    local.fetch_enemy_data();
+
+    local.send_enemy_data();
+  }
+}
+
 uint8 sm_state = 0;
 
 bool sm_is_safe_state() {
@@ -127,7 +147,8 @@ bool sm_loading_room() {
   return sm_state == 0x0b;
 }
 
-bool sm_in_menu(){
+
+bool sm_in_menu() {
   return (sm_state >= 0x0c && sm_state <= 0x12);
 }
 
@@ -136,19 +157,11 @@ void on_main_sm(uint32 pc) {
   //message("main_sm");
   main_called = true;
 
-  rom.check_game();
-  local.set_in_sm(!rom.is_alttp());
+  // ppu::frame.text(  0,  10, "sm main called");
+
+  local.fetch_smz3_game();
 
   sm_state = bus::read_u8(0x7E0998);
-
-  local.get_sm_coords();
-  local.fetch_games_won();
-  if (!sm_in_menu()){ 
-    local.get_sm_sprite_data();
-    if (settings.SyncTunic){
-      local.update_sm_palette();
-    }
-  }
 
   local.module = 0x00;
   local.sub_module = 0x00;
@@ -159,44 +172,69 @@ void on_main_sm(uint32 pc) {
   local.actual_location = 0;
 
   if (sm_is_safe_state()) {
-    // read ALTTP temporary item buffer from SM SRAM
+    local.get_sm_coords();
+    local.fetch_games_won();
+    if (!sm_in_menu() && !sm_loading_room()) {
+      local.fetch_sm_pose();
+      local.fetch_sm_sprites();
+
+      // fetch local VRAM data for sprites:
+      local.capture_sprites_vram();
+
+      local.fetch_enemies();
+    }
+
+    // read ALTTP temporary item buffer from SRAM
     //message("read SM");
-    local.in_sm_for_items = true;
-    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sram);
-    bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram_buffer);
-	local.fetch_sm_events();
-  } else {
+    bus::read_block_u8(0x7E09A2, 0, 0x40, local.sm_sram);
+    if (rom.is_alttp()){bus::read_block_u8(0xA17B00, 0x300, 0x100, local.sram);}
+    local.fetch_sm_events();
+  }
+
+  if (!settings.started) {
+    return;
+  }
+  if (sock is null) {
     return;
   }
 
-  if (settings.started && (sock !is null)) {
-    //message("SM send&recieve");
-    // send updated state for our Link to server:
-    local.send();
+  //message("SM send&recieve");
+  // send updated state for our Link to server:
+  local.send();
 
-    // receive network updates from remote players:
-    receive();
-  } else {
-    return;
-  }
+  // receive network updates from remote players:
+  receive();
 
   if (settings.SyncItems) {
     // all we can do is update items:
     if ((local.frame & 15) == 0) {
       if (sm_is_safe_state()) {
         // use SMSRAMArray so that commit() updates SM SRAM:
-        SMSRAMArray@ sram = @SMSRAMArray(@local.sram);
-        SMSRAMArray@ sram_buffer = @SMSRAMArray(@local.sram_buffer, true);
+        SMSRAMArray@ sm_sram = @SMSRAMArray(@local.sm_sram);
+        ALTTPSRAMArray@ sram = @ALTTPSRAMArray(@local.sram);
 
-        local.update_items(sram);
-        local.update_items(sram_buffer, true);
+        local.update_items(sm_sram, true);
+        local.update_items(sram, false);
 
         local.update_sm_events();
         local.update_games_won();
       }
     }
   }
+
+  if (!sm_loading_room()) {
+    if (settings.SyncSmEnemies) {
+      local.update_enemies();
+    }
+    local.timeInRoom++;
+  }
+  else {
+    local.timeInRoom = 0;
+  }
 }
+
+uint32 last_net_report = 0;
+uint32 net_bytes_sent = 0;
 
 // pre_frame always happens
 void pre_frame() {
@@ -205,6 +243,19 @@ void pre_frame() {
   // capture current timestamp:
   // TODO(jsd): replace this with current server time
   timestamp_now = uint32(chrono::realtime::millisecond);
+  // message(fmtUint(timestamp_now));
+
+  if (enableNetReporting) {
+    if (last_net_report == 0) {
+      last_net_report = timestamp_now;
+    }
+    if ((timestamp_now - last_net_report) >= 1000) {
+      double delta = (timestamp_now - last_net_report);
+      message(fmtInt(int(double(net_bytes_sent) * 1000.0 / delta)));
+      net_bytes_sent = 0;
+      last_net_report = timestamp_now;
+    }
+  }
 
   if (enableRenderToExtra) {
     ppu::extra.count = 0;
@@ -237,7 +288,6 @@ void pre_frame() {
     //dbgData("pre_frame send/recv");
     if (settings.started && (sock !is null)) {
       // send updated state for our Link to server:
-      //message("send");
       local.send();
 
       // receive network updates from remote players:
@@ -249,6 +299,7 @@ void pre_frame() {
     if (playersWindow !is null) {
       playersWindow.update();
     }
+    //local.reset_uniqtiles();
   }
   players_updated = false;
 
@@ -265,7 +316,12 @@ void pre_frame() {
     playerCount++;
     if (remote is local) continue;
     if (remote.ttl <= 0) {
+      // erase player:
       remote.ttl = 0;
+      if (remote.index >= 0) {
+        @players[remote.index] = @GameState();
+        players_updated = true;
+      }
       playerCount--;
       continue;
     }
@@ -275,64 +331,65 @@ void pre_frame() {
       continue;
     }
 
-    // exit early if game is not ALTTP (for SMZ3):
-    if (!rom.is_alttp()) {
-    //tests if both players are in the same room
+    if (local.get_in_sm()) {
+      // SM:
+
+      //tests if both players are in the same room
       if (!local.can_see_sm(remote)) continue;
       if (sm_state > 0x0c && sm_state < 0x12) continue;
-      
-      
-      uint16 remote_offset_x = (uint16(remote.sm_x) << 8) + uint16(remote.sm_sub_x);
-      uint16 local_offset_x = bus::read_u16(0x7e0911);
-      uint16 remote_offset_y = (uint16(remote.sm_y) << 8) + uint16(remote.sm_sub_y);
-      uint16 local_offset_y = bus::read_u16(0x7e0915);
+
+      uint16 remote_offset_x = remote.sm_screen_x;
+      uint16 local_offset_x = local.sm_screen_x;
+      uint16 remote_offset_y = remote.sm_screen_y;
+      uint16 local_offset_y = local.sm_screen_y;
       int rx = int(remote_offset_x) - int(local_offset_x);
       int ry = int(remote_offset_y) - int(local_offset_y);
-      
-      
-      ei = remote.draw_samus(rx, ry, ei);
-      
-      if (settings.ShowLabels){
-          ei = remote.render_sm_label(rx - 8, ry - 64, ei);
+
+      // message("SM local " + fmtInt(local_offset_x) + "," + fmtInt(local_offset_y) + "; remote " + fmtInt(remote_offset_x) + "," + fmtInt(remote_offset_y));
+      // message("SM rx,ry " + fmtInt(rx) + "," + fmtInt(ry) + "; remoteabs " + fmtInt(remote_abs_x) + "," + fmtInt(remote_abs_y));
+      ei = remote.renderToExtra(rx, ry, ei);
+
+      if (settings.ShowLabels && !sm_in_menu()) {
+        ei = remote.render_sm_label(rx - 8, ry - 64, ei);
       }
-    
-      continue;
-    }
+    } else {
+      // alttp:
 
-    // don't render players or labels in pre-game modules:
-    if (local.is_it_a_bad_time()) continue;
+      // don't render players or labels in pre-game modules:
+      if (local.is_it_a_bad_time()) continue;
 
-    // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-    if (local.can_see(remote.location)) {
-      // don't render player if remote player is in pre-game modules:
-      if (remote.is_it_a_bad_time()) continue;
+      // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
+      if (local.can_see(remote.location)) {
+        // don't render player if remote player is in pre-game modules:
+        if (remote.is_it_a_bad_time()) continue;
 
-      // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
-      int rx = int(remote.xoffs - local.xoffs);
-      int ry = int(remote.yoffs - local.yoffs);
+        // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
+        int rx = int(remote.xoffs - local.xoffs);
+        int ry = int(remote.yoffs - local.yoffs);
 
-      // draw remote player relative to current BG offsets:
-      if (enableRenderToExtra) {
-        ei = remote.renderToExtra(rx, ry, ei);
+        // draw remote player relative to current BG offsets:
+        if (enableRenderToExtra) {
+          ei = remote.renderToExtra(rx, ry, ei);
 
-        if (settings.ShowLabels && ! sm_in_menu()) {
-          ei = remote.renderLabel(rx, ry, ei);
+          if (settings.ShowLabels) {
+            ei = remote.renderLabel(rx, ry, ei);
+          }
+        } else {
+          remote.renderToPPU(rx, ry);
         }
-      } else {
-        remote.renderToPPU(rx, ry);
       }
     }
   }
 
   if (enableRenderToExtra) {
-    if (settings.ShowMyLabel && rom.is_alttp()) {
+    if (settings.ShowMyLabel && !local.get_in_sm()) {
       // don't render on in-game map:
       if ((local.module >= 0x06) && !( local.module == 0x0e && local.sub_module == 0x07 )) {
         ei = local.renderLabel(0, 0, ei);
       }
     }
 
-    if (rom.is_alttp()) {
+    if (!local.get_in_sm()) {
       // don't render notifications during spotlight open/close:
       if (local.module >= 0x07 && local.module <= 0x18) {
         if (local.module != 0x08 && local.module != 0x0a
@@ -348,12 +405,12 @@ void pre_frame() {
       if (sm_is_safe_state()) {
         ei = notificationSystem.renderNotifications(ei);
       }
-      
+
       if (settings.ShowMyLabel && !sm_loading_room() && !sm_in_menu()){
-        int offset_x = int(bus::read_u16(0x7e0b04));
-        int offset_y = int(bus::read_u16(0x7e0b06));
+        // int offset_x = int(bus::read_u16(0x7e0b04) & 0x00FF);
+        // int offset_y = int(bus::read_u16(0x7e0b06) & 0x00FF);
         
-        ei = local.render_sm_label(offset_x - 8, offset_y - 64, ei);
+        ei = local.render_sm_label(0 - 8, 0 - 64, ei);
       }
     }
 

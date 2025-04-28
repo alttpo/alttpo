@@ -6,7 +6,6 @@ bool debug = false;
 bool debugReadout = false;
 bool debugData = false;
 bool debugSRAM = false;
-bool debugNet = false;
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugGameObjects = false;
@@ -16,9 +15,12 @@ bool debugRTDScapture = false;
 bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
-bool enableMap = true;
+bool enableMap = false;
 bool enablePlayerList = false;
 bool enableBgMusic = true;
+
+bool enableNetRateLimiting = false;
+bool enableNetReporting = false;
 
 bool enableRenderToExtra = true;
 
@@ -70,10 +72,6 @@ void init() {
     @gameSpriteWindow = GameSpriteWindow();
   }
 
-  if (debugMemory) {
-    @memoryWindow = MemoryWindow();
-  }
-
   if (enablePlayerList) {
     @playersWindow = PlayersWindow();
   }
@@ -97,6 +95,10 @@ void cartridge_loaded() {
       }
       dbgData("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
     }
+  }
+
+  if (debugMemory) {
+    @memoryWindow = MemoryWindow();
   }
 
   // read the JSL target address from the RESET vector code:
@@ -123,7 +125,7 @@ void cartridge_loaded() {
   if (worldMapWindow !is null) {
     worldMapWindow.loadMap(true);
     worldMapWindow.drawMap();
-    if (rom.is_smz3()) {
+    if (rom.is_sm()) {
       worldMapWindow.add_sm_button();
     }
   }
@@ -188,4 +190,15 @@ void dbgData(const string &in msg) {
 uint16 min(uint16 a, uint16 b) {
   if (a < b) return a;
   return b;
+}
+
+uint16 max(uint16 a, uint16 b) {
+  if (a > b) return a;
+  return b;
+}
+
+int absoluteValue(int a){
+  if (a > 0)
+    return a;
+  return -a;
 }
