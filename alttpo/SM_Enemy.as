@@ -53,10 +53,11 @@ class SM_Enemy {
     enemy_data[10] = min(health, remote.health);
     health = enemy_data[10];
     
+    // enemy freeze timer (ice beam)
     if (enemy_data[19] == 0){
       uint16 temp = 0;
       if (remote.enemy_data[19] > 0){temp = remote.enemy_data[19];}
-      // enemy_data[19] = max(enemy_data[19], temp);
+      /// enemy_data[19] = max(enemy_data[19], temp);
     }
   }
   
@@ -96,14 +97,14 @@ class SM_Enemy {
           bus::write_u16(sm_enemy_bank + enemy_index*0x40 + i*2, 0);
         }
       
-        bus::write_u16(0x7E0E4E, bus::read_u16(0x7E0E4E) - 1);
-        bus::write_u16(0x7E0E50, bus::read_u16(0x7E0E50) + 1);
+        bus::write_u16(0x7E0E4E, bus::read_u16(0x7E0E4E) - 1); // enemies in room counter primarily for metroid rooms
+        bus::write_u16(0x7E0E50, bus::read_u16(0x7E0E50) + 1); // enemies killed counter
         return;
       }
 
       case 0xD73F: return; // skip elevators
-      case 0xD0BF: return; // skip ship
-      case 0xD07F: return; // skip ship part 2
+      case 0xD0BF: return; // skip ship (interestingly the gunship is made of two halves and an elevator on top)
+      case 0xD07F: return; // skip ship part 2 (no particular use for this info i just think it's cool)
       case 0xE87F: bound = 24; break;
       case 0xEaFF: bound = 24; break;
       default: bound = 32;
