@@ -3906,10 +3906,6 @@ class LocalGameState : GameState {
         if (B) {temp += 4;}
         if (A) {temp += 8;}
         
-        if (enemies[i].enemy_index == 14){
-          //message("stuck in state: " + fmtInt(temp));
-        }
-        
         switch (temp){
           
           
@@ -3959,10 +3955,7 @@ class LocalGameState : GameState {
       if (take_host) {
         local.enemies[i].host_index = local.index;
       }
-      local.enemies[i].write();
+      local.enemies[i].write(); //write each enemy into the game
     }
-    
-    
-    // write the enemies into the game
   }
 };
