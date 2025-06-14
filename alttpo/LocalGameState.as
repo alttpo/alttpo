@@ -3148,10 +3148,12 @@ class LocalGameState : GameState {
     // dont overwrite local sprite for these types:
     uint8 l_id = enemyData[(spr_id << 4) + s];
     if (l_id == 0xEC) return; // thrown item
+    if (l_id == 0x1E) return; // crystal switch
 
     // check if the remote sprite type is ok to sync in:
     uint8 r_id = d[(spr_id << 4) + s];
     if (r_id == 0xEC) return; // thrown item
+    if (r_id == 0x1E) return; // crystal switch
 
     // copy in remote sprite's data to local:
     for (uint x = 0; x < enemy_data_ptrs.length(); x++) {
