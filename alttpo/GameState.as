@@ -303,9 +303,6 @@ class GameState {
     }
   }
 
-  // local: player index last synced objects from:
-  uint16 objects_index_source;
-
   // values copied from RAM:
   uint8  frame;
   uint32 actual_location;
@@ -407,9 +404,6 @@ class GameState {
 
   array<uint8> sm_events(0x54);
 
-  array<GameSprite@> objects(0x10);
-  array<uint8> objectsBlock(0x2A0);
-
   SyncableByte@ crystal = @SyncableByte(0xC172);
   array<SyncableByte@> small_keys(0x10);
 
@@ -504,12 +498,6 @@ class GameState {
 
     for (uint i = 0; i < 0x20; i++){
       enemies[i] = SM_Enemy(i);
-    }
-
-    //array<GameSprite@> objects(0x10);
-
-    for (uint i = 0; i < 0x2A0; i++) {
-      objectsBlock[i] = 0;
     }
 
     crystal.reset();
@@ -729,7 +717,7 @@ class GameState {
         case 0x05: c = deserialize_wram(r, c); break;
         case 0x06: c = deserialize_sram(r, c); break;
         case 0x07: c = deserialize_tilemaps(r, c); break;
-        case 0x08: c = deserialize_objects(r, c); break;
+        //case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
         case 0x0B: c = deserialize_pvp(r, c); break;
@@ -1009,15 +997,6 @@ class GameState {
       for (uint i = 0; i < count; i++) {
         c = SyncableByte(offs + i).deserialize(r, c);
       }
-    }
-
-    return c;
-  }
-
-  int deserialize_objects(array<uint8> r, int c) {
-    objectsBlock.resize(0x2A0);
-    for (int i = 0; i < 0x2A0; i++) {
-      objectsBlock[i] = r[c++];
     }
 
     return c;

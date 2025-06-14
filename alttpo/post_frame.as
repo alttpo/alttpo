@@ -92,14 +92,14 @@ void post_frame() {
     sprites.update();
   }
 
-  if (gameSpriteWindow !is null) {
-    gameSpriteWindow.update();
+  if (enemyWindow !is null) {
+    enemyWindow.update();
   }
 
   if (memoryWindow !is null) {
     memoryWindow.update();
   }
-  
+
   local.update_local_suit();
 
   if (settings.EnablePvP && debugData) {

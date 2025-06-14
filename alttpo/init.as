@@ -8,7 +8,7 @@ bool debugData = false;
 bool debugSRAM = false;
 bool debugOAM = false;
 bool debugSprites = false;
-bool debugGameObjects = false;
+bool debugEnemyWindow = false;
 bool debugMemory = false;
 
 bool debugRTDScapture = false;
@@ -23,9 +23,6 @@ bool enableNetRateLimiting = false;
 bool enableNetReporting = false;
 
 bool enableRenderToExtra = true;
-
-// sync control:
-bool enableObjectSync = false;
 
 void init() {
   //message("init()");
@@ -68,8 +65,8 @@ void init() {
     @oamWindow = OAMWindow();
   }
 
-  if (debugGameObjects) {
-    @gameSpriteWindow = GameSpriteWindow();
+  if (debugEnemyWindow) {
+    @enemyWindow = EnemyWindow();
   }
 
   if (enablePlayerList) {

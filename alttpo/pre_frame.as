@@ -85,10 +85,6 @@ void on_main_alttp(uint32 pc) {
       local.update_overworld(sram);
     }
 
-    if (enableObjectSync) {
-      local.update_objects();
-    }
-
     if (settings.SyncUnderworld) {
       update_torches();
     }

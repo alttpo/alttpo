@@ -190,10 +190,6 @@ class LocalGameState : GameState {
     if (registered) return;
     if (rom is null) return;
 
-    if (enableObjectSync) {
-      cpu::register_pc_interceptor(rom.fn_sprite_init, cpu::PCInterceptCallback(this.on_object_init));
-    }
-
     //message("tilemap intercept register");
     bus::add_write_interceptor("7e:2000-5fff", bus::WriteInterceptCallback(this.tilemap_written));
     bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
@@ -534,8 +530,6 @@ class LocalGameState : GameState {
 
     fetch_sprites();
 
-    fetch_objects();
-
     fetch_ancillae();
 
     fetch_tilemap_changes();
@@ -634,24 +628,6 @@ class LocalGameState : GameState {
     bus::read_block_u8(0x7EF000, 0, 0x500, sram);
     bus::read_block_u8(0x7F6000, 0x500, 0x1000, sram);
     bus::read_block_u8(0xA17900, 0, 0x40, sm_sram);
-  }
-
-  void fetch_objects() {
-    if (!enableObjectSync && !debugGameObjects) return;
-    if (is_dead()) return;
-
-    // $7E0D00 - $7E0FA0
-    uint i = 0;
-
-    bus::read_block_u8(0x7E0D00, 0, 0x2A0, objectsBlock);
-    for (i = 0; i < 0x10; i++) {
-      auto @en = objects[i];
-      if (en is null) {
-        @en = @objects[i] = @GameSprite();
-      }
-      // copy in facts about each enemy from the large block of WRAM:
-      objects[i].readFromBlock(objectsBlock, i);
-    }
   }
 
   void fetch_sprites() {
@@ -1611,15 +1587,6 @@ class LocalGameState : GameState {
     }
   }
 
-  void serialize_objects(array<uint8> &r) {
-    if (!enableObjectSync) return;
-
-    r.write_u8(uint8(0x08));
-
-    // 0x2A0 bytes
-    r.write_arr(objectsBlock);
-  }
-
   void serialize_ancillae(array<uint8> &r) {
     if (ancillaeOwner.length() == 0) return;
     if (ancillae.length() == 0) return;
@@ -2297,7 +2264,6 @@ class LocalGameState : GameState {
 
         if (settings.SyncTilemap) {
           serialize_ancillae(envelope);
-          serialize_objects(envelope);
           serialize_crystals(envelope);
         }
 
@@ -2986,103 +2952,6 @@ class LocalGameState : GameState {
       }
 
       continue;
-    }
-  }
-
-  // local player owns whatever it spawns:
-  void on_object_init(uint32 pc) {
-    auto j = cpu::r.x;
-    objectOwner[j] = index;
-    message("owner["+fmtHex(j,1)+"]="+fmtInt(objectOwner[j]));
-  }
-
-  array<int> objectOwner(0x10);
-  array<int> objectHeat(0x10);
-  void update_objects() {
-    // clear ownership of local dead objects:
-    for (uint j = 0; j < 0x10; j++) {
-      GameSprite l;
-      l.readRAM(j);
-
-      if (!l.is_enabled) {
-        if (objectHeat[j] > 0) {
-          objectHeat[j]--;
-          if (objectHeat[j] == 0) {
-            objectOwner[j] = -2;
-          }
-        }
-
-        if (objectOwner[j] == index) {
-          objectOwner[j] = -2;
-          objectHeat[j] = 32;
-        } else if (objectOwner[j] >= 0) {
-          // locally destroyed the object:
-          objectOwner[j] = index;
-          objectHeat[j] = 32;
-        }
-      }
-    }
-
-    // sync in remote objects:
-    uint len = players.length();
-    for (uint i = 0; i < len; i++) {
-      auto @remote = players[i];
-      if (remote is null) continue;
-      if (remote is local) continue;
-      if (remote.ttl <= 0) continue;
-      if (remote.get_in_sm()) continue;
-      if (!is_really_in_same_location(remote.location)) {
-        // free ownership of any objects left behind:
-        for (uint j = 0; j < 0x10; j++) {
-          if (objectOwner[j] == remote.index) {
-            objectOwner[j] = -2;
-            objectHeat[j] = 32;
-          }
-        }
-        continue;
-      }
-
-      for (uint j = 0; j < 0x10; j++) {
-        GameSprite r;
-        r.readFromBlock(remote.objectsBlock, j);
-
-        if (!r.is_enabled) {
-          // release ownership if owned:
-          if (objectOwner[j] == remote.index) {
-            if (objectHeat[j] == 0) {
-              //objectOwner[j] = -2;
-              objectHeat[j] = 32;
-            }
-            r.writeRAM();
-          }
-          continue;
-        }
-
-        // only copy in picked-up objects:
-        if (r.type != 0xEC) continue;
-
-        GameSprite l;
-        l.readRAM(j);
-
-        if (objectOwner[j] >= 0) {
-          // not the owning player?
-          if (objectOwner[j] != remote.index) {
-            continue;
-          }
-        } else {
-          // wait for the heat to die down:
-          if (objectHeat[j] > 0) continue;
-
-          // now this remote player owns it since no one has before:
-          objectOwner[j] = remote.index;
-          message("owner["+fmtHex(j,1)+"]="+fmtInt(objectOwner[j]));
-        }
-
-        // translate it from picked-up to a normal object, else local Link holds it above his head:
-        if (r.state == 0x0A) r.state = 0x09;
-
-        r.writeRAM();
-      }
     }
   }
 
