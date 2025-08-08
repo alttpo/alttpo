@@ -88,6 +88,19 @@ class SM_Enemy {
   void write(){
     uint bound; //determines how much memory to copy into enemy slot
     
+
+    // if the "respawn when killed" flag is set, skip syncing this enemy
+    if(enemy_data[7] & 0x4000 == 0x4000){
+      return;
+    }
+
+    // check if we currently are in a boss room
+    if (bus::read_u16(0x7e179c) != 0){
+      // if so, write hp only, then leave 0 hp causes problems, so write 1 and let each player get the kill
+      bus::write_u16(sm_enemy_bank + enemy_index*0x40 + 10*2, max(enemy_data[10],1));
+      return;
+    }
+
     switch(pointer){
       
       case 0x0000: {
@@ -108,12 +121,6 @@ class SM_Enemy {
       case 0xE87F: bound = 24; break;
       case 0xEaFF: bound = 24; break;
       default: bound = 32;
-    }
-  
-    
-    // if the "respawn when killed" flag is set, skip syncing this enemy
-    if(enemy_data[15] & 0b01000000 == 0b01000000){
-      return;
     }
     
     for(uint i = 0; i < bound; i++){

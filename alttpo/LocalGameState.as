@@ -3743,8 +3743,20 @@ class LocalGameState : GameState {
     uint players_len = players.length();
     for (uint i = 0; i < 0x20; i ++){
       bool take_host = true;
+
+      // skip elevators or the ship
+      switch(local.enemies[i].pointer){
+        case 0xD73F: continue;
+        case 0xD0BF: continue;
+        case 0xD07F: continue;
+      }
+      // if the "respawn when killed" flag is set, skip syncing this enemy
+      if(local.enemies[i].enemy_data[7] & 0x4000 == 0x4000){
+        //message("found a respawner");
+        continue;
+      }
       
-      if (!(local.timeInRoom < 5) && local.enemies[i].pointer == 0){continue;}
+      if (!(local.timeInRoom < 50) && local.enemies[i].pointer == 0){continue;}
       
       for (uint j = 0; j < players_len; j++) {
         auto @remote = players[j];
@@ -3753,10 +3765,10 @@ class LocalGameState : GameState {
         if (remote.ttl <= 0) continue;
         if (remote.team != team) continue;
         if (!remote.enemySyncEnabled) continue;
-        if (remote.timeInRoom < 5) continue;
+        if (remote.timeInRoom < 50) continue;
         if (!local.can_see_sm(remote)) continue;
         
-        if (local.timeInRoom < 5){
+        if (local.timeInRoom < 50){
           local.enemies[i].clone_to(remote.enemies[i]);
           local.enemies[i].host_index = remote.index;
           take_host = false;
