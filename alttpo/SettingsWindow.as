@@ -308,8 +308,8 @@ class SettingsWindow {
     syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
     syncCrystals = doc["feature/syncCrystals"].booleanOr(true);
     syncProgress = doc["feature/syncProgress"].booleanOr(true);
-    syncsmenemies = doc["featyre/syncsmenemies"].booleanOr(true);
-    synclttpenemies = doc["featyre/synclttpenemies"].booleanOr(true);
+    syncsmenemies = doc["feature/syncsmenemies"].booleanOr(true);
+    synclttpenemies = doc["feature/synclttpenemies"].booleanOr(true);
 
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
@@ -793,7 +793,7 @@ class SettingsWindow {
 
   private void syncSmEnemiesChanged(bool persist = true) {
     syncsmenemies = chkSyncSmEnemies.checked;
-    local.timeInRoom = 0;
+    if (local !is null) local.timeInRoom = 0;
     if (!persist) return;
     save();
   }
@@ -806,7 +806,7 @@ class SettingsWindow {
 
   private void syncLttpEnemiesChanged(bool persist = true) {
     synclttpenemies = chkSyncLttpEnemies.checked;
-    local.timeInRoom = 0;
+    if (local !is null) local.timeInRoom = 0;
     if (!persist) return;
     save();
   }
