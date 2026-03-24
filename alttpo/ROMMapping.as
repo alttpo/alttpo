@@ -844,7 +844,7 @@ ROMMapping@ detect() {
     auto kind = title.slice(0, 2) + " v" + title.slice(2, 3);
     message("Recognized Berserker MultiWorld Door Randomizer " + kind + " randomized JP ROM version. Seed: " + seed);
     return DoorRandomizerMapping(kind, seed);
-  } else if ( (title.slice(0, 2) == "ER") && (title[5] == '_') ) {
+  } else if ( ((title.slice(0, 2) == "ER") || (title.slice(0,2) == "DR")) && (title[5] == '_') ) {
     // ALTTPR Entrance or Door Randomizer.
     //  0123456789
     // "ER002_1_1_164246190  "
