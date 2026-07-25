@@ -78,13 +78,11 @@ Press the `Connect` button to go online and join your group. This window will st
     1. Make sure you're all using the same server Address. Use "alttp.online" as the default unless you're hosting your own server.
     1. Be sure you have UDP port 4590 open for bidirectional communication to the public internet.
 
-### MacOS Catalina
-
-#### Help! I cannot open bsnes-as on MacOS Catalina (10.15)!
+### macOS: "bsnes is damaged and can't be opened"
 
 ![MacOS Catalina Error](static/macos-catalina.png)
 
-If you see this window, delete your extracted folder and instead extract the downloaded archive using https://www.keka.io/en/ file archiver, or any other archive software besides the built-in "Archive Utility.app". In other words, DO NOT use the built-in "Archive Utility.app" to extract the download or MacOS Catalina will refuse to open the app.
+See [macOS Support](#macos-support) below for the fix.
 
 ### Other issues
 
@@ -96,6 +94,36 @@ For any other issues, please feel free to use the Github Issues feature and make
 In this window you will see small colored circular map markers that represent the approximate location of other players in your group. Your player color determines the color of the map marker.
 
 Uncheck the `Auto` checkbox to allow manual switching between Light World and Dark World map views. Keep it checked to synchronize the map window to your current Light/Dark World position.
+
+# macOS Support
+
+## Extracting the pre-built client
+
+Extract the downloaded `.tar.xz` using `tar` from Terminal, or a third-party archiver like
+[Keka](https://www.keka.io/en/). Don't use the Finder-integrated "Archive Utility.app": it marks
+every extracted file, including `bsnes.app`, with the same "downloaded from the internet" flag as
+the archive itself, and since `bsnes.app` isn't notarized, that makes Gatekeeper report it as
+"damaged" instead of just "unidentified developer."
+
+```
+$ tar xJf alttpo-client-macos-<hash>.tar.xz
+```
+
+Already hit the "damaged" dialog? No need to re-extract, just run:
+
+```
+$ xattr -cr /path/to/bsnes.app
+```
+
+## Building the emulator core from source
+
+This repository only contains the AngelScript client scripts (`alttpo/`) and the Go multiplayer
+server (`alttp-server/`). The emulator itself (`bsnes.app`) is a separate repository,
+[alttpo/bsnes-as](https://github.com/alttpo/bsnes-as), which builds natively on both Apple Silicon
+and Intel Macs with just Xcode's command line tools. See that repo's README for build instructions.
+Once you have a built `bsnes.app`, put this repo's `alttpo/*.as`, `*.png`, and `*.bml` files into an
+`alttpo/` folder next to it, then follow the "Play with a friend" steps above starting from "Launch
+`bsnes.app`."
 
 # Linux Support
 
