@@ -1,5 +1,5 @@
 
-const uint8 script_protocol = 0x17;
+const uint8 script_protocol = 0x01;
 
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
@@ -221,6 +221,9 @@ const uint   sm_uniq4bpptile_count = 0xF00;
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
+  // timestamps (nanoseconds since unix epoch) from the last server protocol 04 message received from this player:
+  int64 player_time = 0; // player's clock when the message was sent
+  int64 server_time = 0; // server's clock when the message passed through the server
   uint8 _team = 0; // team number to sync with
 
   // graphics data for current frame:
@@ -733,7 +736,12 @@ class GameState {
         case 0x15: c = deserialize_uniqtiles(r, c); break;
         case 0x16: c = deserialize_nak_uniqtiles(r, c); break;
         default:
-          message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
+          // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
+          if (packetType < 0x80) {
+            message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
+          }
+          // the length of an unknown message is not known so the rest of the packet cannot be parsed:
+          c = maxc;
           break;
       }
     }

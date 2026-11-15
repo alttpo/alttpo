@@ -65,6 +65,7 @@ class LocalGameState : GameState {
 
   uint8 state;
   uint32 last_sent = 0;
+  uint64 last_echo_sent = 0;
 
   uint8 gotShield;
 
@@ -170,6 +171,7 @@ class LocalGameState : GameState {
 
     small_keys_current.reset();
     last_sent = 0;
+    last_echo_sent = 0;
 
     gotShield = 0;
 
@@ -2132,25 +2134,68 @@ class LocalGameState : GameState {
     return p;
   }
 
+  // server protocol 04 GroupMessage kinds:
+  //   0x01 = join group (response tells us our player index)
+  //   0x02 = broadcast to all other players in the group
+  //   0x03 = broadcast to all other players in the group in the target sector
+  //   0x04 = echo (response tells us the server time)
   array<uint8> @make_server_envelope(uint8 kind) {
     array<uint8> @envelope = {};
     envelope.reserve(MaxPacketSize);
 
-    // write a (possibly partial) server envelope:
+    string group = settings.GroupTrimmed;
+    if (group.length() > 255) {
+      group = group.slice(0, 255);
+    }
+
+    // write a (possibly partial) server envelope; all integers are little-endian:
     // header:
     envelope.write_u16(uint16(25887));
-    // server protocol 2:
-    envelope.write_u8(uint8(0x02));
-    // group name: (20 bytes exactly)
-    envelope.write_str(settings.GroupPadded);
+    // server protocol 4:
+    envelope.write_u8(uint8(0x04));
+    // group name:
+    envelope.write_u8(uint8(group.length()));
+    envelope.write_str(group);
+    // int64 player time (our clock in nanoseconds since unix epoch):
+    uint64 playerTime = chrono::realtime::nanosecond;
+    envelope.write_u32(uint32(playerTime & 0xFFFFFFFF));
+    envelope.write_u32(uint32(playerTime >> 32));
+    // int64 server time (filled in by server):
+    envelope.write_u32(0);
+    envelope.write_u32(0);
+    // uint32 what we think our index is (filled in by server):
+    envelope.write_u32(uint32(index));
+    // uint64 sector we are in:
+    envelope.write_u32(broadcast_sector());
+    envelope.write_u32(0);
     // message kind:
     envelope.write_u8(kind);
-    // what we think our index is:
-    envelope.write_u16(uint16(index));
 
     // plus any kind-specific data...
 
     return envelope;
+  }
+
+  // patch_envelope_data_length writes the uint16 data length for message kinds that carry data; it must be called
+  // after all data is written to the envelope.
+  void patch_envelope_data_length(array<uint8> @envelope) {
+    // offset of the kind byte: header(2) + protocol(1) + groupLength(1) + group + times(16) + index(4) + sector(8):
+    uint kindOffs = 4 + uint(envelope[3]) + 28;
+    uint8 kind = envelope[kindOffs];
+
+    uint lenOffs;
+    if (kind == 0x02 || kind == 0x04) {
+      lenOffs = kindOffs + 1;
+    } else if (kind == 0x03) {
+      // skip target sector:
+      lenOffs = kindOffs + 1 + 8;
+    } else {
+      return;
+    }
+
+    uint dataLen = envelope.length() - (lenOffs + 2);
+    envelope[lenOffs+0] = uint8(dataLen & 0xFF);
+    envelope[lenOffs+1] = uint8((dataLen >> 8) & 0xFF);
   }
 
   void write_game_packet_header(array<uint8> &envelope) {
@@ -2166,16 +2211,23 @@ class LocalGameState : GameState {
     }
   }
 
-  array<uint8> @make_packet_request_index() {
-    array<uint8> @envelope = make_server_envelope(0x00);
+  array<uint8> @make_packet_join_group() {
+    array<uint8> @envelope = make_server_envelope(0x01);
+    return envelope;
+  }
 
-    write_game_packet_header(envelope);
-
+  array<uint8> @make_packet_echo() {
+    array<uint8> @envelope = make_server_envelope(0x04);
+    // data length (patched in send_packet):
+    envelope.write_u16(0);
     return envelope;
   }
 
   array<uint8> @make_packet_broadcast() {
-    array<uint8> @envelope = make_server_envelope(0x01);
+    array<uint8> @envelope = make_server_envelope(0x02);
+
+    // data length (patched in send_packet):
+    envelope.write_u16(0);
 
     write_game_packet_header(envelope);
 
@@ -2183,10 +2235,14 @@ class LocalGameState : GameState {
   }
 
   array<uint8> @make_packet_broadcast_to_sector(uint32 sector) {
-    array<uint8> @envelope = make_server_envelope(0x02);
+    array<uint8> @envelope = make_server_envelope(0x03);
 
-    // broadcast to sector:
+    // uint64 target sector:
     envelope.write_u32(sector);
+    envelope.write_u32(0);
+
+    // data length (patched in send_packet):
+    envelope.write_u16(0);
 
     write_game_packet_header(envelope);
 
@@ -2215,6 +2271,8 @@ class LocalGameState : GameState {
       return p;
     }
 
+    patch_envelope_data_length(envelope);
+
     // send packet to server:
     // message("sent " + fmtInt(len) + " bytes");
     sock.send(0, len, envelope);
@@ -2233,9 +2291,17 @@ class LocalGameState : GameState {
 
     // check if we need to detect our local index:
     if (index == -1) {
-      // request our index; receive() will take care of the response:
-      auto @request = make_packet_request_index();
+      // join the group to request our index; receive() will take care of the response:
+      auto @request = make_packet_join_group();
       p = send_packet(request, p);
+    } else {
+      // periodically echo to keep our estimate of the server clock fresh; receive() takes care of the response:
+      uint64 now = chrono::monotonic::millisecond;
+      if (now - last_echo_sent >= 500) {
+        last_echo_sent = now;
+        auto @echo = make_packet_echo();
+        p = send_packet(echo, p);
+      }
     }
 
     // rate limit outgoing packets to 60fps:
