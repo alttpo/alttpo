@@ -301,7 +301,7 @@ class SettingsWindow {
     syncOverworld = doc["feature/syncOverworld"].booleanOr(true);
     syncItems = doc["feature/syncItems"].booleanOr(true);
     syncPendants = doc["feature/syncPendants"].booleanOr(true);
-    syncSmallKeys = doc["feature/syncSmallKeys"].booleanOr(false);
+    syncSmallKeys = doc["feature/syncSmallKeys"].booleanOr(true);
     syncTilemap = doc["feature/syncTilemap"].booleanOr(true);
     syncChests = doc["feature/syncChests"].booleanOr(true);
     syncHearts = doc["feature/syncHearts"].booleanOr(true);
