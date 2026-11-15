@@ -20,8 +20,9 @@
 //
 // Each receiver remembers how far into each remote player's log it has applied and only applies newly added entries.
 // Applying an entry skips it if $7E2000,X already holds the tile, otherwise appends it to the local log (so it survives
-// a mirror bonk and is passed on to players who enter the area later) and calls Overworld_DrawMap16_Persist if it is
-// near the screen; tiles further away are only written to $7E2000 and drawn by the game as it scrolls.
+// a mirror bonk and is passed on to players who enter the area later) and calls Overworld_DrawMap16_Persist if VRAM
+// holds it (always in small areas; rows/columns -7..+23 of $84 in large areas); other tiles are only written to
+// $7E2000 and drawn by the game as it scrolls.
 
 const uint8 msg_map16 = 0x17;
 const int map16_log_max = 0xA0;
@@ -88,6 +89,8 @@ class Map16Sync {
   array<uint16> tile(0xA0);
   // how many entries were already sent:
   int sent = 0;
+  // calls to send() since the whole log was last sent:
+  int sendsSinceFull = 0;
 
   void reset() {
     valid = false;
@@ -163,10 +166,14 @@ class Map16Sync {
   // sends the new entries of the log, and the whole log every 16 frames, to the players in the same area:
   uint send(uint p) {
     if (!valid) return p;
-    if (!local.is_in_overworld_module()) return p;
+    // menus and text boxes ($0E) keep the log; keep sending it so players entering the area still catch up:
+    if (!local.is_in_overworld_module() && local.module != 0x0E) return p;
 
+    // resend the whole log every 16 calls rather than on frames with (frame & 15) == 0: send() is skipped by the net
+    // rate limiter whenever frames come in faster than 16ms apart, which can skip those frames every time:
     int start = sent;
-    if ((local.frame & 15) == 0) {
+    if (++sendsSinceFull >= 16) {
+      sendsSinceFull = 0;
       start = 0;
     } else if (start >= count) {
       return p;
@@ -203,7 +210,12 @@ class Map16Sync {
     uint32 fn = rom.fn_overworld_draw_map16_persist;
     if (fn == 0) return;
 
-    // $84 is the scroll position in the tilemap; VRAM holds 32x32 map16 tiles around it:
+    // small areas ($0712 = 0) are entirely in VRAM and never stream tiles while scrolling, so always draw there.
+    // large areas keep a 32x32 map16 ring in VRAM around $84 (the scroll position in the tilemap): the area load
+    // draws rows -7..+24 and columns -8..+23, and scrolling draws the next row or column (-8 or +24) from $7E2000
+    // before moving $84, even if it was in VRAM already. Rows and columns -7..+23 are always in VRAM; anything else is
+    // drawn by the game when scrolled to:
+    bool small_area = bus::read_u8(0x7E0712) == 0;
     uint16 s84 = bus::read_u16(0x7E0084);
     int row0 = int(s84 & 0x1F80) >> 7;
     int col0 = int(s84 & 0x007E) >> 1;
@@ -248,7 +260,7 @@ class Map16Sync {
 
         int dr = (int(p & 0x1F80) >> 7) - row0;
         int dc = (int(p & 0x007E) >> 1) - col0;
-        bool near = dr >= -12 && dr < 16 && dc >= -12 && dc < 16;
+        bool near = small_area || (dr >= -7 && dr < 24 && dc >= -7 && dc < 24);
         if (near) {
           // REP + LDA + LDX + JSL, and SEP + LDA + STA to finish:
           if (stripe + 0x10 > 0x80 || pb.offset + 2 + 10 + 7 + 5 > 0x100) {
