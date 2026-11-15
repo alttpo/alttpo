@@ -16,7 +16,7 @@ bool debugRTDScompress = false;
 bool debugRTDSapply = false;
 
 bool enableMap = true;
-bool enablePlayerList = true;
+bool enablePlayerList = false;
 bool enableBgMusic = true;
 
 bool enableNetRateLimiting = false;
