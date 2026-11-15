@@ -41,6 +41,53 @@ class CodeWriter {
     w.u8(0x8D); // STA $xxxx
     w.u16(bank);
   }
+
+  void rep(uint8 flags) {
+    w.u8(0xC2); // REP #flags
+    w.u8(flags);
+  }
+
+  void sep(uint8 flags) {
+    w.u8(0xE2); // SEP #flags
+    w.u8(flags);
+  }
+
+  // 16-bit accumulator (REP #$20) only:
+  void lda_immed16(uint16 imm) {
+    w.u8(0xA9); // LDA #imm
+    w.u16(imm);
+  }
+
+  // 16-bit index registers (REP #$10) only:
+  void ldx_immed16(uint16 imm) {
+    w.u8(0xA2); // LDX #imm
+    w.u16(imm);
+  }
+
+  // 16-bit index registers (REP #$10) only:
+  void ldy_immed16(uint16 imm) {
+    w.u8(0xA0); // LDY #imm
+    w.u16(imm);
+  }
+
+  void sta_long(uint32 addr) {
+    w.u8(0x8F); // STA $bbxxxx
+    w.u24(addr);
+  }
+
+  // jsr_bank01 calls a routine in bank $01 that returns with RTS: push our return address for an RTL, then the
+  // address of an RTL instruction in bank $01 (minus one) for the routine's RTS, then jump to the routine. 11 bytes.
+  void jsr_bank01(uint32 routine, uint32 rtl) {
+    // the return address is the instruction after the JML, 11 bytes from here:
+    uint16 ret = uint16(0x7F00 + offset + 11);
+    w.u8(0x4B); // PHK
+    w.u8(0xF4); // PEA ret-1
+    w.u16(ret - 1);
+    w.u8(0xF4); // PEA rtl-1
+    w.u16(uint16(rtl - 1));
+    w.u8(0x5C); // JML routine
+    w.u24(routine);
+  }
 }
 
 class PatchBuffer : CodeWriter {

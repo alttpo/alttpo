@@ -185,10 +185,6 @@ class LocalGameState : GameState {
     if (registered) return;
     if (rom is null) return;
 
-    //message("tilemap intercept register");
-    bus::add_write_interceptor("7e:2000-5fff", bus::WriteInterceptCallback(this.tilemap_written));
-    bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
-
     crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
     starSwitch.register();
 
@@ -470,7 +466,9 @@ class LocalGameState : GameState {
 
     fetch_ancillae();
 
-    fetch_tilemap_changes();
+    // overworld map16 change log and underworld manipulable objects:
+    map16Sync.fetch();
+    manipSync.fetch();
 
     fetch_torches();
 
@@ -1054,194 +1052,6 @@ class LocalGameState : GameState {
     for (int i = 0; i <   sm_uniq4bpptile_count; i++) {
         sm_uniqtile_4bpp[i].resize(0);
     }
-  }
-
-  uint8 get_area_size() property {
-    if (module == 0x06 || is_in_dungeon_module()) {
-      // underworld is always 64x64 tiles:
-      return 0x40;
-    }
-    // assume overworld:
-    return bus::read_u8(0x7E0712) > 0 ? 0x40 : 0x20;
-  }
-
-  void fetch_tilemap_changes() {
-    // disable tilemap sync based on settings:
-    if (!settings.SyncTilemap) {
-      return;
-    }
-
-    if (is_dead()) {
-      return;
-    }
-
-    bool clear = false;
-    if (actual_location != last_actual_location) {
-      // generic location changed event:
-      clear = true;
-    }
-
-    if (!clear) {
-      return;
-    }
-
-    // clear tilemap to -1 when changing rooms:
-    if (debugRTDScapture) {
-      message("tilemap.reset()");
-    }
-    tilemap.reset(area_size);
-    tilemapLocation = actual_location;
-
-    // we need to load in new tilemap from other players:
-    tilemapTimestamp = 0;
-  }
-
-  bool is_safe_to_sample_tilemap() {
-    if (module == 0x09) {
-      // overworld:
-      // during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) return false;
-      // during lost woods transition:
-      if (sub_module >= 0x0d && sub_module < 0x16) return false;
-      // when coming out of map screen:
-      if (sub_module >= 0x20 && sub_module <= 0x22) return false;
-      // or during LW/DW transition:
-      if (sub_module >= 0x23) return false;
-    } else if (module == 0x0B) {
-      // master sword or zora:
-      // safety measure here:
-      if (sub_module >= 0x01) return false;
-      // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
-      // sub_module == 0x1C mosaic in
-      // sub_module == 0x24 mosaic out
-    } else if (module == 0x07) {
-      // underworld:
-      // scrolling between rooms in same supertile:
-      if (sub_module == 0x01) return false;
-      // loading new supertile:
-      if (sub_module == 0x02) return false;
-      // up/down through floor:
-      if (sub_module == 0x06) return false;
-      if (sub_module == 0x07) return false;
-      // going up/down spiral stairwells between floors:
-      if (sub_module == 0x08) return false;
-      if (sub_module == 0x0e) return false;
-      if (sub_module == 0x10) return false;
-      // going up/down straight stairwells between floors:
-      if (sub_module == 0x12) return false;
-      if (sub_module == 0x13) return false;
-      // warp to another room:
-      if (sub_module == 0x15) return false;
-      // crystal sequence:
-      if (sub_module == 0x18) return false;
-      // using mirror:
-      if (sub_module == 0x19) return false;
-
-      // in Ganon's room:
-      if (dungeon_room == 0x00) return false;
-    } else {
-      // don't sample tilemap changes:
-      return false;
-    }
-
-    // allow tilemap sampling:
-    return true;
-  }
-
-  // intercept 8-bit writes to a 8-bit array in WRAM at $7f2000:
-  void attributes_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    if (newValue == oldValue) {
-      return;
-    }
-
-    if (is_it_a_bad_time()) {
-      return;
-    }
-
-    if (!is_safe_to_sample_tilemap()) {
-      return;
-    }
-
-    // don't capture barrier tiles since crystal switch sync now takes care of that:
-    if (module == 0x07 && sub_module == 0x16) {
-      if (newValue == 0x66 || newValue == 0x67) {
-        return;
-      }
-    }
-
-    if (debugRTDScapture) {
-      message("a: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ") at cpu.r.pc = " + fmtHex(cpu::r.pc, 6));
-    }
-
-    // figure out offset from $7f2000:
-    auto i = addr - 0x7F2000;
-
-    if (tilemap[i] == -1) {
-      // sample tile and attribute simultaneously:
-      tilemap[i] = int32(bus::read_u16(0x7E2000 + (i << 1))) | (int32(newValue) << 16);
-    } else {
-      // just overwrite attribute:
-      tilemap[i] = (tilemap[i] & 0x0000ffff) | (int32(newValue) << 16);
-    }
-    //if (debugRTDScapture) {
-    //  message("tile[0x" + fmtHex(i, 4) + "] -> 0x" + fmtHex(tilemap[i], 6));
-    //}
-    tilemapTimestamp = timestamp_now;
-  }
-
-  // intercept 8-bit writes to a 16-bit array in WRAM at $7e2000:
-  void tilemap_written(uint32 addr, uint8 oldValue, uint8 newValue) {
-    if (newValue == oldValue) {
-      return;
-    }
-
-    if (is_it_a_bad_time()) {
-      return;
-    }
-
-    if (!is_safe_to_sample_tilemap()) {
-      return;
-    }
-
-    if (debugRTDScapture) {
-      message("t: " + fmtHex(addr, 6) + " <- " + fmtHex(newValue, 2) + " (was " + fmtHex(oldValue, 2) + ") at cpu.r.pc = " + fmtHex(cpu::r.pc, 6));
-    }
-
-    // read current entire word at address being written to:
-    uint16 word = bus::read_u16(addr & 0xFFFFFE);
-
-    // figure out offset from $7E2000:
-    addr -= 0x7E2000;
-
-    // mask off low bit of offset and divide by 2 for 16-bit index:
-    uint i = addr >> 1;
-
-    // apply the write to either side of the uint16 (upcast to int32):
-    if ((addr & 1) == 1) {
-      // high byte:
-
-      if (tilemap[i] == -1) {
-        // sample high byte of tile and attribute simultaneously:
-        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (int32(word) & 0x00ff) | (int32(newValue) << 8);
-      } else {
-        // just overwrite high byte of tile:
-        tilemap[i] = (tilemap[i] & 0x00ff00ff) | (int32(newValue) << 8);
-      }
-    } else {
-      // low byte:
-
-      if (tilemap[i] == -1) {
-        // sample low byte of tile and attribute simultaneously:
-        tilemap[i] = (int32(bus::read_u8(0x7F2000 + i)) << 16) | (word & 0xff00) | (int32(newValue));
-      } else {
-        // just overwrite low byte of tile:
-        tilemap[i] = (tilemap[i] & 0x00ffff00) | (int32(newValue));
-      }
-    }
-    //if (debugRTDScapture) {
-    //  message("tile[0x" + fmtHex(i, 4) + "] -> 0x" + fmtHex(tilemap[i], 6));
-    //}
-    tilemapTimestamp = timestamp_now;
   }
 
   void fetch_ancillae() {
@@ -1990,75 +1800,6 @@ class LocalGameState : GameState {
     return p;
   }
 
-  uint send_tilemaps(uint p) {
-    // compress tilemap into horizontal/vertical runs if not already done:
-    tilemap.compress_runs();
-
-    auto @runs = tilemap.runs;
-    uint len = runs.length();
-
-    uint start = 0;
-    uint end = len;
-
-    // degenerate case to clear out tilemap:
-    if (len == 0) {
-      array<uint8> @r = make_packet_broadcast_to_sector(broadcast_sector());
-
-      r.write_u8(uint8(0x07));
-      // truncating 64-bit timestamp to 32-bit value (in milliseconds):
-      r.write_u32(tilemapTimestamp);
-      r.write_u24(tilemapLocation);
-      r.write_u8(0);
-      r.write_u8(0);
-
-      // send this packet:
-      p = send_packet(r, p);
-      return p;
-    }
-
-    // send out possibly multiple packets to cover all sprites:
-    while (start < end) {
-      array<uint8> @r = make_packet_broadcast_to_sector(broadcast_sector());
-
-      r.write_u8(uint8(0x07));
-      // truncating 64-bit timestamp to 32-bit value (in milliseconds):
-      r.write_u32(tilemapTimestamp);
-      r.write_u24(tilemapLocation);
-      r.write_u8(uint8(start));
-
-      // serialize as many runs as can fit into packet:
-      uint markLen = r.length();
-      r.write_u8(uint8(end - start));
-
-      uint mark = r.length();
-
-      uint i;
-      for (i = start; i < end; i++) {
-        auto @run = runs[i];
-
-        mark = r.length();
-        run.serialize(r);
-
-        if (r.length() > MaxPacketSize) {
-          // back out the last run:
-          r.removeRange(mark, r.length() - mark);
-
-          // continue at the last run in the next packet:
-          //message("  scratch last mark");
-          break;
-        }
-      }
-
-      r[markLen] = uint8(i - start);
-      start = i;
-
-      // send this packet:
-      p = send_packet(r, p);
-    }
-
-    return p;
-  }
-
   // server protocol 04 GroupMessage kinds:
   //   0x01 = join group (response tells us our player index)
   //   0x02 = broadcast to all other players in the group
@@ -2304,9 +2045,9 @@ class LocalGameState : GameState {
           }
         }
 
-        // send posisbly multiple packets for tilemaps:
+        // overworld map16 changes are area specific; send them only to players in the same area:
         if (settings.SyncTilemap) {
-          p = send_tilemaps(p);
+          p = map16Sync.send(p);
         }
 
         // send packet every other frame:
@@ -2316,10 +2057,11 @@ class LocalGameState : GameState {
           p = send_packet(envelope, p);
         }
 
-        // star switch state is room specific; send it only to players in the same room:
+        // star switch state and manipulable objects are room specific; send them only to players in the same room:
         if (settings.SyncTilemap && module == 0x07) {
           auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
           starSwitch.serialize(envelope);
+          manipSync.serialize(envelope);
           p = send_packet(envelope, p);
         }
       }
@@ -2587,269 +2329,6 @@ class LocalGameState : GameState {
       // write new state to SRAM:
       for (uint a = 0; a < 0x128; a++) {
         rooms[a].finish(d);
-      }
-    }
-  }
-
-  void tilemap_testcase() {
-    if (actual_location == 0x02005b) {
-      message("testcase!");
-      tilemap[0x0aae]=0x0dc5;
-      tilemap[0x0aad]=0x0dc5;
-      tilemap[0x0aac]=0x0dc5;
-      tilemap[0x0aab]=0x0dc5;
-      tilemap[0x0a6f]=0x0dc5;
-      tilemap[0x0a6e]=0x0dc5;
-      tilemap[0x0a6d]=0x0dc5;
-      tilemap[0x0a6c]=0x0dc5;
-      tilemap[0x0a6b]=0x0dc5;
-      tilemap[0x0a6a]=0x0dc5;
-      tilemap[0x0a30]=0x0dc5;
-      tilemap[0x0a2f]=0x0dc5;
-      tilemap[0x0a2e]=0x0dc5;
-      tilemap[0x0a2d]=0x0dc5;
-      tilemap[0x0a2c]=0x0dc5;
-      tilemap[0x0a2b]=0x0dc5;
-      tilemap[0x0a2a]=0x0dc5;
-      tilemap[0x0aed]=0x0dc5;
-      tilemap[0x0aec]=0x0dc5;
-      tilemap[0x0b31]=0x0dcd;
-      tilemap[0x0b32]=0x0dce;
-      tilemap[0x0b71]=0x0dcf;
-      tilemap[0x0b72]=0x0dd0;
-      tilemap[0x09f3]=0x0dc5;
-      tilemap[0x09f2]=0x0dc5;
-      tilemap[0x09f1]=0x0dc5;
-      tilemap[0x09f0]=0x0dc5;
-      tilemap[0x09ef]=0x0dc5;
-      tilemap[0x09ee]=0x0dc5;
-      tilemap[0x09ed]=0x0dc5;
-      tilemap[0x09ec]=0x0dc5;
-      tilemap[0x09eb]=0x0dc5;
-    } else if (actual_location == 0x020065) {
-      message("testcase!");
-      tilemap[0x0242]=0x0dc6;
-      tilemap[0x03c4]=0x0dc7;
-      tilemap[0x0444]=0x0dc7;
-      tilemap[0x0484]=0x0dc7;
-      tilemap[0x04c4]=0x0dc7;
-      tilemap[0x0745]=0x0dc7;
-    } else if (actual_location == 0x02005d) {
-      message("testcase!");
-      tilemap[0x0217]=0x0dc7;
-      tilemap[0x0198]=0x0dcd;
-      tilemap[0x0199]=0x0dce;
-      tilemap[0x01d8]=0x0dcf;
-      tilemap[0x01d9]=0x0dd0;
-      tilemap[0x0197]=0x0dcb;
-    } else if (actual_location == 0x000013) {
-      message("testcase!");
-      tilemap[0x030e]=0x0dc7;
-      tilemap[0x024e]=0x0dcd;
-      tilemap[0x024f]=0x0dce;
-      tilemap[0x028e]=0x0dcf;
-      tilemap[0x028f]=0x0dd0;
-      tilemap[0x03d4]=0x0dc7;
-      tilemap[0x03d3]=0x0dc7;
-      tilemap[0x03d1]=0x0dc7;
-      tilemap[0x03d0]=0x0dc7;
-      tilemap[0x03d7]=0x0dc7;
-      tilemap[0x03d8]=0x0dc7;
-      tilemap[0x03da]=0x0dc7;
-      tilemap[0x03db]=0x0dc7;
-      tilemap[0x0417]=0x0dc7;
-      tilemap[0x0418]=0x0dc7;
-      tilemap[0x041a]=0x0dc7;
-      tilemap[0x041b]=0x0dc7;
-      tilemap[0x0414]=0x0dc7;
-      tilemap[0x0413]=0x0dc7;
-      tilemap[0x0411]=0x0dc7;
-      tilemap[0x0410]=0x0dc7;
-      tilemap[0x03dd]=0x0dc5;
-    } else {
-      message("no testcase");
-    }
-  }
-
-  bool is_safe_to_write_tilemap() {
-    if (module == 0x09) {
-      // overworld:
-      // during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) return false;
-      // during lost woods transition:
-      if (sub_module >= 0x0d && sub_module < 0x16) return false;
-      // when coming out of map screen:
-      if (sub_module >= 0x20 && sub_module <= 0x22) return false;
-      // during LW/DW transition:
-      if (sub_module >= 0x23) return false;
-
-      return true;
-    } else if (module == 0x0B) {
-      // master sword or zora:
-      // safety measure here:
-      if (sub_module >= 0x01) return false;
-      // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
-      // sub_module == 0x1C mosaic in
-      // sub_module == 0x24 mosaic out
-
-      return true;
-    } else if (module == 0x07) {
-      // underworld:
-      // scrolling between rooms in same supertile:
-      if (sub_module == 0x01) return false;
-      // loading new supertile:
-      if (sub_module == 0x02) return false;
-      // up/down through floor:
-      if (sub_module == 0x06) return false;
-      if (sub_module == 0x07) return false;
-      // going up/down spiral stairwells between floors:
-      if (sub_module == 0x08) return false;
-      if (sub_module == 0x0e) return false;
-      if (sub_module == 0x10) return false;
-      // going up/down straight stairwells between floors:
-      if (sub_module == 0x12) return false;
-      if (sub_module == 0x13) return false;
-      // warp to another room:
-      if (sub_module == 0x15) return false;
-      // crystal sequence:
-      if (sub_module == 0x18) return false;
-      // using mirror:
-      if (sub_module == 0x19) return false;
-
-      // in Ganon's room:
-      if (dungeon_room == 0x0000) return false;
-
-      return true;
-    } else if (module == 0x10) {
-      // opening spotlight:
-      return true;
-    }
-
-    // don't write tilemap changes:
-    return false;
-  }
-
-  void update_tilemap() {
-    // disable tilemap sync based on settings:
-    if (!settings.SyncTilemap) {
-      return;
-    }
-
-    bool write_to_vram = false;
-    bool team_check = true;
-
-    if (!is_safe_to_write_tilemap()) {
-      return;
-    }
-
-    // don't write to VRAM when...
-    if (module == 0x09) {
-      // overworld:
-      write_to_vram = true;
-
-      // during screen transition:
-      if (sub_module >= 0x01 && sub_module < 0x07) write_to_vram = false;
-      // during lost woods transition:
-      if (sub_module >= 0x0d && sub_module < 0x16) write_to_vram = false;
-      // when coming out of map screen:
-      if (sub_module >= 0x20 && sub_module <= 0x22) write_to_vram = false;
-      // or during LW/DW transition:
-      if (sub_module >= 0x23) write_to_vram = false;
-
-      tilemap.determine_vram_bounds_overworld();
-
-      // allow overworld tilemap changes to sync across teams:
-      team_check = false;
-    } else if (module == 0x0B) {
-      // master sword or zora:
-      write_to_vram = true;
-
-      // safety measure here:
-      if (sub_module >= 0x01) write_to_vram = false;
-      // (sub_module == 0x18 || sub_module == 0x19) for loading master sword area
-      // sub_module == 0x1C mosaic in
-      // sub_module == 0x24 mosaic out
-
-      tilemap.determine_vram_bounds_overworld();
-
-      // allow overworld tilemap changes to sync across teams:
-      team_check = false;
-    } else if (module == 0x07) {
-      // underworld:
-      write_to_vram = true;
-
-      // scrolling between rooms in same supertile:
-      if (sub_module == 0x01) write_to_vram = false;
-      // loading new supertile:
-      if (sub_module == 0x02) write_to_vram = false;
-      // up/down through floor:
-      if (sub_module == 0x06) write_to_vram = false;
-      if (sub_module == 0x07) write_to_vram = false;
-      // going up/down spiral stairwells between floors:
-      if (sub_module == 0x08) write_to_vram = false;
-      if (sub_module == 0x0e) write_to_vram = false;
-      if (sub_module == 0x10) write_to_vram = false;
-      // going up/down straight stairwells between floors:
-      if (sub_module == 0x12) write_to_vram = false;
-      if (sub_module == 0x13) write_to_vram = false;
-      // warp to another room:
-      if (sub_module == 0x15) write_to_vram = false;
-      // crystal sequence:
-      if (sub_module == 0x18) write_to_vram = false;
-      // using mirror:
-      if (sub_module == 0x19) write_to_vram = false;
-
-      // in Ganon's room:
-      if (dungeon_room == 0x00) write_to_vram = false;
-
-      tilemap.determine_vram_bounds_underworld();
-    }
-
-    uint len = players.length();
-
-    // integrate tilemap changes from other players:
-    for (uint i = 0; i < len; i++) {
-      auto @remote = players[i];
-      if (remote is null) continue;
-      if (remote is this) continue;
-      if (remote.ttl <= 0) continue;
-      if (team_check && (remote.team != team)) continue;
-      if (remote.tilemapLocation == 0) continue;
-      if (!is_really_in_same_location(remote.location)) {
-        continue;
-      }
-      if (remote.get_in_sm()) continue;
-
-      if (!locations_equal(actual_location, remote.tilemapLocation)) {
-        if (debugRTDSapply) {
-          message("rtds: apply from player " + fmtInt(remote.index) + "; skipping as locations do not match: local " + fmtHex(actual_location, 6) + " != " + fmtHex(remote.tilemapLocation, 6));
-        }
-        continue;
-      }
-
-      if (debugRTDSapply) {
-        message("rtds: apply from player " + fmtInt(remote.index) + "; " + fmtInt(remote.tilemapRuns.length()) + " runs with VRAM write " + fmtBool(write_to_vram));
-      }
-
-      // only apply newer updates:
-      if (remote.tilemapTimestamp > tilemapTimestamp) {
-        for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
-          auto @run = remote.tilemapRuns[j];
-          // apply the run to the local tilemap state and update VRAM if applicable on screen:
-          tilemap.apply_wram(run);
-        }
-
-        // accept this new timestamp as latest:
-        tilemapTimestamp = remote.tilemapTimestamp;
-      }
-
-      // update VRAM with latest state:
-      if (write_to_vram) {
-        for (uint j = 0; j < remote.tilemapRuns.length(); j++) {
-          auto @run = remote.tilemapRuns[j];
-          // apply the run to the local tilemap state and update VRAM if applicable on screen:
-          tilemap.apply_vram(run);
-        }
       }
     }
   }

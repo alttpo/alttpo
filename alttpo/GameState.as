@@ -413,10 +413,9 @@ class GameState {
 
   int numsprites;
 
-  TilemapChanges tilemap;
-  array<TilemapRun> tilemapRuns;
-  uint32 tilemapTimestamp;
-  uint32 tilemapLocation;
+  // overworld map16 change log (Map16Changes.as) and underworld manipulable objects (Manipulables.as) as received:
+  Map16Remote map16;
+  ManipRemote manip;
 
   array<int> ancillaeOwner;
   array<GameAncilla@> ancillae;
@@ -510,10 +509,8 @@ class GameState {
 
     numsprites = 0;
 
-    tilemap.reset(0x40);
-    tilemapRuns.resize(0);
-    tilemapTimestamp = 0;
-    tilemapLocation = 0;
+    map16.reset(0);
+    manip.reset();
 
     ancillaeOwner.resize(0xA);
     ancillae.resize(0xA);
@@ -723,7 +720,7 @@ class GameState {
         case 0x04: c = deserialize_sprites(r, c, true); break;
         case 0x05: c = deserialize_wram(r, c); break;
         case 0x06: c = deserialize_sram(r, c); break;
-        case 0x07: c = deserialize_tilemaps(r, c); break;
+        // 0x07 (tilemaps) is retired; replaced by 0x17 and 0x18
         //case 0x08: c = deserialize_objects(r, c); break;
         case 0x09: c = deserialize_ancillae(r, c); break;
         case 0x0A: c = deserialize_torches(r, c); break;
@@ -739,6 +736,8 @@ class GameState {
         case 0x14: c = deserialize_overlord_data(r, c); break;
         case 0x15: c = deserialize_uniqtiles(r, c); break;
         case 0x16: c = deserialize_nak_uniqtiles(r, c); break;
+        case 0x17: c = map16.deserialize(r, c); break;
+        case 0x18: c = manip.deserialize(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
@@ -1073,32 +1072,6 @@ class GameState {
       auto b = r[c++];
 
       sm_sram[i] = b;
-    }
-
-    return c;
-  }
-
-  int deserialize_tilemaps(array<uint8> r, int c) {
-    // read timestamp:
-    tilemapTimestamp = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
-    // read location:
-    tilemapLocation = uint32(r[c++])
-             | (uint32(r[c++]) << 8)
-             | (uint32(r[c++]) << 16);
-    // start in array:
-    uint8 start = r[c++];
-    // read number of runs:
-    uint8 len = r[c++];
-
-    if (debugRTDSapply) {
-      message("rtds: receive for player " + fmtInt(index) + "; loc=" + fmtHex(tilemapLocation, 6) + ", start=" + fmtInt(start) + ", len=" + fmtInt(len));
-    }
-
-    tilemapRuns.resize(start + len);
-    for (uint i = start; i < start + len; i++) {
-      // deserialize the run's parameters:
-      auto @run = tilemapRuns[i];
-      c = run.deserialize(r, c);
     }
 
     return c;

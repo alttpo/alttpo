@@ -56,7 +56,8 @@ void on_main_alttp(uint32 pc) {
   }
 
   {
-    local.update_tilemap();
+    map16Sync.update();
+    manipSync.update();
 
     local.update_wram();
 

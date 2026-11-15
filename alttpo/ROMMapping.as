@@ -82,6 +82,12 @@ abstract class ROMMapping {
 
   uint32 get_fn_overworld_createpyramidhole() property { return 0; } // 0x1BC2A7
   uint32 get_fn_toggle_star_tile_graphics() property { return 0; } // 0x00FDA7
+  // Overworld_DrawMap16_Persist; A = map16 tile, X = tilemap offset, 16-bit; see Map16Changes.as:
+  uint32 get_fn_overworld_draw_map16_persist() property { return 0; } // 0x1BC97C
+  // RoomDraw_16x16Single (ends with RTS); Y = slot * 2, 16-bit; see Manipulables.as:
+  uint32 get_fn_room_draw_16x16_single() property { return 0; } // US 0x01D828, JP 0x01D826
+  // an RTL in bank $01 to return through when calling RoomDraw_16x16Single:
+  uint32 get_fn_bank01_rtl() property { return 0; } // US 0x01D827, JP 0x01D825
 
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
@@ -380,6 +386,9 @@ class USAROMMapping : ROMMapping {
 
   uint32 get_fn_overworld_createpyramidhole() property { return fastrom + 0x1BC2A7; }
   uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
+  uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
+  uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D828; }
+  uint32 get_fn_bank01_rtl() property { return fastrom + 0x01D827; }
 };
 
 class EURROMMapping : ROMMapping {
@@ -490,6 +499,9 @@ class JPROMMapping : ROMMapping {
 
   uint32 get_fn_overworld_createpyramidhole() property { return fastrom + 0x1BC2A7; }
   uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
+  uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
+  uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D826; }
+  uint32 get_fn_bank01_rtl() property { return fastrom + 0x01D825; }
 };
 
 class RandomizerMapping : JPROMMapping {
