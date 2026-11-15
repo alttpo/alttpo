@@ -190,6 +190,7 @@ class LocalGameState : GameState {
     bus::add_write_interceptor("7f:2000-3fff", bus::WriteInterceptCallback(this.attributes_written));
 
     crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
+    starSwitch.register();
 
     if (debugSRAM) {
       bus::add_write_interceptor("7e:f000-f4fd", bus::WriteInterceptCallback(this.sram_written));
@@ -2314,6 +2315,13 @@ class LocalGameState : GameState {
           serialize_torches(envelope);
           p = send_packet(envelope, p);
         }
+
+        // star switch state is room specific; send it only to players in the same room:
+        if (settings.SyncTilemap && module == 0x07) {
+          auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
+          starSwitch.serialize(envelope);
+          p = send_packet(envelope, p);
+        }
       }
     }
     if (rom.is_sm()){
@@ -2346,6 +2354,8 @@ class LocalGameState : GameState {
   void update_wram() {
     // small keys track their own module state:
     smallKeys.update();
+    // star switch too:
+    starSwitch.update();
 
     if (module < 0x06) return;
 

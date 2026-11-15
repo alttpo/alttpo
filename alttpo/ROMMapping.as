@@ -81,6 +81,7 @@ abstract class ROMMapping {
   uint32 get_fn_sprite_load_gfx_properties() property { return 0; }
 
   uint32 get_fn_overworld_createpyramidhole() property { return 0; } // 0x1BC2A7
+  uint32 get_fn_toggle_star_tile_graphics() property { return 0; } // 0x00FDA7
 
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
@@ -378,6 +379,7 @@ class USAROMMapping : ROMMapping {
   uint32 get_fn_sprite_load_gfx_properties() property { return fastrom + 0x00FC62; }  // $7C62 (lightWorld)
 
   uint32 get_fn_overworld_createpyramidhole() property { return fastrom + 0x1BC2A7; }
+  uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
 };
 
 class EURROMMapping : ROMMapping {
@@ -487,6 +489,7 @@ class JPROMMapping : ROMMapping {
   uint32 get_table_hitbox_dash_y_hi()    property { return fastrom + 0x06F58C; }
 
   uint32 get_fn_overworld_createpyramidhole() property { return fastrom + 0x1BC2A7; }
+  uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
 };
 
 class RandomizerMapping : JPROMMapping {

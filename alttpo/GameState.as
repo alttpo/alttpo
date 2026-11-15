@@ -406,6 +406,9 @@ class GameState {
   array<uint8> sm_events(0x54);
 
   SyncableByte@ crystal = @SyncableByte(0xC172);
+  // star switch state ($04BC in the low byte, overlay $04BA in the high byte; see StarSwitch.as):
+  uint32 star_timestamp = 0;
+  uint16 star_value = 0;
   SmallKeysRemote small_keys;
 
   int numsprites;
@@ -502,6 +505,8 @@ class GameState {
     }
 
     crystal.reset();
+    star_timestamp = 0;
+    star_value = 0;
 
     numsprites = 0;
 
@@ -1020,6 +1025,9 @@ class GameState {
     if (offs == crystal.offs) {
       // no need for count loop since there's only one byte:
       c = crystal.deserialize(r, c);
+    } else if (offs == star_switch_offs && count == 1) {
+      star_timestamp = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+      star_value = uint16(r[c++]) | (uint16(r[c++]) << 8);
     } else {
       // discard data we don't understand yet:
       for (uint i = 0; i < count; i++) {
