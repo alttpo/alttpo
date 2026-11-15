@@ -406,9 +406,12 @@ class GameState {
   array<uint8> sm_events(0x54);
 
   SyncableByte@ crystal = @SyncableByte(0xC172);
-  // star switch state ($04BC in the low byte, overlay $04BA in the high byte; see StarSwitch.as):
+  // star switch state of star_room as received (see StarSwitch.as):
+  bool star_valid = false;
+  uint16 star_room = 0;
   uint32 star_timestamp = 0;
-  uint16 star_value = 0;
+  uint8 star_value = 0;
+  uint8 star_overlay = 0;
   SmallKeysRemote small_keys;
 
   int numsprites;
@@ -504,8 +507,11 @@ class GameState {
     }
 
     crystal.reset();
+    star_valid = false;
+    star_room = 0;
     star_timestamp = 0;
     star_value = 0;
+    star_overlay = 0;
 
     numsprites = 0;
 
@@ -738,6 +744,7 @@ class GameState {
         case 0x16: c = deserialize_nak_uniqtiles(r, c); break;
         case 0x17: c = map16.deserialize(r, c); break;
         case 0x18: c = manip.deserialize(r, c); break;
+        case 0x19: c = deserialize_star_switch(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
@@ -762,15 +769,33 @@ class GameState {
     hitbox.setActive(!is_dead() && !is_game_over() && (is_in_overworld_module() || is_in_dungeon_module()));
   }
 
+  int deserialize_star_switch(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 8 > maxc) return maxc;
+    star_room = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    star_timestamp = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    star_value = r[c++];
+    star_overlay = r[c++];
+    star_valid = true;
+    return c;
+  }
+
   int deserialize_location(array<uint8> r, int c) {
     module = r[c++];
     sub_module = r[c++];
     sub_sub_module = r[c++];
 
+    uint32 last = location;
     location = uint32(r[c++])
                | (uint32(r[c++]) << 8)
                | (uint32(r[c++]) << 16);
     actual_location = location;
+    if (location != last) {
+      // room and area specific state received so far belongs to the previous location:
+      star_valid = false;
+      manip.reset();
+      map16.reset(0);
+    }
 
     x = uint16(r[c++]) | (uint16(r[c++]) << 8);
     y = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -1024,9 +1049,6 @@ class GameState {
     if (offs == crystal.offs) {
       // no need for count loop since there's only one byte:
       c = crystal.deserialize(r, c);
-    } else if (offs == star_switch_offs && count == 1) {
-      star_timestamp = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
-      star_value = uint16(r[c++]) | (uint16(r[c++]) << 8);
     } else {
       // discard data we don't understand yet:
       for (uint i = 0; i < count; i++) {

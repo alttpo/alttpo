@@ -2,22 +2,27 @@
 //
 // Star tiles (Misery Mire, Turtle Rock, ...) open and close holes in the current room. Stepping on a star tile
 // (RoomTag_TriggerHoles) picks the hole overlay for the tile ($04BA), switches to submodule $03 which draws the
-// overlay, toggles the star tile state $04BC and swaps the star tile graphics (ToggleStarTileGraphics). The state is
-// reset whenever a room is loaded, so it only means something for the current room. It is synced as a last-writer-wins
-// value, like the crystal switch state:
+// overlay, toggles the star tile state $04BC and swaps the star tile graphics (ToggleStarTileGraphics). The state only
+// means something for the current room: every room load clears the overlay $04BA, and most clear $04BC too, but
+// falling through a hole keeps $04BC. It is synced as a last-writer-wins value:
 //
-//   - It is sent in a WRAM syncables message (0x05) for offset $04BC in a broadcastSector packet to the current room's
-//     sector. The u16 value carries $04BC in the low byte and the overlay $04BA in the high byte, which a remote player
-//     needs to draw the same holes.
+//   - It is sent in message 0x19 (uint16 room, uint32 timestamp, uint8 value ($04BC), uint8 overlay ($04BA)) in a
+//     broadcastSector packet to the current room's sector, only once it was sampled in that room. The room tells
+//     receivers which room the state belongs to; a receiver also drops a player's star state whenever that player's
+//     location changes.
 //   - Writes to $04BC while in submodule $03 of the dungeon module are the local player stepping on a star tile and are
-//     timestamped; any other write (room loads) and any change of room ($A0) only records a new baseline.
+//     timestamped. Any other write (room loads) and any change of room ($A0) forget the state; a new baseline with
+//     timestamp 0 is only taken in submodule 0, after the room load is done (it still holds the previous room's
+//     overlay before that).
 //   - While in the dungeon module with submodule 0 and no animation running ($0112), take the state of the remote
-//     player in the same room and in the dungeon module with the latest timestamp (or, on a timestamp tie, a higher
-//     value). If it differs from ours, do what stepping on the star tile does: set $04BA and $04BC, swap the star tile
-//     graphics and switch to submodule $03.
+//     player in the same room and in the dungeon module with the latest nonzero timestamp (or, on a tie with our own
+//     timestamp, a higher value); a timestamp of 0 means the player did not step on a star tile in this room visit, so
+//     such a state never wins. If it differs from ours, do what stepping on the star tile does: set $04BA and $04BC,
+//     swap the star tile graphics and switch to submodule $03.
 
 const uint16 star_switch_offs = 0x04BC;
 const uint16 star_overlay_offs = 0x04BA;
+const uint8 msg_star_switch = 0x19;
 
 class StarSwitchLocal {
   // valid is true when value was read in the dungeon module for room:
@@ -63,9 +68,8 @@ class StarSwitchLocal {
 
     auto r = bus::read_u16(0x7E00A0);
     if (bus::read_u8(0x7E0011) != 0x03 || !valid || r != room) {
-      // room load (or not seen this room yet); nothing to attribute:
-      baseline();
-      value = newValue;
+      // room load (or not seen this room yet); nothing to attribute. update() takes a new baseline in submodule 0:
+      reset();
       return;
     }
     if (newValue == value) return;
@@ -89,7 +93,12 @@ class StarSwitchLocal {
       reset();
       return;
     }
-    if (!valid || bus::read_u16(0x7E00A0) != room) {
+    if (valid && bus::read_u16(0x7E00A0) != room) {
+      // the room is changing; the room load is not done until submodule 0:
+      reset();
+    }
+    if (!valid) {
+      if (local.sub_module != 0x00) return;
       baseline();
     } else {
       overlay = bus::read_u8(0x7E0000 + star_overlay_offs);
@@ -112,20 +121,21 @@ class StarSwitchLocal {
       if (remote.get_in_sm()) continue;
       if (remote.module != 0x07) continue;
       if (!local.is_really_in_same_location(remote.location)) continue;
+      // not from this room, or nobody stepped on a star tile there:
+      if (!remote.star_valid || remote.star_room != room || remote.star_timestamp == 0) continue;
 
-      auto rv = uint8(remote.star_value & 0xFF);
       if (remote.star_timestamp > tsCompare) {
         @winner = remote;
         tsCompare = remote.star_timestamp;
-      } else if (remote.star_timestamp == ts && rv > value) {
+      } else if (remote.star_timestamp == ts && remote.star_value > value) {
         // somebody may have a larger value that we overwrote:
         @winner = remote;
       }
     }
     if (winner is null) return;
 
-    auto newValue = uint8(winner.star_value & 0xFF);
-    auto newOverlay = uint8(winner.star_value >> 8);
+    auto newValue = winner.star_value;
+    auto newOverlay = winner.star_overlay;
     if (newValue == value) {
       // already in agreement; keep the latest timestamp:
       ts = winner.star_timestamp;
@@ -155,17 +165,12 @@ class StarSwitchLocal {
   }
 
   void serialize(array<uint8> &r) {
-    uint16 v = 0;
-    uint32 t = 0;
-    if (valid) {
-      v = uint16(value) | (uint16(overlay) << 8);
-      t = ts;
-    }
-    r.write_u8(uint8(0x05));
-    r.write_u8(uint8(0x01));
-    r.write_u16(star_switch_offs);
-    r.write_u32(t);
-    r.write_u16(v);
+    if (!valid) return;
+    r.write_u8(msg_star_switch);
+    r.write_u16(room);
+    r.write_u32(ts);
+    r.write_u8(value);
+    r.write_u8(overlay);
   }
 };
 
