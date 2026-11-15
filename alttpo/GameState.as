@@ -27,8 +27,6 @@ void insertUnique(array<uint16> &a, uint16 v) {
   a.insertAt(i + 1, v);
 }
 
-const uint16 small_keys_min_offs = 0xF37C;
-const uint16 small_keys_max_offs = 0xF38C;
 
 const uint ol8_id = 0;
 const uint ol8_xl = 1;
@@ -408,7 +406,7 @@ class GameState {
   array<uint8> sm_events(0x54);
 
   SyncableByte@ crystal = @SyncableByte(0xC172);
-  array<SyncableByte@> small_keys(0x10);
+  SmallKeysRemote small_keys;
 
   int numsprites;
 
@@ -525,9 +523,7 @@ class GameState {
       torchTimers[i] = 0;
     }
 
-    for (uint i = 0; i < 0x0A; i++) {
-      small_keys[i].reset();
-    }
+    small_keys.reset();
 
     missing_uniq_absidx.reserve(64);
     missing_uniq_absidx.resize(0);
@@ -735,6 +731,7 @@ class GameState {
         case 0x14: c = deserialize_overlord_data(r, c); break;
         case 0x15: c = deserialize_uniqtiles(r, c); break;
         case 0x16: c = deserialize_nak_uniqtiles(r, c); break;
+        case 0x82: c = deserialize_small_keys(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
           if (packetType < 0x80) {
@@ -985,6 +982,34 @@ class GameState {
     return c;
   }
 
+  int deserialize_small_keys(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 5 > maxc) return maxc;
+
+    uint32 session = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    int count = r[c++];
+    if (c + count * 7 > maxc) return maxc;
+
+    array<int16> net(small_key_count);
+    array<uint8> value(small_key_count);
+    array<uint32> ts(small_key_count);
+    for (int k = 0; k < count; k++) {
+      int16 n = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+      uint8 v = r[c++];
+      uint32 t = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+      if (k < small_key_count) {
+        net[k] = n;
+        value[k] = v;
+        ts[k] = t;
+      }
+    }
+
+    if (this is local) return c;
+
+    smallKeys.receive_remote(this, session, net, value, ts);
+    return c;
+  }
+
   int deserialize_wram(array<uint8> r, int c) {
     auto count = r[c++];
     auto offs = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -992,14 +1017,6 @@ class GameState {
     if (offs == crystal.offs) {
       // no need for count loop since there's only one byte:
       c = crystal.deserialize(r, c);
-    } else if (offs == small_keys_min_offs) {
-      // read small key data:
-      for (uint i = 0; i < count; i++) {
-        if (small_keys[i] is null) {
-          @small_keys[i] = @SyncableByte(offs + i);
-        }
-        c = small_keys[i].deserialize(r, c);
-      }
     } else {
       // discard data we don't understand yet:
       for (uint i = 0; i < count; i++) {

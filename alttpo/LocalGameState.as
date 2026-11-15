@@ -61,8 +61,6 @@ class LocalGameState : GameState {
   NotifyItemReceived@ itemReceivedDelegate;
   SerializeSRAMDelegate@ serializeSramDelegate;
 
-  SyncableByte@ small_keys_current;
-
   uint8 state;
   uint32 last_sent = 0;
   uint64 last_echo_sent = 0;
@@ -143,12 +141,6 @@ class LocalGameState : GameState {
     for (uint i = 0; i < 0x80; i++) {
       @sprs[i] = Sprite();
     }
-
-    // small key sync:
-    @small_keys_current = @SyncableByte(0xF36F);
-    for (uint i = 0; i < 0x10; i++) {
-      @small_keys[i] = @SyncableByte(small_keys_min_offs + i);
-    }
   }
 
   void set_room_masks(bool syncChests) {
@@ -169,7 +161,8 @@ class LocalGameState : GameState {
   void reset() override {
     GameState::reset();
 
-    small_keys_current.reset();
+    // start a new small key sync session:
+    smallKeys.init();
     last_sent = 0;
     last_echo_sent = 0;
 
@@ -198,14 +191,6 @@ class LocalGameState : GameState {
 
     crystal.register(SyncableByteShouldCapture(this.crystal_switch_capture));
 
-    // small key sync:
-    small_keys_current.reset();
-    small_keys_current.register(SyncableByteShouldCapture(this.small_keys_current_capture));
-    for (uint i = 0; i < 0x10; i++) {
-      small_keys[i].reset();
-      small_keys[i].register(SyncableByteShouldCapture(this.small_key_capture));
-    }
-
     if (debugSRAM) {
       bus::add_write_interceptor("7e:f000-f4fd", bus::WriteInterceptCallback(this.sram_written));
     }
@@ -219,56 +204,6 @@ class LocalGameState : GameState {
     }
 
     dbgData("SRAM: " + fmtHex(addr - 0x7EF000, 3) + "; " + fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2));
-  }
-
-  bool small_key_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    bool allow = true;
-    if (module <= 0x06) allow = false;
-    else if (module == 0x17) allow = false;
-
-    if (debugData) {
-      dbgData("keys[" + fmtHex(addr - small_keys_min_offs, 2) + "]: " +
-        (allow ? "Y " : "N ") +
-        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) + "; module=" +
-        fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
-      );
-    }
-
-    return allow;
-  }
-
-  bool small_keys_current_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
-    bool allow = true;
-    if (module != 0x07) {
-      allow = false;
-    }
-
-    // which dungeon are we in:
-    auto dung = bus::read_u8(0x7E040C);
-    uint i = 0xFF;
-    if (dung == 0xFF) {
-      allow = false;
-    } else if (dung >= 0x20) {
-      allow = false;
-    } else {
-      i = dung >> 1;
-    }
-
-    if (debugData) {
-      dbgData("keys_current: " +
-        (allow ? "Y " : "N ") +
-        fmtHex(oldValue, 2) + " -> " + fmtHex(newValue, 2) +
-        "; dungeon=" + fmtHex(i,2) + "; module=" + fmtHex(module, 2) + "," + fmtHex(sub_module, 2)
-      );
-    }
-
-    if (!allow) {
-      return false;
-    }
-
-    small_keys[i].capture(newValue);
-
-    return true;
   }
 
   bool crystal_switch_capture(uint32 addr, uint8 oldValue, uint8 newValue) {
@@ -1578,17 +1513,6 @@ class LocalGameState : GameState {
     crystal.serialize(r);
   }
 
-  void serialize_smallKeys(array<uint8> &r) {
-    // write a table of 16 sync-bytes for dungeon small keys:
-    r.write_u8(uint8(0x05));
-    r.write_u8(uint8(0x10));
-    r.write_u16(small_keys_min_offs);
-    for (uint8 i = 0; i < 0x10; i++) {
-      auto @k = @small_keys[i];
-      k.serialize(r);
-    }
-  }
-
   void serialize_ancillae(array<uint8> &r) {
     if (ancillaeOwner.length() == 0) return;
     if (ancillae.length() == 0) return;
@@ -2334,7 +2258,7 @@ class LocalGameState : GameState {
         }
 
         if (settings.SyncSmallKeys) {
-          serialize_smallKeys(envelope);
+          smallKeys.serialize(envelope);
         }
       }
 
@@ -2420,16 +2344,14 @@ class LocalGameState : GameState {
   }
 
   void update_wram() {
+    // small keys track their own module state:
+    smallKeys.update();
+
     if (module < 0x06) return;
 
     // reset comparison state:
     if (settings.SyncTilemap) {
       crystal.compareStart();
-    }
-    if (settings.SyncSmallKeys) {
-      for (uint j = 0; j < 0x10; j++) {
-        small_keys[j].compareStart();
-      }
     }
 
     // compare remote values from all other active players:
@@ -2450,19 +2372,6 @@ class LocalGameState : GameState {
           crystal.compareTo(remote.crystal);
         }
       }
-
-      if (settings.SyncSmallKeys) {
-        // update small keys:
-        if (remote.small_keys !is null && remote.small_keys.length() >= 0x10) {
-          for (uint j = 0; j < 0x10; j++) {
-            if (small_keys[j] is null || remote.small_keys[j] is null) {
-              continue;
-            }
-
-            small_keys[j].compareTo(remote.small_keys[j]);
-          }
-        }
-      }
     }
 
     if (settings.SyncTilemap) {
@@ -2479,29 +2388,6 @@ class LocalGameState : GameState {
 
           // trigger sound effect:
           //LDA.b #$25 : JSL Sound_SetSfx3PanLong
-        }
-      }
-    }
-
-    if (settings.SyncSmallKeys) {
-      auto this_dungeon = dungeon >> 1;
-      for (uint j = 0; j < 0x10; j++) {
-        auto @key = small_keys[j];
-        if (key.winner is null) {
-          continue;
-        }
-
-        key.updateTo(key.winner);
-        if (debugData) {
-          dbgData("keys[" + fmtHex(j,2) + "] update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
-        }
-
-        if (dungeon != 0xFF && module == 0x07) {
-          if (this_dungeon == j) {
-            // update current dungeon key counter:
-            small_keys_current.updateTo(key);
-            dbgData("keys_current update " + fmtHex(key.oldValue,2) + " -> " + fmtHex(key.value,2) + "; ts -> " + pad(key.timestamp,10));
-          }
         }
       }
     }
