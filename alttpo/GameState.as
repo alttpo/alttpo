@@ -695,11 +695,14 @@ class GameState {
 
     auto frame = r[c++];
     //message("frame = " + fmtHex(frame, 2));
-    if (frame < this.frame && this.frame < 0xff) {
-      // stale data:
-      // TODO fix check when wrapping around 0xFF to 0x00
+    // discard stale frame data. frame numbers wrap around from 0xFF to 0x00, so compare them as a signed 8-bit
+    // distance: a frame up to 127 behind the last one seen is stale; anything else (including the same frame, since
+    // one frame's state is split across several packets) is current. this matches o2's check.
+    // a player that has timed out has no meaningful last frame, so accept whatever they send to resync.
+    int delta = int((uint(frame) - uint(this.frame)) & 0xff);
+    if (delta >= 0x80) delta -= 0x100;
+    if (delta < 0 && ttl > 0) {
       //message("stale frame " + fmtHex(frame, 2) + " vs " + fmtHex(this.frame, 2));
-      this.frame = frame;
       return false;
     }
     this.frame = frame;
