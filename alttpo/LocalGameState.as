@@ -2062,6 +2062,8 @@ class LocalGameState : GameState {
           auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
           starSwitch.serialize(envelope);
           manipSync.serialize(envelope);
+          // last, since older o2 and alttpo versions stop parsing at the first message type they don't know:
+          roomState.serialize(envelope);
           p = send_packet(envelope, p);
         }
       }
@@ -2098,6 +2100,8 @@ class LocalGameState : GameState {
     smallKeys.update();
     // star switch too:
     starSwitch.update();
+    // and room trap doors and key flags:
+    roomState.update();
 
     if (module < 0x06) return;
 

@@ -412,6 +412,12 @@ class GameState {
   uint32 star_timestamp = 0;
   uint8 star_value = 0;
   uint8 star_overlay = 0;
+  // trap doors and key flags of room_room as received (see RoomState.as):
+  bool room_valid = false;
+  uint16 room_room = 0;
+  uint8 room_flags = 0;
+  uint32 room_door_ts = 0;
+  uint8 room_door = 0;
   SmallKeysRemote small_keys;
 
   int numsprites;
@@ -512,6 +518,7 @@ class GameState {
     star_timestamp = 0;
     star_value = 0;
     star_overlay = 0;
+    room_valid = false;
 
     numsprites = 0;
 
@@ -745,6 +752,7 @@ class GameState {
         case 0x17: c = map16.deserialize(r, c); break;
         case 0x18: c = manip.deserialize(r, c); break;
         case 0x19: c = deserialize_star_switch(r, c); break;
+        case 0x1A: c = deserialize_room_state(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
@@ -780,6 +788,17 @@ class GameState {
     return c;
   }
 
+  int deserialize_room_state(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 8 > maxc) return maxc;
+    room_room = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    room_flags = r[c++];
+    room_door_ts = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    room_door = r[c++];
+    room_valid = true;
+    return c;
+  }
+
   int deserialize_location(array<uint8> r, int c) {
     module = r[c++];
     sub_module = r[c++];
@@ -793,6 +812,7 @@ class GameState {
     if (location != last) {
       // room and area specific state received so far belongs to the previous location:
       star_valid = false;
+      room_valid = false;
       manip.reset();
       map16.reset(0);
     }
