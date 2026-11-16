@@ -163,6 +163,8 @@ class LocalGameState : GameState {
 
     // start a new small key sync session:
     smallKeys.init();
+    // and a new heart sync session:
+    heartsSync.init();
     last_sent = 0;
     last_echo_sent = 0;
 
@@ -2002,6 +2004,10 @@ class LocalGameState : GameState {
         if (settings.SyncSmallKeys) {
           smallKeys.serialize(envelope);
         }
+
+        if (settings.SyncHearts) {
+          heartsSync.serialize(envelope);
+        }
       }
 
       p = send_packet(envelope, p);
@@ -2038,7 +2044,8 @@ class LocalGameState : GameState {
         }
 
         if (settings.SyncOverworld) {
-          if ((frame & 31) == 16) {
+          // also send them as soon as they change, e.g. so that other players see a collected heart piece disappear:
+          if (((frame & 31) == 16) || overworld_flags_changed()) {
             auto @envelope = make_packet_broadcast();
             serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
             p = send_packet(envelope, p);
@@ -2098,6 +2105,8 @@ class LocalGameState : GameState {
   void update_wram() {
     // small keys track their own module state:
     smallKeys.update();
+    // hearts too:
+    heartsSync.update();
     // star switch too:
     starSwitch.update();
     // and room trap doors and key flags:
@@ -2222,6 +2231,19 @@ class LocalGameState : GameState {
         notify("Quest " + received_quests[i]);
       }
     }
+  }
+
+  // overworld area flags ($7EF280..$7EF33F) as last sent:
+  array<uint8> sent_overworld_flags(0xC0);
+  bool overworld_flags_changed() {
+    bool changed = false;
+    for (uint i = 0; i < 0xC0; i++) {
+      if (sram[0x280 + i] != sent_overworld_flags[i]) {
+        sent_overworld_flags[i] = sram[0x280 + i];
+        changed = true;
+      }
+    }
+    return changed;
   }
 
   void update_overworld(SRAM@ d) {

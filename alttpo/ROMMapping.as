@@ -133,7 +133,7 @@ abstract class ROMMapping {
     whenSyncDungeonItems(@SyncableItem(0x368, 1, 2, @nameForMap1)),      // dungeon maps 1/2
     whenSyncDungeonItems(@SyncableItem(0x369, 1, 2, @nameForMap2)),      // dungeon maps 2/2
 
-    @SyncableHealthCapacity(),  // heart pieces (out of four) [0x36B], health capacity [0x36C]
+    // heart pieces (out of four) [0x36B] and health capacity [0x36C] are synced as deltas; see Hearts.as
 
     whenSyncItems(@SyncableItem(0x370, 1, 1)),  // bombs capacity
     whenSyncItems(@SyncableItem(0x371, 1, 1)),  // arrows capacity

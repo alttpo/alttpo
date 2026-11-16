@@ -82,9 +82,11 @@ void on_main_alttp(uint32 pc) {
     if ((local.frame & 31) == 0) {
       local.update_rooms(sram);
     }
-    if ((local.frame & 31) == 16) {
+    if (((local.frame & 31) == 16) || overworld_flags_received) {
+      overworld_flags_received = false;
       local.update_overworld(sram);
     }
+    remove_collected_heart_sprites();
 
     if (settings.SyncUnderworld) {
       update_torches();

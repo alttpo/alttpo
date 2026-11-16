@@ -428,6 +428,7 @@ class GameState {
   // quadrant the switch was pulled in: bit 0 east, bit 1 south:
   uint8 room_pulled_quad = 0;
   SmallKeysRemote small_keys;
+  HeartsRemote hearts;
 
   int numsprites;
 
@@ -765,6 +766,7 @@ class GameState {
         case 0x1A: c = deserialize_room_state(r, c); break;
         case 0x1B: c = deserialize_room_doors(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
+        case 0x83: c = deserialize_hearts(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
           if (packetType < 0x80) {
@@ -1088,6 +1090,20 @@ class GameState {
     return c;
   }
 
+  int deserialize_hearts(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 7 > maxc) return maxc;
+
+    uint32 session = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    int16 net = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+    uint8 value = r[c++];
+
+    if (this is local) return c;
+
+    heartsSync.receive_remote(this, session, net, value);
+    return c;
+  }
+
   int deserialize_wram(array<uint8> r, int c) {
     auto count = r[c++];
     auto offs = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -1130,6 +1146,11 @@ class GameState {
       auto b = r[c++];
 
       sram[offs] = b;
+    }
+
+    if (!(this is local) && start < 0x340 && uint(start) + count > 0x280) {
+      // apply overworld area flags right away, e.g. to remove a heart piece another player collected:
+      overworld_flags_received = true;
     }
 
     return c;
