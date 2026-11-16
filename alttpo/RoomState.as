@@ -45,6 +45,11 @@
 //   - Hold switches: while a remote player presses a hold switch, $0646 is set to $80, which holds the doors open; it
 //     is cleared again once nobody does. A player whose $0646 is $80 does not count as pressing the switch itself, so
 //     players do not hold each other's doors open forever. A local somaria block recomputes $0646 every frame and wins.
+//   - Push block doors after an intra-room transition: UnderworldTransition_Intraroom_TriggerShutters clears $0641
+//     (ResetThenCacheRoomEntryProperties) and closes the shutters while the block stays pushed and cannot be pushed
+//     again, so RoomTag_OperateBlockDoor keeps Link locked in (e.g. Ganon's Tower room $8B after another player pushed
+//     the block from the other quadrant). When $0641 was odd in the room before the transition and is 0 after it,
+//     $0641 is set back to 1 and the doors are opened like the tag does, also when no other player is in the room.
 
 const uint8 msg_room_state = 0x1A;
 const uint8 msg_room_doors = 0x1B;
@@ -99,6 +104,13 @@ class RoomStateLocal {
   // holdWritten is true once $0646 was set for remote players; it is not set again while they keep pressing, since a
   // local somaria block clears it every frame:
   bool holdWritten = false;
+
+  // the push block door's block across intra-room transitions: pushed once $0641 was seen odd in blockRoom,
+  // blockTransition while an intra-room transition runs after that, blockCleared once it cleared $0641:
+  uint16 blockRoom = 0;
+  bool blockPushed = false;
+  bool blockTransition = false;
+  bool blockCleared = false;
 
   void reset() {
     valid = false;
@@ -157,6 +169,29 @@ class RoomStateLocal {
     return uint8(((bus::read_u16(0x7E0022) >> 8) & 1) | (((bus::read_u16(0x7E0020) >> 8) & 1) << 1));
   }
 
+  // update_block tracks whether the push block door's block was pushed in the current room:
+  void update_block(uint16 r, uint8 sub_module) {
+    if (r != blockRoom) {
+      blockRoom = r;
+      blockPushed = false;
+      blockTransition = false;
+      blockCleared = false;
+    }
+    if (!has_tag(bus::read_u8(0x7E00AE), bus::read_u8(0x7E00AF), room_tag_block_door)) return;
+    if (sub_module == 0x00) {
+      if ((bus::read_u8(0x7E0641) & 1) != 0) {
+        blockPushed = true;
+        blockTransition = false;
+        blockCleared = false;
+      } else if (blockTransition) {
+        blockTransition = false;
+        blockCleared = true;
+      }
+    } else if (sub_module == 0x01) {
+      blockTransition = blockPushed;
+    }
+  }
+
   bool local_holds(uint8 t0, uint8 t1, uint8 d) {
     return has_tag(t0, t1, room_tag_hold) && d == 0 && bus::read_u8(0x7E0646) != room_hold_remote;
   }
@@ -171,11 +206,15 @@ class RoomStateLocal {
     if (module != 0x07) {
       // left the dungeon module:
       reset();
+      blockPushed = false;
+      blockTransition = false;
+      blockCleared = false;
       return;
     }
 
     auto r = bus::read_u16(0x7E00A0);
     auto sub_module = local.sub_module;
+    update_block(r, sub_module);
     if (valid && (r != room || sub_module == 0x01)) {
       // a room or intra-room transition; the game resets the shutters:
       reset();
@@ -329,6 +368,19 @@ class RoomStateLocal {
     // push block doors: the tag only opens the doors while Link is in its quadrant, and a block moved by sync may have
     // toggled $0641 while the doors were busy (e.g. closing behind a player entering the room); open them like the tag:
     if (remotes > 0 && has_tag(t0, t1, room_tag_block_door) && (bus::read_u8(0x7E0641) & 1) != 0 && door != 0) {
+      bus::write_u16(0x7E0468, 0);
+      bus::write_u16(0x7E068E, 0);
+      bus::write_u16(0x7E0690, 0);
+      bus::write_u8(0x7E012F, 0x25); // SFX3.25
+      bus::write_u8(0x7E0011, 0x05); // move the shutters (OperateShutterDoors)
+      return;
+    }
+
+    // an intra-room transition cleared $0641 and closed the shutters, but the block is still pushed; take it back:
+    if (blockCleared && blockRoom == room && has_tag(t0, t1, room_tag_block_door) &&
+        (bus::read_u8(0x7E0641) & 1) == 0 && door != 0) {
+      blockCleared = false;
+      bus::write_u8(0x7E0641, 1);
       bus::write_u16(0x7E0468, 0);
       bus::write_u16(0x7E068E, 0);
       bus::write_u16(0x7E0690, 0);
