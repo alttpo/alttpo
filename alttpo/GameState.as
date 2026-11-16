@@ -427,6 +427,12 @@ class GameState {
   uint32 room_pulled_ts = 0;
   // quadrant the switch was pulled in: bit 0 east, bit 1 south:
   uint8 room_pulled_quad = 0;
+  // overworld events of ow_events_area as received (see OverworldEvents.as):
+  bool ow_events_valid = false;
+  uint16 ow_events_area = 0;
+  uint8 ow_events_entrance = 0;
+  uint8 ow_events_flags = 0;
+  uint64 ow_events_received = 0;
   SmallKeysRemote small_keys;
   HeartsRemote hearts;
 
@@ -765,6 +771,7 @@ class GameState {
         case 0x19: c = deserialize_star_switch(r, c); break;
         case 0x1A: c = deserialize_room_state(r, c); break;
         case 0x1B: c = deserialize_room_doors(r, c); break;
+        case 0x1C: c = deserialize_ow_events(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
         default:
@@ -812,6 +819,17 @@ class GameState {
     return c;
   }
 
+  int deserialize_ow_events(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 4 > maxc) return maxc;
+    ow_events_area = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    ow_events_entrance = r[c++];
+    ow_events_flags = r[c++];
+    ow_events_received = chrono::monotonic::millisecond;
+    ow_events_valid = true;
+    return c;
+  }
+
   int deserialize_room_doors(array<uint8> r, int c) {
     int maxc = int(r.length());
     if (c + 8 > maxc) return maxc;
@@ -841,6 +859,7 @@ class GameState {
       star_valid = false;
       room_valid = false;
       room_doors_valid = false;
+      ow_events_valid = false;
       manip.reset();
       map16.reset(0);
     }

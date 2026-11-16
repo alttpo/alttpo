@@ -81,6 +81,12 @@ abstract class ROMMapping {
   uint32 get_fn_sprite_load_gfx_properties() property { return 0; }
 
   uint32 get_fn_overworld_createpyramidhole() property { return 0; } // 0x1BC2A7
+  // Overworld_AlterWeathervane and OpenGargoylesDomain draw the destroyed weathervane (area $18) and the opened
+  // Thieves' Town entrance (area $58); FireRodShot_BecomeSkullWoodsFire lights the fire at Skull Woods and starts its
+  // entrance animation ($04C6 = 2). All JSL in 8-bit mode; 0 where unknown:
+  uint32 get_fn_overworld_alter_weathervane() property { return 0; } // 0x1BC21D
+  uint32 get_fn_overworld_open_gargoyles_domain() property { return 0; } // 0x1BC264
+  uint32 get_fn_skull_woods_fire() property { return 0; } // US 0x099C4F, JP 0x099C3B
   uint32 get_fn_toggle_star_tile_graphics() property { return 0; } // 0x00FDA7
   // Overworld_DrawMap16_Persist; A = map16 tile, X = tilemap offset, 16-bit; see Map16Changes.as:
   uint32 get_fn_overworld_draw_map16_persist() property { return 0; } // 0x1BC97C
@@ -388,6 +394,9 @@ class USAROMMapping : ROMMapping {
   uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
   uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
   uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D828; }
+  uint32 get_fn_overworld_alter_weathervane() property { return fastrom + 0x1BC21D; }
+  uint32 get_fn_overworld_open_gargoyles_domain() property { return fastrom + 0x1BC264; }
+  uint32 get_fn_skull_woods_fire() property { return fastrom + 0x099C4F; }
   uint32 get_fn_bank01_rtl() property { return fastrom + 0x01D827; }
 };
 
@@ -501,6 +510,9 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
   uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
   uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D826; }
+  uint32 get_fn_overworld_alter_weathervane() property { return fastrom + 0x1BC21D; }
+  uint32 get_fn_overworld_open_gargoyles_domain() property { return fastrom + 0x1BC264; }
+  uint32 get_fn_skull_woods_fire() property { return fastrom + 0x099C3B; }
   uint32 get_fn_bank01_rtl() property { return fastrom + 0x01D825; }
 };
 

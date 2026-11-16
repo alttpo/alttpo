@@ -275,7 +275,9 @@ HeartsLocal heartsSync;
 // remove_collected_heart_sprites removes the heart piece ($EB) and heart container ($EA) sprites of the current
 // overworld area once its heart was collected. Picking one up sets bit $40 of the area's flags at $7EF280 (which
 // SpritePrep_HeartContainer only checks when the area loads), so when another player collected it, the sprite would
-// otherwise stay until the area reloads and could be collected twice. Called every frame from on_main_alttp.
+// otherwise stay until the area reloads and could be collected twice. Destroying Agahnim's barrier (sprite $40, at
+// Hyrule Castle) with the Master Sword sets the same bit, which SpritePrep_AgahnimsBarrier checks to draw it destroyed
+// ($0DC0 = 4, which also makes it harmless). Called every frame from on_main_alttp.
 void remove_collected_heart_sprites() {
   if (!settings.SyncOverworld) return;
   if (!(local.module == 0x09 || local.module == 0x0B)) return;
@@ -288,6 +290,10 @@ void remove_collected_heart_sprites() {
   for (uint32 i = 0; i < 0x10; i++) {
     if (bus::read_u8(0x7E0DD0 + i) == 0) continue;
     uint8 type = bus::read_u8(0x7E0E20 + i);
+    if (type == 0x40) {
+      if (bus::read_u8(0x7E0DC0 + i) != 4) bus::write_u8(0x7E0DC0 + i, 4);
+      continue;
+    }
     if (type != 0xEB && type != 0xEA) continue;
     bus::write_u8(0x7E0DD0 + i, 0);
   }

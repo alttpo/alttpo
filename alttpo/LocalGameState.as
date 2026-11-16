@@ -123,18 +123,20 @@ class LocalGameState : GameState {
       });
     }
 
+    // draw overlays other players opened while we are in the area (see draw_opened_overlay in OverworldEvents.as).
     // Pyramid bat crash: ([$7EF2DB] | 0x20)
     @areas[0x5B] = @SyncableItem(0x280 + 0x5B, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
-      // pyramid hole has just opened:
-      if ( ((oldValue & 0x20) == 0) && ((newValue & 0x20) == 0x20) ) {
-        // local player is on pyramid:
-        if (local.overworld_room == 0x5B) {
-          // JSL to Overworld_CreatePyramidHole to draw the pyramid hole on screen:
-          pb.jsl(rom.fn_overworld_createpyramidhole);
-          local.notify("Pyramid opened");
-        }
-      }
-
+      draw_opened_overlay(0x5B, rom.fn_overworld_createpyramidhole, 0, oldValue, newValue, "Pyramid opened");
+      return oldValue | newValue;
+    });
+    // the weathervane in Kakariko Village, blown up by playing the flute next to it:
+    @areas[0x18] = @SyncableItem(0x280 + 0x18, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+      draw_opened_overlay(0x18, rom.fn_overworld_alter_weathervane, 0, oldValue, newValue, "Weathervane destroyed");
+      return oldValue | newValue;
+    });
+    // the Thieves' Town entrance, opened by pulling the grate (sprite $14):
+    @areas[0x58] = @SyncableItem(0x280 + 0x58, 1, function(SRAM@ sram, uint16 oldValue, uint16 newValue) {
+      draw_opened_overlay(0x58, rom.fn_overworld_open_gargoyles_domain, 0x14, oldValue, newValue, "Thieves' Town opened");
       return oldValue | newValue;
     });
 
@@ -2056,6 +2058,10 @@ class LocalGameState : GameState {
         if (settings.SyncTilemap) {
           p = map16Sync.send(p);
         }
+        // overworld entrance animations and other events, in their own packet:
+        if (settings.SyncOverworld) {
+          p = owEvents.send(p);
+        }
 
         // send packet every other frame:
         if ((frame & 1) == 0) {
@@ -2111,6 +2117,8 @@ class LocalGameState : GameState {
     starSwitch.update();
     // and room trap doors and key flags:
     roomState.update();
+    // and overworld entrance animations and other events:
+    owEvents.update();
 
     if (module < 0x06) return;
 
