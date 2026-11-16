@@ -21,7 +21,8 @@
 //     tile, $0646 is set (a Cane of Somaria block on a floor switch) or $0642 is set (a statue on a floor switch).
 //
 // Message 0x1A (uint16 room, uint8 flags ($0403), uint32 doorTs, uint8 door ($0468)) and message 0x1B (uint16 room,
-// uint8 doors ($0401), uint8 switches (bit 0: pressing a hold switch, bit 1: pulled a switch), uint32 pulledTs) are
+// uint8 doors ($0401), uint8 switches (bit 0: pressing a hold switch, bit 1: pulled a switch, bits 2/3: the switch was
+// pulled in the east/south quadrant), uint32 pulledTs) are
 // sent in a broadcastSector packet to the current room's sector, only once they were sampled in that room.
 //
 //   - Sampling: in the dungeon module only, while the room ($A0) stays the same. A baseline is taken in submodule 0. A
@@ -73,6 +74,7 @@ const int room_tag_water = 2;
 const int room_tag_pull = 3;
 const int room_tag_hides_chests = 4;
 const int room_tag_block_door = 5;
+const int room_tag_water_gate = 6;
 
 class RoomStateLocal {
   // valid is true when the state was read in submodule 0 of the dungeon module for room:
@@ -92,6 +94,8 @@ class RoomStateLocal {
   // pulled is true once a switch was pulled in this room; pulledTs is when (0 if already pulled at the baseline):
   bool pulled = false;
   uint32 pulledTs = 0;
+  // quadrant the switch was pulled in: bit 0 east, bit 1 south:
+  uint8 pulledQuad = 0;
   // holdWritten is true once $0646 was set for remote players; it is not set again while they keep pressing, since a
   // local somaria block clears it every frame:
   bool holdWritten = false;
@@ -124,6 +128,8 @@ class RoomStateLocal {
       case room_tag_block_door:
         // RoomTag_OperateBlockDoor: $0468 = $0641 ^ 1, only while Link is in the tag's quadrant:
         return tag >= 0x0B && tag <= 0x13;
+      case room_tag_water_gate:
+        return tag == 0x1A || tag == 0x1B;
       case room_tag_hides_chests:
         return tag == 0x27 || tag == 0x3C || tag == 0x3E || (tag >= 0x29 && tag < 0x33);
     }
@@ -140,8 +146,15 @@ class RoomStateLocal {
     uint8 mask = room_flag_key0 | room_flag_key1 | room_flag_chests;
     // the tag draws the chests closed when it reveals them; wait until it did:
     if (has_tag(t0, t1, room_tag_hides_chests)) mask &= ~room_flag_chests;
-    if (has_tag(t0, t1, room_tag_water)) mask &= ~room_flag_water;
+    // the water gate tags check bit 3 to know whether the gate was opened already; leave it to them. The fill and
+    // drain tags set it too but only act on $0642; with the bit set the room loads filled or drained:
+    if (has_tag(t0, t1, room_tag_water_gate)) mask &= ~room_flag_water;
     return mask;
+  }
+
+  // Link's quadrant in the room: bit 0 east (bit 8 of X), bit 1 south (bit 8 of Y):
+  uint8 local_quadrant() {
+    return uint8(((bus::read_u16(0x7E0022) >> 8) & 1) | (((bus::read_u16(0x7E0020) >> 8) & 1) << 1));
   }
 
   bool local_holds(uint8 t0, uint8 t1, uint8 d) {
@@ -185,6 +198,7 @@ class RoomStateLocal {
       doorsTried = 0;
       hold = local_holds(t0, t1, d);
       pulled = has_tag(t0, t1, room_tag_pull) && bus::read_u8(0x7E0642) != 0;
+      pulledQuad = local_quadrant();
       pulledTs = 0;
       holdWritten = false;
       return;
@@ -196,6 +210,7 @@ class RoomStateLocal {
       if (bus::read_u8(0x7E0642) != 0 || water) {
         pulled = true;
         pulledTs = now_ts();
+        pulledQuad = local_quadrant();
       }
     }
 
@@ -252,7 +267,12 @@ class RoomStateLocal {
       if (!remote.room_doors_valid || remote.room_doors_room != room) continue;
       remoteDoors |= remote.room_doors;
       if (hasPull && !pulled && pullFrom is null && remote.room_pulled && remote.room_pulled_ts > since) {
-        @pullFrom = remote;
+        // the water tags flood or drain the quadrant the camera is in, which only works out when Link is where the
+        // switch was pulled (e.g. Underworld_FloodSwampWater_CoverFloor never ends with the camera in another
+        // quadrant); wait until Link is in the quadrant the switch was pulled in:
+        if (!has_tag(t0, t1, room_tag_water) || local_quadrant() == remote.room_pulled_quad) {
+          @pullFrom = remote;
+        }
       }
       if (remote.room_hold) wantHold = true;
     }
@@ -284,6 +304,7 @@ class RoomStateLocal {
       if (bus::read_u8(0x7E0642) == 0) bus::write_u8(0x7E0642, 1);
       pulled = true;
       pulledTs = pullFrom.room_pulled_ts;
+      pulledQuad = pullFrom.room_pulled_quad;
     }
 
     if (!wantHold) holdWritten = false;
@@ -399,7 +420,7 @@ class RoomStateLocal {
     r.write_u8(doors);
     uint8 switches = 0;
     if (hold) switches |= 0x01;
-    if (pulled) switches |= 0x02;
+    if (pulled) switches |= uint8(0x02 | (pulledQuad << 2));
     r.write_u8(switches);
     r.write_u32(pulledTs);
   }

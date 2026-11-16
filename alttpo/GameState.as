@@ -425,6 +425,8 @@ class GameState {
   bool room_hold = false;
   bool room_pulled = false;
   uint32 room_pulled_ts = 0;
+  // quadrant the switch was pulled in: bit 0 east, bit 1 south:
+  uint8 room_pulled_quad = 0;
   SmallKeysRemote small_keys;
 
   int numsprites;
@@ -816,6 +818,7 @@ class GameState {
     uint8 switches = r[c++];
     room_hold = (switches & 0x01) != 0;
     room_pulled = (switches & 0x02) != 0;
+    room_pulled_quad = (switches >> 2) & 3;
     room_pulled_ts = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
     room_doors_valid = true;
     return c;
