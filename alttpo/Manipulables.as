@@ -243,11 +243,14 @@ class ManipSync {
         uint16 o = uint16(j << 1);
 
         if (manip_is_push_block(rm.typ[i])) {
-          // still moving?
-          if (rm.typ[i] != 0 && rm.typ[i] != 0xFFFF) continue;
+          // still moving? a pushed block ends up in $0000, or $0005 on a floor switch ($FFFF: older versions):
+          uint16 rt = rm.typ[i];
+          if (rt != 0x0000 && rt != 0x0005 && rt != 0xFFFF) continue;
           uint16 to = rm.pos[i];
           if (typ[j] != 0 || pos[j] != orig_pos[j] || to == pos[j] || !manip_is_step(pos[j], to)) continue;
           if (bus::read_u16(0x7E0500 + o) != 0 || bus::read_u16(0x7E0540 + o) != pos[j]) continue;
+          // nothing else there, e.g. a hammer peg that is still up here (Ganon's Tower room $8B):
+          if ((bus::read_u8(manip_attr_addr(to)) & 0xF0) == 0x70) continue;
           // two stripes; REP, LDY + JSR, LDA + STA, 4 x (LDA + STA), LDY + JSR, LDA + 2 x STA, SEP, end:
           if (stripe + 0x30 > 0x80 || pb.offset + 2 + 14 + 6 + 24 + 14 + 11 + 2 + 5 > 0x100) {
             full = true;
@@ -292,6 +295,23 @@ class ManipSync {
     }
   }
 
+  // operate_block_door does what RoomTag_OperateBlockDoor ($0B-$13) does ($0468 = $0641 ^ 1, then move the shutters),
+  // unless another submodule is running. The tag itself only runs while Link is in the quadrant it is for, which the
+  // player who pushed the block always is but other players usually are not.
+  void operate_block_door() {
+    auto t0 = bus::read_u8(0x7E00AE);
+    auto t1 = bus::read_u8(0x7E00AF);
+    if (!((t0 >= 0x0B && t0 <= 0x13) || (t1 >= 0x0B && t1 <= 0x13))) return;
+    if (bus::read_u8(0x7E0011) != 0) return;
+    uint8 d = bus::read_u8(0x7E0641) ^ 0x01;
+    if (d == bus::read_u8(0x7E0468)) return;
+    bus::write_u8(0x7E0468, d);
+    bus::write_u16(0x7E068E, 0);
+    bus::write_u16(0x7E0690, 0);
+    bus::write_u8(0x7E012F, 0x25); // SFX3.25
+    bus::write_u8(0x7E0011, 0x05); // move the shutters (OperateShutterDoors)
+  }
+
   // move the push block in slot j one step to `to` like the game would; emits code in 16-bit mode:
   void move_block(int j, uint16 to, uint32 fn, uint32 rtl) {
     uint16 o = uint16(j << 1);
@@ -305,6 +325,11 @@ class ManipSync {
     pb.sta_bank(uint16(0x0540 + o));
 
     // do what PushBlock_CheckForPit does:
+    if ((to & 0x4000) == 0) {
+      // upper layer block pushed; push block door ($0B-$13) and chest ($3C) tags act on $0641:
+      bus::write_u16(0x7E0641, uint16(bus::read_u16(0x7E0641) ^ 0x0001));
+      operate_block_door();
+    }
     if (attr == 0x20) {
       // fell into a pit; record where it lands in the room below:
       uint16 x = bus::read_u16(0x7E0520 + o);
@@ -312,11 +337,12 @@ class ManipSync {
       bus::write_u16(0x7EF942 + x, to);
       return;
     }
-    uint16 state = 0xFFFF;
+    // PushBlock_CheckForPit leaves $FFFF ($0004 on a switch) and PushBlock_Main increments it:
+    uint16 state = 0x0000;
     if (attr == 0x23) {
       // on a switch:
       bus::write_u16(0x7E0466, uint16(bus::read_u16(0x7E0468) ^ 0x0001));
-      state = 0x0000;
+      state = 0x0005;
     }
     bus::write_u16(0x7E0500 + o, state);
 
