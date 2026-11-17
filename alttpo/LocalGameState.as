@@ -617,6 +617,9 @@ class LocalGameState : GameState {
     // don't sync OAM beyond link's body during or after GAME OVER animation after death:
     if (is_dead()) return;
 
+    // enemies are synced on their own, so every player draws their deaths and explosions already:
+    fetch_dying_enemies();
+
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
       // skip already synced Link sprites:
@@ -628,6 +631,9 @@ class LocalGameState : GameState {
 
       auto chr = spr.chr;
       if (chr >= 0x100) continue;
+
+      // skip the death poof and explosion of an enemy:
+      if (is_dying_enemy_sprite(spr)) continue;
 
       if (i > 0) {
         auto @sprp1 = sprs[i-1];
@@ -756,6 +762,66 @@ class LocalGameState : GameState {
         continue;
       }
     }
+  }
+
+  // screen coordinates of the enemies drawing a poof (sprite state $02), an explosion ($04) or their death ($06) this
+  // frame and the frame before (the OAM read here may have been drawn before the sprite tables were last updated):
+  array<int> dying_enemies_x, dying_enemies_y;
+  array<int> dying_enemies_prev_x, dying_enemies_prev_y;
+
+  void fetch_dying_enemies() {
+    dying_enemies_prev_x = dying_enemies_x;
+    dying_enemies_prev_y = dying_enemies_y;
+    dying_enemies_x.resize(0);
+    dying_enemies_y.resize(0);
+
+    if (module != 0x07 && module != 0x09 && module != 0x0B) return;
+
+    int bg2x = int(bus::read_u16(0x7E00E2));
+    int bg2y = int(bus::read_u16(0x7E00E8));
+    for (uint s = 0; s < 0x10; s++) {
+      uint8 st = bus::read_u8(0x7E0DD0 + s);
+      if (st != 0x02 && st != 0x04 && st != 0x06) continue;
+
+      int sx = int(uint16(bus::read_u8(0x7E0D10 + s)) | (uint16(bus::read_u8(0x7E0D30 + s)) << 8)) - bg2x;
+      int sy = int(uint16(bus::read_u8(0x7E0D00 + s)) | (uint16(bus::read_u8(0x7E0D20 + s)) << 8)) - bg2y
+        - int(bus::read_u8(0x7E0F70 + s));
+      dying_enemies_x.insertLast(sx);
+      dying_enemies_y.insertLast(sy);
+    }
+  }
+
+  // chrs of the enemy death poof (SpriteDeath_DrawPoof), the enemy explosion (SpriteModule_Explode) and the poof
+  // (SpriteModule_Poof); several of them are also used by Link's own effects, so only those on top of an enemy in one
+  // of those states are skipped:
+  bool is_dying_enemy_chr(uint16 chr) {
+    switch (chr) {
+      // death poof:
+      case 0xA8: case 0xA9: case 0x9B: case 0xB4: case 0xB5: case 0xB8: case 0xB9:
+      // explosion:
+      case 0x4E: case 0x60: case 0x62: case 0x64: case 0x66: case 0x68: case 0x6A:
+      // poof:
+      case 0x8A: case 0xB3:
+        return true;
+    }
+    return false;
+  }
+
+  bool is_near_enemy(Sprite @spr, array<int> &in xs, array<int> &in ys) {
+    for (uint k = 0; k < xs.length(); k++) {
+      // the poof and explosion are drawn within -8..+24 pixels of the enemy's coordinates (and up to its height
+      // above the ground, which is subtracted already); allow some slack:
+      int dx = spr.x - xs[k];
+      int dy = spr.y - ys[k];
+      if (dx >= -24 && dx < 32 && dy >= -32 && dy < 32) return true;
+    }
+    return false;
+  }
+
+  bool is_dying_enemy_sprite(Sprite @spr) {
+    if (!is_dying_enemy_chr(spr.chr)) return false;
+    return is_near_enemy(spr, dying_enemies_x, dying_enemies_y)
+        || is_near_enemy(spr, dying_enemies_prev_x, dying_enemies_prev_y);
   }
 
   void capture_sprites_vram() {
