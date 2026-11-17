@@ -109,6 +109,15 @@ class Map16Sync {
   }
 
   // called every frame from LocalGameState::fetch:
+  // log_belongs_to_area returns false while Link lands from a mirror or portal warp. The warp (Module09_MirrorWarp)
+  // changes the area and returns to submodule 0 but keeps the previous area's log, which LinkState_CrossingWorlds only
+  // resets once Link lands in the other world (and keeps for a mirror bonk, which takes him back to that area). Reading
+  // it before would send the previous area's changes as changes of the new area.
+  bool log_belongs_to_area() {
+    // kPlayerState_Mirror:
+    return bus::read_u8(0x7E005D) != 0x14;
+  }
+
   void fetch() {
     if (local.module == 0x0E) {
       // menus don't touch the log:
@@ -126,6 +135,7 @@ class Map16Sync {
     }
     // area loads reset the log in other submodules:
     if (local.sub_module != 0) return;
+    if (!log_belongs_to_area()) return;
 
     int n = int(bus::read_u16(0x7E04AC));
     if ((n & 1) != 0 || n > (map16_log_max << 1)) return;
@@ -207,6 +217,7 @@ class Map16Sync {
     if (!valid) return;
     if (!local.is_in_overworld_module() || local.sub_module != 0) return;
     if (bus::read_u16(0x7E008A) != area) return;
+    if (!log_belongs_to_area()) return;
     uint32 fn = rom.fn_overworld_draw_map16_persist;
     if (fn == 0) return;
 
