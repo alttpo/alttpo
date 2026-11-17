@@ -12,11 +12,12 @@
 // Overworld_MemorizeMap16Change appends to the log (except for cut grass and dirt patches, which the game never
 // restores) and Overworld_DoMapUpdate32x32 appends four entries at once.
 //
-// The log is shared with the players in the same area in message 0x17 in broadcastSector packets:
+// The log is shared with the other players in message 0x17:
 //   uint24 location, uint8 count (entries in the sender's log), uint8 start, uint8 len, then len entries of
 //   uint16 pos, uint16 tile for log indices [start, start+len).
-// New entries are sent as soon as they are seen and the whole log is sent every 16 frames so players entering the
-// area catch up.
+// New entries are sent as soon as they are seen and the whole log every 32 frames. It is sent to all players
+// (broadcastAll), not just to those in the same area, so that a player entering the area already has the changes
+// while the area loads (see on_overworld_area_load).
 //
 // The location is the one the log was read in, encoded like the location in message 0x01: bit 17 the dark world
 // ($0FFF & 1), bit 16 the underworld (0) and bits 0-15 the area ($8A). The log is only read, and changes are only
@@ -24,11 +25,17 @@
 // warp switches worlds, and changes are only applied in exactly the sender's location, which must also be the
 // sender's current location.
 //
+// Every overworld area load (scroll transitions, coming out of the underworld or a special area before the spotlight
+// opens, warps, the flute, the reload after a mirror bonk) decompresses the area's tilemap into $7E2000 and then calls
+// Overworld_HandleOverlaysAndBombDoors, which applies the area's overlay and bombed doors to it, before anything is
+// drawn from it. A PC interceptor there writes the remote changes for the area being loaded to $7E2000 first, so the
+// game draws them itself and they appear seamlessly (see on_overworld_area_load).
+//
 // Each receiver remembers how far into each remote player's log it has applied and only applies newly added entries.
-// Applying an entry skips it if $7E2000,X already holds the tile, otherwise appends it to the local log (so it survives
-// a mirror bonk and is passed on to players who enter the area later) and calls Overworld_DrawMap16_Persist if VRAM
-// holds it (always in small areas; rows/columns -7..+23 of $84 in large areas); other tiles are only written to
-// $7E2000 and drawn by the game as it scrolls.
+// Applying an entry appends it to the local log (so it survives a mirror bonk and is passed on to players who enter the
+// area later). If $7E2000,X already holds the tile (applied while the area loaded), that is all; otherwise it calls
+// Overworld_DrawMap16_Persist if VRAM holds it (always in small areas; rows/columns -7..+23 of $84 in large areas);
+// other tiles are only written to $7E2000 and drawn by the game as it scrolls.
 //
 // An entry that arrives while the local player has been in the area for a while (longer than the senders take to
 // resend their whole log, so not while catching up) is live: the remote player changed the tile just now. If a live
@@ -49,9 +56,12 @@ uint32 ow_location() {
 }
 const int map16_log_max = 0xA0;
 const int map16_chunk_max = 0x40;
-// frames in an area before entries received are taken as live; senders resend their whole log every 16 frames, so
-// entries made before the local player arrived come in before that:
+// frames in an area before entries received are taken as live; the log is sent to all players and senders resend it
+// every 32 frames (older versions every 16, to the same area only), so entries made before the local player arrived
+// come in before that:
 const int map16_live_after = 48;
+// calls to Map16Sync::send between sends of the whole log:
+const int map16_resend_every = 32;
 
 // map16 change log of a remote player as received:
 class Map16Remote {
@@ -219,16 +229,16 @@ class Map16Sync {
     }
   }
 
-  // sends the new entries of the log, and the whole log every 16 frames, to the players in the same area:
+  // sends the new entries of the log, and the whole log every 32 frames, to all players:
   uint send(uint p) {
     if (!valid) return p;
     // menus and text boxes ($0E) keep the log; keep sending it so players entering the area still catch up:
     if (!local.is_in_overworld_module() && local.module != 0x0E) return p;
 
-    // resend the whole log every 16 calls rather than on frames with (frame & 15) == 0: send() is skipped by the net
+    // resend the whole log every 32 calls rather than on frames with (frame & 31) == 0: send() is skipped by the net
     // rate limiter whenever frames come in faster than 16ms apart, which can skip those frames every time:
     int start = sent;
-    if (++sendsSinceFull >= 16) {
+    if (++sendsSinceFull >= map16_resend_every) {
       sendsSinceFull = 0;
       start = 0;
     } else if (start >= count) {
@@ -238,7 +248,8 @@ class Map16Sync {
     while (true) {
       int end = start + map16_chunk_max;
       if (end > count) end = count;
-      array<uint8> @r = local.make_packet_broadcast_to_sector(local.broadcast_sector());
+      // to all players, so that players entering the area have the changes while it loads:
+      array<uint8> @r = local.make_packet_broadcast();
       serialize(r, start, end);
       p = local.send_packet(r, p);
       start = end;
@@ -246,6 +257,18 @@ class Map16Sync {
     }
     sent = count;
     return p;
+  }
+
+  // logged returns whether the local log's last change at p is t:
+  bool logged(uint16 p, uint16 t) {
+    int n = int(bus::read_u16(0x7E04AC)) >> 1;
+    if (n > map16_log_max) n = map16_log_max;
+    for (int i = n - 1; i >= 0; i--) {
+      if (bus::read_u16(0x7EF800 + uint32(i << 1)) == p) {
+        return bus::read_u16(0x7EFA00 + uint32(i << 1)) == t;
+      }
+    }
+    return false;
   }
 
   // append a change to the local log like Overworld_MemorizeMap16Change, if it has room:
@@ -319,7 +342,13 @@ class Map16Sync {
         uint16 t = ts[k];
         if (written.find(p) >= 0) continue;
         uint16 cur = bus::read_u16(0x7E2000 + p);
-        if (cur == t) continue;
+        if (cur == t) {
+          // applied while the area loaded (see on_overworld_area_load), or already ours; memorize it unless the local
+          // log has it:
+          if (!logged(p, t)) memorize(p, t);
+          written.insertLast(p);
+          continue;
+        }
 
         // the remote player just removed a small object that is still here; reveal the secret under it:
         int toss = -1;
@@ -378,3 +407,39 @@ class Map16Sync {
 };
 
 Map16Sync map16Sync;
+
+void init_map16_area_load() {
+  if (rom.fn_overworld_handle_overlays == 0) return;
+  cpu::register_pc_interceptor(rom.fn_overworld_handle_overlays, @on_overworld_area_load);
+}
+
+// called at Overworld_HandleOverlaysAndBombDoors, when an overworld area load has just decompressed the area's tilemap
+// into $7E2000 and nothing was drawn from it yet: write the changes of the remote players on the same team that are in
+// the area being loaded ($8A) to it. They are not added to the local log here (scroll transitions reset $04AC
+// afterwards); Map16Sync::update memorizes them once the area is loaded.
+void on_overworld_area_load(uint32 pc) {
+  if (!settings.SyncTilemap) return;
+  if (local is null || local.get_in_sm()) return;
+  uint16 area = bus::read_u16(0x7E008A);
+
+  uint len = players.length();
+  for (uint i = 0; i < len; i++) {
+    auto @remote = players[i];
+    if (remote is null) continue;
+    if (remote is local) continue;
+    if (remote.ttl <= 0) continue;
+    if (remote.get_in_sm()) continue;
+    if (remote.team != local.team) continue;
+    // menus and text boxes ($0E) keep the log:
+    if (!remote.is_in_overworld_module() && remote.module != 0x0E) continue;
+    auto @rm = remote.map16;
+    // the log of the area the player is in:
+    if (rm.loc != remote.location) continue;
+    if ((rm.loc & 0x010000) != 0) continue;
+    if (uint16(rm.loc) != area) continue;
+
+    for (int k = 0; k < rm.count && rm.have[k]; k++) {
+      bus::write_u16(0x7E2000 + (rm.pos[k] & 0x1FFE), rm.tile[k]);
+    }
+  }
+}

@@ -140,6 +140,7 @@ void post_power(bool reset) {
     //cpu::register_pc_interceptor(0x02F273, @debug_pc);  // in main loop - scrolling OW tilemap update on every 16x16 change
 
     init_torches();
+    init_map16_area_load();
   }
 }
 
