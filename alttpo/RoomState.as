@@ -12,7 +12,10 @@
 //     (OpenItemChest) sets bit i (chests 0-5). Picking up a small key or big key sprite ($E4/$E5) or a bonk key
 //     (sprite $3B with $0DC0 = 1, e.g. on top of a Desert Palace torch) sets $40 (key index 0) or $20 (key index 1,
 //     the same bit as chest 5), the index being the key's $0CBA. Key sprites remove themselves when their flag is
-//     set; bonk keys only check it when the room loads.
+//     set; bonk keys only check it when the room loads. Heart pieces ($EB) and heart containers ($EA) on the floor set
+//     the same bits, the index being bit 0 of their X high byte ($0D30), but only check them when they spawn. A
+//     boss's heart container ($EA with $0D90 != 0) sets $80 instead, which also makes the boss room drop its prize and
+//     keeps the boss from coming back.
 //   - $0401 (the high byte of $0400) has a bit set for each door opened in the room: unlocking key door slot k sets
 //     $80 >> (k & 7) (UnlockKeyDoor_Main), as do bombed and dashed walls.
 //   - $0642 is set by a pull switch when it is pulled (also by Swamp Palace's water switches); the pull switch door
@@ -30,7 +33,10 @@
 //     timestamped. Changes of room and intra-room transitions (submodule $01) forget the state, since the game resets
 //     the shutters itself.
 //   - Key flags ($40, and $20 if chests are synced since it is also chest 5's flag) are OR'ed in from remote players
-//     in the same room whose state was sampled there. Bonk keys of the newly set flags are removed.
+//     in the same room whose state was sampled there. Bonk keys, heart pieces and heart containers of the newly set
+//     flags are removed.
+//   - The boss flag ($80) is taken only while the boss's heart container lies on the floor here, so a boss still
+//     alive here keeps its fight; the heart container is removed.
 //   - Chest flags (bits 0-5, if chests are synced) are OR'ed in as well and small chests still closed here are drawn
 //     open the way OpenItemChest does, without giving the item. Not while a tag that hides the room's chests is
 //     active, and not bit 3 in water rooms, whose tags use it to remember the water was let out.
@@ -57,6 +63,7 @@ const uint8 room_flag_key0 = 0x40;
 const uint8 room_flag_key1 = 0x20;
 const uint8 room_flag_chests = 0x3F;
 const uint8 room_flag_water = 0x08;
+const uint8 room_flag_boss = 0x80;
 const uint8 room_hold_remote = 0x80;
 const uint16 room_stripe_limit = 0x0068;
 
@@ -270,8 +277,20 @@ class RoomStateLocal {
     apply(t0, t1);
   }
 
+  // boss_heart_present reports whether a boss's heart container ($EA with $0D90 != 0) lies on the floor:
+  bool boss_heart_present() {
+    for (uint x = 0; x < 0x10; x++) {
+      if (bus::read_u8(0x7E0DD0 + x) == 0) continue;
+      if (bus::read_u8(0x7E0E20 + x) != 0xEA) continue;
+      if (bus::read_u8(0x7E0D90 + x) != 0) return true;
+    }
+    return false;
+  }
+
   void apply(uint8 t0, uint8 t1) {
     uint8 mask = synced_flags(t0, t1);
+    // the boss flag only while the boss's heart container is on the floor here:
+    if ((flags & room_flag_boss) == 0 && boss_heart_present()) mask |= room_flag_boss;
     uint8 newFlags = 0;
     GameState@ doorWinner = null;
     uint32 tsCompare = doorTs;
@@ -320,12 +339,23 @@ class RoomStateLocal {
       flags |= newFlags;
       bus::write_u8(0x7E0403, flags);
 
-      // remove bonk keys of those flags (they only check $0403 when the room loads):
+      // remove bonk keys, heart pieces and heart containers of those flags (they only check $0403 when they spawn):
       for (uint x = 0; x < 0x10; x++) {
         if (bus::read_u8(0x7E0DD0 + x) == 0) continue;
-        if (bus::read_u8(0x7E0E20 + x) != 0x3B) continue;
-        if (bus::read_u8(0x7E0DC0 + x) != 0x01) continue;
-        auto idx = bus::read_u8(0x7E0CBA + x);
+        auto type = bus::read_u8(0x7E0E20 + x);
+        uint8 idx;
+        if (type == 0x3B) {
+          if (bus::read_u8(0x7E0DC0 + x) != 0x01) continue;
+          idx = bus::read_u8(0x7E0CBA + x);
+        } else if (type == 0xEA && bus::read_u8(0x7E0D90 + x) != 0) {
+          // a boss's heart container:
+          if ((newFlags & room_flag_boss) != 0) bus::write_u8(0x7E0DD0 + x, 0);
+          continue;
+        } else if (type == 0xEA || type == 0xEB) {
+          idx = bus::read_u8(0x7E0D30 + x) & 1;
+        } else {
+          continue;
+        }
         if (idx == 0 && (newFlags & room_flag_key0) == 0) continue;
         if (idx == 1 && (newFlags & room_flag_key1) == 0) continue;
         if (idx > 1) continue;
