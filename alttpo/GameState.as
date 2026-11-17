@@ -427,9 +427,9 @@ class GameState {
   uint32 room_pulled_ts = 0;
   // quadrant the switch was pulled in: bit 0 east, bit 1 south:
   uint8 room_pulled_quad = 0;
-  // overworld events of ow_events_area as received (see OverworldEvents.as):
+  // overworld events at location ow_events_loc as received (see OverworldEvents.as):
   bool ow_events_valid = false;
-  uint16 ow_events_area = 0;
+  uint32 ow_events_loc = 0;
   uint8 ow_events_entrance = 0;
   uint8 ow_events_flags = 0;
   uint64 ow_events_received = 0;
@@ -821,8 +821,8 @@ class GameState {
 
   int deserialize_ow_events(array<uint8> r, int c) {
     int maxc = int(r.length());
-    if (c + 4 > maxc) return maxc;
-    ow_events_area = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    if (c + 5 > maxc) return maxc;
+    ow_events_loc = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16);
     ow_events_entrance = r[c++];
     ow_events_flags = r[c++];
     ow_events_received = chrono::monotonic::millisecond;

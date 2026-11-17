@@ -13,10 +13,16 @@
 // restores) and Overworld_DoMapUpdate32x32 appends four entries at once.
 //
 // The log is shared with the players in the same area in message 0x17 in broadcastSector packets:
-//   uint16 area ($8A), uint8 count (entries in the sender's log), uint8 start, uint8 len, then len entries of
+//   uint24 location, uint8 count (entries in the sender's log), uint8 start, uint8 len, then len entries of
 //   uint16 pos, uint16 tile for log indices [start, start+len).
 // New entries are sent as soon as they are seen and the whole log is sent every 16 frames so players entering the
 // area catch up.
+//
+// The location is the one the log was read in, encoded like the location in message 0x01: bit 17 the dark world
+// ($0FFF & 1), bit 16 the underworld (0) and bits 0-15 the area ($8A). The log is only read, and changes are only
+// applied, while $0FFF agrees with the area's world (areas $40-$7F are the dark world), which it does not while a
+// warp switches worlds, and changes are only applied in exactly the sender's location, which must also be the
+// sender's current location.
 //
 // Each receiver remembers how far into each remote player's log it has applied and only applies newly added entries.
 // Applying an entry skips it if $7E2000,X already holds the tile, otherwise appends it to the local log (so it survives
@@ -25,12 +31,24 @@
 // $7E2000 and drawn by the game as it scrolls.
 
 const uint8 msg_map16 = 0x17;
+
+// ow_location returns the overworld location Link is in, like the location sent in message 0x01 (bit 17 dark world,
+// bit 16 underworld = 0, bits 0-15 the area $8A), or 0xFFFFFFFF if $0FFF does not agree with the area's world (the dark
+// world areas are $40-$7F), which happens while a mirror or portal warp switches worlds.
+const uint32 ow_location_none = 0xFFFFFFFF;
+uint32 ow_location() {
+  uint16 area = bus::read_u16(0x7E008A);
+  uint32 world = bus::read_u8(0x7E0FFF) & 1;
+  if (((uint32(area) >> 6) & 1) != world) return ow_location_none;
+  return (world << 17) | uint32(area);
+}
 const int map16_log_max = 0xA0;
 const int map16_chunk_max = 0x40;
 
 // map16 change log of a remote player as received:
 class Map16Remote {
-  uint16 area = 0;
+  // location the sender's log belongs to (see ow_location):
+  uint32 loc = 0;
   int count = 0;
   array<uint16> pos(0xA0);
   array<uint16> tile(0xA0);
@@ -38,8 +56,8 @@ class Map16Remote {
   // how many entries of this log were applied locally:
   int applied = 0;
 
-  void reset(uint16 area) {
-    this.area = area;
+  void reset(uint32 loc) {
+    this.loc = loc;
     count = 0;
     applied = 0;
     for (uint i = 0; i < have.length(); i++) {
@@ -49,16 +67,16 @@ class Map16Remote {
 
   int deserialize(array<uint8> r, int c) {
     int maxc = int(r.length());
-    if (c + 5 > maxc) return maxc;
+    if (c + 6 > maxc) return maxc;
 
-    uint16 a = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    uint32 a = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16);
     int n = r[c++];
     int start = r[c++];
     int len = r[c++];
     if (c + len * 4 > maxc) return maxc;
     if (n > map16_log_max || start + len > n) return c + len * 4;
 
-    if (a != area || n < count) {
+    if (a != loc || n < count) {
       // another area, or the sender's area was reloaded:
       reset(a);
     }
@@ -81,9 +99,9 @@ class Map16Remote {
 
 // local player's map16 change log:
 class Map16Sync {
-  // valid is true when the log was read in an overworld module for area:
+  // valid is true when the log was read in an overworld module at loc (see ow_location):
   bool valid = false;
-  uint16 area = 0;
+  uint32 loc = 0;
   int count = 0;
   array<uint16> pos(0xA0);
   array<uint16> tile(0xA0);
@@ -129,8 +147,9 @@ class Map16Sync {
       return;
     }
 
-    uint16 a = bus::read_u16(0x7E008A);
-    if (valid && a != area) {
+    uint32 a = ow_location();
+    if (a == ow_location_none) return;
+    if (valid && a != loc) {
       reset();
     }
     // area loads reset the log in other submodules:
@@ -143,7 +162,7 @@ class Map16Sync {
 
     if (!valid) {
       valid = true;
-      area = a;
+      loc = a;
       count = 0;
       sent = 0;
       reset_applied();
@@ -163,7 +182,7 @@ class Map16Sync {
 
   void serialize(array<uint8> &r, int start, int end) {
     r.write_u8(msg_map16);
-    r.write_u16(area);
+    r.write_u24(loc);
     r.write_u8(uint8(count));
     r.write_u8(uint8(start));
     r.write_u8(uint8(end - start));
@@ -216,7 +235,7 @@ class Map16Sync {
     if (!settings.SyncTilemap) return;
     if (!valid) return;
     if (!local.is_in_overworld_module() || local.sub_module != 0) return;
-    if (bus::read_u16(0x7E008A) != area) return;
+    if (ow_location() != loc) return;
     if (!log_belongs_to_area()) return;
     uint32 fn = rom.fn_overworld_draw_map16_persist;
     if (fn == 0) return;
@@ -243,9 +262,10 @@ class Map16Sync {
       if (remote.get_in_sm()) continue;
       // game worlds are team specific:
       if (remote.team != local.team) continue;
-      if (!local.is_really_in_same_location(remote.location)) continue;
+      // only changes made in exactly this location, including the world, by players who are still there:
+      if (remote.location != loc) continue;
       auto @rm = remote.map16;
-      if (rm.area != area) continue;
+      if (rm.loc != loc) continue;
 
       // keep only the latest tile for each position among the new entries:
       array<uint16> ps;

@@ -16,12 +16,14 @@
 //   - The lumberjacks' tree top (sprite $3B with $0DC0 = 2, in area $02) hops and falls apart in leaves when Link
 //     dashes into it ($0D80 = 1, $0F80 = 20), revealing the hole under it until the area reloads.
 //
-// Message 0x1C, broadcastSector: uint16 area ($8A), uint8 entrance ($04C6 while an entrance animation runs, else 0),
+// Message 0x1C, broadcastSector: uint24 location (like map16 changes in message 0x17: the area $8A, and bit 17 for the
+// dark world; see ow_location), uint8 entrance ($04C6 while an entrance animation runs, else 0),
 // uint8 flags (bit 0: the desert statues were released, bit 1: the tree top was dashed into, both during this area
 // visit). It is sent in its own packet every frame while something is set, and for a few frames after, in overworld
 // modules $09/$0B (and the menus in $0E).
 //
-// While in the overworld module ($09), submodule 0, in the same area as a remote player on the same team:
+// While in the overworld module ($09), submodule 0, in exactly the same location (area and world) as a remote player on
+// the same team:
 //
 //   - If the remote entrance is set, ours is not and the area's overlay (bit $20) was not drawn when the area loaded
 //     (nor since by an entrance animation here), start the same entrance animation. Link must be standing on the ground
@@ -46,6 +48,8 @@ const uint64 ow_events_remote_ttl = 500;
 class OverworldEventsLocal {
   // valid is true when the area was sampled in the overworld module, submodule 0:
   bool valid = false;
+  // location (see ow_location) and its area:
+  uint32 loc = 0;
   uint16 area = 0;
   // shown is true when the area's overlay was drawn: bit $20 of its flags was set when it loaded, or an entrance
   // animation ran here since:
@@ -57,6 +61,7 @@ class OverworldEventsLocal {
 
   void reset() {
     valid = false;
+    loc = 0;
     area = 0;
     shown = false;
     entrance = 0;
@@ -85,8 +90,10 @@ class OverworldEventsLocal {
       reset();
       return;
     }
-    uint16 a = bus::read_u16(0x7E008A);
-    if (valid && a != area) {
+    uint32 l = ow_location();
+    if (l == ow_location_none) return;
+    uint16 a = uint16(l);
+    if (valid && l != loc) {
       reset();
     }
     // area loads happen in other submodules:
@@ -94,6 +101,7 @@ class OverworldEventsLocal {
     if (!valid) {
       if (a >= 0xC0) return;
       valid = true;
+      loc = l;
       area = a;
       shown = (bus::read_u8(0x7EF280 + uint32(a)) & 0x20) != 0;
     }
@@ -109,6 +117,7 @@ class OverworldEventsLocal {
   void apply() {
     if (!settings.SyncOverworld) return;
     if (local.module != 0x09 || local.sub_module != 0) return;
+    if (ow_location() != loc) return;
 
     uint64 now = chrono::monotonic::millisecond;
     uint len = players.length();
@@ -121,8 +130,9 @@ class OverworldEventsLocal {
       // game worlds are team specific:
       if (remote.team != local.team) continue;
       if (!(remote.is_in_overworld_module() || remote.module == 0x0E)) continue;
-      if (!local.is_really_in_same_location(remote.location)) continue;
-      if (!remote.ow_events_valid || remote.ow_events_area != area) continue;
+      // only events in exactly this location, including the world, from players who are still there:
+      if (remote.location != loc) continue;
+      if (!remote.ow_events_valid || remote.ow_events_loc != loc) continue;
       if (now - remote.ow_events_received > ow_events_remote_ttl) continue;
 
       auto re = remote.ow_events_entrance;
@@ -183,7 +193,7 @@ class OverworldEventsLocal {
 
     array<uint8> @r = local.make_packet_broadcast_to_sector(local.broadcast_sector());
     r.write_u8(msg_ow_events);
-    r.write_u16(area);
+    r.write_u24(loc);
     r.write_u8(entrance);
     r.write_u8(flags);
     return local.send_packet(r, p);
