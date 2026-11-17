@@ -361,6 +361,9 @@ uint16 mutateProgress1(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
         localSRAM.write_u8(0x3CC, 0x00);
       }
     }
+    if ((newValue & 0x01) == 0x01 && (oldValue & 0x01) == 0) {
+      take_uncle_gear();
+    }
   }
 
   // if local player has not achieved uncle leaving house, leave it cleared otherwise link never wakes up:
@@ -368,6 +371,25 @@ uint16 mutateProgress1(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
     newValue &= ~uint8(0x10);
   }
   return newValue | oldValue;
+}
+
+// take_uncle_gear makes Link's uncle in the secret passage give up his sword and shield once another player received
+// them, if the local player is in the passage with him and has not talked to him yet, like o2. Uncle_GrantEquipment
+// sets bit 0 of $7EF3C6, which SpritePrep_UncleAndPriest only checks when the room loads, so the local player could
+// otherwise get the gear (or, in randomizers, the uncle's item) a second time. Uncle in the passage is sprite $73 with
+// $0E90 = 0 and $0E80 = 1, lying in defeat in AI state 0 ($0D80); AI state 2 is what he does after granting the
+// equipment, drawn without the sword and shield ($0DC0 = 1).
+void take_uncle_gear() {
+  if (bus::read_u8(0x7E001B) == 0) return;
+  for (uint8 k = 0; k < 0x10; k++) {
+    if (bus::read_u8(0x7E0DD0 + k) == 0) continue;
+    if (bus::read_u8(0x7E0E20 + k) != 0x73) continue;
+    if (bus::read_u8(0x7E0E90 + k) != 0) continue;
+    if (bus::read_u8(0x7E0E80 + k) != 1) continue;
+    if (bus::read_u8(0x7E0D80 + k) != 0) continue;
+    bus::write_u8(0x7E0D80 + k, 0x02);
+    bus::write_u8(0x7E0DC0 + k, 0x01);
+  }
 }
 
 // 0x3C9
