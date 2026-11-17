@@ -1,6 +1,9 @@
 
 bool main_called = false;
 
+// remote_sprites_stale is how long, in milliseconds, received sprites are used to draw a remote player (same as o2):
+const uint64 remote_sprites_stale = 250;
+
 // this function intercepts execution immediately before JSL MainRouting in the reset vector:
 // this function is not called for every frame but is for most frames.
 // when it is called, this function is always called before pre_frame.
@@ -354,28 +357,43 @@ void pre_frame() {
     } else {
       // alttp:
 
-      // don't render players or labels in pre-game modules:
-      if (local.is_it_a_bad_time()) continue;
+      // the same rules as o2 uses to show or hide remote players:
+      // don't render players or labels in pre-game modules, loading screens, spotlights, maps, or while the screen
+      // shows a room or area other than the local location (during screen transitions):
+      if (!local.can_draw_remote_players()) continue;
 
       // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-      if (local.can_see(remote.location)) {
-        // don't render player if remote player is in pre-game modules:
-        if (remote.is_it_a_bad_time()) continue;
+      if (!locations_equal(local.location, remote.location)) continue;
+      // don't render player if remote player is in pre-game modules:
+      if (remote.is_it_a_bad_time()) continue;
+      // a player scrolling to another room or area or warping to the other world is leaving it; their location only
+      // changes once that finishes:
+      if (remote.is_in_screen_transition()) continue;
+      // players send their sprites to the sector of the room or area they are actually in, so a player whose sprites
+      // stopped arriving has left (e.g. warped away) although their location stays on the old room or area until
+      // the warp finishes:
+      if (chrono::monotonic::millisecond - remote.sprites_received >= remote_sprites_stale) continue;
 
-        // calculate screen scroll offset between both players to adjust OAM sprite x,y coords:
-        int rx = int(remote.xoffs - local.xoffs);
-        int ry = int(remote.yoffs - local.yoffs);
+      // calculate screen scroll offset between both players to adjust OAM sprite x,y coords, with the offsets the
+      // sprites were drawn with:
+      int rx = int(remote.sprites_xoffs - local.xoffs);
+      int ry = int(remote.sprites_yoffs - local.yoffs);
 
-        // draw remote player relative to current BG offsets:
-        if (enableRenderToExtra) {
+      // Link is invisible (e.g. flickering after a warp): draw nothing for this player, not even his shadow, which
+      // would flash in and out with the flicker; the label stays:
+      bool visible = remote.has_link_body();
+
+      // draw remote player relative to current BG offsets:
+      if (enableRenderToExtra) {
+        if (visible) {
           ei = remote.renderToExtra(rx, ry, ei);
-
-          if (settings.ShowLabels) {
-            ei = remote.renderLabel(rx, ry, ei);
-          }
-        } else {
-          remote.renderToPPU(rx, ry);
         }
+
+        if (settings.ShowLabels) {
+          ei = remote.renderLabel(rx, ry, ei);
+        }
+      } else if (visible) {
+        remote.renderToPPU(rx, ry);
       }
     }
   }

@@ -315,6 +315,13 @@ class GameState {
   int16 xoffs;
   int16 yoffs;
 
+  // when the last sprites (0x03/0x04) arrived, and the scroll offsets the player sent with them. Players send their
+  // location (with the offsets) before their sprites in the same frame, so these are the offsets the sprites were drawn
+  // with; the latest offsets can be a frame ahead or behind, which shifts the sprites while the screen scrolls:
+  uint64 sprites_received = 0;
+  int16 sprites_xoffs;
+  int16 sprites_yoffs;
+
   uint16 x, y;
 
   //coordinates for super metroid game
@@ -654,6 +661,21 @@ class GameState {
     return false;
   }
 
+  // has_link_body reports whether the last sprites received have Link's head or body: 16x16 sprites drawn from chrs
+  // $00..$03 and $10..$13. Players always send Link's 12 reserved OAM entries, so while Link is invisible (flickering)
+  // they still have his shadow but no head or body.
+  bool has_link_body() const {
+    for (uint i = 0; i < sprites.length(); i++) {
+      auto @spr = sprites[i];
+      if (spr is null) continue;
+      if (spr.b1 == 0xF0) continue;
+      if (((spr.b4 >> 1) & 1) == 0) continue;
+      uint16 chr = uint16(spr.b2) | (uint16(spr.b3 & 1) << 8);
+      if (chr < 0x20 && (chr & 0x0F) < 0x04) return true;
+    }
+    return false;
+  }
+
   bool can_see(uint32 other_location) const {
     // use location the player thinks it can see:
     if (locations_equal(location, other_location)) return true;
@@ -963,6 +985,11 @@ class GameState {
     uint len = r[c++];
 
     sprites.resize(start + len);
+    sprites_received = chrono::monotonic::millisecond;
+    if (!continuation) {
+      sprites_xoffs = xoffs;
+      sprites_yoffs = yoffs;
+    }
     //message("start=" + fmtInt(start) + " len=" + fmtInt(len) + "; msglen=" + fmtInt(r.length()));
 
     for (uint i = start; i < start + len; i++) {

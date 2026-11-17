@@ -577,6 +577,11 @@ class LocalGameState : GameState {
       //message("clear sprites");
       return;
     }
+    // the GAME OVER animation and menu draw their own sprites into Link's OAM slots, which other players would see
+    // garbled; send nothing, like o2 (receivers stop drawing players whose sprites stop arriving):
+    if (is_game_over()) {
+      return;
+    }
 
     sprites_need_vram = true;
 
@@ -1917,6 +1922,34 @@ class LocalGameState : GameState {
     write_game_packet_header(envelope);
 
     return envelope;
+  }
+
+  // can_draw_remote_players reports whether remote players are drawn on the local screen. Same as o2, which draws them
+  // into the game's own OAM buffer: only in the modules where the game draws the underworld or overworld sprites
+  // (not while loading, in spotlights, dying, on the dungeon or overworld map or in the flute menu), and only while
+  // the screen still shows the room or area the location was sampled for: rooms and areas change at the start of a
+  // screen transition, but the location only once it finishes.
+  bool can_draw_remote_players() const {
+    if (is_it_a_bad_time()) return false;
+    switch (module) {
+      case 0x07: case 0x09: case 0x0B: case 0x0F: case 0x10: case 0x13: case 0x16:
+        break;
+      case 0x0E: {
+        // dialogs and menus (Module0E_Interface):
+        uint8 map_state = bus::read_u8(0x7E0200);
+        if (in_dungeon != 0) {
+          // dungeon map:
+          if (sub_module == 0x03 && map_state != 0 && map_state != 0x07) return false;
+        } else {
+          // overworld map and flute menu:
+          if ((sub_module == 0x07 || sub_module == 0x0A) && map_state != 0) return false;
+        }
+        break;
+      }
+      default:
+        return false;
+    }
+    return locations_equal(actual_location, location);
   }
 
   uint32 broadcast_sector() {
