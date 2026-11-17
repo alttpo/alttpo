@@ -75,6 +75,20 @@ class CodeWriter {
     w.u24(addr);
   }
 
+  void pha() { w.u8(0x48); }
+  void pla() { w.u8(0x68); }
+  void txa() { w.u8(0x8A); }
+
+  void lda_bank(uint16 addr) {
+    w.u8(0xAD); // LDA $xxxx
+    w.u16(addr);
+  }
+
+  void sta_dp(uint8 addr) {
+    w.u8(0x85); // STA $xx
+    w.u8(addr);
+  }
+
   // jsr_bank01 calls a routine in bank $01 that returns with RTS: push our return address for an RTL, then the
   // address of an RTL instruction in bank $01 (minus one) for the routine's RTS, then jump to the routine. 11 bytes.
   void jsr_bank01(uint32 routine, uint32 rtl) {
@@ -87,6 +101,11 @@ class CodeWriter {
     w.u16(uint16(rtl - 1));
     w.u8(0x5C); // JML routine
     w.u24(routine);
+  }
+
+  // jsr_banked calls a routine in any bank that returns with RTS through an RTL in the same bank, like jsr_bank01:
+  void jsr_banked(uint32 routine, uint32 rtl) {
+    jsr_bank01(routine, rtl);
   }
 }
 

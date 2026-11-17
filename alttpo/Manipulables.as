@@ -23,7 +23,8 @@
 //
 // Slots are matched by room data offset (and position, except for push blocks). A remote player's revealed object is
 // revealed locally by calling RoomDraw_16x16Single with the remote's replacement tiles (a pot can hide a hole or a
-// switch); items hidden under pots are not spawned. A remote player's push block that finished moving is moved here in
+// switch). If a pot was lifted while the local player was in the room (the sender's previous message had it still
+// there), the item hidden under it is revealed first like lifting it does (see Secrets.as). A remote player's push block that finished moving is moved here in
 // one step: draw what was under it, then do what PushBlock_CheckForPit does at its new position.
 
 const uint8 msg_manip = 0x18;
@@ -58,6 +59,9 @@ class ManipRemote {
   array<uint16> pos(16);
   array<uint8> flags(16);
   array<uint16> tiles(64);
+  // live is set when the object was seen revealed after it was seen still there while the local player was in the
+  // room, so the secret under it is revealed here too:
+  array<bool> live(16);
 
   void reset() {
     room = 0;
@@ -67,6 +71,15 @@ class ManipRemote {
   int deserialize(array<uint8> r, int c) {
     int maxc = int(r.length());
     if (c + 3 > maxc) return maxc;
+
+    // the previous message, to see what was revealed since:
+    uint16 prev_room = room;
+    int prev_n = n;
+    array<uint16> prev_typ = typ;
+    array<uint16> prev_objx = objx;
+    array<uint16> prev_pos = pos;
+    array<uint8> prev_flags = flags;
+    array<bool> prev_live = live;
 
     room = uint16(r[c++]) | (uint16(r[c++]) << 8);
     n = r[c++];
@@ -91,6 +104,18 @@ class ManipRemote {
         for (int t = 0; t < 4; t++) {
           tiles[i * 4 + t] = uint16(r[c++]) | (uint16(r[c++]) << 8);
         }
+      }
+    }
+
+    // objects revealed since the sender's last message, while we are in the room too, were just lifted:
+    bool here = local.module == 0x07 && manipSync.valid && manipSync.room == room && prev_room == room;
+    for (int i = 0; i < n; i++) {
+      live[i] = false;
+      if (!here || (flags[i] & 0x01) == 0) continue;
+      for (int k = 0; k < prev_n; k++) {
+        if (prev_objx[k] != objx[i] || prev_pos[k] != pos[i] || prev_typ[k] != typ[i]) continue;
+        live[i] = prev_live[k] || (prev_flags[k] & 0x01) == 0;
+        break;
       }
     }
     return c;
@@ -266,14 +291,20 @@ class ManipSync {
           if ((rm.flags[i] & 0x01) == 0) continue;
           if (!manip_is_liftable(typ[j]) || !present[j] || revealed[j]) continue;
           if (bus::read_u8(manip_attr_addr(pos[j])) != uint8(0x70 + j)) continue;
+          // pots hide items; reveal the one under a pot the remote player just lifted:
+          bool reveal = rm.live[i] && (typ[j] & 0x00F0) == 0x0010 && secrets.can_reveal_pot();
+          uint reveal_size = reveal ? secret_reveal_size : 0;
           // one stripe; REP, LDY + JSR, SEP, end:
-          if (stripe + 0x18 > 0x80 || pb.offset + 2 + 14 + 2 + 5 > 0x100) {
+          if (stripe + 0x18 > 0x80 || pb.offset + 2 + reveal_size + 14 + 2 + 5 > 0x100) {
             full = true;
             break;
           }
           if (!started) {
             pb.rep(0x30);
             started = true;
+          }
+          if (reveal) {
+            secrets.emit_pot_reveal(room, pos[j]);
           }
           if ((rm.flags[i] & 0x02) != 0) {
             // a pot can hide a hole or a switch; draw what the remote player revealed:

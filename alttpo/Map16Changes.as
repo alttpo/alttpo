@@ -29,6 +29,11 @@
 // a mirror bonk and is passed on to players who enter the area later) and calls Overworld_DrawMap16_Persist if VRAM
 // holds it (always in small areas; rows/columns -7..+23 of $84 in large areas); other tiles are only written to
 // $7E2000 and drawn by the game as it scrolls.
+//
+// An entry that arrives while the local player has been in the area for a while (longer than the senders take to
+// resend their whole log, so not while catching up) is live: the remote player changed the tile just now. If a live
+// entry replaces a bush, rock or sign that is still there locally, the secret under it is revealed too (see
+// Secrets.as).
 
 const uint8 msg_map16 = 0x17;
 
@@ -44,6 +49,9 @@ uint32 ow_location() {
 }
 const int map16_log_max = 0xA0;
 const int map16_chunk_max = 0x40;
+// frames in an area before entries received are taken as live; senders resend their whole log every 16 frames, so
+// entries made before the local player arrived come in before that:
+const int map16_live_after = 48;
 
 // map16 change log of a remote player as received:
 class Map16Remote {
@@ -53,6 +61,8 @@ class Map16Remote {
   array<uint16> pos(0xA0);
   array<uint16> tile(0xA0);
   array<bool> have(0xA0);
+  // live is set for entries first received while the local player was in the area, until they were applied:
+  array<bool> live(0xA0);
   // how many entries of this log were applied locally:
   int applied = 0;
 
@@ -62,6 +72,13 @@ class Map16Remote {
     applied = 0;
     for (uint i = 0; i < have.length(); i++) {
       have[i] = false;
+      live[i] = false;
+    }
+  }
+
+  void clear_live() {
+    for (uint i = 0; i < live.length(); i++) {
+      live[i] = false;
     }
   }
 
@@ -81,6 +98,8 @@ class Map16Remote {
       reset(a);
     }
     count = n;
+    // entries arriving while we have been in the area for a while were just made by the sender:
+    bool here = map16Sync.valid && map16Sync.loc == a && map16Sync.age >= map16_live_after;
     for (int k = 0; k < len; k++) {
       int i = start + k;
       uint16 p = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -88,6 +107,9 @@ class Map16Remote {
       if (have[i] && (pos[i] != p || tile[i] != t) && i < applied) {
         // the sender's log was replaced without us noticing; apply again from here:
         applied = i;
+      }
+      if (!have[i] && here) {
+        live[i] = true;
       }
       pos[i] = p;
       tile[i] = t;
@@ -109,6 +131,8 @@ class Map16Sync {
   int sent = 0;
   // calls to send() since the whole log was last sent:
   int sendsSinceFull = 0;
+  // frames since the area was loaded; see map16_live_after:
+  int age = 0;
 
   void reset() {
     valid = false;
@@ -117,12 +141,14 @@ class Map16Sync {
     reset_applied();
   }
 
-  // the local tilemap was (re)loaded; apply all remote changes again:
+  // the local tilemap was (re)loaded; apply all remote changes again, without revealing secrets again:
   void reset_applied() {
+    age = 0;
     for (uint i = 0; i < players.length(); i++) {
       auto @p = players[i];
       if (p is null) continue;
       p.map16.applied = 0;
+      p.map16.clear_live();
     }
   }
 
@@ -173,6 +199,7 @@ class Map16Sync {
       sent = 0;
       reset_applied();
     }
+    if (age < map16_live_after) age++;
     for (int i = count; i < n; i++) {
       pos[i] = bus::read_u16(0x7EF800 + uint32(i << 1));
       tile[i] = bus::read_u16(0x7EFA00 + uint32(i << 1));
@@ -267,17 +294,21 @@ class Map16Sync {
       auto @rm = remote.map16;
       if (rm.loc != loc) continue;
 
-      // keep only the latest tile for each position among the new entries:
+      // keep only the latest tile for each position among the new entries; ls is set where the remote player changed
+      // it just now:
       array<uint16> ps;
       array<uint16> ts;
+      array<bool> ls;
       int end = rm.applied;
       for (; end < rm.count && rm.have[end]; end++) {
         int k = ps.find(rm.pos[end]);
         if (k >= 0) {
           ts[k] = rm.tile[end];
+          if (rm.live[end]) ls[k] = true;
         } else {
           ps.insertLast(rm.pos[end]);
           ts.insertLast(rm.tile[end]);
+          ls.insertLast(rm.live[end]);
         }
       }
       if (end == rm.applied) continue;
@@ -287,18 +318,34 @@ class Map16Sync {
         uint16 p = ps[k];
         uint16 t = ts[k];
         if (written.find(p) >= 0) continue;
-        if (bus::read_u16(0x7E2000 + p) == t) continue;
+        uint16 cur = bus::read_u16(0x7E2000 + p);
+        if (cur == t) continue;
+
+        // the remote player just removed a small object that is still here; reveal the secret under it:
+        int toss = -1;
+        if (ls[k] && secrets.can_reveal_ow() && secrets.ow_toss(t) < 0) {
+          toss = secrets.ow_toss(cur);
+        }
+        uint reveal_size = toss >= 0 ? secret_reveal_size : 0;
 
         int dr = (int(p & 0x1F80) >> 7) - row0;
         int dc = (int(p & 0x007E) >> 1) - col0;
         bool near = small_area || (dr >= -7 && dr < 24 && dc >= -7 && dc < 24);
+        uint code_size = reveal_size + (near ? 10 : 0);
+        if ((code_size > 0 && pb.offset + 2 + code_size + 7 + 5 > 0x100) || (near && stripe + 0x10 > 0x80)) {
+          // continue next frame; what was applied is skipped then:
+          done = false;
+          break;
+        }
+        if (toss >= 0) {
+          if (!started) {
+            pb.rep(0x30);
+            started = true;
+          }
+          secrets.emit_ow_reveal(p, uint8(toss));
+        }
         if (near) {
           // REP + LDA + LDX + JSL, and SEP + LDA + STA to finish:
-          if (stripe + 0x10 > 0x80 || pb.offset + 2 + 10 + 7 + 5 > 0x100) {
-            // continue next frame; what was applied is skipped then:
-            done = false;
-            break;
-          }
           if (!started) {
             pb.rep(0x30);
             started = true;
@@ -315,6 +362,9 @@ class Map16Sync {
         written.insertLast(p);
       }
       if (!done) break;
+      for (int e = rm.applied; e < end; e++) {
+        rm.live[e] = false;
+      }
       rm.applied = end;
     }
 

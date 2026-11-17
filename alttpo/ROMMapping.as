@@ -94,6 +94,14 @@ abstract class ROMMapping {
   uint32 get_fn_room_draw_16x16_single() property { return 0; } // US 0x01D828, JP 0x01D826
   // an RTL in bank $01 to return through when calling RoomDraw_16x16Single:
   uint32 get_fn_bank01_rtl() property { return 0; } // US 0x01D827, JP 0x01D825
+  // secrets under lifted objects; see Secrets.as. Overworld_RevealSecret (ends with RTS; X = tilemap offset, 16-bit)
+  // and an RTL in bank $1B to return through:
+  uint32 get_fn_overworld_reveal_secret() property { return 0; } // 0x1BC8A4
+  uint32 get_fn_bank1b_rtl() property { return 0; } // 0x1BBD79
+  // RevealPotItem (ends with RTS; A = $0540 position, $06 = attribute index, 16-bit), returning through fn_bank01_rtl:
+  uint32 get_fn_reveal_pot_item() property { return 0; } // US 0x01E6B2, JP 0x01E6B0
+  // Sprite_SpawnThrowableTerrain_silently (JSL; A = thrown object type, $00/$02 = X/Y, 8-bit):
+  uint32 get_fn_spawn_throwable_terrain_silently() property { return 0; } // 0x068156
 
   // MUST be sorted by offs ascending:
   array<SyncableItem@> @syncables = {
@@ -398,6 +406,10 @@ class USAROMMapping : ROMMapping {
   uint32 get_fn_overworld_open_gargoyles_domain() property { return fastrom + 0x1BC264; }
   uint32 get_fn_skull_woods_fire() property { return fastrom + 0x099C4F; }
   uint32 get_fn_bank01_rtl() property { return fastrom + 0x01D827; }
+  uint32 get_fn_overworld_reveal_secret() property { return fastrom + 0x1BC8A4; }
+  uint32 get_fn_bank1b_rtl() property { return fastrom + 0x1BBD79; }
+  uint32 get_fn_reveal_pot_item() property { return fastrom + 0x01E6B2; }
+  uint32 get_fn_spawn_throwable_terrain_silently() property { return fastrom + 0x068156; }
 };
 
 class EURROMMapping : ROMMapping {
@@ -514,6 +526,10 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_overworld_open_gargoyles_domain() property { return fastrom + 0x1BC264; }
   uint32 get_fn_skull_woods_fire() property { return fastrom + 0x099C3B; }
   uint32 get_fn_bank01_rtl() property { return fastrom + 0x01D825; }
+  uint32 get_fn_overworld_reveal_secret() property { return fastrom + 0x1BC8A4; }
+  uint32 get_fn_bank1b_rtl() property { return fastrom + 0x1BBD79; }
+  uint32 get_fn_reveal_pot_item() property { return fastrom + 0x01E6B0; }
+  uint32 get_fn_spawn_throwable_terrain_silently() property { return fastrom + 0x068156; }
 };
 
 class RandomizerMapping : JPROMMapping {
