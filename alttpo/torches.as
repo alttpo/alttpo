@@ -4,6 +4,14 @@ void init_torches() {
   cpu::register_pc_interceptor(rom.fn_dungeon_extinguish_torch, @on_torch_extinguish);
 }
 
+// Torches are shared in message 0x0A with the players in the same room (and with o2, see its synctorches.go). Room
+// tags count the lit torches every frame: RoomTag_TorchPuzzleDoor ($33) opens the trap doors while at least 4 are lit
+// and closes them once fewer are (e.g. Turtle Rock room $C7), RoomTag_TorchPuzzleChest ($3E) reveals a chest and the
+// moving wall tags ($1E/$1F) move a wall, so sharing the torches and their timers shares those too.
+
+// the lowest remote timer that lights a torch here:
+const uint8 torch_light_min_timer = 8;
+
 // called when local player lights a torch successfully:
 uint8 ignore_light = 0x00;
 void on_torch_light_success(uint32 pc) {
@@ -97,9 +105,19 @@ void update_torches() {
   // build a torch update routine to update local game state:
   for (uint t = 0; t < 0x10; t++) {
     if (!to_update[t]) continue;
+    // a timer of 0 would keep the torch lit forever:
+    if (local.torchTimers[t] == 0) continue;
 
-    // Only light unlit torches, and only light one per frame:
-    if ((ignore_light == 0x00) && !is_lit[t] && (local.torchTimers[t] > 0)) {
+    if (!is_lit[t]) {
+      // Only light one torch per frame; they all draw through the same tilemap buffer at $1100. Don't set the timer of
+      // a torch that stays unlit either: the game would extinguish it again once the timer runs out, lowering the
+      // light level of a dark room once more:
+      if (ignore_light != 0x00) continue;
+      // A torch that just burned out here may still be lit with a timer of 1 or 2 for its owner; lighting it again
+      // would only make it go out a second time a few frames later (like o2, synctorches.go):
+      if (local.torchTimers[t] < torch_light_min_timer) continue;
+
+      // Light the torch:
       //message("torch[" + fmtHex(t,1) + "] fired");
 
       // ignore the calls to light this torch for owner tracking:
