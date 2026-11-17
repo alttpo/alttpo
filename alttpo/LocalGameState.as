@@ -72,6 +72,18 @@ class LocalGameState : GameState {
 
   uint16 animation_timer;
 
+  // message 0x18 last sent to all players, and sends since (see Manipulables.as):
+  array<uint8> manipLastSentAll;
+  int manipSendsSinceAll = 0;
+
+  bool arrays_equal(array<uint8> &in a, array<uint8> &in b) {
+    if (a.length() != b.length()) return false;
+    for (uint i = 0; i < a.length(); i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   LocalGameState() {
     @this.notify = Notify(@notificationSystem.notify);
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
@@ -2167,6 +2179,20 @@ class LocalGameState : GameState {
           auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
           serialize_torches(envelope);
           p = send_packet(envelope, p);
+        }
+
+        // the manipulable objects again, to all players whenever they change and every 32 frames, so that players
+        // entering the room have them while it loads (see on_room_load):
+        if (settings.SyncTilemap && manipSync.valid && (module == 0x07 || module == 0x0E)) {
+          array<uint8> m;
+          manipSync.serialize(m);
+          if (++manipSendsSinceAll >= 32 || !arrays_equal(m, manipLastSentAll)) {
+            manipSendsSinceAll = 0;
+            manipLastSentAll = m;
+            auto @envelope = make_packet_broadcast();
+            manipSync.serialize(envelope);
+            p = send_packet(envelope, p);
+          }
         }
 
         // star switch state and manipulable objects are room specific; send them only to players in the same room:

@@ -93,6 +93,8 @@ abstract class ROMMapping {
   // Overworld_HandleOverlaysAndBombDoors, called by every overworld area load right after the area's tilemap was
   // decompressed into $7E2000; see Map16Changes.as:
   uint32 get_fn_overworld_handle_overlays() property { return 0; } // US 0x02EF29, JP 0x02EC8D
+  // in Dungeon_LoadRoom right after the push blocks are drawn (`REP #$20 : LDA.w $042C`); see Manipulables.as:
+  uint32 get_fn_dungeon_load_room_objects_done() property { return 0; } // 0x01889A
   // RoomDraw_16x16Single (ends with RTS); Y = slot * 2, 16-bit; see Manipulables.as:
   uint32 get_fn_room_draw_16x16_single() property { return 0; } // US 0x01D828, JP 0x01D826
   // an RTL in bank $01 to return through when calling RoomDraw_16x16Single:
@@ -405,6 +407,7 @@ class USAROMMapping : ROMMapping {
   uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
   uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
   uint32 get_fn_overworld_handle_overlays() property { return fastrom + 0x02EF29; }
+  uint32 get_fn_dungeon_load_room_objects_done() property { return fastrom + 0x01889A; }
   uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D828; }
   uint32 get_fn_overworld_alter_weathervane() property { return fastrom + 0x1BC21D; }
   uint32 get_fn_overworld_open_gargoyles_domain() property { return fastrom + 0x1BC264; }
@@ -526,6 +529,7 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_toggle_star_tile_graphics() property { return fastrom + 0x00FDA7; }
   uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
   uint32 get_fn_overworld_handle_overlays() property { return fastrom + 0x02EC8D; }
+  uint32 get_fn_dungeon_load_room_objects_done() property { return fastrom + 0x01889A; }
   uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D826; }
   uint32 get_fn_overworld_alter_weathervane() property { return fastrom + 0x1BC21D; }
   uint32 get_fn_overworld_open_gargoyles_domain() property { return fastrom + 0x1BC264; }

@@ -141,6 +141,7 @@ void post_power(bool reset) {
 
     init_torches();
     init_map16_area_load();
+    init_manip_room_load();
   }
 }
 

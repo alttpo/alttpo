@@ -17,7 +17,9 @@
 // attribute tells whether the object is still there. A pushed block draws its replacement tiles, moves 16 pixels and
 // then is drawn at its new position (attribute $27, state $FFFF), toggles a switch under it or falls into a pit.
 //
-// The state is shared with players in the same room in message 0x18 in broadcastSector packets:
+// The state is shared with players in the same room in message 0x18 in broadcastSector packets every frame, and with
+// all players in its own broadcastAll packet whenever it changes and every 32 frames, so that players entering the
+// room have it while the room loads (see on_room_load):
 //   uint16 room, uint8 count, then per slot: uint16 type, uint16 objx, uint16 pos, uint8 flags
 //   (bit 0: revealed, bit 1: four uint16 replacement tiles follow).
 //
@@ -26,6 +28,15 @@
 // switch). If a pot was lifted while the local player was in the room (the sender's previous message had it still
 // there), the item hidden under it is revealed first like lifting it does (see Secrets.as). A remote player's push block that finished moving is moved here in
 // one step: draw what was under it, then do what PushBlock_CheckForPit does at its new position.
+//
+// While a room loads (Dungeon_LoadRoom: room transitions, staircases, falling through holes, entering from the
+// overworld before the spotlight opens), the room is drawn into the tilemaps at $7E2000/$7E4000 and the objects are
+// registered before the tilemaps are uploaded to VRAM. A PC interceptor right after the push blocks are drawn
+// (on_room_load) writes the objects remote players in that room revealed into the tilemap, and moves the push blocks
+// they left in state $0000 one step away, so they appear seamlessly. The attribute table built afterwards marks every
+// slot at its position with $70+slot again, so they are fixed in the first frame of submodule 0 (apply_pending):
+// RoomDraw_16x16Single for revealed objects, attribute $27 for moved blocks, and $0641 toggled for upper layer blocks
+// like PushBlock_CheckForPit does. Blocks on switches or in pits are left to update(), like o2.
 
 const uint8 msg_manip = 0x18;
 const int manip_slots = 16;
@@ -185,7 +196,8 @@ class ManipSync {
         objx[i] = bus::read_u16(0x7E0520 + uint32(i << 1));
         read_slot(i);
         orig_pos[i] = pos[i];
-        present[i] = false;
+        // revealed while the room loaded (see on_room_load): it counts as revealed once its attribute shows it:
+        present[i] = manip_is_liftable(typ[i]) && revealed_at_load(r, objx[i], pos[i]);
         revealed[i] = false;
       }
       return;
@@ -237,6 +249,7 @@ class ManipSync {
   // called every frame from on_main_alttp; reveal objects and move push blocks like remote players in the room did:
   void update() {
     if (!settings.SyncTilemap) return;
+    apply_pending();
     if (!valid) return;
     if (local.module != 0x07 || local.sub_module != 0) return;
     if (bus::read_u16(0x7E00A0) != room) return;
@@ -395,3 +408,151 @@ class ManipSync {
 };
 
 ManipSync manipSync;
+
+// objects applied by the last room load (see on_room_load), whose attributes apply_pending fixes once it is loaded:
+class ManipPending {
+  uint16 room;
+  int slot;
+  // 0: revealed object, 1: moved block, 2: moved upper layer block:
+  int kind;
+  uint16 pos;
+  uint16 objx;
+};
+array<ManipPending@> manip_pending;
+
+bool revealed_at_load(uint16 room, uint16 objx, uint16 pos) {
+  for (uint k = 0; k < manip_pending.length(); k++) {
+    auto @p = manip_pending[k];
+    if (p.kind == 0 && p.room == room && p.objx == objx && p.pos == pos) return true;
+  }
+  return false;
+}
+
+// fixes the attributes of the objects the room load applied, in the first frame of submodule 0 in that room:
+void apply_pending() {
+  if (manip_pending.length() == 0) return;
+  if (local.module != 0x07 || local.sub_module != 0) return;
+  uint16 room = bus::read_u16(0x7E00A0);
+  uint32 fn = rom.fn_room_draw_16x16_single;
+  uint32 rtl = rom.fn_bank01_rtl;
+  int stripe = int(bus::read_u16(0x7E1000));
+  bool started = false;
+  for (uint k = 0; k < manip_pending.length(); k++) {
+    auto @p = manip_pending[k];
+    if (p.room != room || p.kind == 3) continue;
+    uint16 o = uint16(p.slot << 1);
+    uint32 a = manip_attr_addr(p.pos);
+    if (p.kind == 0) {
+      // still marked $70+slot: RoomDraw_16x16Single sets its attributes (and draws the same tiles again):
+      if (fn == 0 || rtl == 0) continue;
+      if (bus::read_u8(a) != uint8(0x70 + p.slot)) continue;
+      if (stripe + 0x18 > 0x80 || pb.offset + 2 + 14 + 2 + 5 > 0x100) {
+        // the rest next frame; what was done is skipped then:
+        if (started) pb.sep(0x30);
+        return;
+      }
+      if (!started) {
+        pb.rep(0x30);
+        started = true;
+      }
+      pb.ldy_immed16(o);
+      pb.jsr_bank01(fn, rtl);
+      stripe += 0x18;
+      continue;
+    }
+    // a moved block can't be pushed again:
+    bus::write_u16(a, 0x2727);
+    bus::write_u16(a + 0x40, 0x2727);
+    if (p.kind == 2) {
+      // an upper layer block toggles $0641 like PushBlock_CheckForPit, which push block doors ($0B-$13) act on:
+      bus::write_u16(0x7E0641, uint16(bus::read_u16(0x7E0641) ^ 0x0001));
+      manipSync.operate_block_door();
+    }
+    p.kind = 3; // done
+  }
+  if (started) pb.sep(0x30);
+  manip_pending.resize(0);
+}
+
+void init_manip_room_load() {
+  if (rom.fn_dungeon_load_room_objects_done == 0) return;
+  cpu::register_pc_interceptor(rom.fn_dungeon_load_room_objects_done, @on_room_load);
+}
+
+// called in Dungeon_LoadRoom right after the push blocks are drawn: the room is drawn into the tilemaps and its
+// manipulable objects are registered ($042C bytes of slots), but nothing was uploaded to VRAM yet. Applies what remote
+// players on the same team in that room ($A0) revealed and pushed.
+void on_room_load(uint32 pc) {
+  manip_pending.resize(0);
+  if (!settings.SyncTilemap) return;
+  if (local is null || local.get_in_sm()) return;
+  // not in the title, attract mode or ending:
+  uint8 module = bus::read_u8(0x7E0010);
+  if (module < 0x06 || module == 0x14 || module >= 0x19) return;
+  uint16 room = bus::read_u16(0x7E00A0);
+  int n = int(bus::read_u16(0x7E042C)) >> 1;
+  if (n > manip_slots) return;
+
+  array<bool> done(manip_slots);
+  uint len = players.length();
+  for (uint pi = 0; pi < len; pi++) {
+    auto @remote = players[pi];
+    if (remote is null) continue;
+    if (remote is local) continue;
+    if (remote.ttl <= 0) continue;
+    if (remote.get_in_sm()) continue;
+    if (remote.team != local.team) continue;
+    if (remote.module != 0x07 && remote.module != 0x0E) continue;
+    if ((remote.location & 0x010000) == 0) continue;
+    auto @rm = remote.manip;
+    if (rm.room != room || uint16(remote.location) != room) continue;
+
+    for (int i = 0; i < rm.n; i++) {
+      bool push = manip_is_push_block(rm.typ[i]);
+      for (int j = 0; j < n; j++) {
+        if (done[j]) continue;
+        uint32 o = uint32(j << 1);
+        if (bus::read_u16(0x7E0520 + o) != rm.objx[i]) continue;
+        uint16 lt = bus::read_u16(0x7E0500 + o);
+        uint16 lp = bus::read_u16(0x7E0540 + o);
+        if (manip_is_push_block(lt) != push) continue;
+
+        if (!push) {
+          if (lt != rm.typ[i] || lp != rm.pos[i]) continue;
+          if ((rm.flags[i] & 0x03) != 0x03 || !manip_is_liftable(lt)) break;
+          // the remote replacement tiles (a pot can hide a hole or a switch), drawn into the tilemap:
+          uint32 t0 = 0x7E2000 + uint32(lp & 0x3FFE);
+          array<uint32> to = {0x00, 0x80, 0x02, 0x82};
+          for (int t = 0; t < 4; t++) {
+            uint16 tile = rm.tiles[i * 4 + t];
+            bus::write_u16(0x7E0560 + uint32(t << 5) + o, tile);
+            bus::write_u16(t0 + to[t], tile);
+          }
+          ManipPending p;
+          p.room = room; p.slot = j; p.kind = 0; p.pos = lp; p.objx = rm.objx[i];
+          manip_pending.insertLast(p);
+          done[j] = true;
+          break;
+        }
+
+        // a push block still where the room load put it, one step from where the remote player left it at rest:
+        uint16 to_pos = rm.pos[i];
+        if (rm.typ[i] != 0x0000 || lt != 0x0000 || !manip_is_step(lp, to_pos)) break;
+        array<uint32> to = {0x00, 0x80, 0x02, 0x82};
+        array<uint16> block = {0x0922, 0x0932, 0x0923, 0x0933};
+        for (int t = 0; t < 4; t++) {
+          // what was under it at its old position, the block at its new one:
+          bus::write_u16(0x7E2000 + uint32(lp & 0x3FFE) + to[t], bus::read_u16(0x7E0560 + uint32(t << 5) + o));
+          bus::write_u16(0x7E2000 + uint32(to_pos & 0x3FFE) + to[t], block[t]);
+          bus::write_u16(0x7E0560 + uint32(t << 5) + o, block[t]);
+        }
+        bus::write_u16(0x7E0540 + o, to_pos);
+        ManipPending p;
+        p.room = room; p.slot = j; p.kind = (to_pos & 0x4000) == 0 ? 2 : 1; p.pos = to_pos; p.objx = rm.objx[i];
+        manip_pending.insertLast(p);
+        done[j] = true;
+        break;
+      }
+    }
+  }
+}
