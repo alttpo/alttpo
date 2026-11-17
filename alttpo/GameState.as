@@ -419,6 +419,11 @@ class GameState {
   uint32 star_timestamp = 0;
   uint8 star_value = 0;
   uint8 star_overlay = 0;
+  // tile room overlord state of flying_tiles_room as received (see FlyingTiles.as):
+  bool flying_tiles_valid = false;
+  uint16 flying_tiles_room = 0;
+  uint8 flying_tiles_count = 0;
+  uint8 flying_tiles_timer = 0;
   // trap doors and key flags of room_room as received (see RoomState.as):
   bool room_valid = false;
   uint16 room_room = 0;
@@ -541,6 +546,7 @@ class GameState {
     star_timestamp = 0;
     star_value = 0;
     star_overlay = 0;
+    flying_tiles_valid = false;
     room_valid = false;
     room_doors_valid = false;
 
@@ -794,6 +800,7 @@ class GameState {
         case 0x1A: c = deserialize_room_state(r, c); break;
         case 0x1B: c = deserialize_room_doors(r, c); break;
         case 0x1C: c = deserialize_ow_events(r, c); break;
+        case 0x1D: c = deserialize_flying_tiles(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
         default:
@@ -817,6 +824,16 @@ class GameState {
   void calc_hitbox() {
     hitbox.setBox(x + 4, y + 8, 8, 8);
     hitbox.setActive(!is_dead() && !is_game_over() && (is_in_overworld_module() || is_in_dungeon_module()));
+  }
+
+  int deserialize_flying_tiles(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 4 > maxc) return maxc;
+    flying_tiles_room = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    flying_tiles_count = r[c++];
+    flying_tiles_timer = r[c++];
+    flying_tiles_valid = true;
+    return c;
   }
 
   int deserialize_star_switch(array<uint8> r, int c) {
@@ -879,6 +896,7 @@ class GameState {
     if (location != last) {
       // room and area specific state received so far belongs to the previous location:
       star_valid = false;
+      flying_tiles_valid = false;
       room_valid = false;
       room_doors_valid = false;
       ow_events_valid = false;

@@ -58,6 +58,12 @@ class CodeWriter {
     w.u16(imm);
   }
 
+  // 8-bit index registers only:
+  void ldy_immed(uint8 imm) {
+    w.u8(0xA0); // LDY #imm
+    w.u8(imm);
+  }
+
   // 16-bit index registers (REP #$10) only:
   void ldx_immed16(uint16 imm) {
     w.u8(0xA2); // LDX #imm

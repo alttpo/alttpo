@@ -2202,6 +2202,7 @@ class LocalGameState : GameState {
           manipSync.serialize(envelope);
           // last, since older o2 and alttpo versions stop parsing at the first message type they don't know:
           roomState.serialize(envelope);
+          flyingTiles.serialize(envelope);
           p = send_packet(envelope, p);
         }
       }
@@ -2240,6 +2241,8 @@ class LocalGameState : GameState {
     heartsSync.update();
     // star switch too:
     starSwitch.update();
+    // and the flying floor tiles:
+    flyingTiles.update();
     // and room trap doors and key flags:
     roomState.update();
     // and overworld entrance animations and other events:
