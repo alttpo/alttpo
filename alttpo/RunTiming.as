@@ -247,6 +247,9 @@ class RunTimingLocal {
   uint32 finish_frame = 0;
   int64 start_at = 0;
   int64 finish_at = 0;
+  // the lag frames of the run's earlier stretches of the counter, and NMI frames minus loop frames when the current
+  // one began (or the run started in it):
+  uint32 lag_acc = 0;
   uint32 lag_base = 0;
   uint32 lag_frames = 0;
   uint8 gates_at_start = 0;
@@ -269,6 +272,7 @@ class RunTimingLocal {
     finish_frame = 0;
     start_at = 0;
     finish_at = 0;
+    lag_acc = 0;
     lag_base = 0;
     lag_frames = 0;
     gates_at_start = 0;
@@ -288,6 +292,13 @@ class RunTimingLocal {
     if (!patched) {
       sampled = false;
       return;
+    }
+    if (sampled && sig != signature) {
+      // another ROM was loaded (bsnes keeps the script loaded): its SRAM counter has nothing to do with the last one's,
+      // so follow it from scratch rather than take the difference for a savestate load or fast-forward:
+      message("run timing: the patch signature changed; following the new ROM's counter");
+      if (in_run()) flags |= rt_flag_discontinuity;
+      sampled = false;
     }
     signature = sig;
 
@@ -323,6 +334,7 @@ class RunTimingLocal {
       started = true;
       start_frame = f;
       start_at = at;
+      lag_acc = 0;
       lag_base = (nmi - loop) & 0xFFFFFF;
       gates_at_start = gates;
       gates_changed = false;
@@ -332,7 +344,19 @@ class RunTimingLocal {
       message("run timing: started at NMI frame $" + fmtHex(f, 6));
     }
     if (in_run()) {
-      lag_frames = (nmi - loop - lag_base) & 0xFFFFFF;
+      lag_frames = (lag_acc + nmi - loop - lag_base) & 0xFFFFFF;
+      uint32 sram_start = rt_u24(d, rtm_start);
+      if ((latches & rt_latch_start) == 0 || sram_start != start_frame) {
+        // the SRAM doesn't hold this run's start (another ROM or SRAM file, or a savestate from before the start or of
+        // another run): put it back, so that the patch latches the finish, and a finish latched against another start
+        // isn't taken for this run's:
+        message("run timing: SRAM lost the run's start (latches $" + fmtHex(latches, 2) + ", start $" + fmtHex(sram_start, 6) + "); restoring it");
+        bus::write_u8(rt_addr + rtm_start, uint8(start_frame));
+        bus::write_u8(rt_addr + rtm_start + 1, uint8(start_frame >> 8));
+        bus::write_u8(rt_addr + rtm_start + 2, uint8(start_frame >> 16));
+        bus::write_u8(rt_addr + rtm_latches, rt_latch_start);
+        return;
+      }
     }
     if (in_run() && (latches & rt_latch_finish) != 0) {
       uint32 f = rt_u24(d, rtm_finish);
@@ -373,7 +397,7 @@ class RunTimingLocal {
     if (!sampled) {
       sampled = true;
       nmi = n; loop = l; sampled_mono = mono;
-      stretch_nmi = n; rate_nmi = n; rate_mono = mono;
+      start_stretch();
       return;
     }
     int frames = rt_u24_diff(nmi, n);
@@ -408,14 +432,21 @@ class RunTimingLocal {
     check_rate(mono);
   }
 
+  // start_stretch begins a new stretch of the counter at the last sample.
   void start_stretch() {
     stretch_nmi = nmi;
     rate_nmi = nmi;
     rate_mono = sampled_mono;
+    if (in_run()) {
+      // the lag frames counted so far stay; the new stretch's are counted from its own start:
+      lag_acc = lag_frames;
+      lag_base = (nmi - loop) & 0xFFFFFF;
+    }
   }
 
   // check_rate compares the frames with the wall time over the rate window during the run, and charges the wall time
-  // that running fast saved.
+  // that running fast saved. Running slow can't shorten the wall time, and a console reset, loading a ROM or a stall of
+  // the emulator's window runs frames without NMIs or not at all, so slow windows aren't flagged.
   void check_rate(uint64 mono) {
     int64 wall = int64(mono - rate_mono);
     if (wall < rt_rate_window_ns) return;
@@ -428,8 +459,6 @@ class RunTimingLocal {
       message("run timing: running " + fmtFloat((ratio - 1.0) * 100.0) + "% fast");
       flags |= rt_flag_rate;
       penalty_ns += frames - wall;
-    } else if (ratio < 1.0 - rt_rate_tolerance) {
-      flags |= rt_flag_rate;
     }
   }
 
