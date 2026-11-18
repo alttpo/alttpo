@@ -1569,6 +1569,17 @@ class GameState {
     }
   }
 
+  // chr_tile returns the tile data of chr c for drawing the remote player's sprites: the data the remote player sent, or
+  // else the local VRAM's chr as it is now. Players don't send data for chrs from the common sprite sheets (alttpo
+  // for chrs $80 and up, o2 for any chr but Link's), which are loaded per area, so the local chr is read every frame
+  // and never kept: a copy kept from another area showed e.g. a dungeon's pot for a bush carried outside.
+  array<uint16> vram_chr(16);
+  array<uint16> @chr_tile(uint c) {
+    if (chrs[c].length() != 0) return chrs[c];
+    ppu::vram.read_block(ppu::vram.chr_address(c), 0, 16, vram_chr);
+    return vram_chr;
+  }
+
   int renderToExtra(int dx, int dy, int ei) {
     uint len = sprites.length();
     // message("renderToExtra " + fmtInt(len));
@@ -1605,11 +1616,7 @@ class GameState {
       // draw sprite:
       array<uint16> @t;
       if (sprite.uniq_absidx_0 == 0xFFFF) {
-        @t = @chrs[k + 0x00];
-        if (t.length() == 0) {
-          t.resize(16);
-          ppu::vram.read_block(ppu::vram.chr_address(k + 0x00), 0, 16, t);
-        }
+        @t = chr_tile(k + 0x00);
       } else {
         @t = uniqtile_get(sprite.uniq_absidx_0);
         if (t.length() == 0) {
@@ -1622,11 +1629,7 @@ class GameState {
 
       if (sprite.size != 0) {
         if (sprite.uniq_absidx_1 == 0xFFFF) {
-          @t = @chrs[k + 0x01];
-          if (t.length() == 0) {
-            t.resize(16);
-            ppu::vram.read_block(ppu::vram.chr_address(k + 0x01), 0, 16, t);
-          }
+          @t = chr_tile(k + 0x01);
         } else {
           @t = uniqtile_get(sprite.uniq_absidx_1);
           if (t.length() == 0) {
@@ -1638,11 +1641,7 @@ class GameState {
         }
 
         if (sprite.uniq_absidx_2 == 0xFFFF) {
-          @t = @chrs[k + 0x10];
-          if (t.length() == 0) {
-            t.resize(16);
-            ppu::vram.read_block(ppu::vram.chr_address(k + 0x10), 0, 16, t);
-          }
+          @t = chr_tile(k + 0x10);
         } else {
           @t = uniqtile_get(sprite.uniq_absidx_2);
           if (t.length() == 0) {
@@ -1654,11 +1653,7 @@ class GameState {
         }
 
         if (sprite.uniq_absidx_3 == 0xFFFF) {
-          @t = @chrs[k + 0x11]; 
-          if (t.length() == 0) {
-            t.resize(16);
-            ppu::vram.read_block(ppu::vram.chr_address(k + 0x11), 0, 16, t);
-          }
+          @t = chr_tile(k + 0x11);
         } else {
           @t = uniqtile_get(sprite.uniq_absidx_3);
           if (t.length() == 0) {
