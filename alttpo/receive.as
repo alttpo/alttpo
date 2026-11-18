@@ -2,8 +2,11 @@
 int64 last_server_time = 0;               // server's clock (nanoseconds since unix epoch) from the last received message
 uint64 last_server_time_received_ns = 0;  // our monotonic clock (nanoseconds) when that message was received
 
-// server_now estimates the server's current clock in nanoseconds since unix epoch; 0 if not yet known.
+// server_now estimates the server's current clock in nanoseconds since unix epoch; 0 if not yet known. Once our
+// echoes came back, it is our clock plus the offset of the echo with the shortest round trip (see RunTiming.as);
+// before, the last server stamp plus the time since it arrived, which runs late by the trip from the server.
 int64 server_now() {
+  if (server_clock_n > 0) return int64(chrono::realtime::nanosecond) + server_clock_best_offset;
   if (last_server_time == 0) return 0;
   return last_server_time + int64(chrono::monotonic::nanosecond - last_server_time_received_ns);
 }
@@ -95,7 +98,8 @@ void receive() {
       r.resize(c + int(dataLen));
       process_message(index, playerTime, serverTime, r, c);
     } else if (kind == 0x04) {
-      // echo response; nothing more to do than record server time.
+      // our own echo, sent back by the server with our send time and its own time:
+      server_clock_echo(playerTime, serverTime);
     }
   }
 }

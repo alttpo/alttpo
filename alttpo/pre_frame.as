@@ -297,6 +297,10 @@ void pre_frame() {
     }
   }
 
+  if (playersWindow !is null) {
+    playersWindow.updateRunTimer();
+  }
+  settings.updateRunTimer();
   if (players_updated) {
     if (playersWindow !is null) {
       playersWindow.update();

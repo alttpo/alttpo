@@ -4,6 +4,10 @@ class PlayersWindow {
   private GUI::Window @window;
   private GUI::Label @noPlayersLabel;
   private array<GUI::Label@> playerLabels;
+  private GUI::Label @runTimerLabel;
+  private GUI::Label @runWarningLabel;
+  private GUI::Button @btnResetRun;
+  private uint64 runTimerUpdated = 0;
 
   private array<GameState@>@ playersArray() {
     array<GameState@> @ps;
@@ -23,6 +27,30 @@ class PlayersWindow {
     vl.setSpacing();
     vl.setPadding(sy5, sy5);
     window.append(vl);
+    {
+      // the run timer (see RunTiming.as) and the group reset:
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @runTimerLabel = GUI::Label();
+      runTimerLabel.text = "Run: " + run_time_text();
+      runTimerLabel.toolTip = "First player start to last player finish, on the server's clock";
+      runTimerLabel.foregroundColor = GUI::Color(255, 255, 255);
+      hz.append(runTimerLabel, GUI::Size(-1, 0));
+
+      @btnResetRun = GUI::Button();
+      btnResetRun.text = "Reset run";
+      btnResetRun.toolTip =
+        "Forget all synced state and reset the run timer for all players in the group, o2 players included; "
+        "does not reset the console/emulator";
+      btnResetRun.onActivate(@GUI::Callback(btnResetRunClicked));
+      hz.append(btnResetRun, GUI::Size(0, 0));
+
+      @runWarningLabel = GUI::Label();
+      runWarningLabel.text = run_cost_warning();
+      runWarningLabel.foregroundColor = GUI::Color(255, 160, 0);
+      vl.append(runWarningLabel, GUI::Size(-1, 0));
+    }
     {
       auto @hz = GUI::HorizontalLayout();
       vl.append(hz, GUI::Size(-1, 0));
@@ -75,6 +103,10 @@ class PlayersWindow {
               locname = rom.location_name(p);
             }
             playerLabels[i].text = "{0}: {1} ({2})".format({fmtInt(i), p.name, locname});
+            string times = player_time_text(p);
+            if (times != "") {
+              playerLabels[i].text = playerLabels[i].text + " " + times;
+            }
             playerLabels[i].toolTip =
               "This user is playing in your group.";
             int r = (p.player_color      ) & 0x1F;
@@ -96,6 +128,20 @@ class PlayersWindow {
       }
     }
     vl.resize();
+  }
+
+  private void btnResetRunClicked() {
+    runReset.request();
+  }
+
+  // updateRunTimer refreshes the run timer while it counts up, a few times a second.
+  void updateRunTimer() {
+    if (runTimerLabel is null) return;
+    uint64 now = chrono::monotonic::millisecond;
+    if (now - runTimerUpdated < 100) return;
+    runTimerUpdated = now;
+    runTimerLabel.text = "Run: " + run_time_text();
+    runWarningLabel.text = run_cost_warning();
   }
 
   PlayersWindow() {

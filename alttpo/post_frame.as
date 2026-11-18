@@ -1,6 +1,10 @@
 
 void post_frame() {
   //message("post_frame");
+
+  if (rom !is null && rom.is_alttp()) {
+    runTiming.post_frame();
+  }
   
   if (oamWindow !is null) {
     oamWindow.update();

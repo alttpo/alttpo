@@ -2082,6 +2082,21 @@ class LocalGameState : GameState {
         last_echo_sent = now;
         auto @echo = make_packet_echo();
         p = send_packet(echo, p);
+        runTiming.send_now = true;
+      }
+
+      // drive the group reset; no state is sent while it is in progress:
+      runReset.tick();
+      if (runReset.resetting) {
+        return;
+      }
+
+      // the run timing, in its own packet since older alttpo versions stop parsing a packet at it:
+      if (runTiming.send_now && runTiming.patched && rom.is_alttp()) {
+        runTiming.send_now = false;
+        auto @envelope = make_packet_broadcast();
+        runTiming.make_message().serialize(envelope);
+        p = send_packet(envelope, p);
       }
     }
 

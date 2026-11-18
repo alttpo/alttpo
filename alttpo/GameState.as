@@ -224,6 +224,9 @@ class GameState {
   int64 server_time = 0; // server's clock when the message passed through the server
   uint8 _team = 0; // team number to sync with
 
+  // the player's run timing from message 0x84 (see RunTiming.as):
+  RunTimingRemote run_timing;
+
   // graphics data for current frame:
   array<Sprite@> sprites;
   array<array<uint16>> chrs(512);
@@ -771,6 +774,11 @@ class GameState {
     while (c < maxc) {
       auto packetType = r[c++];
       //message("packetType = " + fmtHex(packetType, 2));
+      if (runReset.resetting && packetType != msg_reset) {
+        // no state is accepted during a group reset:
+        c = maxc;
+        break;
+      }
       switch (packetType) {
         case 0x01: c = deserialize_location(r, c); break;
         case 0x02: c = deserialize_sfx(r, c); break;
@@ -803,6 +811,8 @@ class GameState {
         case 0x1D: c = deserialize_flying_tiles(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
+        case 0x81: c = deserialize_reset(r, c); break;
+        case 0x84: c = run_timing.deserialize(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
           if (packetType < 0x80) {
@@ -1151,6 +1161,18 @@ class GameState {
     if (this is local) return c;
 
     smallKeys.receive_remote(this, session, net, value, ts);
+    return c;
+  }
+
+  int deserialize_reset(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 11 > maxc) return maxc;
+    uint8 phase = r[c++];
+    uint64 id = uint64(rt_read_i64(r, c)); c += 8;
+    uint16 initiator = uint16(r[c]) | (uint16(r[c+1]) << 8); c += 2;
+    if (this is local || index < 0) return c;
+    if (phase == reset_phase_idle || phase > reset_phase_finalize) return c;
+    runReset.receive(index, phase, id, initiator);
     return c;
   }
 

@@ -53,6 +53,10 @@ class SettingsWindow {
   private GUI::Button @btnConnect;
   private GUI::Button @btnDisconnect;
   private GUI::Button @btnAdvanced;
+  private GUI::Label @lblRunTimer;
+  private GUI::Label @lblRunWarning;
+  private GUI::Button @btnResetRun;
+  private uint64 runTimerUpdated = 0;
   private GUI::Button @btnPresetDefault;
   private GUI::Button @btnPresetMultiworld;
 
@@ -569,6 +573,34 @@ class SettingsWindow {
         btnAdvanced.onActivate(@GUI::Callback(btnAdvancedClicked));
         hz.append(btnAdvanced, GUI::Size(-1, -1));
       }
+
+      {
+        // the run timer, shared with o2 (see RunTiming.as):
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, -1));
+
+        @lblRunTimer = GUI::Label();
+        lblRunTimer.text = "Run:";
+        lblRunTimer.toolTip = "First player start to last player finish, on the server's clock";
+        hz.append(lblRunTimer, GUI::Size(-1, 0));
+
+        @btnResetRun = GUI::Button();
+        btnResetRun.text = "Reset run";
+        btnResetRun.toolTip =
+          "Forget all synced state and reset the run timer for all players in the group, o2 players included; "
+          "does not reset the console/emulator";
+        btnResetRun.onActivate(@GUI::Callback(btnResetRunClicked));
+        hz.append(btnResetRun, GUI::Size(0, 0));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, -1));
+
+        @lblRunWarning = GUI::Label();
+        lblRunWarning.foregroundColor = GUI::Color(255, 160, 0);
+        hz.append(lblRunWarning, GUI::Size(-1, 0));
+      }
     }
 
     vl.resize();
@@ -945,6 +977,22 @@ class SettingsWindow {
   // callback:
   private void btnDisconnectClicked() {
     disconnect();
+  }
+
+  private void btnResetRunClicked() {
+    runReset.request();
+  }
+
+  // updateRunTimer refreshes the run timer and the warning a few times a second.
+  void updateRunTimer() {
+    if (lblRunTimer is null) return;
+    uint64 now = chrono::monotonic::millisecond;
+    if (now - runTimerUpdated < 100) return;
+    runTimerUpdated = now;
+    string t = run_time_text();
+    string mine = player_time_text(local);
+    lblRunTimer.text = "Run: " + t + (mine != "" ? "  (you: " + mine + ")" : "");
+    lblRunWarning.text = run_cost_warning();
   }
 
   void connect() {
