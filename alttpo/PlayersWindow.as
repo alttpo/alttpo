@@ -42,7 +42,7 @@ class PlayersWindow {
       btnResetRun.text = "Reset run";
       btnResetRun.toolTip =
         "Forget all synced state and reset the run timer for all players in the group, o2 players included; "
-        "does not reset the console/emulator";
+        "does not reset the console/emulator; asks first";
       btnResetRun.onActivate(@GUI::Callback(btnResetRunClicked));
       hz.append(btnResetRun, GUI::Size(0, 0));
 
@@ -131,7 +131,7 @@ class PlayersWindow {
   }
 
   private void btnResetRunClicked() {
-    runReset.request();
+    confirm_reset_run();
   }
 
   // updateRunTimer refreshes the run timer while it counts up, a few times a second.
