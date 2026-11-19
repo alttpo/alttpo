@@ -2218,6 +2218,7 @@ class LocalGameState : GameState {
           // last, since older o2 and alttpo versions stop parsing at the first message type they don't know:
           roomState.serialize(envelope);
           flyingTiles.serialize(envelope);
+          roomState.serialize_kills(envelope);
           p = send_packet(envelope, p);
         }
       }

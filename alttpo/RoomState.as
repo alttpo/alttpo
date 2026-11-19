@@ -56,9 +56,24 @@
 //     again, so RoomTag_OperateBlockDoor keeps Link locked in (e.g. Ganon's Tower room $8B after another player pushed
 //     the block from the other quadrant). When $0641 was odd in the room before the transition and is 0 after it,
 //     $0641 is set back to 1 and the doors are opened like the tag does, also when no other player is in the room.
+//
+// Kill triggers: room tags that act once the enemies of a quadrant or the whole room are dead. Enemies are not synced,
+// so players disagree about them. Trap door tags $01-$0A open the doors (Dung_TagRoutine_TrapdoorsUp) once the screen is
+// clear while Link is in the tag's quadrant ($01 NW, $02 NE, $03 SW, $04 SE), half ($05 W, $06 E, $07 N, $08 S) or
+// anywhere ($09), $0A once the room is clear; $26 (RoomTag_KillRoomBlock, south east quadrant) clears itself so the
+// block can be pushed; $29-$32 are like $01-$0A but reveal the room's chests (RoomTag_OperateChestReveal) and clear
+// themselves. A trigger is seen firing from a chest or block tag going to 0, or the trap doors opening locally in a room
+// with a trap door kill tag that checks in Link's quadrant, and is recorded as bit k for the tag in $AE+k.
+//
+// Message 0x1E (uint16 room, uint8 fired: bit k = the kill trigger in $AE+k fired during this room visit) is sent last
+// in the room's sector packet, after 0x1D. A trigger fired by a remote player in the same room is applied once per
+// visit the way the tag does it, without touching the enemies: the trap doors are opened if still closed (unless a key
+// door or push block door uses the submodule), the block tag is cleared, or the chests are revealed (closed small chest
+// tiles, attributes $5858 + $0101 * i, VRAM stripes from $1000 = 0, $14 = 1; only while $14 = 0) and the tag cleared.
 
 const uint8 msg_room_state = 0x1A;
 const uint8 msg_room_doors = 0x1B;
+const uint8 msg_room_kills = 0x1E;
 const uint8 room_flag_key0 = 0x40;
 const uint8 room_flag_key1 = 0x20;
 const uint8 room_flag_chests = 0x3F;
@@ -70,6 +85,8 @@ const uint16 room_stripe_limit = 0x0068;
 // opened small chest tiles (obj14A4): top left, bottom left, top right, bottom right:
 const array<uint16> room_open_chest_tiles = {0x19E2, 0x19F2, 0x59E2, 0x59F2};
 const array<uint16> room_open_chest_offs = {0x0000, 0x0080, 0x0002, 0x0082};
+// closed small chest tiles (obj149C), drawn by RoomTag_OperateChestReveal:
+const array<uint16> room_closed_chest_tiles = {0x19E1, 0x19F1, 0x59E1, 0x59F1};
 // DoorOpenSFXPan by door direction:
 const array<uint8> room_door_sfx_pan = {0x00, 0x00, 0x80, 0x40};
 
@@ -118,6 +135,11 @@ class RoomStateLocal {
   bool blockPushed = false;
   bool blockTransition = false;
   bool blockCleared = false;
+
+  // the room tags ($AE, $AF) last sampled; fired has bit k once the kill trigger in $AE+k fired here:
+  uint8 tag0 = 0;
+  uint8 tag1 = 0;
+  uint8 fired = 0;
 
   void reset() {
     valid = false;
@@ -247,6 +269,9 @@ class RoomStateLocal {
       pulledQuad = local_quadrant();
       pulledTs = 0;
       holdWritten = false;
+      tag0 = t0;
+      tag1 = t1;
+      fired = 0;
       return;
     }
 
@@ -266,6 +291,7 @@ class RoomStateLocal {
     flags = f;
     doors = bus::read_u8(0x7E0401);
     hold = local_holds(t0, t1, d);
+    update_kills(t0, t1, d);
     if (d != door) {
       door = d;
       doorTs = now_ts();
@@ -275,6 +301,99 @@ class RoomStateLocal {
     if (sub_module != 0x00) return;
 
     apply(t0, t1);
+  }
+
+  // kill_tag_base returns the trap door tag ($01-$0A) a kill trigger tag acts like, or 0 if it is not one:
+  uint8 kill_tag_base(uint8 tag) {
+    if (tag >= 0x01 && tag <= 0x0A) return tag;
+    if (tag >= 0x29 && tag <= 0x32) return tag - 0x28; // the chest reveal tags
+    if (tag == 0x26) return 0x04;                       // RoomTag_KillRoomBlock, in the south east quadrant
+    return 0;
+  }
+
+  bool kill_tag_is_door(uint8 tag) { return tag >= 0x01 && tag <= 0x0A; }
+  bool kill_tag_is_chest(uint8 tag) { return tag >= 0x29 && tag <= 0x32; }
+
+  // kill_tag_fires reports whether a kill trigger tag checks for its enemies while Link is in quadrant q:
+  bool kill_tag_fires(uint8 tag, uint8 q) {
+    uint8 base = kill_tag_base(tag);
+    if (base == 0) return false;
+    if (base <= 0x04) return q == base - 0x01;
+    if (base <= 0x06) return (q & 1) == base - 0x05;
+    if (base <= 0x08) return (q >> 1) == base - 0x07;
+    // $09: any quadrant, $0A: the whole room:
+    return true;
+  }
+
+  // update_kills records the kill triggers fired locally; d is $0468 now, door as last sampled:
+  void update_kills(uint8 t0, uint8 t1, uint8 d) {
+    array<uint8> prev = {tag0, tag1};
+    array<uint8> cur = {t0, t1};
+    for (uint k = 0; k < 2; k++) {
+      uint8 bit = uint8(1 << k);
+      // a chest reveal or kill room block tag fired:
+      if (prev[k] != 0 && cur[k] == 0 && kill_tag_base(prev[k]) != 0 && !kill_tag_is_door(prev[k])) fired |= bit;
+    }
+    tag0 = t0;
+    tag1 = t1;
+    if (door == 0 || d != 0) return;
+    auto q = local_quadrant();
+    for (uint k = 0; k < 2; k++) {
+      if (kill_tag_is_door(cur[k]) && kill_tag_fires(cur[k], q)) fired |= uint8(1 << k);
+    }
+  }
+
+  // apply_kill applies kill trigger k fired by a remote player; returns true when it used the submodule:
+  bool apply_kill(uint k, uint8 tag) {
+    uint32 tagAddr = 0x7E00AE + k;
+    if (kill_tag_is_door(tag)) {
+      fired |= uint8(1 << k);
+      if (bus::read_u8(0x7E0468) == 0) return false;
+      // open the trap doors like Dung_TagRoutine_TrapdoorsUp:
+      bus::write_u16(0x7E0468, 0);
+      bus::write_u16(0x7E068E, 0);
+      bus::write_u16(0x7E0690, 0);
+      bus::write_u8(0x7E012F, 0x1B); // SFX3.1B
+      bus::write_u8(0x7E0011, 0x05); // move the shutters (OperateShutterDoors)
+      // not a local change of the trap doors:
+      door = 0;
+      return true;
+    }
+    if (kill_tag_is_chest(tag)) {
+      // the reveal writes the VRAM stripes from the start of the buffer; wait until none are pending:
+      if (bus::read_u8(0x7E0014) != 0) return false;
+      uint n = bus::read_u16(0x7E0496) >> 1;
+      if (n == 0 || n > 6) return false;
+      fired |= uint8(1 << k);
+      bus::write_u8(tagAddr, 0);
+      reveal_chests(n);
+      return false;
+    }
+    // RoomTag_KillRoomBlock lets the block be pushed:
+    fired |= uint8(1 << k);
+    bus::write_u8(tagAddr, 0);
+    bus::write_u8(0x7E012F, 0x1B); // SFX3.1B
+    return false;
+  }
+
+  // reveal_chests draws the room's n chests closed like RoomTag_OperateChestReveal:
+  void reveal_chests(uint n) {
+    for (uint i = 0; i < n; i++) {
+      uint16 tile = bus::read_u16(0x7E06E0 + (i << 1)) & 0x3FFF;
+      for (uint t = 0; t < 4; t++) {
+        bus::write_u16(0x7E2000 + tile + room_open_chest_offs[t], room_closed_chest_tiles[t]);
+        bus::write_u16(0x7E1002 + i * 0x18 + t * 6, room_stripe_addr(tile + room_open_chest_offs[t]));
+        bus::write_u16(0x7E1004 + i * 0x18 + t * 6, 0x0100);
+        bus::write_u16(0x7E1006 + i * 0x18 + t * 6, room_closed_chest_tiles[t]);
+      }
+      uint16 attr = uint16(0x5858 + i * 0x0101);
+      bus::write_u16(0x7F2000 + (tile >> 1), attr);
+      bus::write_u16(0x7F2040 + (tile >> 1), attr);
+    }
+    bus::write_u16(0x7E101A + (n - 1) * 0x18, 0xFFFF);
+    bus::write_u16(0x7E1000, uint16(n * 0x18));
+    bus::write_u8(0x7E012F, 0x1A); // SFX3.1A
+    bus::write_u8(0x7E0014, 0x01);
   }
 
   // boss_heart_present reports whether a boss's heart container ($EA with $0D90 != 0) lies on the floor:
@@ -299,6 +418,7 @@ class RoomStateLocal {
     bool wantHold = false;
     GameState@ pullFrom = null;
     uint8 remoteDoors = 0;
+    uint8 remoteFired = 0;
     int remotes = 0;
 
     uint len = players.length();
@@ -321,6 +441,7 @@ class RoomStateLocal {
         @doorWinner = remote;
         tsCompare = remote.room_door_ts;
       }
+      if (remote.room_kills_valid && remote.room_kills_room == room) remoteFired |= remote.room_kills_fired;
 
       if (!remote.room_doors_valid || remote.room_doors_room != room) continue;
       remoteDoors |= remote.room_doors;
@@ -387,6 +508,18 @@ class RoomStateLocal {
       }
     }
 
+    // kill triggers fired by remote players; trap doors only when no key door or push block door uses the submodule:
+    int killDoor = -1;
+    array<uint8> tags = {t0, t1};
+    for (uint k = 0; k < 2; k++) {
+      if ((remoteFired & ~fired & (1 << k)) == 0 || kill_tag_base(tags[k]) == 0) continue;
+      if (kill_tag_is_door(tags[k])) {
+        killDoor = int(k);
+        continue;
+      }
+      apply_kill(k, tags[k]);
+    }
+
     // key doors; unlocking one uses the submodule:
     uint8 newDoors = remoteDoors & ~(doors | doorsTried);
     for (uint b = 0x80; b != 0; b >>= 1) {
@@ -418,6 +551,8 @@ class RoomStateLocal {
       bus::write_u8(0x7E0011, 0x05); // move the shutters (OperateShutterDoors)
       return;
     }
+
+    if (killDoor >= 0 && apply_kill(uint(killDoor), tags[uint(killDoor)])) return;
 
     if (doorWinner is null) return;
 
@@ -487,6 +622,13 @@ class RoomStateLocal {
       return true;
     }
     return false;
+  }
+
+  void serialize_kills(array<uint8> &r) {
+    if (!valid) return;
+    r.write_u8(msg_room_kills);
+    r.write_u16(room);
+    r.write_u8(fired);
   }
 
   void serialize(array<uint8> &r) {

@@ -442,6 +442,10 @@ class GameState {
   uint32 room_pulled_ts = 0;
   // quadrant the switch was pulled in: bit 0 east, bit 1 south:
   uint8 room_pulled_quad = 0;
+  // kill triggers fired in room_kills_room as received (see RoomState.as): bit k for the tag in $AE+k:
+  bool room_kills_valid = false;
+  uint16 room_kills_room = 0;
+  uint8 room_kills_fired = 0;
   // overworld events at location ow_events_loc as received (see OverworldEvents.as):
   bool ow_events_valid = false;
   uint32 ow_events_loc = 0;
@@ -552,6 +556,7 @@ class GameState {
     flying_tiles_valid = false;
     room_valid = false;
     room_doors_valid = false;
+    room_kills_valid = false;
 
     numsprites = 0;
 
@@ -809,6 +814,7 @@ class GameState {
         case 0x1B: c = deserialize_room_doors(r, c); break;
         case 0x1C: c = deserialize_ow_events(r, c); break;
         case 0x1D: c = deserialize_flying_tiles(r, c); break;
+        case 0x1E: c = deserialize_room_kills(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
         case 0x81: c = deserialize_reset(r, c); break;
@@ -890,6 +896,15 @@ class GameState {
     room_pulled_quad = (switches >> 2) & 3;
     room_pulled_ts = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
     room_doors_valid = true;
+    return c;
+  }
+
+  int deserialize_room_kills(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 3 > maxc) return maxc;
+    room_kills_room = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    room_kills_fired = r[c++];
+    room_kills_valid = true;
     return c;
   }
 
