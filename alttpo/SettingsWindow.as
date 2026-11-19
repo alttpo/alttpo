@@ -1252,7 +1252,7 @@ class SettingsWindow {
       vl, GUI::Size(sx150, 0),
       chkSyncSmallKeys, @GUI::Callback(chkSyncSmallKeysChanged),
       "Small Keys",
-      "Enable to sync small keys (EXPERIMENTAL; MAY LOSE KEYS)",
+      "Enable to sync small keys; syncs key changes as deltas, so keys should not be lost, though a key may be duplicated in rare cases",
       false,
       chkSyncProgress, @GUI::Callback(chkSyncProgressChanged),
       "Progress Flags",
