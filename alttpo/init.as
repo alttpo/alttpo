@@ -13,7 +13,7 @@ bool debugMemory = false;
 
 
 bool enableMap = true;
-bool enablePlayerList = false;
+bool enablePlayerList = true;
 bool enableBgMusic = true;
 
 bool enableNetRateLimiting = false;
