@@ -55,6 +55,7 @@ class SettingsWindow {
   private GUI::Button @btnAdvanced;
   private GUI::Label @lblRunTimer;
   private GUI::Label @lblRunWarning;
+  private GUI::Label @lblRunMine;
   private GUI::Button @btnResetRun;
   private uint64 runTimerUpdated = 0;
   private GUI::Button @btnPresetDefault;
@@ -379,7 +380,7 @@ class SettingsWindow {
   SettingsWindow() {
     @window = GUI::Window(140, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(sx(320), sy(12*25));
+    window.size = GUI::Size(sx(320), sy(12*25 + 20));
     window.dismissable = false;
 
     auto sx150 = sx(150);
@@ -591,6 +592,16 @@ class SettingsWindow {
           "does not reset the console/emulator; asks first";
         btnResetRun.onActivate(@GUI::Callback(btnResetRunClicked));
         hz.append(btnResetRun, GUI::Size(0, 0));
+      }
+
+      {
+        // the local player's own time, on its own line so that the run timer's line keeps room for "Reset run":
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, -1));
+
+        @lblRunMine = GUI::Label();
+        lblRunMine.toolTip = "Your own time: your start to your finish, and your lag frames";
+        hz.append(lblRunMine, GUI::Size(-1, 0));
       }
 
       {
@@ -991,7 +1002,8 @@ class SettingsWindow {
     runTimerUpdated = now;
     string t = run_time_text();
     string mine = player_time_text(local);
-    lblRunTimer.text = "Run: " + t + (mine != "" ? "  (you: " + mine + ")" : "");
+    lblRunTimer.text = "Run: " + t;
+    lblRunMine.text = mine != "" ? "you: " + mine : "";
     lblRunWarning.text = run_cost_warning();
   }
 

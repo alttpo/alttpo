@@ -325,6 +325,14 @@ class RunTimingLocal {
     uint8 latches = d[rtm_latches];
     if (!started && (latches & rt_latch_start) != 0) {
       uint32 f = rt_u24(d, rtm_start);
+      if ((latches & rt_latch_finish) != 0) {
+        // a finish latched along with a start we never saw on its own: SRAM from before the run (fresh SRAM reads $FF
+        // everywhere, so both latch bits look set and both frames are $FFFFFF); start over:
+        message("run timing: start and finish latched together (latches $" + fmtHex(latches, 2) + ", start $" +
+          fmtHex(f, 6) + ", finish $" + fmtHex(rt_u24(d, rtm_finish), 6) + ") before the start was seen; clearing");
+        clear_latches = true;
+        return;
+      }
       int64 at;
       if (!latch_time(f, now, at)) {
         message("run timing: start latched before the counter was followed; clearing");
@@ -346,10 +354,11 @@ class RunTimingLocal {
     if (in_run()) {
       lag_frames = (lag_acc + nmi - loop - lag_base) & 0xFFFFFF;
       uint32 sram_start = rt_u24(d, rtm_start);
-      if ((latches & rt_latch_start) == 0 || sram_start != start_frame) {
+      if ((latches & rt_latch_start) == 0 || sram_start != start_frame ||
+          ((latches & rt_latch_finish) != 0 && rt_u24(d, rtm_finish) == start_frame)) {
         // the SRAM doesn't hold this run's start (another ROM or SRAM file, or a savestate from before the start or of
         // another run): put it back, so that the patch latches the finish, and a finish latched against another start
-        // isn't taken for this run's:
+        // or in the start's own frame, isn't taken for this run's:
         message("run timing: SRAM lost the run's start (latches $" + fmtHex(latches, 2) + ", start $" + fmtHex(sram_start, 6) + "); restoring it");
         bus::write_u8(rt_addr + rtm_start, uint8(start_frame));
         bus::write_u8(rt_addr + rtm_start + 1, uint8(start_frame >> 8));
