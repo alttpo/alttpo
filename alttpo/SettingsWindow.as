@@ -1251,7 +1251,7 @@ class SettingsWindow {
     makeCheckboxPair(
       vl, GUI::Size(sx150, 0),
       chkSyncSmallKeys, @GUI::Callback(chkSyncSmallKeysChanged),
-      "Small Keys (EXPERIMENTAL)",
+      "Small Keys",
       "Enable to sync small keys (EXPERIMENTAL; MAY LOSE KEYS)",
       false,
       chkSyncProgress, @GUI::Callback(chkSyncProgressChanged),

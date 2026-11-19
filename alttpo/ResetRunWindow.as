@@ -15,6 +15,7 @@ class ResetRunWindow {
   private GUI::Window @window;
   private array<GUI::Label@> lines;
   private GUI::Button @btnReset;
+  private GUI::VerticalLayout @vl;
 
   ResetRunWindow() {
     @window = GUI::Window(200, 160, true);
@@ -22,10 +23,9 @@ class ResetRunWindow {
     window.size = GUI::Size(sx(460), sy(16*11));
     window.dismissable = false;
     window.backgroundColor = GUI::Color(28, 28, 28);
-    window.font = GUI::Font("{sans}", 12);
 
     auto sy5 = sy(5);
-    auto vl = GUI::VerticalLayout();
+    @vl = GUI::VerticalLayout();
     vl.setSpacing();
     vl.setPadding(sy5, sy5);
     window.append(vl);
@@ -87,6 +87,10 @@ class ResetRunWindow {
 
   void show() {
     update();
+    // fit the window to the worded lines in the UI's font, so that no line is cut off:
+    auto @min = vl.minimumSize;
+    window.size = GUI::Size(min.width, min.height);
+    vl.resize();
     window.visible = true;
   }
 

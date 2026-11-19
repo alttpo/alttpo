@@ -150,7 +150,6 @@ class PlayersWindow {
     window.size = GUI::Size(sx(340), sy(16*25));
     window.dismissable = false;
     window.backgroundColor = GUI::Color(28, 28, 28);
-    window.font = GUI::Font("{sans}", 12);
     window.visible = true;
 
     update();
