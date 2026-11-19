@@ -161,13 +161,44 @@ class PatchBuffer : CodeWriter {
     setWriter(@aw);
   }
 
+  // offset of the first byte after the frame guard, where the frame's code starts; see restore():
+  uint code_start = 0;
+
+  // empty is true while no code was written for this frame:
+  bool get_empty() property { return offset <= code_start; }
+
+  // restore starts this frame's code. The buffer runs at the main loop's JSL MainRouting, and on_main_alttp rewrites it
+  // just before that every frame. If the buffer were not rewritten for a frame (the PC interceptor was not called, or a
+  // save state was loaded), the previous frame's code would run again in a frame it was not written for: e.g. map16
+  // changes queue VRAM stripes ($14 = 1), and in the first frame of the item menu, which fills the stripe buffer at
+  // $1000 with its tilemap, the NMI would take that tilemap for stripes and fill most of VRAM (BG2 and BG3) with
+  // garbage. So the code starts with a guard that only runs MainRouting unless $1A, which the main loop increments
+  // right before, is the frame it was written for. The rest of the buffer is NOPs up to a final JSL MainRouting; RTL so
+  // that code cut short by a script exception still returns.
   void restore() {
-    seek(0);
-    // JSL MainRouting
+    for (uint i = 0; i < 0x100; i++) {
+      code[i] = 0xEA; // NOP
+    }
+    seek(0x100 - 5);
     jsl(rom.fn_main_routing);
-    // RTL
     rtl();
+
     seek(0);
+    sep(0x30);
+    w.u8(0xA5); // LDA $1A
+    w.u8(0x1A);
+    w.u8(0xC9); // CMP #frame
+    w.u8(bus::read_u8(0x7E001A));
+    w.u8(0xF0); // BEQ +5
+    w.u8(0x05);
+    jsl(rom.fn_main_routing);
+    rtl();
+    code_start = offset;
+
+    // nothing else to do yet:
+    jsl(rom.fn_main_routing);
+    rtl();
+    seek(code_start);
   }
 
 };

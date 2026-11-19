@@ -41,8 +41,25 @@
 // resend their whole log, so not while catching up) is live: the remote player changed the tile just now. If a live
 // entry replaces a bush, rock or sign that is still there locally, the secret under it is revealed too (see
 // Secrets.as).
+//
+// Bombing open a cave or house wall (Overworld_BombTile) logs the opening's right half ($0DB5) at the left half's
+// position instead of 2 bytes to the right of it: the log has ($pos, $0DB4) followed by ($pos, $0DB5). Applied as
+// logged, the right half would replace the left half one tile left of where it belongs, and the opening could not be
+// entered. Such an entry is taken as ($pos + 2, $0DB5) both when the local log is read and when a remote log is received
+// (see map16_fix_entry).
 
 const uint8 msg_map16 = 0x17;
+
+// the bombed wall opening Overworld_BombTile draws (left and right half), which it logs at the same position:
+const uint16 map16_bomb_door_left = 0x0DB4;
+const uint16 map16_bomb_door_right = 0x0DB5;
+
+// map16_fix_entry returns the position the entry (p, t) changed, given the entry before it in the same log (pp, pt):
+// Overworld_BombTile logs the right half of a bombed opening at the left half's position.
+uint16 map16_fix_entry(uint16 pp, uint16 pt, uint16 p, uint16 t) {
+  if (t == map16_bomb_door_right && pt == map16_bomb_door_left && pp == p) return uint16(p + 2);
+  return p;
+}
 
 // ow_location returns the overworld location Link is in, like the location sent in message 0x01 (bit 17 dark world,
 // bit 16 underworld = 0, bits 0-15 the area $8A), or 0xFFFFFFFF if $0FFF does not agree with the area's world (the dark
@@ -114,6 +131,11 @@ class Map16Remote {
       int i = start + k;
       uint16 p = uint16(r[c++]) | (uint16(r[c++]) << 8);
       uint16 t = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      // senders that do not fix the entries of bombed openings yet (the entry before is in this message or an earlier
+      // one; logs are sent in order):
+      if (i > 0 && have[i - 1]) {
+        p = map16_fix_entry(pos[i - 1], tile[i - 1], p, t);
+      }
       if (have[i] && (pos[i] != p || tile[i] != t) && i < applied) {
         // the sender's log was replaced without us noticing; apply again from here:
         applied = i;
@@ -213,6 +235,10 @@ class Map16Sync {
     for (int i = count; i < n; i++) {
       pos[i] = bus::read_u16(0x7EF800 + uint32(i << 1));
       tile[i] = bus::read_u16(0x7EFA00 + uint32(i << 1));
+      if (i > 0) {
+        // send where a bombed opening's right half really went:
+        pos[i] = map16_fix_entry(pos[i - 1], tile[i - 1], pos[i], tile[i]);
+      }
     }
     count = n;
   }

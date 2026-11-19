@@ -100,7 +100,7 @@ void on_main_alttp(uint32 pc) {
     local.apply_pvp();
   }
 
-  if (pb.offset > 0) {
+  if (!pb.empty) {
     // end the patch buffer:
     pb.jsl(rom.fn_main_routing);  // JSL MainRouting
     pb.rtl();                     // RTL
