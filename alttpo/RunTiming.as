@@ -618,13 +618,17 @@ class RunReset {
 
   // request starts a group reset from the local player.
   void request() {
-    if (phase != reset_phase_idle) return;
     if (sock is null || local.index < 0) {
-      // not in a group; just clear our own state:
+      // not in a group; just clear our own state, dropping any group reset the disconnect left unfinished:
+      phase = reset_phase_idle;
+      id = 0;
+      initiator = 0;
+      is_initiator = false;
       clear_state();
-      message("run reset");
+      message("run reset: offline; reset our own state only");
       return;
     }
+    if (phase != reset_phase_idle) return;
     int64 now = server_now();
     if (now == 0) now = int64(chrono::realtime::nanosecond);
     ack_index.resize(0);
