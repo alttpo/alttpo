@@ -91,9 +91,10 @@ class Secrets {
     pb.sta_dp(0x06);
     pb.lda_immed16(p);
     pb.jsr_banked(rom.fn_reveal_pot_item, rom.fn_bank01_rtl);
-    // rooms are 512x512 pixels at (room & $0F, (room & $F0) >> 4) and the tilemap is 64x64 8x8 tiles:
+    // rooms are 512x512 pixels at (room & $0F, room >> 4) and the tilemap is 64x64 8x8 tiles. Rooms $100 and up are
+    // below the others (Link's Y in room $119 is $2200 + his Y in the room), so the room's bit 8 must be kept:
     uint16 x = uint16(((room & 0x0F) << 9) + ((p & 0x007E) << 2));
-    uint16 y = uint16(((room & 0xF0) << 5) + ((p & 0x1F80) >> 4));
+    uint16 y = uint16(((room >> 4) << 9) + ((p & 0x1F80) >> 4));
     spawn(x, y, 0);
   }
 
