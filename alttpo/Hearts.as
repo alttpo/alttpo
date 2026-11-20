@@ -175,7 +175,15 @@ class HeartsLocal {
     int after = int(v) + delta;
     if (after > heart_pieces_max) after = heart_pieces_max;
     bus::write_u8(0x7EF36B, uint8(after & 3));
-    bus::write_u8(0x7EF36C, uint8((after & ~3) << 1));
+    uint8 oldCap = bus::read_u8(0x7EF36C);
+    uint8 newCap = uint8((after & ~3) << 1);
+    bus::write_u8(0x7EF36C, newCap);
+    // fill one heart (8) of health for each heart container added:
+    if (newCap > oldCap) {
+      int health = int(bus::read_u8(0x7EF36D)) + int(newCap - oldCap);
+      if (health > int(newCap)) health = int(newCap);
+      bus::write_u8(0x7EF36D, uint8(health));
+    }
 
     int mark = int(observed) + delta;
     if (mark > heart_pieces_max) mark = heart_pieces_max;
