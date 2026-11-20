@@ -115,7 +115,7 @@ class OverworldEventsLocal {
   }
 
   void apply() {
-    if (!settings.SyncOverworld) return;
+    if (!settings.SyncOverworldLocal) return;
     if (local.module != 0x09 || local.sub_module != 0) return;
     if (ow_location() != loc) return;
 

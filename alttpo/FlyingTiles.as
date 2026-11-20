@@ -103,7 +103,7 @@ class FlyingTilesLocal {
     count = bus::read_u8(0x7E0B28 + k);
     timer = bus::read_u8(0x7E0B30 + k);
 
-    if (!settings.SyncTilemap) return;
+    if (!settings.SyncUnderworldLocal) return;
 
     // Overlord14_TileRoom only ticks while its position is on screen:
     uint8 xHi = bus::read_u8(0x7E0B10 + k);

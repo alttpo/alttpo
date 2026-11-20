@@ -35,7 +35,10 @@ class SettingsWindow {
   private GUI::CheckLabel @chkSyncItems;
   private GUI::CheckLabel @chkSyncPendants;
   private GUI::CheckLabel @chkSyncSmallKeys;
-  private GUI::CheckLabel @chkSyncTilemap;
+  private GUI::CheckLabel @chkSyncUnderworldLocal;
+  private GUI::CheckLabel @chkSyncOverworldLocal;
+  private GUI::CheckLabel @chkSyncTorches;
+  private GUI::CheckLabel @chkSyncSfx;
   private GUI::CheckLabel @chkSyncChests;
   private GUI::CheckLabel @chkSyncHearts;
   private GUI::CheckLabel @chkSyncDungeonItems;
@@ -189,8 +192,28 @@ class SettingsWindow {
   bool SyncPendants { get { return syncPendants; } }
   private bool syncSmallKeys;
   bool SyncSmallKeys { get { return syncSmallKeys; } }
-  private bool syncTilemap;
-  bool SyncTilemap { get { return syncTilemap; } }
+  // syncUnderworldLocal ("Underworld (Local)") shares what players in the same room do while they are there, like
+  // o2: manipulable objects (pots, blocks, pegs, big rocks) and the items under pots, crystal switches, star tiles,
+  // room state (trap doors, chests, keys, key doors, switches) and flying floor tiles:
+  private bool syncUnderworldLocal;
+  bool SyncUnderworldLocal { get { return syncUnderworldLocal; } }
+  // syncOverworldLocal ("Overworld (Local)") shares what players in the same area do while they are there, like o2:
+  // map16 changes (lifted bushes and rocks, bombed walls, ...) and the area's events (entrance animations, the desert
+  // statues, the lumberjacks' tree):
+  private bool syncOverworldLocal;
+  bool SyncOverworldLocal { get { return syncOverworldLocal; } }
+  // SyncLocal tells whether the local sync toggle of the world the local player is in is on, for what is shared in
+  // both worlds (ancillae):
+  bool SyncLocal {
+    get {
+      if (local !is null && local.is_in_dungeon_module()) return syncUnderworldLocal;
+      return syncOverworldLocal;
+    }
+  }
+  private bool syncTorches;
+  bool SyncTorches { get { return syncTorches; } }
+  private bool syncSfx;
+  bool SyncSfx { get { return syncSfx; } }
   private bool syncChests;
   bool SyncChests { get { return syncChests; } }
   private bool syncHearts;
@@ -255,7 +278,10 @@ class SettingsWindow {
     chkSyncItems.checked = syncItems;
     chkSyncPendants.checked = syncPendants;
     chkSyncSmallKeys.checked = syncSmallKeys;
-    chkSyncTilemap.checked = syncTilemap;
+    chkSyncUnderworldLocal.checked = syncUnderworldLocal;
+    chkSyncOverworldLocal.checked = syncOverworldLocal;
+    chkSyncTorches.checked = syncTorches;
+    chkSyncSfx.checked = syncSfx;
     chkSyncChests.checked = syncChests;
     chkSyncHearts.checked = syncHearts;
     chkSyncDungeonItems.checked = syncDungeonItems;
@@ -307,7 +333,12 @@ class SettingsWindow {
     syncItems = doc["feature/syncItems"].booleanOr(true);
     syncPendants = doc["feature/syncPendants"].booleanOr(true);
     syncSmallKeys = doc["feature/syncSmallKeys"].booleanOr(true);
-    syncTilemap = doc["feature/syncTilemap"].booleanOr(true);
+    // the local toggles replace the former Tilemap toggle; start from its value:
+    bool syncTilemap = doc["feature/syncTilemap"].booleanOr(true);
+    syncUnderworldLocal = doc["feature/syncUnderworldLocal"].booleanOr(syncTilemap);
+    syncOverworldLocal = doc["feature/syncOverworldLocal"].booleanOr(syncTilemap);
+    syncTorches = doc["feature/syncTorches"].booleanOr(true);
+    syncSfx = doc["feature/syncSfx"].booleanOr(true);
     syncChests = doc["feature/syncChests"].booleanOr(true);
     syncHearts = doc["feature/syncHearts"].booleanOr(true);
     syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
@@ -362,7 +393,10 @@ class SettingsWindow {
     doc.create("feature/syncItems").value = fmtBool(syncItems);
     doc.create("feature/syncPendants").value = fmtBool(syncPendants);
     doc.create("feature/syncSmallKeys").value = fmtBool(syncSmallKeys);
-    doc.create("feature/syncTilemap").value = fmtBool(syncTilemap);
+    doc.create("feature/syncUnderworldLocal").value = fmtBool(syncUnderworldLocal);
+    doc.create("feature/syncOverworldLocal").value = fmtBool(syncOverworldLocal);
+    doc.create("feature/syncTorches").value = fmtBool(syncTorches);
+    doc.create("feature/syncSfx").value = fmtBool(syncSfx);
     doc.create("feature/syncChests").value = fmtBool(syncChests);
     doc.create("feature/syncHearts").value = fmtBool(syncHearts);
     doc.create("feature/syncDungeonItems").value = fmtBool(syncDungeonItems);
@@ -760,13 +794,26 @@ class SettingsWindow {
   }
 
   // callback:
-  private void chkSyncTilemapChanged() {
-    syncTilemap = chkSyncTilemap.checked;
-    syncTilemapChanged();
+  private void chkSyncUnderworldLocalChanged() {
+    syncUnderworldLocal = chkSyncUnderworldLocal.checked;
+    save();
   }
 
-  private void syncTilemapChanged(bool persist = true) {
-    if (!persist) return;
+  // callback:
+  private void chkSyncOverworldLocalChanged() {
+    syncOverworldLocal = chkSyncOverworldLocal.checked;
+    save();
+  }
+
+  // callback:
+  private void chkSyncTorchesChanged() {
+    syncTorches = chkSyncTorches.checked;
+    save();
+  }
+
+  // callback:
+  private void chkSyncSfxChanged() {
+    syncSfx = chkSyncSfx.checked;
     save();
   }
 
@@ -874,7 +921,10 @@ class SettingsWindow {
     syncItems = true;
     syncPendants = true;
     syncSmallKeys = false;
-    syncTilemap = true;
+    syncUnderworldLocal = true;
+    syncOverworldLocal = true;
+    syncTorches = true;
+    syncSfx = true;
     syncChests = true;
     syncHearts = true;
     syncDungeonItems = true;
@@ -905,7 +955,10 @@ class SettingsWindow {
     syncItems = false;
     syncPendants = false;
     syncSmallKeys = false;
-    syncTilemap = false;
+    syncUnderworldLocal = false;
+    syncOverworldLocal = false;
+    syncTorches = false;
+    syncSfx = true;
     syncChests = true;
     syncHearts = false;
     syncDungeonItems = false;
@@ -1083,7 +1136,7 @@ class SettingsWindow {
   private void build_advanced() {
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(190*2), sy(490));
+    advancedWindow.size = GUI::Size(sx(190*2), sy(540));
 
     auto sx150 = sx(190);
     auto sx100 = sx(100);
@@ -1188,42 +1241,7 @@ class SettingsWindow {
       hz.append(lbl, GUI::Size(sx100, 0));
     }
 
-    makeCheckboxPair(
-      vl, GUI::Size(sx150, 0),
-      chkSyncSprites, @GUI::Callback(chkSyncSpritesChanged),
-      "Sprites",
-      "Enable to allow other players to see your player sprite on their screens",
-      true,
-      chkSyncTilemap, @GUI::Callback(chkSyncTilemapChanged),
-      "Tilemap",
-      "Enable to allow players to observe real-time changes to the current room's tilemap",
-      true
-    );
-
-    makeCheckboxPair(
-      vl, GUI::Size(sx150, 0),
-      chkSyncUnderworld, @GUI::Callback(chkSyncUnderworldChanged),
-      "Underworld",
-      "Enable to sync persistent underworld room changes",
-      true,
-      chkSyncChests, @GUI::Callback(chkSyncChestsChanged),
-      "Chests Opened",
-      "Enable to sync chests opened in underworld rooms",
-      true
-    );
-
-    makeCheckboxPair(
-      vl, GUI::Size(sx150, 0),
-      chkSyncOverworld, @GUI::Callback(chkSyncOverworldChanged),
-      "Overworld",
-      "Enable to sync persistent overworld area changes",
-      true,
-      chkSyncHearts, @GUI::Callback(chkSyncHeartsChanged),
-      "Hearts",
-      "Enable to sync heart container and piece counts",
-      true
-    );
-
+    // the same layout as o2's web UI:
     makeCheckboxPair(
       vl, GUI::Size(sx150, 0),
       chkSyncItems, @GUI::Callback(chkSyncItemsChanged),
@@ -1250,15 +1268,75 @@ class SettingsWindow {
 
     makeCheckboxPair(
       vl, GUI::Size(sx150, 0),
+      chkSyncProgress, @GUI::Callback(chkSyncProgressChanged),
+      "Progress",
+      "Enable to sync world progress flags (rain state, bottle vendor, hobo, aga1, aga2, etc.)",
+      true,
+      chkSyncHearts, @GUI::Callback(chkSyncHeartsChanged),
+      "Hearts",
+      "Enable to sync heart container and piece counts",
+      true
+    );
+
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
       chkSyncSmallKeys, @GUI::Callback(chkSyncSmallKeysChanged),
       "Small Keys",
       "Enable to sync small keys; syncs key changes as deltas, so keys should not be lost, though a key may be duplicated in rare cases",
       false,
-      chkSyncProgress, @GUI::Callback(chkSyncProgressChanged),
-      "Progress Flags",
-      "Enable to sync world progress flags (rain state, bottle vendor, hobo, aga1, aga2, etc.)",
+      chkSyncChests, @GUI::Callback(chkSyncChestsChanged),
+      "Chests",
+      "Enable to sync chests opened in underworld rooms",
       true
     );
+
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncOverworld, @GUI::Callback(chkSyncOverworldChanged),
+      "Overworld (Global)",
+      "Overworld area flags kept by every player: opened entrances, bombed walls, heart pieces and other events, once the area loads",
+      true,
+      chkSyncUnderworld, @GUI::Callback(chkSyncUnderworldChanged),
+      "Underworld (Global)",
+      "Dungeon room flags kept by every player: chests, keys, doors and bosses, once the room loads",
+      true
+    );
+
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncOverworldLocal, @GUI::Callback(chkSyncOverworldLocalChanged),
+      "Overworld (Local)",
+      "What players in the same area do while there: lifted bushes and rocks and the secrets under them, bombed walls, entrance animations",
+      true,
+      chkSyncUnderworldLocal, @GUI::Callback(chkSyncUnderworldLocalChanged),
+      "Underworld (Local)",
+      "What players in the same room do while there: pots and the items under them, blocks, pegs, crystal switches, star tiles, trap doors, switches, chests, flying floor tiles",
+      true
+    );
+
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncTorches, @GUI::Callback(chkSyncTorchesChanged),
+      "Torches",
+      "Torches lit by players in the same room",
+      true,
+      chkSyncSfx, @GUI::Callback(chkSyncSfxChanged),
+      "Sound Effects",
+      "Sound effects of players in the same room or area",
+      true
+    );
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkSyncSprites = GUI::CheckLabel();
+      chkSyncSprites.text = "Sprites";
+      chkSyncSprites.toolTip = "Enable to allow other players to see your player sprite on their screens";
+      chkSyncSprites.checked = true;
+      chkSyncSprites.onToggle(@GUI::Callback(chkSyncSpritesChanged));
+      hz.append(chkSyncSprites, GUI::Size(sx150, 0));
+    }
 
     {
       auto @hz = GUI::HorizontalLayout();

@@ -47,7 +47,7 @@ void pre_nmi() {
   local.fetch_sfx();
 
   if (settings.started) {
-    if (!local.is_it_a_bad_time()) {
+    if (settings.SyncSfx && !local.is_it_a_bad_time()) {
       // play remote sfx:
       uint len = players.length();
       for (uint i = 0; i < len; i++) {

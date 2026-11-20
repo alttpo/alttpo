@@ -308,7 +308,7 @@ class Map16Sync {
 
   // called every frame from on_main_alttp; apply the remote changes not applied yet:
   void update() {
-    if (!settings.SyncTilemap) return;
+    if (!settings.SyncOverworldLocal) return;
     if (!valid) return;
     if (!local.is_in_overworld_module() || local.sub_module != 0) return;
     if (ow_location() != loc) return;
@@ -444,7 +444,7 @@ void init_map16_area_load() {
 // the area being loaded ($8A) to it. They are not added to the local log here (scroll transitions reset $04AC
 // afterwards); Map16Sync::update memorizes them once the area is loaded.
 void on_overworld_area_load(uint32 pc) {
-  if (!settings.SyncTilemap) return;
+  if (!settings.SyncOverworldLocal) return;
   if (local is null || local.get_in_sm()) return;
   uint16 area = bus::read_u16(0x7E008A);
 

@@ -298,7 +298,7 @@ class RoomStateLocal {
       doorTs = now_ts();
     }
 
-    if (!settings.SyncTilemap) return;
+    if (!settings.SyncUnderworldLocal) return;
     if (sub_module != 0x00) return;
 
     apply(t0, t1);

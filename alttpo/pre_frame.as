@@ -91,7 +91,7 @@ void on_main_alttp(uint32 pc) {
     }
     remove_collected_heart_sprites();
 
-    if (settings.SyncUnderworld) {
+    if (settings.SyncTorches) {
       update_torches();
     }
   }

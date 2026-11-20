@@ -2118,14 +2118,18 @@ class LocalGameState : GameState {
       serialize_name(envelope);
 
       if (!get_in_sm()) {
-        serialize_sfx(envelope);
+        if (settings.SyncSfx) {
+          serialize_sfx(envelope);
+        }
 
         if (settings.EnablePvP) {
           serialize_pvp(envelope);
         }
 
-        if (settings.SyncTilemap) {
+        if (settings.SyncLocal) {
           serialize_ancillae(envelope);
+        }
+        if (settings.SyncUnderworldLocal) {
           serialize_crystals(envelope);
         }
 
@@ -2181,16 +2185,16 @@ class LocalGameState : GameState {
         }
 
         // overworld map16 changes are area specific; send them only to players in the same area:
-        if (settings.SyncTilemap) {
+        if (settings.SyncOverworldLocal) {
           p = map16Sync.send(p);
         }
         // overworld entrance animations and other events, in their own packet:
-        if (settings.SyncOverworld) {
+        if (settings.SyncOverworldLocal) {
           p = owEvents.send(p);
         }
 
         // send packet every other frame:
-        if ((frame & 1) == 0) {
+        if (settings.SyncTorches && (frame & 1) == 0) {
           auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
           serialize_torches(envelope);
           p = send_packet(envelope, p);
@@ -2198,7 +2202,7 @@ class LocalGameState : GameState {
 
         // the manipulable objects again, to all players whenever they change and every 32 frames, so that players
         // entering the room have them while it loads (see on_room_load):
-        if (settings.SyncTilemap && manipSync.valid && (module == 0x07 || module == 0x0E)) {
+        if (settings.SyncUnderworldLocal && manipSync.valid && (module == 0x07 || module == 0x0E)) {
           array<uint8> m;
           manipSync.serialize(m);
           if (++manipSendsSinceAll >= 32 || !arrays_equal(m, manipLastSentAll)) {
@@ -2211,7 +2215,7 @@ class LocalGameState : GameState {
         }
 
         // star switch state and manipulable objects are room specific; send them only to players in the same room:
-        if (settings.SyncTilemap && module == 0x07) {
+        if (settings.SyncUnderworldLocal && module == 0x07) {
           auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
           starSwitch.serialize(envelope);
           manipSync.serialize(envelope);
@@ -2267,7 +2271,7 @@ class LocalGameState : GameState {
     if (module < 0x06) return;
 
     // reset comparison state:
-    if (settings.SyncTilemap) {
+    if (settings.SyncUnderworldLocal) {
       crystal.compareStart();
     }
 
@@ -2282,7 +2286,7 @@ class LocalGameState : GameState {
       if (remote.is_it_a_bad_time()) continue;
       if (remote.get_in_sm()) continue;
 
-      if (settings.SyncTilemap) {
+      if (settings.SyncUnderworldLocal) {
         // update crystal switches to latest state among all players in same dungeon:
         // animation_timer check is to prevent soft lock if another animation is occurring.
         if ((module == 0x07 && sub_module == 0x00 && animation_timer == 0) && (remote.module == module) && (remote.dungeon == dungeon)) {
@@ -2291,7 +2295,7 @@ class LocalGameState : GameState {
       }
     }
 
-    if (settings.SyncTilemap) {
+    if (settings.SyncUnderworldLocal) {
       if (crystal.winner !is null) {
         // record timestamp so if we just joined we should keep that:
         if (crystal.updateTo(crystal.winner)) {
@@ -2513,7 +2517,7 @@ class LocalGameState : GameState {
 
   void update_ancillae() {
     if (is_dead()) return;
-    if (!settings.SyncTilemap) return;
+    if (!settings.SyncLocal) return;
 
     uint len = players.length();
 

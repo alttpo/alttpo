@@ -104,7 +104,7 @@ class StarSwitchLocal {
       overlay = bus::read_u8(0x7E0000 + star_overlay_offs);
     }
 
-    if (!settings.SyncTilemap) return;
+    if (!settings.SyncUnderworldLocal) return;
     if (local.sub_module != 0x00 || local.animation_timer != 0) return;
     if (rom.fn_toggle_star_tile_graphics == 0) return;
 

@@ -248,7 +248,7 @@ class ManipSync {
 
   // called every frame from on_main_alttp; reveal objects and move push blocks like remote players in the room did:
   void update() {
-    if (!settings.SyncTilemap) return;
+    if (!settings.SyncUnderworldLocal) return;
     apply_pending();
     if (!valid) return;
     if (local.module != 0x07 || local.sub_module != 0) return;
@@ -484,7 +484,7 @@ void init_manip_room_load() {
 // players on the same team in that room ($A0) revealed and pushed.
 void on_room_load(uint32 pc) {
   manip_pending.resize(0);
-  if (!settings.SyncTilemap) return;
+  if (!settings.SyncUnderworldLocal) return;
   if (local is null || local.get_in_sm()) return;
   // not in the title, attract mode or ending:
   uint8 module = bus::read_u8(0x7E0010);
