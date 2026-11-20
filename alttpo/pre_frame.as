@@ -295,6 +295,12 @@ void pre_frame() {
 
       // receive network updates from remote players:
       receive();
+
+      // notice when the server was gone for a while, and tell the others how long:
+      if (local.index >= 0) {
+        runAbsence.tick();
+        runAbsence.announce();
+      }
     }
   }
 
@@ -326,7 +332,15 @@ void pre_frame() {
       // erase player:
       remote.ttl = 0;
       if (remote.index >= 0) {
-        @players[remote.index] = @GameState();
+        // keep what we saw of its run, so that a player that was away isn't forgotten (until a group reset):
+        RunTimingRemote saved = remote.run_timing;
+        string saved_name = remote.run_name;
+        int slot = remote.index;
+        @players[slot] = @GameState();
+        if (saved.ok && saved.start_at != 0) {
+          players[slot].run_timing = saved;
+          players[slot].run_name = saved_name;
+        }
         players_updated = true;
       }
       playerCount--;

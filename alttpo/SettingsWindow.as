@@ -1175,6 +1175,7 @@ class SettingsWindow {
 
     started = true;
     players.resize(0);
+    runAbsence.reset();
 
     if (local !is null) {
       local.reset();
@@ -1188,6 +1189,7 @@ class SettingsWindow {
     @sock = null;
     started = false;
     players.resize(0);
+    runAbsence.reset();
 
     if (local !is null) {
       local.reset();

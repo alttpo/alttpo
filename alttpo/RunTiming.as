@@ -43,6 +43,26 @@ const uint8 msg_reset = 0x81;
 const uint8 run_timing_version = 1;
 const uint8 run_timing_size = 72;
 
+// message 0x85 gives a player back the run it lost while away; 0x86 tells for how long a player lost its connection
+// (see o2's runrestore.go and RUN_TIMING.md, Disconnects):
+const uint8 msg_run_restore = 0x85;
+const uint8 msg_run_gap = 0x86;
+const uint8 run_restore_version = 1;
+const uint8 run_restore_size = 62;
+const uint8 run_gap_version = 1;
+const uint8 run_gap_size = 17;
+const uint8 gap_snes = 1;
+const uint8 gap_server = 2;
+// a player that still reports no start is sent its start again after this long:
+const uint64 run_restore_resend_ms = 2000;
+// how long to wait for the others to give the run back when the SNES holds a start that can't be placed:
+const uint64 run_restore_grace_ms = 4000;
+// a gap is announced every half second for this long, as packets may be lost:
+const uint64 run_gap_repeat_ms = 5000;
+// the server is lost when nothing came from it (our echoes come back twice a second) for this long:
+const int64 run_server_silent_ns = 3000000000;
+const int64 run_gap_max_ns = 86400000000000;
+
 // run timing message flags:
 const uint8 rt_flag_started = 0x01;
 const uint8 rt_flag_finished = 0x02;
@@ -124,6 +144,15 @@ string rt_format_duration(int64 ns) {
     pad0(int(ms % 1000), 3);
 }
 
+// rt_format_time formats a server time (nanoseconds since the unix epoch) as the time of day in UTC: hh:mm:ss.mmmZ.
+string rt_format_time(int64 ns) {
+  if (ns <= 0) return "";
+  int64 ms = ns / 1000000;
+  int64 day_ms = ms % 86400000;
+  return pad0(int(day_ms / 3600000), 2) + ":" + pad0(int((day_ms / 60000) % 60), 2) + ":" +
+    pad0(int((day_ms / 1000) % 60), 2) + "." + pad0(int(day_ms % 1000), 3) + "Z";
+}
+
 string pad0(int v, int n) {
   string s = fmtInt(v);
   while (int(s.length()) < n) s = "0" + s;
@@ -173,7 +202,7 @@ class RunTimingRemote {
 
   // deserialize reads message 0x84 after its type byte; returns the offset after it, skipping versions it doesn't
   // know by their size. Messages of another group reset than our own last one are ignored.
-  int deserialize(const array<uint8> &in r, int c) {
+  int deserialize(const array<uint8> &in r, int c, GameState@ owner) {
     int maxc = int(r.length());
     if (c + 2 > maxc) return maxc;
     uint8 version = r[c++];
@@ -187,6 +216,14 @@ class RunTimingRemote {
     if (runReset.last_id != 0 && id != 0 && (id != runReset.last_id || initiator != runReset.last_initiator)) {
       return end;
     }
+
+    int64 old_start = start_at;
+    int64 old_finish = finish_at;
+    uint32 old_start_frame = start_frame;
+    uint32 old_finish_frame = finish_frame;
+    uint32 old_lag = lag_frames;
+    uint32 old_penalty = penalty_ms;
+    uint8 old_flags = flags;
 
     ok = true;
     flags = r[c++];
@@ -205,7 +242,31 @@ class RunTimingRemote {
     sample_at = rt_read_i64(r, c); c += 8;
     lag_frames = rt_u24(r, c); c += 3;
     penalty_ms = uint32(r[c]) | (uint32(r[c+1]) << 8) | (uint32(r[c+2]) << 16) | (uint32(r[c+3]) << 24);
-    if (s != start_at || f != finish_at) {
+    // a player that was away and lost its state (it was restarted) doesn't clear what we saw of its run; it is given it
+    // back instead. A different player that took the slot of the one before it isn't:
+    bool lost_start = s == 0 && old_start != 0;
+    bool lost_finish = f == 0 && old_finish != 0;
+    if (lost_start || lost_finish) {
+      if (owner.run_name != "" && owner.name != "" && owner.name != owner.run_name) {
+        owner.run_name = "";
+      } else {
+        if (lost_start) {
+          s = old_start;
+          start_frame = old_start_frame;
+        }
+        if (lost_finish) {
+          f = old_finish;
+          finish_frame = old_finish_frame;
+        }
+        lag_frames = old_lag;
+        penalty_ms = old_penalty;
+        flags |= old_flags & (rt_flag_started | rt_flag_finished | rt_flag_discontinuity | rt_flag_rate | rt_flag_state_load);
+        owner.request_run_restore(this, s, f);
+      }
+    }
+    if (s != 0 && old_start == 0) owner.run_name = owner.name;
+
+    if (s != old_start || f != old_finish) {
       players_updated = true;
     }
     start_at = s;
@@ -257,6 +318,9 @@ class RunTimingLocal {
   uint8 flags = 0;
   int64 penalty_ns = 0;
 
+  // when a start in SRAM that couldn't be placed was first seen, while waiting for the others to give the run back:
+  uint64 restore_wait_since_ms = 0;
+
   // write 0 to the latches with the next frame:
   bool clear_latches = false;
   // send message 0x84 now:
@@ -280,7 +344,80 @@ class RunTimingLocal {
     flags = 0;
     penalty_ns = 0;
     clear_latches = true;
+    restore_wait_since_ms = 0;
     players_updated = true;
+  }
+
+  // await_restore tells whether to wait a little before clearing a start in the SRAM that can't be placed: the others
+  // may have seen it, and give it back if we lost it by being restarted. It waits only when there are others to ask.
+  bool await_restore() {
+    if (local.index < 0 || sock is null) return false;
+    bool others = false;
+    for (uint i = 0; i < players.length(); i++) {
+      auto @p = players[i];
+      if (p is null || p is local || p.ttl <= 0) continue;
+      others = true;
+      break;
+    }
+    if (!others) return false;
+    uint64 now = chrono::monotonic::millisecond;
+    if (restore_wait_since_ms == 0) {
+      restore_wait_since_ms = now;
+      message("run timing: found a start in the SNES that wasn't followed; waiting for the others to give the run back");
+    }
+    if (now - restore_wait_since_ms < run_restore_grace_ms) return true;
+    restore_wait_since_ms = 0;
+    return false;
+  }
+
+  // restore_from reads message 0x85 (after its size byte) from another player: the run we lost, for us to take back if
+  // it is for us (our index and name) and of the group reset we are in.
+  void restore_from(GameState@ sender, const array<uint8> &in r, int c) {
+    if (int(uint16(r[c]) | (uint16(r[c + 1]) << 8)) != local.index) return;
+    // the name, without its padding:
+    int n = 20;
+    while (n > 0 && (r[c + 2 + n - 1] == 0x20 || r[c + 2 + n - 1] == 0)) n--;
+    string ours = local.namePadded;
+    int m = 20;
+    while (m > 0 && (ours[m - 1] == 0x20 || ours[m - 1] == 0)) m--;
+    if (n != m) return;
+    for (int i = 0; i < n; i++) {
+      if (uint(r[c + 2 + i]) != uint(ours[uint(i)])) return;
+    }
+    uint64 id = uint64(rt_read_i64(r, c + 22));
+    uint16 initiator = uint16(r[c + 30]) | (uint16(r[c + 31]) << 8);
+    if (runReset.last_id != 0 && id != 0 && (id != runReset.last_id || initiator != runReset.last_initiator)) return;
+    if (started || runReset.resetting) return;
+
+    uint8 f = r[c + 32];
+    int64 s = rt_read_i64(r, c + 33);
+    int64 fin = rt_read_i64(r, c + 41);
+    int64 now = server_now();
+    if (s == 0 || (now != 0 && s > now + rt_jump_ns) || (fin != 0 && fin < s)) {
+      message("run timing: ignoring the run " + rt_player_label(sender) + " sent back");
+      return;
+    }
+
+    started = true;
+    start_frame = rt_u24(r, c + 49);
+    start_at = s;
+    flags |= rt_flag_started | (f & (rt_flag_discontinuity | rt_flag_rate | rt_flag_state_load));
+    penalty_ns = int64(p04_read_u32(r, c + 58)) * 1000000;
+    lag_acc = rt_u24(r, c + 55);
+    lag_frames = lag_acc;
+    lag_base = sampled ? ((nmi - loop) & 0xFFFFFF) : 0;
+    gates_at_start = gates;
+    gates_changed = false;
+    restore_wait_since_ms = 0;
+    if (fin != 0) {
+      finished = true;
+      finish_frame = rt_u24(r, c + 52);
+      finish_at = fin;
+      flags |= rt_flag_finished;
+    }
+    send_now = true;
+    players_updated = true;
+    notificationSystem.notify("run timing restored from " + rt_player_label(sender) + ": started at " + rt_format_time(s));
   }
 
   // post_frame reads the counters, latches and gates after the frame ran.
@@ -335,6 +472,8 @@ class RunTimingLocal {
       }
       int64 at;
       if (!latch_time(f, now, at)) {
+        // the others may have seen the start; if we lost it by being restarted, they give it back:
+        if (await_restore()) return;
         message("run timing: start latched before the counter was followed; clearing");
         clear_latches = true;
         return;
@@ -532,7 +671,7 @@ string run_time_text() {
   for (uint i = 0; i < players.length(); i++) {
     auto @p = players[i];
     if (p is null) continue;
-    if (!(p is local) && p.ttl <= 0) continue;
+    // players that are away keep their start, until a group reset:
     auto @rt = player_run_timing(p);
     if (!rt.ok || rt.start_at == 0) continue;
     any = true;
@@ -585,6 +724,94 @@ string player_time_text(GameState@ p) {
   if (rt.gates_changed) s += " (gates changed)";
   return s;
 }
+
+// rt_player_label names a player for notes.
+string rt_player_label(GameState@ p) {
+  if (p.name != "") return p.name;
+  return "player #" + fmtHex(uint8(p.index), 2);
+}
+
+// A stretch of time the local player lost its connection to the server, on the server's clock.
+class RunGap {
+  uint8 kind = 0;
+  int64 lost = 0;
+  int64 back = 0;
+  bool announced = false;
+  uint64 until_ms = 0;
+};
+
+string rt_describe_gap(GameState@ p, uint8 kind, int64 lost, int64 back) {
+  string what = kind == gap_snes ? "SNES" : (kind == gap_server ? "server" : "connection");
+  return rt_player_label(p) + ": " + what + " connection lost for " + rt_format_duration(back - lost) + " (" +
+    rt_format_time(lost) + " to " + rt_format_time(back) + ")";
+}
+
+// RunAbsence notices when the local player lost the server, and tells the others how long it was gone; every client
+// notes that in its notifications, so that the gap can be verified.
+class RunAbsence {
+  // packets from the server were seen since we joined, so silence means something:
+  bool armed = false;
+  int64 server_lost_at = 0;
+  array<RunGap@> pending;
+  uint64 last_sent_ms = 0;
+
+  void reset() {
+    armed = false;
+    server_lost_at = 0;
+    pending.resize(0);
+  }
+
+  // tick watches for silence from the server; called every frame while connected to a group.
+  void tick() {
+    if (last_server_time_received_ns == 0) return;
+    int64 silent = int64(chrono::monotonic::nanosecond - last_server_time_received_ns);
+    if (!armed) {
+      if (silent < 1000000000) armed = true;
+      return;
+    }
+    int64 now = server_now();
+    if (now == 0) return;
+    if (server_lost_at == 0) {
+      if (silent > run_server_silent_ns) server_lost_at = now - silent;
+    } else if (silent < 1000000000) {
+      RunGap g;
+      g.kind = gap_server;
+      g.lost = server_lost_at;
+      g.back = now - silent;
+      pending.insertLast(g);
+      server_lost_at = 0;
+    }
+  }
+
+  // announce notes new gaps and sends the pending ones twice a second for a while.
+  void announce() {
+    if (pending.length() == 0 || runReset.resetting || local.index < 0 || sock is null) return;
+    uint64 now = chrono::monotonic::millisecond;
+    if (now - last_sent_ms < 500) return;
+    last_sent_ms = now;
+    for (int i = int(pending.length()) - 1; i >= 0; i--) {
+      auto @g = pending[i];
+      if (!g.announced) {
+        notificationSystem.notify(rt_describe_gap(local, g.kind, g.lost, g.back));
+        g.announced = true;
+        g.until_ms = now + run_gap_repeat_ms;
+      } else if (now >= g.until_ms) {
+        pending.removeAt(i);
+        continue;
+      }
+      auto @envelope = local.make_packet_broadcast();
+      envelope.write_u8(msg_run_gap);
+      envelope.write_u8(run_gap_version);
+      envelope.write_u8(run_gap_size);
+      envelope.write_u8(g.kind);
+      rt_write_i64(envelope, g.lost);
+      rt_write_i64(envelope, g.back);
+      local.send_packet(envelope, 0);
+    }
+  }
+};
+
+RunAbsence runAbsence;
 
 // Group reset, wire-compatible with o2's (games/alttp/reset.go): the initiator announces a reset; every player stops
 // syncing, clears its state and run timing, and acknowledges; once everyone acknowledged and a quiet period passed,

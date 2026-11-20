@@ -229,6 +229,12 @@ class GameState {
 
   // the player's run timing from message 0x84 (see RunTiming.as):
   RunTimingRemote run_timing;
+  // the name the player had when its start was first seen, so that the run isn't given to another player that took
+  // its slot; when it was last sent its run back; the gaps it announced (see RunTiming.as):
+  string run_name = "";
+  uint64 restore_sent_ms = 0;
+  array<uint8> gaps_seen_kind;
+  array<int64> gaps_seen_lost;
 
   // graphics data for current frame:
   array<Sprite@> sprites;
@@ -847,7 +853,9 @@ class GameState {
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
         case 0x81: c = deserialize_reset(r, c); break;
-        case 0x84: c = run_timing.deserialize(r, c); break;
+        case 0x84: c = run_timing.deserialize(r, c, this); break;
+        case 0x85: c = deserialize_run_restore(r, c); break;
+        case 0x86: c = deserialize_run_gap(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
           if (packetType < 0x80) {
@@ -1266,6 +1274,72 @@ class GameState {
 
     smallKeys.receive_remote(this, session, net, value, ts);
     return c;
+  }
+
+  // request_run_restore sends this player its run back in message 0x85, at most once in a while; it reported no start.
+  void request_run_restore(RunTimingRemote@ rt, int64 s, int64 f) {
+    uint64 now = chrono::monotonic::millisecond;
+    if (restore_sent_ms != 0 && now - restore_sent_ms < run_restore_resend_ms) return;
+    if (runReset.resetting || local.index < 0 || index < 0 || sock is null || this is local) return;
+    restore_sent_ms = now;
+    auto @envelope = local.make_packet_broadcast();
+    envelope.write_u8(msg_run_restore);
+    envelope.write_u8(run_restore_version);
+    envelope.write_u8(run_restore_size);
+    envelope.write_u16(uint16(index));
+    for (uint i = 0; i < 20; i++) {
+      envelope.write_u8(i < namePadded.length() ? namePadded[i] : 0x20);
+    }
+    rt_write_i64(envelope, int64(runReset.last_id));
+    envelope.write_u16(runReset.last_initiator);
+    envelope.write_u8(rt.flags & (rt_flag_started | rt_flag_finished | rt_flag_discontinuity | rt_flag_rate | rt_flag_state_load));
+    rt_write_i64(envelope, s);
+    rt_write_i64(envelope, f);
+    envelope.write_u24(rt.start_frame);
+    envelope.write_u24(rt.finish_frame);
+    envelope.write_u24(rt.lag_frames);
+    envelope.write_u32(rt.penalty_ms);
+    local.send_packet(envelope, 0);
+    message("run timing: " + rt_player_label(this) + " reports no start; sending it back (start " + rt_format_time(s) + ")");
+  }
+
+  // deserialize_run_restore reads message 0x85, after its type byte; the local player takes the run if it is for it.
+  int deserialize_run_restore(const array<uint8> &in r, int c) {
+    int maxc = int(r.length());
+    if (c + 2 > maxc) return maxc;
+    uint8 version = r[c++];
+    int size = int(r[c++]);
+    int end = c + size;
+    if (end > maxc) return maxc;
+    if (version != run_restore_version || size < int(run_restore_size) || this is local) return end;
+    runTiming.restore_from(this, r, c);
+    return end;
+  }
+
+  // deserialize_run_gap reads message 0x86: the player tells for how long it was disconnected. Every gap is noted once.
+  int deserialize_run_gap(const array<uint8> &in r, int c) {
+    int maxc = int(r.length());
+    if (c + 2 > maxc) return maxc;
+    uint8 version = r[c++];
+    int size = int(r[c++]);
+    int end = c + size;
+    if (end > maxc) return maxc;
+    if (version != run_gap_version || size < int(run_gap_size) || this is local) return end;
+    uint8 kind = r[c];
+    int64 lost = rt_read_i64(r, c + 1);
+    int64 back = rt_read_i64(r, c + 9);
+    if (lost <= 0 || back < lost || back - lost > run_gap_max_ns) return end;
+    for (uint i = 0; i < gaps_seen_lost.length(); i++) {
+      if (gaps_seen_lost[i] == lost && gaps_seen_kind[i] == kind) return end;
+    }
+    gaps_seen_kind.insertLast(kind);
+    gaps_seen_lost.insertLast(lost);
+    if (gaps_seen_lost.length() > 16) {
+      gaps_seen_kind.removeAt(0);
+      gaps_seen_lost.removeAt(0);
+    }
+    notificationSystem.notify(rt_describe_gap(this, kind, lost, back));
+    return end;
   }
 
   int deserialize_reset(array<uint8> r, int c) {
