@@ -42,7 +42,8 @@
 //     active, and not bit 3 in water rooms, whose tags use it to remember the water was let out.
 //   - Key doors: a door bit set by a remote player whose slot here is a small key or big key door that is still
 //     closed is unlocked the way the game does (submodule $04 with $068E pointing at the door's tile attributes),
-//     without using a key; the small key sync takes care of the key count.
+//     without using a key; the small key sync takes care of the key count. A bombed or dashed wall (door types $28,
+//     $2A, $2E) still closed here is opened the same way with submodule $09 (OpenCrackedDoor).
 //   - Trap doors are last writer wins among remote players in the same room with a change made after our baseline was
 //     taken (so only changes made while both players are in the room count). They are not applied in rooms with tags
 //     that compute the shutter state every frame from what the local player does (hold switch doors, push block
@@ -520,7 +521,7 @@ class RoomStateLocal {
       apply_kill(k, tags[k]);
     }
 
-    // key doors; unlocking one uses the submodule:
+    // key doors and cracked walls; opening one uses the submodule:
     uint8 newDoors = remoteDoors & ~(doors | doorsTried);
     for (uint b = 0x80; b != 0; b >>= 1) {
       if ((newDoors & b) == 0) continue;
@@ -603,19 +604,27 @@ class RoomStateLocal {
   }
 
   // unlock_door unlocks the key door for a $0401 bit if it is still locked here the way the game does once the key
-  // was used: point $068E at the door's tile attributes ($F0 + slot), clear $0690 and switch to submodule $04.
+  // was used: point $068E at the door's tile attributes ($F0 + slot), clear $0690 and switch to submodule $04. A
+  // cracked wall is opened the way Bomb_CheckForDestructibles and a dash into it do: $068E the same way, SFX3 $1B and
+  // submodule $09 (OpenCrackedDoor, which sets $0690 itself), without the debris.
   bool unlock_door(uint8 b) {
     for (uint k = 0; k < 16; k++) {
       if ((0x80 >> (k & 7)) != b) continue;
       uint32 o = k << 1;
       uint8 t = bus::read_u8(0x7E1980 + o) & 0xFE;
-      // small key and big key doors:
-      if (t < 0x1C || t >= 0x2C || t == 0x28 || t == 0x2A) continue;
+      // small key and big key doors, or bombable and dashable walls:
+      bool cracked = (t == 0x28 || t == 0x2A || t == 0x2E);
+      if (!cracked && (t < 0x1C || t >= 0x2C || t == 0x28 || t == 0x2A)) continue;
       uint16 pos = bus::read_u16(0x7E19A0 + o);
       if (pos == 0) continue;
       uint16 a = (pos >> 1) + 0x41;
       if (bus::read_u8(0x7F2000 + a) != (0xF0 | k)) continue;
       bus::write_u16(0x7E068E, a);
+      if (cracked) {
+        bus::write_u8(0x7E0011, 0x09);
+        bus::write_u8(0x7E012F, 0x1B); // SFX3.1B
+        return true;
+      }
       bus::write_u16(0x7E0690, 0);
       bus::write_u8(0x7E0011, 0x04);
       bus::write_u8(0x7E012F, 0x14 | room_door_sfx_pan[bus::read_u8(0x7E19C0 + o) & 3]); // SFX3.14
