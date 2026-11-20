@@ -19,9 +19,26 @@ class WorldMapWindow {
   array<GUI::Label@> axisBottom;
   array<GUI::Label@> axisLeft;
   array<GUI::Label@> axisRight;
+  // the brightest any map is: this is how bright the manually darkened underworld map is (its brightest pixels
+  // excluding a few hundred outliers are at luma 140 of 255), and the light world and dark world are darkened to match.
+  // The colors of the grid lines come from it. The darker the map the better the players' colors show.
+  int mapMaxBrightness = 140;
+
   // lines on the map between the rooms or areas; the pool grows as needed:
   array<GUI::SNESCanvas@> gridLines;
   uint gridUsed = 0;
+  // brighter lines around the room or area each player is in, 4 lines per room or area:
+  array<GUI::SNESCanvas@> hiLines;
+  uint hiUsed = 0;
+  // the rooms or areas the lines are for, to lay them out again only when they change:
+  string hiKey = "";
+  // where the grid is, for the lines around rooms and areas:
+  uint gridCols = 0;
+  uint gridRows = 0;
+  float gridX0 = 0;
+  float gridY0 = 0;
+  float gridCellW = 0;
+  float gridCellH = 0;
   // what the axes show; the axes are only laid out again when it changes:
   int axisScreen = -1;
   GUI::SNESCanvas @lightWorld;
@@ -284,6 +301,45 @@ class WorldMapWindow {
       @axisLeft[i] = makeAxisLabel();
       @axisRight[i] = makeAxisLabel();
     }
+
+    // create the lines now so they are below the dots, and the brighter lines below the dots but above the others:
+    for (uint i = 0; i < 96; i++) {
+      gridLines.insertLast(makeLine());
+    }
+    for (uint i = 0; i < 32; i++) {
+      hiLines.insertLast(makeLine());
+    }
+  }
+
+  private GUI::SNESCanvas@ makeLine() {
+    auto @c = GUI::SNESCanvas();
+    c.layoutExcluded = true;
+    vl.append(c, GUI::Size(1, 1));
+    c.setAlignment(0, 0);
+    c.setPosition(-128, -128);
+    c.visible = false;
+    return c;
+  }
+
+  // gray is an opaque SNES color of the brightness 0-255:
+  private uint16 gray(int brightness) {
+    if (brightness > 255) brightness = 255;
+    int v = brightness >> 3;
+    return ppu::rgb(v, v, v) | 0x8000;
+  }
+
+  private void setLine(GUI::SNESCanvas @c, float x, float y, float w, float h, uint16 color) {
+    int iw = int(w + 0.5);
+    int ih = int(h + 0.5);
+    if (iw < 1) iw = 1;
+    if (ih < 1) ih = 1;
+
+    // the canvas is the line: its image is the size of the line and filled with its color:
+    c.size = GUI::Size(iw, ih);
+    c.fill(color);
+    c.update();
+    c.geometry = GUI::Geometry(GUI::Position(x, y), GUI::Size(iw, ih));
+    c.visible = true;
   }
 
   private void placeAxisLabel(GUI::Label @lbl, string text, float x, float y, float w, float h) {
@@ -315,6 +371,8 @@ class WorldMapWindow {
       gridLines[i].visible = false;
     }
     gridUsed = 0;
+    hideHighlights();
+    gridCols = 0;
 
     if (screen != 0 && screen != 1 && screen != 2) return;
 
@@ -406,29 +464,117 @@ class WorldMapWindow {
 
   private void gridLine(float x, float y, float w, float h) {
     if (gridUsed >= gridLines.length()) {
-      auto @c = GUI::SNESCanvas();
-      c.layoutExcluded = true;
-      vl.append(c, GUI::Size(1, 1));
-      c.setAlignment(0, 0);
-      gridLines.insertLast(c);
+      gridLines.insertLast(makeLine());
     }
 
-    auto @c = gridLines[gridUsed++];
-    int iw = int(w + 0.5);
-    int ih = int(h + 0.5);
-    if (iw < 1) iw = 1;
-    if (ih < 1) ih = 1;
+    // half as bright as the brightest of the maps:
+    setLine(gridLines[gridUsed++], x, y, w, h, gray(mapMaxBrightness / 2));
+  }
 
-    // the canvas is the line: its image is the size of the line and filled with its color:
-    c.size = GUI::Size(iw, ih);
-    c.fill(ppu::rgb(31, 31, 31) | 0x8000);
-    c.update();
-    c.geometry = GUI::Geometry(GUI::Position(x, y), GUI::Size(iw, ih));
-    c.visible = true;
+  private void hideHighlights() {
+    for (uint i = 0; i < hiUsed; i++) {
+      hiLines[i].visible = false;
+    }
+    hiUsed = 0;
+    hiKey = "";
+  }
+
+  private void highlightLine(float x, float y, float w, float h) {
+    if (hiUsed >= hiLines.length()) {
+      hiLines.insertLast(makeLine());
+    }
+
+    // brighter than the brightest of the maps, so that they stand out:
+    setLine(hiLines[hiUsed++], x, y, w, h, gray(mapMaxBrightness * 7 / 4));
+  }
+
+  // updateHighlights draws brighter lines around the room (underworld) or area (overworld) of each player shown. A
+  // large area is outlined as a whole.
+  private void updateHighlights(array<GameState@> @ps) {
+    if (gridCols == 0) return;
+
+    // the rooms and areas as columns, rows, and how many of each:
+    array<int> rects;
+    string key = "";
+    for (uint i = 0; i < ps.length(); i++) {
+      auto @p = ps[i];
+      if (p is null || p.ttl <= 0 || !showsOnScreen(p, screen)) continue;
+
+      int c0, r0, c1, r1;
+      if (screen == 2) {
+        if (p.dungeon == 0xFF) continue;
+        uint room = p.actual_location & 0xFFFF;
+        if (room >= 0x130) continue;
+        c0 = c1 = int(room & 15);
+        r0 = r1 = int(room >> 4);
+      } else {
+        // overworld areas only, not the caves and houses:
+        if ((p.actual_location & 0x010000) != 0) continue;
+        uint area = p.actual_location & 0xFF;
+        if (area >= 0x80) continue;
+        area &= 0x3F;
+        uint r = area >> 3;
+        uint c = area & 7;
+        c0 = c1 = int(c);
+        r0 = r1 = int(r);
+        // the extent of the large area:
+        int block = owBlock(r, c);
+        for (uint rr = 0; rr < 8; rr++) {
+          for (uint cc = 0; cc < 8; cc++) {
+            if (owBlock(rr, cc) != block) continue;
+            if (int(cc) < c0) c0 = int(cc);
+            if (int(cc) > c1) c1 = int(cc);
+            if (int(rr) < r0) r0 = int(rr);
+            if (int(rr) > r1) r1 = int(rr);
+          }
+        }
+      }
+
+      // players in the same room share the lines:
+      bool seen = false;
+      for (uint j = 0; j + 3 < rects.length(); j += 4) {
+        if (rects[j] == c0 && rects[j + 1] == r0 && rects[j + 2] == c1 && rects[j + 3] == r1) seen = true;
+      }
+      if (seen) continue;
+      key += fmtInt(c0) + "," + fmtInt(r0) + "," + fmtInt(c1) + "," + fmtInt(r1) + ";";
+      rects.insertLast(c0);
+      rects.insertLast(r0);
+      rects.insertLast(c1);
+      rects.insertLast(r1);
+    }
+
+    if (key == hiKey) return;
+
+    for (uint i = 0; i < hiUsed; i++) {
+      hiLines[i].visible = false;
+    }
+    hiUsed = 0;
+    hiKey = key;
+
+    float thick = sx(1);
+    for (uint i = 0; i + 3 < rects.length(); i += 4) {
+      float x = gridX0 + gridCellW * rects[i];
+      float y = gridY0 + gridCellH * rects[i + 1];
+      float w = gridCellW * (rects[i + 2] - rects[i] + 1);
+      float h = gridCellH * (rects[i + 3] - rects[i + 1] + 1);
+      // top, bottom, left and right:
+      highlightLine(x, y - thick / 2, w, thick);
+      highlightLine(x, y + h - thick / 2, w, thick);
+      highlightLine(x - thick / 2, y, thick, h);
+      highlightLine(x + w - thick / 2, y, thick, h);
+    }
   }
 
   // layoutGrid draws the lines between the rooms or areas over the map; areas within a large area have none
   private void layoutGrid(uint cols, uint rows, float startX, float startY, float cellW, float cellH) {
+    gridCols = cols;
+    gridRows = rows;
+    gridCellW = cellW;
+    gridCellH = cellH;
+    gridX0 = dotLeft + startX;
+    gridY0 = dotTop + startY;
+    hiKey = "";
+
     float thick = sx(1);
     float x0 = dotLeft + startX;
     float y0 = dotTop + startY;
@@ -649,7 +795,50 @@ class WorldMapWindow {
       }
     }
 
+    // darken the maps to be no brighter than the underworld map:
+    darkenPalette(paletteLight, tilemapLight);
+    darkenPalette(paletteDark, tilemapDark);
+
     loaded = true;
+  }
+
+  // luma of a SNES color as 0-255:
+  private float luma(uint16 c) {
+    float r = float(c & 31) * 255.0 / 31.0;
+    float g = float((c >> 5) & 31) * 255.0 / 31.0;
+    float b = float((c >> 10) & 31) * 255.0 / 31.0;
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+
+  // darkenPalette scales the colors that the shown part of the map uses so that the brightest is no brighter than
+  // mapMaxBrightness; the hues are kept. A map that is not brighter is left as it is.
+  private void darkenPalette(array<uint16> &inout palette, const array<uint8> &in tilemap) {
+    array<bool> used(0x100, false);
+    for (int my = mtop; my < mtop + mheight; my++) {
+      for (int mx = mleft; mx < mleft + mwidth; mx++) {
+        uint8 t = tilemap[(my*128+mx)];
+        for (int i = 0; i < 64; i++) {
+          used[gfx[(t*64)+i]] = true;
+        }
+      }
+    }
+
+    float brightest = 0;
+    for (uint i = 0; i < 0x100; i++) {
+      if (!used[i]) continue;
+      float l = luma(palette[i]);
+      if (l > brightest) brightest = l;
+    }
+    if (brightest <= float(mapMaxBrightness)) return;
+
+    float scale = float(mapMaxBrightness) / brightest;
+    for (uint i = 0; i < 0x100; i++) {
+      uint16 c = palette[i];
+      uint16 r = uint16(float(c & 31) * scale + 0.5);
+      uint16 g = uint16(float((c >> 5) & 31) * scale + 0.5);
+      uint16 b = uint16(float((c >> 10) & 31) * scale + 0.5);
+      palette[i] = r | (g << 5) | (b << 10);
+    }
   }
 
   bool drawn = false;
@@ -936,6 +1125,8 @@ class WorldMapWindow {
         dotY[i] = y;
       }
     }
+
+    updateHighlights(ps);
   }
 
   int8 metroid_area_base_x(uint8 area) {

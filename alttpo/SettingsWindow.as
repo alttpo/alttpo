@@ -743,7 +743,7 @@ class SettingsWindow {
     vl.resize();
     build_advanced();
     windowLayout.attach("settings", window);
-    windowLayout.attach("advanced", advancedWindow);
+    windowLayout.attach("advanced", advancedWindow, false);
     window.visible = true;
     window.setFocused();
   }
@@ -1334,7 +1334,8 @@ class SettingsWindow {
   private void build_advanced() {
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(190*2), sy(700));
+    advancedWindow.resizable = false;
+    advancedWindow.size = GUI::Size(sx(190*2), sy(720));
 
     auto sx150 = sx(190);
     auto sx100 = sx(100);
@@ -1759,26 +1760,26 @@ class SettingsWindow {
       btnOpenMemory.onActivate(@GUI::Callback(btnOpenMemoryClicked));
       hz.append(btnOpenMemory, GUI::Size(-1, -1));
 
+      @btnOpenEnemies = GUI::Button();
+      btnOpenEnemies.text = "Enemies";
+      btnOpenEnemies.toolTip = "Open the window showing the enemies in the room or area.";
+      btnOpenEnemies.onActivate(@GUI::Callback(btnOpenEnemiesClicked));
+      hz.append(btnOpenEnemies, GUI::Size(-1, -1));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, -1));
+
       @btnOpenVram = GUI::Button();
       btnOpenVram.text = "Sprite VRAM";
       btnOpenVram.toolTip = "Open the window showing the sprite graphics in VRAM.";
       btnOpenVram.onActivate(@GUI::Callback(btnOpenVramClicked));
       hz.append(btnOpenVram, GUI::Size(-1, -1));
 
-      @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, -1));
-
       @btnOpenOam = GUI::Button();
       btnOpenOam.text = "OAM";
       btnOpenOam.toolTip = "Open the window showing the OAM entries of the frame.";
       btnOpenOam.onActivate(@GUI::Callback(btnOpenOamClicked));
       hz.append(btnOpenOam, GUI::Size(-1, -1));
-
-      @btnOpenEnemies = GUI::Button();
-      btnOpenEnemies.text = "Enemies";
-      btnOpenEnemies.toolTip = "Open the window showing the enemies in the room or area.";
-      btnOpenEnemies.onActivate(@GUI::Callback(btnOpenEnemiesClicked));
-      hz.append(btnOpenEnemies, GUI::Size(-1, -1));
     }
   }
 

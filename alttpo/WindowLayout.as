@@ -25,6 +25,8 @@ class WindowGeom {
 class ManagedWindow {
   string key;
   GUI::Window @window;
+  // false for windows whose size the user cannot change; only their position is restored:
+  bool restoreSize = true;
 
   ManagedWindow(const string &in key, GUI::Window @window) {
     this.key = key;
@@ -76,8 +78,9 @@ class WindowLayout {
   }
 
   // attach starts keeping track of the window and applies the saved layout to it if there is one:
-  void attach(const string &in key, GUI::Window @window) {
+  void attach(const string &in key, GUI::Window @window, bool restoreSize = true) {
     auto @m = ManagedWindow(key, window);
+    m.restoreSize = restoreSize;
     managed.insertLast(m);
 
     window.onMove(@GUI::Callback(m.moved));
@@ -92,7 +95,7 @@ class WindowLayout {
     if (!g.has) return;
 
     applying = true;
-    m.window.size = GUI::Size(g.w, g.h);
+    if (m.restoreSize) m.window.size = GUI::Size(g.w, g.h);
     m.window.setRelativePosition(g.x, g.y);
     applying = false;
   }
