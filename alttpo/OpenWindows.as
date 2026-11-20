@@ -19,15 +19,12 @@ void openPlayersWindow() {
   playersWindow.show();
 }
 
-void openDebugWindow() {
-  if (debugWindow is null) {
-    @debugWindow = DebugWindow();
-  }
-  debugWindow.show();
-}
-
-// the windows below show the game's state so there has to be a game:
+// the windows below are debug windows that show the game's state so they have to be enabled and there has to be a game:
 bool noGameLoaded(const string &in what) {
+  if (!settings.DebugEnabled) {
+    message("The " + what + " window needs Enable Debug Windows in the Advanced Settings window");
+    return true;
+  }
   if (rom is null || local is null) {
     message("The " + what + " window opens once a game is loaded");
     return true;
@@ -75,13 +72,22 @@ void openEnemyWindow() {
 void openStartupWindows() {
   if (settings.OpenMap) openMapWindow();
   if (settings.OpenPlayers) openPlayersWindow();
-  if (settings.OpenDebug) openDebugWindow();
 }
 
 // openStartupGameWindows opens the windows that need a game once it is loaded:
 void openStartupGameWindows() {
+  if (!settings.DebugEnabled) return;
+
   if (settings.OpenMemory || debugMemory) openMemoryWindow();
   if (settings.OpenVram || debugSprites) openSpritesWindow();
   if (settings.OpenOam || debugOAM) openOamWindow();
   if (settings.OpenEnemies || debugEnemyWindow) openEnemyWindow();
+}
+
+// closeDebugWindows hides the debug windows, when they are disabled:
+void closeDebugWindows() {
+  if (memoryWindow !is null) memoryWindow.hide();
+  if (sprites !is null) sprites.hide();
+  if (oamWindow !is null) oamWindow.hide();
+  if (enemyWindow !is null) enemyWindow.hide();
 }

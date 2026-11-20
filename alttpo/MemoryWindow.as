@@ -147,6 +147,10 @@ class MemoryWindow {
     return window.visible;
   }
 
+  void hide() {
+    window.visible = false;
+  }
+
   void show() {
     window.visible = true;
     window.setFocused();

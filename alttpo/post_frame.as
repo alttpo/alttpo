@@ -6,6 +6,8 @@ void post_frame() {
     runTiming.post_frame();
   }
   
+  windowLayout.poll();
+
   if (oamWindow !is null) {
     oamWindow.update();
   }

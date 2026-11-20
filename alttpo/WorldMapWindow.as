@@ -19,6 +19,9 @@ class WorldMapWindow {
   array<GUI::Label@> axisBottom;
   array<GUI::Label@> axisLeft;
   array<GUI::Label@> axisRight;
+  // lines on the map between the rooms or areas; the pool grows as needed:
+  array<GUI::SNESCanvas@> gridLines;
+  uint gridUsed = 0;
   // what the axes show; the axes are only laid out again when it changes:
   int axisScreen = -1;
   GUI::SNESCanvas @lightWorld;
@@ -308,6 +311,11 @@ class WorldMapWindow {
       axisRight[i].visible = false;
     }
 
+    for (uint i = 0; i < gridUsed; i++) {
+      gridLines[i].visible = false;
+    }
+    gridUsed = 0;
+
     if (screen != 0 && screen != 1 && screen != 2) return;
 
     // size of the map in the window:
@@ -364,6 +372,107 @@ class WorldMapWindow {
       }
       placeAxisLabel(axisLeft[r], text, dotLeft - axisW, cy - axisH / 2, axisW, axisH);
       placeAxisLabel(axisRight[r], text, dotLeft + mapW, cy - axisH / 2, axisW, axisH);
+    }
+
+    layoutGrid(cols, rows, startX, startY, cellW, cellH);
+  }
+
+  // which screens of the overworld are part of a large area, which is 2x2 screens as one; from the table
+  // OverworldScreenSizeFlag in bank $02. The light world and the dark world are laid out the same:
+  private array<uint8> owLarge = {
+    1, 1, 0, 1, 1, 1, 1, 0,
+    1, 1, 0, 1, 1, 1, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 0, 1, 1, 0, 1, 1,
+    1, 1, 0, 1, 1, 0, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 0, 0, 0, 1, 1, 0,
+    1, 1, 0, 0, 0, 1, 1, 0
+  };
+
+  // owBlock is the same for all the screens of one area: a small area is its own screen and a large area is its top
+  // left screen; large areas are in pairs of rows 0-1, 3-4 and 6-7 and in pairs of columns within each run of columns
+  private int owBlock(uint r, uint c) {
+    if (owLarge[r * 8 + c] == 0) return int(r * 8 + c);
+
+    uint top = (r / 3) * 3;
+    uint left = c;
+    // pair up the columns of the run from its left end:
+    uint start = c;
+    while (start > 0 && owLarge[r * 8 + start - 1] != 0) start--;
+    left = start + ((c - start) & ~1);
+    return int(top * 8 + left);
+  }
+
+  private void gridLine(float x, float y, float w, float h) {
+    if (gridUsed >= gridLines.length()) {
+      auto @c = GUI::SNESCanvas();
+      c.layoutExcluded = true;
+      vl.append(c, GUI::Size(1, 1));
+      c.setAlignment(0, 0);
+      gridLines.insertLast(c);
+    }
+
+    auto @c = gridLines[gridUsed++];
+    int iw = int(w + 0.5);
+    int ih = int(h + 0.5);
+    if (iw < 1) iw = 1;
+    if (ih < 1) ih = 1;
+
+    // the canvas is the line: its image is the size of the line and filled with its color:
+    c.size = GUI::Size(iw, ih);
+    c.fill(ppu::rgb(31, 31, 31) | 0x8000);
+    c.update();
+    c.geometry = GUI::Geometry(GUI::Position(x, y), GUI::Size(iw, ih));
+    c.visible = true;
+  }
+
+  // layoutGrid draws the lines between the rooms or areas over the map; areas within a large area have none
+  private void layoutGrid(uint cols, uint rows, float startX, float startY, float cellW, float cellH) {
+    float thick = sx(1);
+    float x0 = dotLeft + startX;
+    float y0 = dotTop + startY;
+    float w = cellW * cols;
+    float h = cellH * rows;
+
+    // lines between columns, in segments of rows:
+    for (uint c = 0; c <= cols; c++) {
+      int segStart = -1;
+      for (uint r = 0; r <= rows; r++) {
+        bool draw = false;
+        if (r < rows) {
+          if (screen == 2 || c == 0 || c == cols) {
+            draw = true;
+          } else {
+            draw = owBlock(r, c - 1) != owBlock(r, c);
+          }
+        }
+        if (draw && segStart < 0) segStart = int(r);
+        if (!draw && segStart >= 0) {
+          gridLine(x0 + cellW * c - thick / 2, y0 + cellH * segStart, thick, cellH * (int(r) - segStart));
+          segStart = -1;
+        }
+      }
+    }
+
+    // lines between rows, in segments of columns:
+    for (uint r = 0; r <= rows; r++) {
+      int segStart = -1;
+      for (uint c = 0; c <= cols; c++) {
+        bool draw = false;
+        if (c < cols) {
+          if (screen == 2 || r == 0 || r == rows) {
+            draw = true;
+          } else {
+            draw = owBlock(r - 1, c) != owBlock(r, c);
+          }
+        }
+        if (draw && segStart < 0) segStart = int(c);
+        if (!draw && segStart >= 0) {
+          gridLine(x0 + cellW * segStart, y0 + cellH * r - thick / 2, cellW * (int(c) - segStart), thick);
+          segStart = -1;
+        }
+      }
     }
   }
 

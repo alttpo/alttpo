@@ -60,10 +60,13 @@ class SettingsWindow {
   private GUI::Button @btnAdvanced;
   private GUI::Button @btnOpenMap;
   private GUI::Button @btnOpenPlayers;
-  private GUI::Button @btnOpenDebug;
+  private GUI::Button @btnOpenMemory;
+  private GUI::Button @btnOpenVram;
+  private GUI::Button @btnOpenOam;
+  private GUI::Button @btnOpenEnemies;
   private GUI::CheckLabel @chkOpenMap;
   private GUI::CheckLabel @chkOpenPlayers;
-  private GUI::CheckLabel @chkOpenDebug;
+  private GUI::CheckLabel @chkDebugEnabled;
   private GUI::CheckLabel @chkOpenMemory;
   private GUI::CheckLabel @chkOpenVram;
   private GUI::CheckLabel @chkOpenOam;
@@ -251,14 +254,15 @@ class SettingsWindow {
   // which windows open when the script starts, see openDefaultWindows():
   private bool openMap = true;
   private bool openPlayers = true;
-  private bool openDebug = false;
+  // debugEnabled gates the debug windows: Memory, Sprite VRAM, OAM and Enemies:
+  private bool debugEnabled = false;
   private bool openMemory = false;
   private bool openVram = false;
   private bool openOam = false;
   private bool openEnemies = false;
   bool OpenMap { get { return openMap; } }
   bool OpenPlayers { get { return openPlayers; } }
-  bool OpenDebug { get { return openDebug; } }
+  bool DebugEnabled { get { return debugEnabled; } }
   bool OpenMemory { get { return openMemory; } }
   bool OpenVram { get { return openVram; } }
   bool OpenOam { get { return openOam; } }
@@ -329,7 +333,8 @@ class SettingsWindow {
 
     chkOpenMap.checked = openMap;
     chkOpenPlayers.checked = openPlayers;
-    chkOpenDebug.checked = openDebug;
+    chkDebugEnabled.checked = debugEnabled;
+    debugEnabledGUI();
     chkOpenMemory.checked = openMemory;
     chkOpenVram.checked = openVram;
     chkOpenOam.checked = openOam;
@@ -399,7 +404,7 @@ class SettingsWindow {
 
     openMap = doc["windows/openMap"].booleanOr(true);
     openPlayers = doc["windows/openPlayers"].booleanOr(true);
-    openDebug = doc["windows/openDebug"].booleanOr(false);
+    debugEnabled = doc["windows/debugEnabled"].booleanOr(false);
     openMemory = doc["windows/openMemory"].booleanOr(false);
     openVram = doc["windows/openVram"].booleanOr(false);
     openOam = doc["windows/openOam"].booleanOr(false);
@@ -470,7 +475,7 @@ class SettingsWindow {
 
     doc.create("windows/openMap").value = fmtBool(openMap);
     doc.create("windows/openPlayers").value = fmtBool(openPlayers);
-    doc.create("windows/openDebug").value = fmtBool(openDebug);
+    doc.create("windows/debugEnabled").value = fmtBool(debugEnabled);
     doc.create("windows/openMemory").value = fmtBool(openMemory);
     doc.create("windows/openVram").value = fmtBool(openVram);
     doc.create("windows/openOam").value = fmtBool(openOam);
@@ -1227,8 +1232,35 @@ class SettingsWindow {
   }
 
   // callback:
-  private void btnOpenDebugClicked() {
-    openDebugWindow();
+  private void btnOpenMemoryClicked() {
+    openMemoryWindow();
+  }
+
+  // callback:
+  private void btnOpenVramClicked() {
+    openSpritesWindow();
+  }
+
+  // callback:
+  private void btnOpenOamClicked() {
+    openOamWindow();
+  }
+
+  // callback:
+  private void btnOpenEnemiesClicked() {
+    openEnemyWindow();
+  }
+
+  // debugEnabledGUI enables the controls of the debug windows only when they are enabled:
+  private void debugEnabledGUI() {
+    chkOpenMemory.enabled = debugEnabled;
+    chkOpenVram.enabled = debugEnabled;
+    chkOpenOam.enabled = debugEnabled;
+    chkOpenEnemies.enabled = debugEnabled;
+    btnOpenMemory.enabled = debugEnabled;
+    btnOpenVram.enabled = debugEnabled;
+    btnOpenOam.enabled = debugEnabled;
+    btnOpenEnemies.enabled = debugEnabled;
   }
 
   // callback:
@@ -1244,8 +1276,11 @@ class SettingsWindow {
   }
 
   // callback:
-  private void chkOpenDebugChanged() {
-    openDebug = chkOpenDebug.checked;
+  private void chkDebugEnabledChanged() {
+    debugEnabled = chkDebugEnabled.checked;
+    debugEnabledGUI();
+    if (!debugEnabled) closeDebugWindows();
+    else if (rom !is null) openStartupGameWindows();
     save();
   }
 
@@ -1299,7 +1334,7 @@ class SettingsWindow {
   private void build_advanced() {
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(190*2), sy(660));
+    advancedWindow.size = GUI::Size(sx(190*2), sy(700));
 
     auto sx150 = sx(190);
     auto sx100 = sx(100);
@@ -1655,48 +1690,6 @@ class SettingsWindow {
       vl.append(hz, GUI::Size(-1, 0));
 
       auto @lbl = GUI::Label();
-      lbl.text = "Open these windows at startup:";
-      lbl.toolTip = "The windows that open by themselves when the script starts. Any window can be opened later.";
-      hz.append(lbl, GUI::Size(-1, 0));
-
-      makeCheckboxPair(vl, GUI::Size(sx150, 0),
-        chkOpenMap, @GUI::Callback(chkOpenMapChanged), "World Map", "Open the world map window at startup.", openMap,
-        chkOpenPlayers, @GUI::Callback(chkOpenPlayersChanged), "Players", "Open the online players window at startup.", openPlayers
-      );
-      makeCheckboxPair(vl, GUI::Size(sx150, 0),
-        chkOpenDebug, @GUI::Callback(chkOpenDebugChanged), "Debug", "Open the debug window at startup.", openDebug,
-        chkOpenMemory, @GUI::Callback(chkOpenMemoryChanged), "Memory", "Open the memory window at startup.", openMemory
-      );
-      makeCheckboxPair(vl, GUI::Size(sx150, 0),
-        chkOpenVram, @GUI::Callback(chkOpenVramChanged), "Sprite VRAM", "Open the sprite VRAM window at startup.", openVram,
-        chkOpenOam, @GUI::Callback(chkOpenOamChanged), "OAM", "Open the OAM window at startup.", openOam
-      );
-
-      @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
-
-      @chkOpenEnemies = GUI::CheckLabel();
-      chkOpenEnemies.text = "Enemies";
-      chkOpenEnemies.toolTip = "Open the enemies window at startup.";
-      chkOpenEnemies.checked = openEnemies;
-      chkOpenEnemies.onToggle(@GUI::Callback(chkOpenEnemiesChanged));
-      hz.append(chkOpenEnemies, GUI::Size(sx150, 0));
-
-      @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
-
-      @btnOpenDebug = GUI::Button();
-      btnOpenDebug.text = "Debug Windows...";
-      btnOpenDebug.toolTip = "Click this button to open the debug window, which opens the windows used to debug the script.";
-      btnOpenDebug.onActivate(@GUI::Callback(btnOpenDebugClicked));
-      hz.append(btnOpenDebug, GUI::Size(-1, -1));
-    }
-
-    {
-      auto @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
-
-      auto @lbl = GUI::Label();
       lbl.text = "Presets:";
       hz.append(lbl, GUI::Size(sx150, 0));
 
@@ -1719,6 +1712,73 @@ class SettingsWindow {
         "Settings for multiworld, Enables RaceMode and the QUsb2Snes Bridge.";
       btnPresetMultiworld.onActivate(@GUI::Callback(btnPresetMultiworldClicked));
       hz.append(btnPresetMultiworld, GUI::Size(-1, -1));
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "Open these windows at startup:";
+      lbl.toolTip = "The windows that open by themselves when the script starts. Any window can be opened later.";
+      hz.append(lbl, GUI::Size(-1, 0));
+
+      makeCheckboxPair(vl, GUI::Size(sx150, 0),
+        chkOpenMap, @GUI::Callback(chkOpenMapChanged), "World Map", "Open the world map window at startup.", openMap,
+        chkOpenPlayers, @GUI::Callback(chkOpenPlayersChanged), "Players", "Open the online players window at startup.", openPlayers
+      );
+      makeCheckboxPair(vl, GUI::Size(sx150, 0),
+        chkOpenMemory, @GUI::Callback(chkOpenMemoryChanged), "Memory", "Open the memory window at startup. Needs debug windows enabled.", openMemory,
+        chkOpenVram, @GUI::Callback(chkOpenVramChanged), "Sprite VRAM", "Open the sprite VRAM window at startup. Needs debug windows enabled.", openVram
+      );
+      makeCheckboxPair(vl, GUI::Size(sx150, 0),
+        chkOpenOam, @GUI::Callback(chkOpenOamChanged), "OAM", "Open the OAM window at startup. Needs debug windows enabled.", openOam,
+        chkOpenEnemies, @GUI::Callback(chkOpenEnemiesChanged), "Enemies", "Open the enemies window at startup. Needs debug windows enabled.", openEnemies
+      );
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkDebugEnabled = GUI::CheckLabel();
+      chkDebugEnabled.text = "Enable Debug Windows";
+      chkDebugEnabled.toolTip =
+        "Enable this to use the windows for debugging the script: Memory, Sprite VRAM, OAM and Enemies. Unchecking "
+        "this closes them and disables their buttons and their startup options.";
+      chkDebugEnabled.checked = debugEnabled;
+      chkDebugEnabled.onToggle(@GUI::Callback(chkDebugEnabledChanged));
+      hz.append(chkDebugEnabled, GUI::Size(-1, 0));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, -1));
+
+      @btnOpenMemory = GUI::Button();
+      btnOpenMemory.text = "Memory";
+      btnOpenMemory.toolTip = "Open the memory window to look at and write the game's memory.";
+      btnOpenMemory.onActivate(@GUI::Callback(btnOpenMemoryClicked));
+      hz.append(btnOpenMemory, GUI::Size(-1, -1));
+
+      @btnOpenVram = GUI::Button();
+      btnOpenVram.text = "Sprite VRAM";
+      btnOpenVram.toolTip = "Open the window showing the sprite graphics in VRAM.";
+      btnOpenVram.onActivate(@GUI::Callback(btnOpenVramClicked));
+      hz.append(btnOpenVram, GUI::Size(-1, -1));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, -1));
+
+      @btnOpenOam = GUI::Button();
+      btnOpenOam.text = "OAM";
+      btnOpenOam.toolTip = "Open the window showing the OAM entries of the frame.";
+      btnOpenOam.onActivate(@GUI::Callback(btnOpenOamClicked));
+      hz.append(btnOpenOam, GUI::Size(-1, -1));
+
+      @btnOpenEnemies = GUI::Button();
+      btnOpenEnemies.text = "Enemies";
+      btnOpenEnemies.toolTip = "Open the window showing the enemies in the room or area.";
+      btnOpenEnemies.onActivate(@GUI::Callback(btnOpenEnemiesClicked));
+      hz.append(btnOpenEnemies, GUI::Size(-1, -1));
     }
   }
 

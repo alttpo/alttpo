@@ -9,7 +9,7 @@ WindowLayout windowLayout;
 const int64 layoutUnknown = -999999;
 
 // the windows that have a saved layout:
-const array<string> windowKeys = {"settings", "advanced", "map", "players", "debug", "memory", "vram", "oam", "enemies"};
+const array<string> windowKeys = {"settings", "advanced", "map", "players", "memory", "vram", "oam", "enemies"};
 
 // the saved geometry of one window; sizes are of the window's client area:
 class WindowGeom {
@@ -59,6 +59,12 @@ class WindowLayout {
   // set while the saved layout is applied so the resulting move and size events are not saved again:
   private bool applying = false;
 
+  // where the main emulator window was on the screen:
+  private bool mainHas = false;
+  private int mainX;
+  private int mainY;
+  private uint pollFrames = 0;
+
   private WindowGeom@ geomFor(const string &in key) {
     for (uint i = 0; i < geoms.length(); i++) {
       if (geoms[i].key == key) return geoms[i];
@@ -94,6 +100,19 @@ class WindowLayout {
   // load reads the saved layout from the settings file and applies it to the windows already attached; windows
   // attached later get it when they attach:
   void load(BML::Node doc) {
+    int64 mx = doc["window/main/x"].integerOr(layoutUnknown);
+    int64 my = doc["window/main/y"].integerOr(layoutUnknown);
+    if (mx != layoutUnknown && my != layoutUnknown) {
+      mainHas = true;
+      mainX = int(mx);
+      mainY = int(my);
+
+      // put the main window back first since the other windows are positioned relative to it:
+      applying = true;
+      GUI::setMainWindowPosition(mainX, mainY);
+      applying = false;
+    }
+
     for (uint i = 0; i < windowKeys.length(); i++) {
       read(doc, windowKeys[i]);
     }
@@ -123,6 +142,11 @@ class WindowLayout {
 
   // save writes the layout of every window known to the settings document:
   void save(BML::Node doc) {
+    if (mainHas) {
+      doc.create("window/main/x").value = fmtInt(mainX);
+      doc.create("window/main/y").value = fmtInt(mainY);
+    }
+
     for (uint i = 0; i < geoms.length(); i++) {
       auto @g = geoms[i];
       if (!g.has) continue;
@@ -162,10 +186,37 @@ class WindowLayout {
     return true;
   }
 
+  // captureMain reads the position of the main emulator window; returns true if it differs from the one saved:
+  private bool captureMain() {
+    GUI::Position pos;
+    pos = GUI::mainWindowPosition;
+    int x = int(pos.x);
+    int y = int(pos.y);
+    if (mainHas && mainX == x && mainY == y) return false;
+
+    mainHas = true;
+    mainX = x;
+    mainY = y;
+    return true;
+  }
+
+  // poll saves the layout if the main emulator window was moved, which the script is not told about; called every
+  // frame:
+  void poll() {
+    if (!loaded || applying) return;
+    if (++pollFrames < 30) return;
+    pollFrames = 0;
+
+    if (captureMain()) settings.save();
+  }
+
   // changed is called when a window was moved, resized or closed:
   void changed(ManagedWindow @m) {
     if (applying || !loaded) return;
-    if (!capture(m)) return;
+
+    // a window moved relative to the main window is only meaningful with the main window's position saved with it:
+    bool mainChanged = captureMain();
+    if (!capture(m) && !mainChanged) return;
 
     settings.save();
   }
@@ -174,7 +225,7 @@ class WindowLayout {
   void saveAll() {
     if (!loaded) return;
 
-    bool any = false;
+    bool any = captureMain();
     for (uint i = 0; i < managed.length(); i++) {
       if (capture(managed[i])) any = true;
     }
