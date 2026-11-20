@@ -328,10 +328,6 @@ class ManipSync {
           pb.ldy_immed16(o);
           pb.jsr_bank01(fn, rtl);
           stripe += 0x18;
-          // like o2's log, to tell whether an item was revealed under a lifted pot:
-          message("manip: room $" + fmtHex(room, 3) + " slot " + fmtInt(j) + " type $" + fmtHex(typ[j], 4) + " at $" +
-                  fmtHex(pos[j], 4) + " revealed from player '" + remote.name + "' (item: " +
-                  (reveal ? "true" : "false") + ", live: " + (rm.live[i] ? "true" : "false") + ")");
         }
         queued[j] = true;
       }
