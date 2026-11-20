@@ -449,6 +449,12 @@ class GameState {
   bool room_kills_valid = false;
   uint16 room_kills_room = 0;
   uint8 room_kills_fired = 0;
+  // enemies killed in the room or area as received (see EnemiesKilled.as):
+  bool ek_valid = false;
+  uint8 ek_kind = 0;
+  uint32 ek_id = 0;
+  uint16 ek_mask = 0;
+  array<uint16> ek_blks;
   // overworld events at location ow_events_loc as received (see OverworldEvents.as):
   bool ow_events_valid = false;
   uint32 ow_events_loc = 0;
@@ -571,6 +577,7 @@ class GameState {
     room_valid = false;
     room_doors_valid = false;
     room_kills_valid = false;
+    ek_valid = false;
 
     numsprites = 0;
 
@@ -829,6 +836,7 @@ class GameState {
         case 0x1C: c = deserialize_ow_events(r, c); break;
         case 0x1D: c = deserialize_flying_tiles(r, c); break;
         case 0x1E: c = deserialize_room_kills(r, c); break;
+        case 0x1F: c = deserialize_enemies_killed(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
         case 0x81: c = deserialize_reset(r, c); break;
@@ -919,6 +927,34 @@ class GameState {
     room_kills_room = uint16(r[c++]) | (uint16(r[c++]) << 8);
     room_kills_fired = r[c++];
     room_kills_valid = true;
+    return c;
+  }
+
+  int deserialize_enemies_killed(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 1 > maxc) return maxc;
+    uint8 kind = r[c++];
+    if (kind == enemies_killed_uw) {
+      if (c + 4 > maxc) return maxc;
+      ek_id = uint32(r[c++]) | (uint32(r[c++]) << 8);
+      ek_mask = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      ek_blks.resize(0);
+    } else if (kind == enemies_killed_ow) {
+      if (c + 4 > maxc) return maxc;
+      ek_id = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16);
+      uint n = r[c++];
+      if (c + int(n) * 2 > maxc) return maxc;
+      ek_blks.resize(n);
+      for (uint i = 0; i < n; i++) {
+        ek_blks[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      }
+      ek_mask = 0;
+    } else {
+      // unknown kind; the rest of the packet cannot be parsed:
+      return maxc;
+    }
+    ek_kind = kind;
+    ek_valid = true;
     return c;
   }
 

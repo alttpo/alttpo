@@ -2184,6 +2184,9 @@ class LocalGameState : GameState {
           }
         }
 
+        // the enemies killed in the room or area, in their own packet:
+        p = enemiesKilled.send(p);
+
         // overworld map16 changes are area specific; send them only to players in the same area:
         if (settings.SyncOverworldLocal) {
           p = map16Sync.send(p);

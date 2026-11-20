@@ -39,6 +39,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkSyncOverworldLocal;
   private GUI::CheckLabel @chkSyncTorches;
   private GUI::CheckLabel @chkSyncSfx;
+  private GUI::CheckLabel @chkSyncEnemiesKilled;
   private GUI::CheckLabel @chkSyncChests;
   private GUI::CheckLabel @chkSyncHearts;
   private GUI::CheckLabel @chkSyncDungeonItems;
@@ -214,6 +215,10 @@ class SettingsWindow {
   bool SyncTorches { get { return syncTorches; } }
   private bool syncSfx;
   bool SyncSfx { get { return syncSfx; } }
+  // syncEnemiesKilled ("Enemies Killed (Local)") shares which enemies players in the same room or area killed, like
+  // o2; see EnemiesKilled.as:
+  private bool syncEnemiesKilled;
+  bool SyncEnemiesKilled { get { return syncEnemiesKilled; } }
   private bool syncChests;
   bool SyncChests { get { return syncChests; } }
   private bool syncHearts;
@@ -282,6 +287,7 @@ class SettingsWindow {
     chkSyncOverworldLocal.checked = syncOverworldLocal;
     chkSyncTorches.checked = syncTorches;
     chkSyncSfx.checked = syncSfx;
+    chkSyncEnemiesKilled.checked = syncEnemiesKilled;
     chkSyncChests.checked = syncChests;
     chkSyncHearts.checked = syncHearts;
     chkSyncDungeonItems.checked = syncDungeonItems;
@@ -339,6 +345,7 @@ class SettingsWindow {
     syncOverworldLocal = doc["feature/syncOverworldLocal"].booleanOr(syncTilemap);
     syncTorches = doc["feature/syncTorches"].booleanOr(true);
     syncSfx = doc["feature/syncSfx"].booleanOr(true);
+    syncEnemiesKilled = doc["feature/syncEnemiesKilled"].booleanOr(true);
     syncChests = doc["feature/syncChests"].booleanOr(true);
     syncHearts = doc["feature/syncHearts"].booleanOr(true);
     syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
@@ -397,6 +404,7 @@ class SettingsWindow {
     doc.create("feature/syncOverworldLocal").value = fmtBool(syncOverworldLocal);
     doc.create("feature/syncTorches").value = fmtBool(syncTorches);
     doc.create("feature/syncSfx").value = fmtBool(syncSfx);
+    doc.create("feature/syncEnemiesKilled").value = fmtBool(syncEnemiesKilled);
     doc.create("feature/syncChests").value = fmtBool(syncChests);
     doc.create("feature/syncHearts").value = fmtBool(syncHearts);
     doc.create("feature/syncDungeonItems").value = fmtBool(syncDungeonItems);
@@ -818,6 +826,12 @@ class SettingsWindow {
   }
 
   // callback:
+  private void chkSyncEnemiesKilledChanged() {
+    syncEnemiesKilled = chkSyncEnemiesKilled.checked;
+    save();
+  }
+
+  // callback:
   private void chkSyncChestsChanged() {
     syncChests = chkSyncChests.checked;
     syncChestsChanged();
@@ -925,6 +939,7 @@ class SettingsWindow {
     syncOverworldLocal = true;
     syncTorches = true;
     syncSfx = true;
+    syncEnemiesKilled = true;
     syncChests = true;
     syncHearts = true;
     syncDungeonItems = true;
@@ -959,6 +974,7 @@ class SettingsWindow {
     syncOverworldLocal = false;
     syncTorches = false;
     syncSfx = true;
+    syncEnemiesKilled = false;
     syncChests = true;
     syncHearts = false;
     syncDungeonItems = false;
@@ -1326,17 +1342,17 @@ class SettingsWindow {
       true
     );
 
-    {
-      auto @hz = GUI::HorizontalLayout();
-      vl.append(hz, GUI::Size(-1, 0));
-
-      @chkSyncSprites = GUI::CheckLabel();
-      chkSyncSprites.text = "Sprites";
-      chkSyncSprites.toolTip = "Enable to allow other players to see your player sprite on their screens";
-      chkSyncSprites.checked = true;
-      chkSyncSprites.onToggle(@GUI::Callback(chkSyncSpritesChanged));
-      hz.append(chkSyncSprites, GUI::Size(sx150, 0));
-    }
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncSprites, @GUI::Callback(chkSyncSpritesChanged),
+      "Sprites",
+      "Enable to allow other players to see your player sprite on their screens",
+      true,
+      chkSyncEnemiesKilled, @GUI::Callback(chkSyncEnemiesKilledChanged),
+      "Enemies Killed (Local)",
+      "Enemies killed by players in the same room or area stay dead when the game would spawn them again here; enemies themselves are synced by the LTTP enemy sync",
+      true
+    );
 
     {
       auto @hz = GUI::HorizontalLayout();

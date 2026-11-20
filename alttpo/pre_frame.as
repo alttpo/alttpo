@@ -61,6 +61,7 @@ void on_main_alttp(uint32 pc) {
   {
     map16Sync.update();
     manipSync.update();
+    enemiesKilled.update();
 
     local.update_wram();
 
