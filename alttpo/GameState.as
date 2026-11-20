@@ -4,6 +4,9 @@ const uint8 script_protocol = 0x01;
 // for message rate limiting to prevent noise
 uint8 rate_limit = 0x00;
 
+// a remote player's enemy data older than this (msec) means it stopped sending it; see GameState::sends_enemy_data:
+const uint64 enemy_data_stale = 1000;
+
 bool locations_equal(uint32 a, uint32 b) {
   // easiest check:
   if (a == b) return true;
@@ -480,6 +483,17 @@ class GameState {
   array<uint8> overlordU8Data(overlord_u8_ptrs.length() * 0x08);
   array<uint8> overlordU16Data(overlord_u16_ptrs.length() * 0x10);
   array<uint8> enemyData(enemy_data_size);
+  // when enemy data (message 0x12) was last received from this player, in msec; 0 if never:
+  uint64 enemy_data_received = 0;
+
+  // sends_enemy_data is true if this remote player is sending its enemies (message 0x12), so its enemy data can be
+  // copied. o2 never sends them, nor do alttpo players with "Sync enemies" off; taking such a player as the owner of
+  // the room's enemies would copy empty sprite slots over every local sprite each frame (enemies, and the items
+  // revealed under pots and bushes):
+  bool sends_enemy_data() const {
+    if (enemy_data_received == 0) return false;
+    return chrono::monotonic::millisecond - enemy_data_received < enemy_data_stale;
+  }
   array<uint8> enemySegments(enemy_segments_data_size);
   array<uint8> swamolaSegments(swamola_segments_data_size);
 
@@ -1291,6 +1305,7 @@ class GameState {
   }
 
   int deserialize_enemy_data(array<uint8> r, int c) {
+    enemy_data_received = chrono::monotonic::millisecond;
     uint16 mask = uint16(r[c++]) | (uint16(r[c++]) << 8);
     uint8 in_dungeon = r[c++];
 

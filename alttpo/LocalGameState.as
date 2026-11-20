@@ -2712,6 +2712,8 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
       if (!is_really_in_same_location(remote.location)) continue;
+      // only players sending their enemies can own them (o2 does not send them):
+      if (!(remote is local) && !remote.sends_enemy_data()) continue;
 
       // TODO: for now the lowest-indexed player owns enemy data for the room:
       @owner = @remote;
@@ -2830,6 +2832,8 @@ class LocalGameState : GameState {
       if (remote is null) continue;
       if (remote.ttl <= 0) continue;
       if (!is_really_in_same_location(remote.location)) continue;
+      // only players sending their enemies can own them (o2 does not send them):
+      if (!(remote is local) && !remote.sends_enemy_data()) continue;
 
       // TODO: for now the lowest-indexed player owns enemy data for the room:
       @owner = @remote;
