@@ -454,6 +454,13 @@ class GameState {
   uint8 ek_kind = 0;
   uint32 ek_id = 0;
   uint16 ek_mask = 0;
+  // the underworld rooms' masks last received, of the player's current room and of the other recent rooms, and when
+  // (ms):
+  array<uint16> ek_room_ids(4, 0xFFFF);
+  array<uint16> ek_room_masks(4, 0);
+  array<uint64> ek_room_times(4, 0);
+  uint32 ek_logged_id = 0;
+  uint16 ek_logged_mask = 0;
   array<uint16> ek_blks;
   // overworld events at location ow_events_loc as received (see OverworldEvents.as):
   bool ow_events_valid = false;
@@ -930,6 +937,30 @@ class GameState {
     return c;
   }
 
+  // records a room's mask, replacing the room's entry or else the oldest:
+  void set_ek_room_mask(uint16 room, uint16 mask) {
+    uint k = 0;
+    for (uint i = 0; i < 4; i++) {
+      if (ek_room_ids[i] == room) { k = i; break; }
+      if (ek_room_times[i] < ek_room_times[k]) k = i;
+    }
+    ek_room_ids[k] = room;
+    ek_room_masks[k] = mask;
+    ek_room_times[k] = chrono::realtime::nanosecond / 1000000;
+  }
+
+  // the room's mask if received in the last 2 seconds:
+  bool get_ek_room_mask(uint16 room, uint16 &out mask) {
+    uint64 now = chrono::realtime::nanosecond / 1000000;
+    for (uint i = 0; i < 4; i++) {
+      if (ek_room_ids[i] != room) continue;
+      if (now - ek_room_times[i] >= 2000) continue;
+      mask = ek_room_masks[i];
+      return true;
+    }
+    return false;
+  }
+
   int deserialize_enemies_killed(array<uint8> r, int c) {
     int maxc = int(r.length());
     if (c + 1 > maxc) return maxc;
@@ -952,6 +983,14 @@ class GameState {
     } else {
       // unknown kind; the rest of the packet cannot be parsed:
       return maxc;
+    }
+    if (!ek_valid || ek_kind != kind || ek_id != ek_logged_id || ek_mask != ek_logged_mask) {
+      message("enemies killed: received from '" + name + "': kind " + fmtInt(kind) + " id " + fmtHex(ek_id, 6) + " mask " + fmtHex(ek_mask, 4) + " blks " + fmtInt(ek_blks.length()));
+      ek_logged_id = ek_id;
+      ek_logged_mask = ek_mask;
+    }
+    if (kind == enemies_killed_uw) {
+      set_ek_room_mask(uint16(ek_id), ek_mask);
     }
     ek_kind = kind;
     ek_valid = true;

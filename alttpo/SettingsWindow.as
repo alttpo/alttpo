@@ -40,6 +40,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkSyncTorches;
   private GUI::CheckLabel @chkSyncSfx;
   private GUI::CheckLabel @chkSyncEnemiesKilled;
+  private GUI::CheckLabel @chkKillDeadEnemies;
   private GUI::CheckLabel @chkSyncChests;
   private GUI::CheckLabel @chkSyncHearts;
   private GUI::CheckLabel @chkSyncDungeonItems;
@@ -215,10 +216,13 @@ class SettingsWindow {
   bool SyncTorches { get { return syncTorches; } }
   private bool syncSfx;
   bool SyncSfx { get { return syncSfx; } }
-  // syncEnemiesKilled ("Enemies Killed (Local)") shares which enemies players in the same room or area killed, like
+  // syncEnemiesKilled ("Enemy Dead List") shares which enemies players in the same room or area killed, like
   // o2; see EnemiesKilled.as:
   private bool syncEnemiesKilled;
   bool SyncEnemiesKilled { get { return syncEnemiesKilled; } }
+  // killDeadEnemies ("Kill Dead Enemies") kills the live enemies the dead list says are dead; needs syncEnemiesKilled:
+  private bool killDeadEnemies;
+  bool KillDeadEnemies { get { return killDeadEnemies; } }
   private bool syncChests;
   bool SyncChests { get { return syncChests; } }
   private bool syncHearts;
@@ -288,6 +292,7 @@ class SettingsWindow {
     chkSyncTorches.checked = syncTorches;
     chkSyncSfx.checked = syncSfx;
     chkSyncEnemiesKilled.checked = syncEnemiesKilled;
+    chkKillDeadEnemies.checked = killDeadEnemies;
     chkSyncChests.checked = syncChests;
     chkSyncHearts.checked = syncHearts;
     chkSyncDungeonItems.checked = syncDungeonItems;
@@ -346,6 +351,7 @@ class SettingsWindow {
     syncTorches = doc["feature/syncTorches"].booleanOr(true);
     syncSfx = doc["feature/syncSfx"].booleanOr(true);
     syncEnemiesKilled = doc["feature/syncEnemiesKilled"].booleanOr(true);
+    killDeadEnemies = doc["feature/killDeadEnemies"].booleanOr(true);
     syncChests = doc["feature/syncChests"].booleanOr(true);
     syncHearts = doc["feature/syncHearts"].booleanOr(true);
     syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
@@ -405,6 +411,7 @@ class SettingsWindow {
     doc.create("feature/syncTorches").value = fmtBool(syncTorches);
     doc.create("feature/syncSfx").value = fmtBool(syncSfx);
     doc.create("feature/syncEnemiesKilled").value = fmtBool(syncEnemiesKilled);
+    doc.create("feature/killDeadEnemies").value = fmtBool(killDeadEnemies);
     doc.create("feature/syncChests").value = fmtBool(syncChests);
     doc.create("feature/syncHearts").value = fmtBool(syncHearts);
     doc.create("feature/syncDungeonItems").value = fmtBool(syncDungeonItems);
@@ -832,6 +839,12 @@ class SettingsWindow {
   }
 
   // callback:
+  private void chkKillDeadEnemiesChanged() {
+    killDeadEnemies = chkKillDeadEnemies.checked;
+    save();
+  }
+
+  // callback:
   private void chkSyncChestsChanged() {
     syncChests = chkSyncChests.checked;
     syncChestsChanged();
@@ -940,6 +953,7 @@ class SettingsWindow {
     syncTorches = true;
     syncSfx = true;
     syncEnemiesKilled = true;
+    killDeadEnemies = true;
     syncChests = true;
     syncHearts = true;
     syncDungeonItems = true;
@@ -975,6 +989,7 @@ class SettingsWindow {
     syncTorches = false;
     syncSfx = true;
     syncEnemiesKilled = false;
+    killDeadEnemies = false;
     syncChests = true;
     syncHearts = false;
     syncDungeonItems = false;
@@ -1349,10 +1364,22 @@ class SettingsWindow {
       "Enable to allow other players to see your player sprite on their screens",
       true,
       chkSyncEnemiesKilled, @GUI::Callback(chkSyncEnemiesKilledChanged),
-      "Enemies Killed (Local)",
+      "Enemy Dead List",
       "Enemies killed by players in the same room or area stay dead when the game would spawn them again here; enemies themselves are synced by the LTTP enemy sync",
       true
     );
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkKillDeadEnemies = GUI::CheckLabel();
+      chkKillDeadEnemies.text = "Kill Dead Enemies";
+      chkKillDeadEnemies.toolTip = "Immediately kill the enemies here that players in the same room or area killed, when their dead list updates; needs Enemy Dead List";
+      chkKillDeadEnemies.checked = killDeadEnemies;
+      chkKillDeadEnemies.onToggle(@GUI::Callback(chkKillDeadEnemiesChanged));
+      hz.append(chkKillDeadEnemies, GUI::Size(sx150, 0));
+    }
 
     {
       auto @hz = GUI::HorizontalLayout();
