@@ -44,8 +44,8 @@
 //     closed is unlocked the way the game does (submodule $04 with $068E pointing at the door's tile attributes),
 //     without using a key; the small key sync takes care of the key count. A bombed or dashed wall (door types $28,
 //     $2A, $2E) still closed here is opened the same way with submodule $09 (OpenCrackedDoor).
-//   - Trap doors are last writer wins among remote players in the same room with a change made after our baseline was
-//     taken (so only changes made while both players are in the room count). They are not applied in rooms with tags
+//   - Trap doors are last writer wins among remote players in the same room with a change made in their current visit
+//     of the room, also one made before we arrived (our room load closed the shutters, the player inside left them open). They are not applied in rooms with tags
 //     that compute the shutter state every frame from what the local player does (hold switch doors, push block
 //     doors, torch puzzle doors); those would close again immediately.
 //   - Pull switches: a pull made by a remote player after our baseline sets $0642 here once.
@@ -413,8 +413,8 @@ class RoomStateLocal {
     if ((flags & room_flag_boss) == 0 && boss_heart_present()) mask |= room_flag_boss;
     uint8 newFlags = 0;
     GameState@ doorWinner = null;
+    // a change made before we arrived still counts (remote players forget theirs when they leave the room):
     uint32 tsCompare = doorTs;
-    if (tsCompare < since) tsCompare = since;
     bool hasPull = has_tag(t0, t1, room_tag_pull);
     bool wantHold = false;
     GameState@ pullFrom = null;
