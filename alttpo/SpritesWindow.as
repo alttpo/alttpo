@@ -18,6 +18,15 @@ class SpritesWindow {
   // the sprite palette (0-7) each of the 512 CHRs was last seen drawn with by an OAM entry, or -1 if never seen:
   private array<int> chrPalette(512);
 
+  // the CHR palettes are kept in their own file between runs, for each game: a section per game with a line of 16
+  // characters per row of CHRs, each the palette 0-7 or - if not seen. The sections of the games not played are kept as
+  // they were read.
+  private string file = "alttpo-vram.bml";
+  private array<string> savedAlttp(32);
+  private array<string> savedSm(32);
+  private bool dirty = false;
+  private uint framesSinceSave = 0;
+
   SpritesWindow() {
     // relative position to bsnes window:
     @window = GUI::Window(0, 240*3, true);
@@ -43,6 +52,8 @@ class SpritesWindow {
       grayPalette[i] = uint16(c | (c << 5) | (c << 10));
     }
 
+    load();
+
     vl.resize();
     canvas.update();
     windowLayout.attach("vram", window);
@@ -65,6 +76,57 @@ class SpritesWindow {
   void update() {
     if (!window.visible) return;
     canvas.update();
+  }
+
+  private bool isAlttp() {
+    return rom is null || rom.is_alttp();
+  }
+
+  // load reads the saved palettes of the game and the saved text of the other game's:
+  private void load() {
+    auto doc = UserSettings::load(file);
+    for (uint strip = 0; strip < 32; strip++) {
+      string key = fmtHex(strip, 2);
+      savedAlttp[strip] = doc["alttp/" + key].textOr("");
+      savedSm[strip] = doc["sm/" + key].textOr("");
+    }
+
+    auto @mine = isAlttp() ? savedAlttp : savedSm;
+    for (uint strip = 0; strip < 32; strip++) {
+      string text = mine[strip];
+      if (text.length() != 16) continue;
+
+      for (uint col = 0; col < 16; col++) {
+        // '0' to '7' are palettes and anything else is not known:
+        int c = int(text[col]) - 0x30;
+        chrPalette[(strip << 4) + col] = (c >= 0 && c <= 7) ? c : -1;
+      }
+    }
+  }
+
+  // save writes the palettes of the game with those of the other game, if there were any changes:
+  void save() {
+    if (!dirty) return;
+    dirty = false;
+    framesSinceSave = 0;
+
+    auto @mine = isAlttp() ? savedAlttp : savedSm;
+    for (uint strip = 0; strip < 32; strip++) {
+      string text = "";
+      for (uint col = 0; col < 16; col++) {
+        int pal = chrPalette[(strip << 4) + col];
+        text += (pal < 0) ? "-" : fmtInt(pal);
+      }
+      mine[strip] = text;
+    }
+
+    auto doc = BML::Node();
+    for (uint strip = 0; strip < 32; strip++) {
+      string key = fmtHex(strip, 2);
+      if (savedAlttp[strip].length() == 16) doc.create("alttp/" + key).value = savedAlttp[strip];
+      if (savedSm[strip].length() == 16) doc.create("sm/" + key).value = savedSm[strip];
+    }
+    UserSettings::save(file, doc);
   }
 
   // defaultPalette is the palette the game draws a CHR with when no OAM entry shows it, or -1 if it varies.
@@ -98,16 +160,22 @@ class SpritesWindow {
       int pal = (s.b3 >> 1) & 7;
       bool large = ((s.b4 >> 1) & 1) != 0;
 
-      chrPalette[chr] = pal;
+      remember(chr, pal);
       if (large) {
         uint page = chr & 0x100;
         uint row = (chr >> 4) & 15;
         uint col = chr & 15;
-        chrPalette[page | (row << 4) | ((col + 1) & 15)] = pal;
-        chrPalette[page | (((row + 1) & 15) << 4) | col] = pal;
-        chrPalette[page | (((row + 1) & 15) << 4) | ((col + 1) & 15)] = pal;
+        remember(page | (row << 4) | ((col + 1) & 15), pal);
+        remember(page | (((row + 1) & 15) << 4) | col, pal);
+        remember(page | (((row + 1) & 15) << 4) | ((col + 1) & 15), pal);
       }
     }
+  }
+
+  private void remember(uint chr, int pal) {
+    if (chrPalette[chr] == pal) return;
+    chrPalette[chr] = pal;
+    dirty = true;
   }
 
   void render() {
@@ -131,6 +199,9 @@ class SpritesWindow {
     }
 
     findPalettes();
+
+    // save a few seconds after a change, not on every change as they come in bursts:
+    if (dirty && ++framesSinceSave >= 180) save();
 
     // draw VRAM as 4bpp tiles, each with its own palette:
     canvas.fill(0x0000);

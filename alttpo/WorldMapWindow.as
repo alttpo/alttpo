@@ -498,13 +498,11 @@ class WorldMapWindow {
     string key = "";
     for (uint i = 0; i < ps.length(); i++) {
       auto @p = ps[i];
-      if (p is null || p.ttl <= 0 || !showsOnScreen(p, screen)) continue;
+      if (p is null || p.ttl <= 0 || !inGame(p) || !showsOnScreen(p, screen)) continue;
 
       int c0, r0, c1, r1;
       if (screen == 2) {
-        if (p.dungeon == 0xFF) continue;
         uint room = p.actual_location & 0xFFFF;
-        if (room >= 0x130) continue;
         c0 = c1 = int(room & 15);
         r0 = r1 = int(room >> 4);
       } else {
@@ -668,13 +666,29 @@ class WorldMapWindow {
     // dark = (actual_location & 0x020000) == 0x020000
     if (bus::read_u8(0xA173FE) != 0) {
       return 3;
-    } else if (((p.actual_location & 0x010000) == 0x010000) && (p.dungeon != 0xFF)) {
-      // 2 = underworld, only for dungeons:
+    } else if (inUnderworldMap(p)) {
+      // 2 = underworld: dungeons, and caves and houses too, which are the rooms of the underworld as well:
       return 2;
     } else {
       // 0 = light overworld, 1 = dark overworld:
       return (p.actual_location & 0x020000) >> 17;
     }
+  }
+
+  // inUnderworldMap tells if the player is in a room that is on the underworld map; the rooms of dungeons, caves and
+  // houses are all below $130, including the rooms from $100 up (e.g. Link's house is room $104):
+  bool inUnderworldMap(const GameState &in p) {
+    return (p.actual_location & 0x010000) == 0x010000 && (p.actual_location & 0xFFFF) < 0x130;
+  }
+
+  // inGame tells if the player is in a module of the game itself, and not at the title screen, file select, intro or
+  // end of the game, where they have no position:
+  bool inGame(const GameState &in p) {
+    if (p.in_sm == 1) return true;
+    if (p.module <= 0x05) return false;
+    if (p.module == 0x14) return false;
+    if (p.module >= 0x1B) return false;
+    return true;
   }
 
   bool showsOnScreen(const GameState &in p, int screen) {
@@ -690,7 +704,7 @@ class WorldMapWindow {
       return (p.actual_location & 0x020000) == 0x020000;
     } else if (screen == 2) {
       // must be in underworld in light or dark world:
-      return (p.actual_location & 0x010000) == 0x010000;
+      return inUnderworldMap(p);
     }
     return false;
   }
@@ -698,8 +712,8 @@ class WorldMapWindow {
   // updateLocation shows the room or area the local player is in next to the map selector:
   private void updateLocation(const GameState &in p) {
     string text = "";
-    if (p.in_sm == 0) {
-      if (screen == 2 && showsOnScreen(p, 2) && p.dungeon != 0xFF) {
+    if (p.in_sm == 0 && inGame(p)) {
+      if (screen == 2 && showsOnScreen(p, 2)) {
         // underworld room, e.g. $0A8:
         text = "$" + hex(p.actual_location & 0xFFFF, 3);
       } else if ((screen == 0 || screen == 1) && showsOnScreen(p, screen) && (p.actual_location & 0x010000) == 0) {
@@ -1103,7 +1117,7 @@ class WorldMapWindow {
       auto @dot = dots[i];
       if (dot is null) continue;
 
-      if ((p.ttl <= 0) || (!showsOnScreen(p, screen))) {
+      if ((p.ttl <= 0) || !inGame(p) || (!showsOnScreen(p, screen))) {
         // If player disappeared, hide their dot:
         dot.setPosition(-128, -128);
         dotX[i] = -127;

@@ -127,6 +127,7 @@ void post_power(bool reset) {
 void unload() {
   // remember the size and position of the open windows:
   windowLayout.saveAll();
+  if (sprites !is null) sprites.save();
 
   if (rom !is null) {
     // restore patched JSL:
