@@ -58,6 +58,16 @@ class SettingsWindow {
   private GUI::Button @btnConnect;
   private GUI::Button @btnDisconnect;
   private GUI::Button @btnAdvanced;
+  private GUI::Button @btnOpenMap;
+  private GUI::Button @btnOpenPlayers;
+  private GUI::Button @btnOpenDebug;
+  private GUI::CheckLabel @chkOpenMap;
+  private GUI::CheckLabel @chkOpenPlayers;
+  private GUI::CheckLabel @chkOpenDebug;
+  private GUI::CheckLabel @chkOpenMemory;
+  private GUI::CheckLabel @chkOpenVram;
+  private GUI::CheckLabel @chkOpenOam;
+  private GUI::CheckLabel @chkOpenEnemies;
   private GUI::Label @lblRunTimer;
   private GUI::Label @lblRunWarning;
   private GUI::Label @lblRunMine;
@@ -238,6 +248,22 @@ class SettingsWindow {
   private bool synclttpenemies;
   bool SyncLttpEnemies { get { return synclttpenemies; } }
 
+  // which windows open when the script starts, see openDefaultWindows():
+  private bool openMap = true;
+  private bool openPlayers = true;
+  private bool openDebug = false;
+  private bool openMemory = false;
+  private bool openVram = false;
+  private bool openOam = false;
+  private bool openEnemies = false;
+  bool OpenMap { get { return openMap; } }
+  bool OpenPlayers { get { return openPlayers; } }
+  bool OpenDebug { get { return openDebug; } }
+  bool OpenMemory { get { return openMemory; } }
+  bool OpenVram { get { return openVram; } }
+  bool OpenOam { get { return openOam; } }
+  bool OpenEnemies { get { return openEnemies; } }
+
   private bool discordEnable;
   bool DiscordEnable {
     get { return discordEnable; }
@@ -301,6 +327,14 @@ class SettingsWindow {
     chkSyncSmEnemies.checked = syncsmenemies;
     chkSyncLttpEnemies.checked = synclttpenemies;
 
+    chkOpenMap.checked = openMap;
+    chkOpenPlayers.checked = openPlayers;
+    chkOpenDebug.checked = openDebug;
+    chkOpenMemory.checked = openMemory;
+    chkOpenVram.checked = openVram;
+    chkOpenOam.checked = openOam;
+    chkOpenEnemies.checked = openEnemies;
+
     // set selected font option:
     ddlFont[fontIndex].setSelected();
   }
@@ -363,6 +397,17 @@ class SettingsWindow {
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
 
+    openMap = doc["windows/openMap"].booleanOr(true);
+    openPlayers = doc["windows/openPlayers"].booleanOr(true);
+    openDebug = doc["windows/openDebug"].booleanOr(false);
+    openMemory = doc["windows/openMemory"].booleanOr(false);
+    openVram = doc["windows/openVram"].booleanOr(false);
+    openOam = doc["windows/openOam"].booleanOr(false);
+    openEnemies = doc["windows/openEnemies"].booleanOr(false);
+
+    // restore the size and position of the windows:
+    windowLayout.load(doc);
+
     // set GUI controls from values:
     setServerSettingsGUI();
     setPlayerSettingsGUI();
@@ -423,13 +468,22 @@ class SettingsWindow {
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
 
+    doc.create("windows/openMap").value = fmtBool(openMap);
+    doc.create("windows/openPlayers").value = fmtBool(openPlayers);
+    doc.create("windows/openDebug").value = fmtBool(openDebug);
+    doc.create("windows/openMemory").value = fmtBool(openMemory);
+    doc.create("windows/openVram").value = fmtBool(openVram);
+    doc.create("windows/openOam").value = fmtBool(openOam);
+    doc.create("windows/openEnemies").value = fmtBool(openEnemies);
+    windowLayout.save(doc);
+
     UserSettings::save("alttpo.bml", doc);
   }
 
   SettingsWindow() {
     @window = GUI::Window(140, 32, true);
     window.title = "Join a Game";
-    window.size = GUI::Size(sx(320), sy(12*25 + 20));
+    window.size = GUI::Size(sx(320), sy(13*25 + 20));
     window.dismissable = false;
 
     auto sx150 = sx(150);
@@ -625,6 +679,24 @@ class SettingsWindow {
       }
 
       {
+        // open the windows that were closed:
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, -1));
+
+        @btnOpenMap = GUI::Button();
+        btnOpenMap.text = "World Map";
+        btnOpenMap.toolTip = "Click this button to open the world map window showing where the players are.";
+        btnOpenMap.onActivate(@GUI::Callback(btnOpenMapClicked));
+        hz.append(btnOpenMap, GUI::Size(-1, -1));
+
+        @btnOpenPlayers = GUI::Button();
+        btnOpenPlayers.text = "Players";
+        btnOpenPlayers.toolTip = "Click this button to open the window listing the players online in your group.";
+        btnOpenPlayers.onActivate(@GUI::Callback(btnOpenPlayersClicked));
+        hz.append(btnOpenPlayers, GUI::Size(-1, -1));
+      }
+
+      {
         // the run timer, shared with o2 (see RunTiming.as):
         auto @hz = GUI::HorizontalLayout();
         vl.append(hz, GUI::Size(-1, -1));
@@ -665,6 +737,8 @@ class SettingsWindow {
 
     vl.resize();
     build_advanced();
+    windowLayout.attach("settings", window);
+    windowLayout.attach("advanced", advancedWindow);
     window.visible = true;
     window.setFocused();
   }
@@ -1139,6 +1213,64 @@ class SettingsWindow {
   //callback
   private void btnAdvancedClicked(){
     advancedWindow.visible = true;
+    advancedWindow.setFocused();
+  }
+
+  // callback:
+  private void btnOpenMapClicked() {
+    openMapWindow();
+  }
+
+  // callback:
+  private void btnOpenPlayersClicked() {
+    openPlayersWindow();
+  }
+
+  // callback:
+  private void btnOpenDebugClicked() {
+    openDebugWindow();
+  }
+
+  // callback:
+  private void chkOpenMapChanged() {
+    openMap = chkOpenMap.checked;
+    save();
+  }
+
+  // callback:
+  private void chkOpenPlayersChanged() {
+    openPlayers = chkOpenPlayers.checked;
+    save();
+  }
+
+  // callback:
+  private void chkOpenDebugChanged() {
+    openDebug = chkOpenDebug.checked;
+    save();
+  }
+
+  // callback:
+  private void chkOpenMemoryChanged() {
+    openMemory = chkOpenMemory.checked;
+    save();
+  }
+
+  // callback:
+  private void chkOpenVramChanged() {
+    openVram = chkOpenVram.checked;
+    save();
+  }
+
+  // callback:
+  private void chkOpenOamChanged() {
+    openOam = chkOpenOam.checked;
+    save();
+  }
+
+  // callback:
+  private void chkOpenEnemiesChanged() {
+    openEnemies = chkOpenEnemies.checked;
+    save();
   }
 
   private void makeCheckboxPair(
@@ -1167,7 +1299,7 @@ class SettingsWindow {
   private void build_advanced() {
     @advancedWindow = GUI::Window(475, 32, true);;
     advancedWindow.title = "Advanced Settings";
-    advancedWindow.size = GUI::Size(sx(190*2), sy(540));
+    advancedWindow.size = GUI::Size(sx(190*2), sy(660));
 
     auto sx150 = sx(190);
     auto sx100 = sx(100);
@@ -1516,6 +1648,48 @@ class SettingsWindow {
       lblConnectorLibMessage.toolTip =
         "Current status of ConnectorLib connection";
       hz.append(lblConnectorLibMessage, GUI::Size(sx150, 0));
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      auto @lbl = GUI::Label();
+      lbl.text = "Open these windows at startup:";
+      lbl.toolTip = "The windows that open by themselves when the script starts. Any window can be opened later.";
+      hz.append(lbl, GUI::Size(-1, 0));
+
+      makeCheckboxPair(vl, GUI::Size(sx150, 0),
+        chkOpenMap, @GUI::Callback(chkOpenMapChanged), "World Map", "Open the world map window at startup.", openMap,
+        chkOpenPlayers, @GUI::Callback(chkOpenPlayersChanged), "Players", "Open the online players window at startup.", openPlayers
+      );
+      makeCheckboxPair(vl, GUI::Size(sx150, 0),
+        chkOpenDebug, @GUI::Callback(chkOpenDebugChanged), "Debug", "Open the debug window at startup.", openDebug,
+        chkOpenMemory, @GUI::Callback(chkOpenMemoryChanged), "Memory", "Open the memory window at startup.", openMemory
+      );
+      makeCheckboxPair(vl, GUI::Size(sx150, 0),
+        chkOpenVram, @GUI::Callback(chkOpenVramChanged), "Sprite VRAM", "Open the sprite VRAM window at startup.", openVram,
+        chkOpenOam, @GUI::Callback(chkOpenOamChanged), "OAM", "Open the OAM window at startup.", openOam
+      );
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkOpenEnemies = GUI::CheckLabel();
+      chkOpenEnemies.text = "Enemies";
+      chkOpenEnemies.toolTip = "Open the enemies window at startup.";
+      chkOpenEnemies.checked = openEnemies;
+      chkOpenEnemies.onToggle(@GUI::Callback(chkOpenEnemiesChanged));
+      hz.append(chkOpenEnemies, GUI::Size(sx150, 0));
+
+      @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @btnOpenDebug = GUI::Button();
+      btnOpenDebug.text = "Debug Windows...";
+      btnOpenDebug.toolTip = "Click this button to open the debug window, which opens the windows used to debug the script.";
+      btnOpenDebug.onActivate(@GUI::Callback(btnOpenDebugClicked));
+      hz.append(btnOpenDebug, GUI::Size(-1, -1));
     }
 
     {

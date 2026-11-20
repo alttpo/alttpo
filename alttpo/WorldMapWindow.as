@@ -3,8 +3,24 @@ WorldMapWindow @worldMapWindow;
 class WorldMapWindow {
   private GUI::Window @window;
   private GUI::VerticalLayout @vl;
+  private GUI::VerticalLayout @mapHolder;
   private GUI::ComboButton @dd;
+  private GUI::Label @lblLocation;
   private GUI::CheckLabel @chkAuto;
+
+  // room (underworld) or area (overworld) number of the local player, shown in the control row:
+  string locationText = "";
+
+  // room around the maps for the axes showing the row and column numbers; the width is for the left and right axes
+  // and the height is for the top and bottom axes:
+  float axisW = sx(44);
+  float axisH = sy(18);
+  array<GUI::Label@> axisTop;
+  array<GUI::Label@> axisBottom;
+  array<GUI::Label@> axisLeft;
+  array<GUI::Label@> axisRight;
+  // what the axes show; the axes are only laid out again when it changes:
+  int axisScreen = -1;
   GUI::SNESCanvas @lightWorld;
   GUI::SNESCanvas @darkWorld;
   GUI::Canvas @underworld;
@@ -26,7 +42,7 @@ class WorldMapWindow {
   int width = mwidth*8;
   int height = mheight*8;
   float mapscale = 2;
-  int dotDiam = 12;
+  int dotDiam = 8;
   float dotTop = 0;
   float dotLeft = 0;
 
@@ -37,15 +53,19 @@ class WorldMapWindow {
     // relative position to bsnes window:
     @window = GUI::Window(256*2*8/7.0, 0, true);
     window.title = "World Map";
-    window.size = GUI::Size(sx(width*mapscale), sy(height*mapscale + 32));
+    window.size = GUI::Size(sx(width*mapscale) + axisW*2, sy(height*mapscale + 32) + axisH*2);
     window.resizable = true;
-    window.dismissable = false;
 
     @vl = GUI::VerticalLayout();
     window.append(vl);
 
+    // the maps are inset by the padding to make room for the axes on all four sides:
+    @mapHolder = GUI::VerticalLayout();
+    mapHolder.setPadding(axisW, axisH);
+    vl.append(mapHolder, GUI::Size(-1, -1));
+
     @lightWorld = GUI::SNESCanvas();
-    vl.append(lightWorld, GUI::Size(-1, -1));
+    mapHolder.append(lightWorld, GUI::Size(-1, -1));
     lightWorld.size = GUI::Size(width, height);
     lightWorld.setPosition(0, 0);
     lightWorld.setAlignment(0, 0);
@@ -53,7 +73,7 @@ class WorldMapWindow {
     lightWorld.visible = true;
 
     @darkWorld = GUI::SNESCanvas();
-    vl.append(darkWorld, GUI::Size(-1, -1));
+    mapHolder.append(darkWorld, GUI::Size(-1, -1));
     darkWorld.size = GUI::Size(width, height);
     darkWorld.setPosition(0, 0);
     darkWorld.setAlignment(0, 0);
@@ -62,7 +82,7 @@ class WorldMapWindow {
 
     {
       @underworld = GUI::Canvas();
-      vl.append(underworld, GUI::Size(-1, -1));
+      mapHolder.append(underworld, GUI::Size(-1, -1));
 
       underworld.setPosition(0, 0);
       underworld.setAlignment(0, 0);
@@ -80,7 +100,7 @@ class WorldMapWindow {
     {
       // nearly identical copy of the above code for underworld
       @metroid = GUI::Canvas();
-      vl.append(metroid, GUI::Size(-1,-1));
+      mapHolder.append(metroid, GUI::Size(-1, -1));
 
       metroid.setPosition(0, 0);
       metroid.setAlignment(0, 0);
@@ -100,8 +120,20 @@ class WorldMapWindow {
 
     @dd = GUI::ComboButton();
     hl.append(dd, GUI::Size(-1, 0));
+
+    @lblLocation = GUI::Label();
+    lblLocation.toolTip = "The room (underworld) or area (overworld) the local player is in";
+    lblLocation.alignment = GUI::Alignment(0.5, 0.5);
+    hl.append(lblLocation, GUI::Size(sx(52), 0));
+
     @chkAuto = GUI::CheckLabel();
     hl.append(chkAuto, GUI::Size(0, 0));
+
+    // keep the Auto checkbox clear of the window's rounded corner on MacOS:
+    auto @spacer = GUI::Label();
+    hl.append(spacer, GUI::Size(sx(16), 0));
+
+    makeAxes();
 
     // this combo box determines screen shown, 0 = light, 1 = dark, 2 = underworld 3 == metroid
     auto di = GUI::ComboButtonItem();
@@ -131,10 +163,36 @@ class WorldMapWindow {
 
     lightWorld.doSize();
 
+    windowLayout.attach("map", window);
     window.visible = true;
   }
 
+  // loadMap draws the map of the loaded game; called when the game is loaded or when the window is created after:
+  void cartridge_loaded() {
+    loadMap(true);
+    drawMap();
+    if (rom.is_sm()) {
+      add_sm_button();
+    }
+  }
+
+  bool isOpen() {
+    return window.visible;
+  }
+
+  void show() {
+    if (!window.visible) {
+      forceSwitch = true;
+      window.visible = true;
+    }
+    window.setFocused();
+  }
+
+  private bool smButtonAdded = false;
   void add_sm_button() {
+    if (smButtonAdded) return;
+    smButtonAdded = true;
+
     auto di = GUI::ComboButtonItem();
     di.text = "Super Metroid";
     this.dd.append(di);
@@ -168,9 +226,145 @@ class WorldMapWindow {
       mapscale = s.height / screenHeight;
     }
 
-    dotLeft = 0;
-    dotTop = 0;
+    // dots and axes are placed relative to where the shown map starts in the window:
+    GUI::Position origin;
+    if (screen == 0) {
+      origin = lightWorld.geometry.position;
+    } else if (screen == 1) {
+      origin = darkWorld.geometry.position;
+    } else if (screen == 2) {
+      origin = underworld.geometry.position;
+    } else if (screen == 3) {
+      origin = metroid.geometry.position;
+    }
+    dotLeft = origin.x;
+    dotTop = origin.y;
+    axisScreen = -1;
+    layoutAxes();
     redrawDots();
+  }
+
+  // hex formats the value as uppercase hex with at least `digits` digits:
+  string hex(uint value, uint digits) {
+    string digitChars = "0123456789ABCDEF";
+    string s = "";
+    do {
+      s = digitChars.slice(value & 15, 1) + s;
+      value >>= 4;
+    } while (value != 0);
+    while (s.length() < digits) s = "0" + s;
+    return s;
+  }
+
+  private GUI::Label@ makeAxisLabel() {
+    auto @lbl = GUI::Label();
+    lbl.layoutExcluded = true;
+    lbl.foregroundColor = GUI::Color(140, 140, 140);
+    lbl.alignment = GUI::Alignment(0.5, 0.5);
+    vl.append(lbl, GUI::Size(axisW, axisH));
+    lbl.setPosition(-128, -128);
+    lbl.visible = false;
+    return lbl;
+  }
+
+  // the labels for the most columns and rows of any map, which is the underworld's 16 columns and 19 rows:
+  private void makeAxes() {
+    axisTop.resize(16);
+    axisBottom.resize(16);
+    axisLeft.resize(19);
+    axisRight.resize(19);
+    for (uint i = 0; i < 16; i++) {
+      @axisTop[i] = makeAxisLabel();
+      @axisBottom[i] = makeAxisLabel();
+    }
+    for (uint i = 0; i < 19; i++) {
+      @axisLeft[i] = makeAxisLabel();
+      @axisRight[i] = makeAxisLabel();
+    }
+  }
+
+  private void placeAxisLabel(GUI::Label @lbl, string text, float x, float y, float w, float h) {
+    lbl.text = text;
+    lbl.geometry = GUI::Geometry(GUI::Position(x, y), GUI::Size(w, h));
+    lbl.visible = true;
+  }
+
+  // layoutAxes shows the row and column numbers around the map shown:
+  //   underworld: rooms are $NNN with 16 columns and 19 rows; rows are shown as $NNx and columns as $xxN;
+  //   overworld: areas are 8 columns by 8 rows, 32 areas apart in the dark world; the 8 areas of a row are the
+  //     row's number $NN plus the column $xN, the 8 areas of a column are $xN plus the row's number
+  void layoutAxes() {
+    if (axisTop.length() == 0) return;
+    if (axisScreen == screen) return;
+    axisScreen = screen;
+
+    // hide all:
+    for (uint i = 0; i < 16; i++) {
+      axisTop[i].visible = false;
+      axisBottom[i].visible = false;
+    }
+    for (uint i = 0; i < 19; i++) {
+      axisLeft[i].visible = false;
+      axisRight[i].visible = false;
+    }
+
+    if (screen != 0 && screen != 1 && screen != 2) return;
+
+    // size of the map in the window:
+    float mapW;
+    float mapH;
+    uint cols;
+    uint rows;
+    // size of one column and one row in the window:
+    float cellW;
+    float cellH;
+    // where the first column and row start from the map's origin:
+    float startX;
+    float startY;
+    if (screen == 2) {
+      cols = 16;
+      rows = 19;
+      mapW = 8192 * mapscale;
+      mapH = 9728 * mapscale;
+      cellW = 512 * mapscale;
+      cellH = 512 * mapscale;
+      startX = 0;
+      startY = 0;
+    } else {
+      cols = 8;
+      rows = 8;
+      mapW = width * mapscale;
+      mapH = height * mapscale;
+      cellW = 512.0 / 16.0 * mapscale;
+      cellH = 512.0 / 16.0 * mapscale;
+      startX = (float(mapsprleft) / 16.0 - left) * mapscale;
+      startY = (float(mapsprtop) / 16.0 - top) * mapscale;
+    }
+
+    for (uint c = 0; c < cols; c++) {
+      float cx = dotLeft + startX + cellW * (c + 0.5);
+      string text;
+      if (screen == 2) {
+        text = "$xx" + hex(c, 1);
+      } else {
+        text = "$x" + hex(c, 1);
+      }
+      placeAxisLabel(axisTop[c], text, cx - axisW / 2, dotTop - axisH, axisW, axisH);
+      placeAxisLabel(axisBottom[c], text, cx - axisW / 2, dotTop + mapH, axisW, axisH);
+    }
+
+    for (uint r = 0; r < rows; r++) {
+      float cy = dotTop + startY + cellH * (r + 0.5);
+      string text;
+      if (screen == 2) {
+        text = "$" + hex(r, 2) + "x";
+      } else {
+        // the first area of the row; the dark world's areas are $40 and up:
+        text = "$" + hex(r * 8 + (screen == 1 ? 0x40 : 0), 2);
+      }
+      placeAxisLabel(axisLeft[r], text, dotLeft - axisW, cy - axisH / 2, axisW, axisH);
+      placeAxisLabel(axisRight[r], text, dotLeft + mapW, cy - axisH / 2, axisW, axisH);
+    }
   }
 
   void redrawDots() {
@@ -207,8 +401,9 @@ class WorldMapWindow {
       darkWorld.visible = (screen == 1);
       underworld.visible = (screen == 2);
       metroid.visible = (screen == 3);
+      mapHolder.resize();
       vl.resize();
-      redrawDots();
+      onSize();
       lastScreen = screen;
     }
   }
@@ -245,9 +440,30 @@ class WorldMapWindow {
     return false;
   }
 
+  // updateLocation shows the room or area the local player is in next to the map selector:
+  private void updateLocation(const GameState &in p) {
+    string text = "";
+    if (p.in_sm == 0) {
+      if (screen == 2 && showsOnScreen(p, 2) && p.dungeon != 0xFF) {
+        // underworld room, e.g. $0A8:
+        text = "$" + hex(p.actual_location & 0xFFFF, 3);
+      } else if ((screen == 0 || screen == 1) && showsOnScreen(p, screen) && (p.actual_location & 0x010000) == 0) {
+        // overworld area, e.g. $2C:
+        text = "$" + hex(p.actual_location & 0xFF, 2);
+      }
+    }
+    if (text != locationText) {
+      locationText = text;
+      lblLocation.text = text;
+    }
+  }
+
   void update(const GameState &in local) {
+    if (!window.visible) return;
+
     if (!chkAuto.checked) {
       toggledLightDarkWorld();
+      updateLocation(local);
       return;
     }
 
@@ -260,6 +476,8 @@ class WorldMapWindow {
     if (dd.selected.offset != selectedOffset) {
       dd[selectedOffset].setSelected();
     }
+
+    updateLocation(local);
   }
 
   bool loaded = false;
@@ -429,36 +647,17 @@ class WorldMapWindow {
     return c;
   }
 
-  void fillDot(GUI::SNESCanvas @c, uint16 color) {
+  void fillDot(GUI::SNESCanvas @c, uint16 color, uint16 outline) {
     int max = dotDiam-1;
     int s = dotDiam/2;
 
-    uint16 outline = ppu::rgb(0x1f, 0x1f, 0x1f) | 0x8000;
+    outline |= 0x8000;
     color |= 0x8000;
 
-    if (false) {
-      // filled square with outline:
-      c.fill(color);
-
-      for (int i = 0; i < s; i++) {
-        // top line:
-        c.pixel(    i,     0, outline);
-        c.pixel(max-i,     0, outline);
-        // bottom line:
-        c.pixel(    i,   max, outline);
-        c.pixel(max-i,   max, outline);
-        // left line:
-        c.pixel(    0,     i, outline);
-        c.pixel(    0, max-i, outline);
-        // right line:
-        c.pixel(  max,     i, outline);
-        c.pixel(  max, max-i, outline);
-      }
-    } else {
-      // filled circle with outline:
-      circle(c, color,   true,  s, s, s-1);
-      circle(c, outline, false, s, s, s-1);
-    }
+    // filled circle outlined with the player's darker tunic color:
+    c.fill(0x0000);
+    circle(c, color,   true,  s, s, s-1);
+    circle(c, outline, false, s, s, s-1);
 
     c.update();
   }
@@ -573,6 +772,8 @@ class WorldMapWindow {
   }
 
   void renderPlayers() {
+    if (!window.visible) return;
+
     array<GameState@> @ps = playersArray();
 
     // grow dots array and create new Canvas instances:
@@ -614,7 +815,7 @@ class WorldMapWindow {
       
       // check if we need to fill the dot in with the player's color:
       if (p.player_color != colors[i]) {
-        fillDot(dot, p.player_color | 0x8000);
+        fillDot(dot, p.player_color, p.player_color_dark_75);
         colors[i] = p.player_color;
       }
 

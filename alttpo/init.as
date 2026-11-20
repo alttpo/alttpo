@@ -6,14 +6,13 @@ bool debug = false;
 bool debugReadout = false;
 bool debugData = false;
 bool debugSRAM = false;
+// these debug windows open at startup when set, as well as when chosen in the Advanced Settings window:
 bool debugOAM = false;
 bool debugSprites = false;
 bool debugEnemyWindow = false;
 bool debugMemory = false;
 
 
-bool enableMap = true;
-bool enablePlayerList = true;
 bool enableBgMusic = true;
 
 bool enableNetRateLimiting = false;
@@ -50,25 +49,9 @@ void init() {
     settings.connect();
   }
 
-  if (debugSprites) {
-    @sprites = SpritesWindow();
-  }
-
-  if (enableMap) {
-    @worldMapWindow = WorldMapWindow();
-  }
-
-  if (debugOAM) {
-    @oamWindow = OAMWindow();
-  }
-
-  if (debugEnemyWindow) {
-    @enemyWindow = EnemyWindow();
-  }
-
-  if (enablePlayerList) {
-    @playersWindow = PlayersWindow();
-  }
+  // open the windows chosen in the Advanced Settings window at their saved sizes and positions; the ones that need a
+  // game open once it is loaded:
+  openStartupWindows();
 
   settings.doActivate();
 }
@@ -89,10 +72,6 @@ void cartridge_loaded() {
       }
       dbgData("[" + fmtInt(i) + "] = " + fmtHex(s.offs, 3) + ", " + fmtInt(s.size) + ", " + fmtInt(s.type));
     }
-  }
-
-  if (debugMemory) {
-    @memoryWindow = MemoryWindow();
   }
 
   // read the JSL target address from the RESET vector code:
@@ -117,12 +96,11 @@ void cartridge_loaded() {
 
   // draw map window when cartridge loaded:
   if (worldMapWindow !is null) {
-    worldMapWindow.loadMap(true);
-    worldMapWindow.drawMap();
-    if (rom.is_sm()) {
-      worldMapWindow.add_sm_button();
-    }
+    worldMapWindow.cartridge_loaded();
   }
+
+  // open the debug windows chosen to open at startup:
+  openStartupGameWindows();
 
   if (settings.DiscordEnable) {
     discord::cartridge_loaded();
@@ -147,6 +125,9 @@ void post_power(bool reset) {
 
 // called when script itself is unloaded:
 void unload() {
+  // remember the size and position of the open windows:
+  windowLayout.saveAll();
+
   if (rom !is null) {
     // restore patched JSL:
     pb.unload();

@@ -47,11 +47,17 @@ class EnemyWindow {
     }
 
     vl.resize();
+    windowLayout.attach("enemies", window);
     window.visible = true;
+  }
+
+  bool isOpen() {
+    return window.visible;
   }
 
   void show() {
     window.visible = true;
+    window.setFocused();
   }
 
   void hide() {
@@ -60,6 +66,10 @@ class EnemyWindow {
 
   // must be run from post_frame():
   void update() {
+    if (!window.visible || local is null) {
+      return;
+    }
+
     if (local.enemyData is null) {
       return;
     }

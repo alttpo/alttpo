@@ -47,11 +47,17 @@ class OAMWindow {
     window.append(hl);
 
     hl.resize();
+    windowLayout.attach("oam", window);
     window.visible = true;
+  }
+
+  bool isOpen() {
+    return window.visible;
   }
 
   void show() {
     window.visible = true;
+    window.setFocused();
   }
 
   void hide() {
@@ -59,6 +65,8 @@ class OAMWindow {
   }
 
   void update() {
+    if (!window.visible || local is null) return;
+
     for (uint i = 0; i < 8; i++) {
       for (uint j = 0; j < 16; j++) {
         auto @s = local.sprs[i*16+j];

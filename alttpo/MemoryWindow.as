@@ -138,8 +138,19 @@ class MemoryWindow {
     }
 
     vl.resize();
-    btnCaptureClicked();
+    windowLayout.attach("memory", window);
     window.visible = true;
+    btnCaptureClicked();
+  }
+
+  bool isOpen() {
+    return window.visible;
+  }
+
+  void show() {
+    window.visible = true;
+    window.setFocused();
+    update();
   }
 
   void btnCaptureClicked() {
@@ -168,6 +179,8 @@ class MemoryWindow {
   }
 
   void update() {
+    if (!window.visible) return;
+
     // read data:
     bus::read_block_u8(addr, 0, memWindowBytes, page);
 

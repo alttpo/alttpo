@@ -22,6 +22,9 @@ class PlayersWindow {
   }
 
   void update() {
+    // a window that is not shown is brought up to date when it is shown again:
+    if (!window.visible) return;
+
     auto sy5 = sy(5);
     auto vl = GUI::VerticalLayout();
     vl.setSpacing();
@@ -137,6 +140,7 @@ class PlayersWindow {
   // updateRunTimer refreshes the run timer while it counts up, a few times a second.
   void updateRunTimer() {
     if (runTimerLabel is null) return;
+    if (!window.visible) return;
     uint64 now = chrono::monotonic::millisecond;
     if (now - runTimerUpdated < 100) return;
     runTimerUpdated = now;
@@ -148,10 +152,20 @@ class PlayersWindow {
     @window = GUI::Window(260, 48, true);
     window.title = "Online players";
     window.size = GUI::Size(sx(340), sy(16*25));
-    window.dismissable = false;
     window.backgroundColor = GUI::Color(28, 28, 28);
+    windowLayout.attach("players", window);
     window.visible = true;
 
+    update();
+  }
+
+  bool isOpen() {
+    return window.visible;
+  }
+
+  void show() {
+    window.visible = true;
+    window.setFocused();
     update();
   }
 }
