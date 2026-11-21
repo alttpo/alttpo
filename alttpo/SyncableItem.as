@@ -478,16 +478,9 @@ uint16 mutateFlute(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   return oldValue;
 }
 
-// boomerang for randomizer ROMs: allow gaining one when having none, and upgrading blue (1) to red (2); never downgrade
-// since the player may swap boomerangs with the item swap menu:
-uint16 mutateBoomerang(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
-  if (oldValue == 0 && newValue != 0) return newValue;
-  if (oldValue == 1 && newValue == 2) return newValue;
-  return oldValue;
-}
-
-const uint8 bitPowder   = 1<<4;
-const uint8 bitMushroom = 1<<5;
+const uint8 bitPowder         = 1<<4;
+const uint8 bitMushroom       = 1<<5;
+const uint8 bitRedBoomerang   = 1<<6;
 
 uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   // INVENTORY_SWAP = "$7EF38C"
@@ -521,6 +514,16 @@ uint16 mutateRandomizerItems(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) 
   ) {
     // set mushroom in inventory:
     localSRAM.write_u8(0x344, 1);
+  }
+
+  // if gaining the red boomerang while holding the blue one, equip the red one as picking it up would; only on gaining
+  // the red boomerang so the Y button swap back to the blue one sticks:
+  if (
+    ((oldValue & bitRedBoomerang) == 0) &&
+    ((newValue & bitRedBoomerang) == bitRedBoomerang) &&
+    localSRAM.read_u8(0x341) == 1
+  ) {
+    localSRAM.write_u8(0x341, 2);
   }
 
   //// if had mushroom and lost mushroom:
