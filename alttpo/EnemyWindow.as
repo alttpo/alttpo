@@ -74,6 +74,12 @@ class EnemyWindow {
       return;
     }
 
+    // enemyData is only fetched by the script when the LTTP enemy sync is on, so read the sprite tables here to
+    // show the enemies regardless:
+    if (!settings.SyncLttpEnemies) {
+      local.fetch_enemy_data();
+    }
+
     for (uint i = 0; i < 0x10; i++) {
       uint8 aimode = local.enemyData[(spr_aimode<<4) + i];
       uint8 id = local.enemyData[(spr_id<<4) + i];
