@@ -1036,7 +1036,7 @@ class SettingsWindow {
     syncOverworld = true;
     syncItems = true;
     syncPendants = true;
-    syncSmallKeys = false;
+    syncSmallKeys = true;
     syncUnderworldLocal = true;
     syncOverworldLocal = true;
     syncTorches = true;
@@ -1535,13 +1535,13 @@ class SettingsWindow {
 
     makeCheckboxPair(
       vl, GUI::Size(sx150, 0),
-      chkSyncTorches, @GUI::Callback(chkSyncTorchesChanged),
-      "Torches",
-      "Torches lit by players in the same room",
+      chkSyncEnemiesKilled, @GUI::Callback(chkSyncEnemiesKilledChanged),
+      "Enemy Dead List",
+      "Enemies killed by players in the same room or area stay dead when the game would spawn them again here; enemies themselves are synced by the LTTP enemy sync",
       true,
-      chkSyncSfx, @GUI::Callback(chkSyncSfxChanged),
-      "Sound Effects",
-      "Sound effects of players in the same room or area",
+      chkKillDeadEnemies, @GUI::Callback(chkKillDeadEnemiesChanged),
+      "Kill Dead Enemies",
+      "Immediately kill the enemies here that players in the same room or area killed, when their dead list updates; needs Enemy Dead List",
       true
     );
 
@@ -1551,9 +1551,9 @@ class SettingsWindow {
       "Sprites",
       "Enable to allow other players to see your player sprite on their screens",
       true,
-      chkSyncEnemiesKilled, @GUI::Callback(chkSyncEnemiesKilledChanged),
-      "Enemy Dead List",
-      "Enemies killed by players in the same room or area stay dead when the game would spawn them again here; enemies themselves are synced by the LTTP enemy sync",
+      chkSyncSfx, @GUI::Callback(chkSyncSfxChanged),
+      "Sound Effects",
+      "Sound effects of players in the same room or area",
       true
     );
 
@@ -1561,12 +1561,12 @@ class SettingsWindow {
       auto @hz = GUI::HorizontalLayout();
       vl.append(hz, GUI::Size(-1, 0));
 
-      @chkKillDeadEnemies = GUI::CheckLabel();
-      chkKillDeadEnemies.text = "Kill Dead Enemies";
-      chkKillDeadEnemies.toolTip = "Immediately kill the enemies here that players in the same room or area killed, when their dead list updates; needs Enemy Dead List";
-      chkKillDeadEnemies.checked = killDeadEnemies;
-      chkKillDeadEnemies.onToggle(@GUI::Callback(chkKillDeadEnemiesChanged));
-      hz.append(chkKillDeadEnemies, GUI::Size(sx150, 0));
+      @chkSyncTorches = GUI::CheckLabel();
+      chkSyncTorches.text = "Torches";
+      chkSyncTorches.toolTip = "Torches lit by players in the same room";
+      chkSyncTorches.checked = syncTorches;
+      chkSyncTorches.onToggle(@GUI::Callback(chkSyncTorchesChanged));
+      hz.append(chkSyncTorches, GUI::Size(sx150, 0));
     }
 
     {

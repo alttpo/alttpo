@@ -577,7 +577,7 @@ class RandomizerMapping : JPROMMapping {
 
       // boomerang
       if (syncable.offs == 0x341) {
-        @syncables[i] = whenSyncItems(SyncableItem(0x341, 1, @mutateZeroToNonZero)); // no name here; INVENTORY_SWAP takes care of that
+        @syncables[i] = whenSyncItems(SyncableItem(0x341, 1, @mutateBoomerang)); // no name here; INVENTORY_SWAP takes care of that
         continue;
       }
 

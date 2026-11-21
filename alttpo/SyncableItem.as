@@ -478,6 +478,14 @@ uint16 mutateFlute(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
   return oldValue;
 }
 
+// boomerang for randomizer ROMs: allow gaining one when having none, and upgrading blue (1) to red (2); never downgrade
+// since the player may swap boomerangs with the item swap menu:
+uint16 mutateBoomerang(SRAM@ localSRAM, uint16 oldValue, uint16 newValue) {
+  if (oldValue == 0 && newValue != 0) return newValue;
+  if (oldValue == 1 && newValue == 2) return newValue;
+  return oldValue;
+}
+
 const uint8 bitPowder   = 1<<4;
 const uint8 bitMushroom = 1<<5;
 
