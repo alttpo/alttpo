@@ -71,22 +71,29 @@ void pre_nmi() {
   }
 }
 
-// the last track the game requested while the BG music is disabled, and whether it is disabled at the moment:
+// The game requests music in $012C and NMI sends it to the APU unless it equals $0133 (the last track sent), then sets
+// $0133 and $0130 (the track playing, unless the request is $F2 or later) to it and clears $012C. The game decides
+// what to request by comparing the track an area or room wants with $0130 (fading with $F1 when they differ), so
+// while the BG music is disabled every request is swallowed as if NMI sent it: $0130 and $0133 are set to it and
+// $012C is cleared. The game believes the right track is playing and never fades or requests another one.
+
+// the last track that repeats the game requested while the BG music is disabled, and whether it is disabled now:
 uint8 bgMusicWanted = 0;
 bool bgMusicWasDisabled = false;
 
-// restart_bg_music requests the track the game last requested while the BG music was disabled, once:
+// restart_bg_music requests the track that repeats the game last requested while the BG music was disabled, once:
 void restart_bg_music() {
   bgMusicWasDisabled = false;
-  if (bgMusicWanted == 0) return;
-  bus::write_u8(0x7E012C, bgMusicWanted);
-  // let the game send the same track again:
-  bus::write_u8(0x7E0130, 0);
+  // NMI skips a request equal to the last track sent:
+  bus::write_u8(0x7E0133, 0);
+  if (bus::read_u8(0x7E012C) == 0) {
+    bus::write_u8(0x7E012C, bgMusicWanted);
+  }
   bgMusicWanted = 0;
 }
 
 // is_repeating_track returns true for the tracks that loop; false for commands, nothing music, the mirror warp and
-// the tracks that play once:
+// the tracks that play once (short jingles):
 bool is_repeating_track(uint8 cmd) {
   if (cmd == 0 || cmd >= 0x30) return false;
   switch (cmd) {
@@ -101,44 +108,27 @@ void disable_bg_music() {
   auto module = bus::read_u8(0x7E0010);
   if (module < 0x06) return;
 
-  bgMusicWasDisabled = true;
-
-  // check what cmd is requested:
   auto cmd = bus::read_u8(0x7E012C);
-  // remember the track to restart when enabling the BG music again; only tracks that repeat, so that short one-shot
-  // jingles are not repeated:
+  // remember the track to restart when enabling the BG music again; only tracks that repeat:
   if (is_repeating_track(cmd)) bgMusicWanted = cmd;
-  // allow nothing music:
-  if (cmd == 0x20) return;
-  // allow mirror warp:
-  if (cmd == 0x08) return;
-  // special commands to control volume:
-  if (cmd >= 0xF1) return;
 
-  // check what tune is currently playing:
-  auto tune = bus::read_u8(0x7E0130);
-
-  // allow no command:
-  if (cmd == 0) {
-    // fade out any currently playing music:
+  if (!bgMusicWasDisabled) {
+    bgMusicWasDisabled = true;
+    // fade out the track that is playing, the only thing the APU is told:
+    auto tune = bus::read_u8(0x7E0130);
     if (tune != 0 && tune != 0x08 && tune < 0xF1) {
       bus::write_u8(0x7E012C, 0xF1);
       bus::write_u8(0x7E0130, 0xF1);
+      bus::write_u8(0x7E0133, 0);
+      return;
     }
-    return;
   }
 
-  // changing from mirror to some other tune:
-  if (tune == 0x08) {
-    // fade out so we can play mirror music again:
-    bus::write_u8(0x7E012C, 0xF1);
-    bus::write_u8(0x7E0130, 0xF1);
-    return;
+  if (cmd == 0) return;
+  // act as if NMI sent the request:
+  if (cmd < 0xF2) {
+    bus::write_u8(0x7E0130, cmd);
+    bus::write_u8(0x7E0133, cmd);
   }
-
-  // clear track queue:
-  //bus::write_u8(0x7E0132, 0);
-
-  // no command:
   bus::write_u8(0x7E012C, 0);
 }
