@@ -68,6 +68,7 @@ class SettingsWindow {
   private GUI::CheckLabel @chkOpenPlayers;
   private GUI::CheckLabel @chkDebugEnabled;
   private GUI::CheckLabel @chkOpenMemory;
+  private GUI::CheckLabel @chkDisableBgMusic;
   private GUI::CheckLabel @chkOpenVram;
   private GUI::CheckLabel @chkOpenOam;
   private GUI::CheckLabel @chkOpenEnemies;
@@ -254,6 +255,10 @@ class SettingsWindow {
   // which windows open when the script starts, see openDefaultWindows():
   private bool openMap = true;
   private bool openPlayers = true;
+  // disableBgMusic stops the game's background music; see disable_bg_music() in pre_nmi.as:
+  private bool disableBgMusic = false;
+  bool DisableBgMusic { get { return disableBgMusic; } }
+
   // debugEnabled gates the debug windows: Memory, Sprite VRAM, OAM and Enemies:
   private bool debugEnabled = false;
   private bool openMemory = false;
@@ -331,6 +336,7 @@ class SettingsWindow {
     chkSyncSmEnemies.checked = syncsmenemies;
     chkSyncLttpEnemies.checked = synclttpenemies;
 
+    chkDisableBgMusic.checked = disableBgMusic;
     chkOpenMap.checked = openMap;
     chkOpenPlayers.checked = openPlayers;
     chkDebugEnabled.checked = debugEnabled;
@@ -402,6 +408,8 @@ class SettingsWindow {
     discordEnable = doc["feature/discordEnable"].booleanOr(false);
     discordPrivate = doc["feature/discordPrivate"].booleanOr(false);
 
+    disableBgMusic = doc["feature/disableBgMusic"].booleanOr(false);
+
     openMap = doc["windows/openMap"].booleanOr(true);
     openPlayers = doc["windows/openPlayers"].booleanOr(true);
     debugEnabled = doc["windows/debugEnabled"].booleanOr(false);
@@ -472,6 +480,8 @@ class SettingsWindow {
 
     doc.create("feature/discordEnable").value = fmtBool(discordEnable);
     doc.create("feature/discordPrivate").value = fmtBool(discordPrivate);
+
+    doc.create("feature/disableBgMusic").value = fmtBool(disableBgMusic);
 
     doc.create("windows/openMap").value = fmtBool(openMap);
     doc.create("windows/openPlayers").value = fmtBool(openPlayers);
@@ -1278,6 +1288,14 @@ class SettingsWindow {
   }
 
   // callback:
+  private void chkDisableBgMusicChanged() {
+    disableBgMusic = chkDisableBgMusic.checked;
+    // turning it off restarts the track that would be playing:
+    if (!disableBgMusic) restart_bg_music();
+    save();
+  }
+
+  // callback:
   private void chkDebugEnabledChanged() {
     debugEnabled = chkDebugEnabled.checked;
     debugEnabledGUI();
@@ -1715,6 +1733,20 @@ class SettingsWindow {
         "Settings for multiworld, Enables RaceMode and the QUsb2Snes Bridge.";
       btnPresetMultiworld.onActivate(@GUI::Callback(btnPresetMultiworldClicked));
       hz.append(btnPresetMultiworld, GUI::Size(-1, -1));
+    }
+
+    {
+      auto @hz = GUI::HorizontalLayout();
+      vl.append(hz, GUI::Size(-1, 0));
+
+      @chkDisableBgMusic = GUI::CheckLabel();
+      chkDisableBgMusic.text = "Disable BG Music";
+      chkDisableBgMusic.toolTip =
+        "Stop the game from playing its background music; sound effects still play. Unchecking this restarts the "
+        "music that would be playing.";
+      chkDisableBgMusic.checked = disableBgMusic;
+      chkDisableBgMusic.onToggle(@GUI::Callback(chkDisableBgMusicChanged));
+      hz.append(chkDisableBgMusic, GUI::Size(-1, 0));
     }
 
     {

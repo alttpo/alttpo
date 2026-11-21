@@ -13,8 +13,6 @@ bool debugEnemyWindow = false;
 bool debugMemory = false;
 
 
-bool enableBgMusic = true;
-
 bool enableNetRateLimiting = false;
 bool enableNetReporting = false;
 

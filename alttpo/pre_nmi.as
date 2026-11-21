@@ -5,8 +5,10 @@ void pre_nmi() {
   // increment our own frame counter since in SMZ3 there is no single frame counter:
   local.frame = (local.frame + 1) & 0xff;
 
-  if (!enableBgMusic) {
+  if (settings.DisableBgMusic) {
     disable_bg_music();
+  } else if (bgMusicWasDisabled) {
+    restart_bg_music();
   }
 
   if (settings.started) {
@@ -69,13 +71,31 @@ void pre_nmi() {
   }
 }
 
+// the last track the game requested while the BG music is disabled, and whether it is disabled at the moment:
+uint8 bgMusicWanted = 0;
+bool bgMusicWasDisabled = false;
+
+// restart_bg_music requests the track the game last requested while the BG music was disabled, once:
+void restart_bg_music() {
+  bgMusicWasDisabled = false;
+  if (bgMusicWanted == 0) return;
+  bus::write_u8(0x7E012C, bgMusicWanted);
+  // let the game send the same track again:
+  bus::write_u8(0x7E0130, 0);
+  bgMusicWanted = 0;
+}
+
 void disable_bg_music() {
   // funny things happen when disabling music from the intro:
   auto module = bus::read_u8(0x7E0010);
   if (module < 0x06) return;
 
+  bgMusicWasDisabled = true;
+
   // check what cmd is requested:
   auto cmd = bus::read_u8(0x7E012C);
+  // remember the track to restart when enabling the BG music again; special commands to control volume are not tracks:
+  if (cmd != 0 && cmd <= 0xF1) bgMusicWanted = cmd;
   // allow nothing music:
   if (cmd == 0x20) return;
   // allow mirror warp:
