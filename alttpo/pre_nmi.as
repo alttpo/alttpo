@@ -74,20 +74,36 @@ void pre_nmi() {
 // The game requests music in $012C and NMI sends it to the APU unless it equals $0133 (the last track sent), then sets
 // $0133 and $0130 (the track playing, unless the request is $F2 or later) to it and clears $012C. The game decides
 // what to request by comparing the track an area or room wants with $0130 (fading with $F1 when they differ), so
-// while the BG music is disabled every request is swallowed as if NMI sent it: $0130 and $0133 are set to it and
-// $012C is cleared. The game believes the right track is playing and never fades or requests another one.
+// while the BG music is disabled the requests of tracks that repeat are swallowed as if NMI sent them: $0130 and $0133
+// are set to the track and the request is cleared. The game believes the right track is playing and never fades or
+// requests another one. The z3randomizer (VT randomizer, DR) moves the request: after the module it copies $012C to
+// $012B and NMI reads $012B instead (the operand of the LDA at $0080DC), so the request is the address NMI reads.
+// Requests of tracks that play once (jingles, which the game can wait for), the mirror warp, nothing music and
+// commands other than the volume commands are sent.
 
 // the last track that repeats the game requested while the BG music is disabled, and whether it is disabled now:
 uint8 bgMusicWanted = 0;
 bool bgMusicWasDisabled = false;
 
+// bg_music_request_addr returns the address of the music request that NMI reads, or 0 if the NMI is not one that
+// the music can be intercepted in:
+uint32 bg_music_request_addr() {
+  // LDA.w $xxxx:
+  if (bus::read_u8(0x0080DC) != 0xAD || bus::read_u8(0x0080DE) != 0x01) return 0;
+  auto lo = bus::read_u8(0x0080DD);
+  if (lo != 0x2C && lo != 0x2B) return 0;
+  return 0x7E0100 | lo;
+}
+
 // restart_bg_music requests the track that repeats the game last requested while the BG music was disabled, once:
 void restart_bg_music() {
   bgMusicWasDisabled = false;
+  auto req = bg_music_request_addr();
+  if (req == 0) return;
   // NMI skips a request equal to the last track sent:
   bus::write_u8(0x7E0133, 0);
-  if (bus::read_u8(0x7E012C) == 0) {
-    bus::write_u8(0x7E012C, bgMusicWanted);
+  if (bus::read_u8(req) == 0) {
+    bus::write_u8(req, bgMusicWanted);
   }
   bgMusicWanted = 0;
 }
@@ -108,16 +124,35 @@ void disable_bg_music() {
   auto module = bus::read_u8(0x7E0010);
   if (module < 0x06) return;
 
-  auto cmd = bus::read_u8(0x7E012C);
-  // remember the track to restart when enabling the BG music again; only tracks that repeat:
-  if (is_repeating_track(cmd)) bgMusicWanted = cmd;
+  auto req = bg_music_request_addr();
+  if (req == 0) return;
 
+  auto cmd = bus::read_u8(req);
+
+  // the volume commands are swallowed:
+  if (cmd == 0xF2 || cmd == 0xF3) {
+    bus::write_u8(req, 0);
+    return;
+  }
+  // the game's own fade out is sent the first time:
+  if (cmd == 0xF1) {
+    if (!bgMusicWasDisabled) {
+      bgMusicWasDisabled = true;
+      return;
+    }
+  } else if (cmd != 0) {
+    // sent: other commands, the mirror warp, nothing music and tracks that play once:
+    if (!is_repeating_track(cmd)) return;
+    // remember the track that repeats:
+    bgMusicWanted = cmd;
+  }
+
+  // the first time, fade out the track that is playing, the only thing the APU is told:
   if (!bgMusicWasDisabled) {
     bgMusicWasDisabled = true;
-    // fade out the track that is playing, the only thing the APU is told:
     auto tune = bus::read_u8(0x7E0130);
     if (tune != 0 && tune != 0x08 && tune < 0xF1) {
-      bus::write_u8(0x7E012C, 0xF1);
+      bus::write_u8(req, 0xF1);
       bus::write_u8(0x7E0130, 0xF1);
       bus::write_u8(0x7E0133, 0);
       return;
@@ -125,10 +160,8 @@ void disable_bg_music() {
   }
 
   if (cmd == 0) return;
-  // act as if NMI sent the request:
-  if (cmd < 0xF2) {
-    bus::write_u8(0x7E0130, cmd);
-    bus::write_u8(0x7E0133, cmd);
-  }
-  bus::write_u8(0x7E012C, 0);
+  // act as if NMI sent the request: the game believes the track is playing:
+  bus::write_u8(0x7E0130, cmd);
+  bus::write_u8(0x7E0133, cmd);
+  bus::write_u8(req, 0);
 }
