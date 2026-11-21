@@ -85,6 +85,17 @@ void restart_bg_music() {
   bgMusicWanted = 0;
 }
 
+// is_repeating_track returns true for the tracks that loop; false for commands, nothing music, the mirror warp and
+// the tracks that play once:
+bool is_repeating_track(uint8 cmd) {
+  if (cmd == 0 || cmd >= 0x30) return false;
+  switch (cmd) {
+    case 0x01: case 0x08: case 0x0A: case 0x0F: case 0x13: case 0x1D: case 0x20: case 0x21: case 0x22:
+      return false;
+  }
+  return true;
+}
+
 void disable_bg_music() {
   // funny things happen when disabling music from the intro:
   auto module = bus::read_u8(0x7E0010);
@@ -94,8 +105,9 @@ void disable_bg_music() {
 
   // check what cmd is requested:
   auto cmd = bus::read_u8(0x7E012C);
-  // remember the track to restart when enabling the BG music again; special commands to control volume are not tracks:
-  if (cmd != 0 && cmd <= 0xF1) bgMusicWanted = cmd;
+  // remember the track to restart when enabling the BG music again; only tracks that repeat, so that short one-shot
+  // jingles are not repeated:
+  if (is_repeating_track(cmd)) bgMusicWanted = cmd;
   // allow nothing music:
   if (cmd == 0x20) return;
   // allow mirror warp:
