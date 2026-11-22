@@ -90,6 +90,8 @@ abstract class ROMMapping {
   uint32 get_fn_toggle_star_tile_graphics() property { return 0; } // 0x00FDA7
   // UpdateTilemapWithCommonObject: $00/$02 = X/Y, Y = common object index * 2, 8-bit A/X/Y; JSL, RTL:
   uint32 get_fn_update_tilemap_with_common_object() property { return 0; }
+  // DeleteRupeeTile: $00/$02 = Y/X of a rupee of a rupee floor, 8-bit A; JSL, RTL; see Rupees.as:
+  uint32 get_fn_delete_rupee_tile() property { return 0; } // US 0x01E8BD, JP 0x01E8BB
   // Overworld_DrawMap16_Persist; A = map16 tile, X = tilemap offset, 16-bit; see Map16Changes.as:
   uint32 get_fn_overworld_draw_map16_persist() property { return 0; } // 0x1BC97C
   // Overworld_HandleOverlaysAndBombDoors, called by every overworld area load right after the area's tilemap was
@@ -410,6 +412,7 @@ class USAROMMapping : ROMMapping {
   uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
   uint32 get_fn_overworld_handle_overlays() property { return fastrom + 0x02EF29; }
   uint32 get_fn_update_tilemap_with_common_object() property { return fastrom + 0x01E7A9; }
+  uint32 get_fn_delete_rupee_tile() property { return fastrom + 0x01E8BD; }
   uint32 get_fn_dungeon_load_room_objects_done() property { return fastrom + 0x01889A; }
   uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D828; }
   uint32 get_fn_overworld_alter_weathervane() property { return fastrom + 0x1BC21D; }
@@ -533,6 +536,7 @@ class JPROMMapping : ROMMapping {
   uint32 get_fn_overworld_draw_map16_persist() property { return fastrom + 0x1BC97C; }
   uint32 get_fn_overworld_handle_overlays() property { return fastrom + 0x02EC8D; }
   uint32 get_fn_update_tilemap_with_common_object() property { return fastrom + 0x01E7A7; }
+  uint32 get_fn_delete_rupee_tile() property { return fastrom + 0x01E8BB; }
   uint32 get_fn_dungeon_load_room_objects_done() property { return fastrom + 0x01889A; }
   uint32 get_fn_room_draw_16x16_single() property { return fastrom + 0x01D826; }
   uint32 get_fn_overworld_alter_weathervane() property { return fastrom + 0x1BC21D; }

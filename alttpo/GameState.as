@@ -436,6 +436,10 @@ class GameState {
   uint16 flying_tiles_room = 0;
   uint8 flying_tiles_count = 0;
   uint8 flying_tiles_timer = 0;
+  // rupees of rupee floors deleted in rupees_room as received (see Rupees.as):
+  bool rupees_valid = false;
+  uint16 rupees_room = 0;
+  array<uint16> rupees_pos;
   // trap doors and key flags of room_room as received (see RoomState.as):
   bool room_valid = false;
   uint16 room_room = 0;
@@ -597,6 +601,7 @@ class GameState {
     star_value = 0;
     star_overlay = 0;
     flying_tiles_valid = false;
+    rupees_valid = false;
     room_valid = false;
     room_doors_valid = false;
     room_kills_valid = false;
@@ -860,6 +865,7 @@ class GameState {
         case 0x1D: c = deserialize_flying_tiles(r, c); break;
         case 0x1E: c = deserialize_room_kills(r, c); break;
         case 0x1F: c = deserialize_enemies_killed(r, c); break;
+        case 0x20: c = deserialize_rupees(r, c); break;
         case 0x82: c = deserialize_small_keys(r, c); break;
         case 0x83: c = deserialize_hearts(r, c); break;
         case 0x81: c = deserialize_reset(r, c); break;
@@ -890,6 +896,20 @@ class GameState {
   void calc_hitbox() {
     hitbox.setBox(x + 4, y + 8, 8, 8);
     hitbox.setActive(!is_dead() && !is_game_over() && (is_in_overworld_module() || is_in_dungeon_module()));
+  }
+
+  int deserialize_rupees(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 3 > maxc) return maxc;
+    rupees_room = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    int n = int(r[c++]);
+    if (c + n * 2 > maxc) return maxc;
+    rupees_pos.resize(n);
+    for (int i = 0; i < n; i++) {
+      rupees_pos[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
+    rupees_valid = true;
+    return c;
   }
 
   int deserialize_flying_tiles(array<uint8> r, int c) {
@@ -1038,6 +1058,7 @@ class GameState {
       // room and area specific state received so far belongs to the previous location:
       star_valid = false;
       flying_tiles_valid = false;
+      rupees_valid = false;
       room_valid = false;
       room_doors_valid = false;
       ow_events_valid = false;

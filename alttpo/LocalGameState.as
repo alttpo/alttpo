@@ -95,6 +95,7 @@ class LocalGameState : GameState {
   ChangeSender roomManipSend;
   ChangeSender roomStateSend;
   ChangeSender flyingTilesSend;
+  ChangeSender rupeesSend;
   ChangeSender roomKillsSend;
   // the compact messages (see SendState.as): the full location last sent, the frame of its packet, sends since, the
   // fields changes carry as in it and as last sent, and the rest of it:
@@ -1842,6 +1843,9 @@ class LocalGameState : GameState {
       m.resize(0);
       roomState.serialize_kills(m);
       if (m.length() != 0 && roomKillsSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
+      m.resize(0);
+      rupees.serialize(m);
+      if (m.length() != 0 && rupeesSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
     }
 
     // the enemies killed in the room or area, newest so last:
@@ -2660,6 +2664,8 @@ class LocalGameState : GameState {
     starSwitch.update();
     // and the flying floor tiles:
     flyingTiles.update();
+    // and the rupee floors:
+    rupees.update();
     // and room trap doors and key flags:
     roomState.update();
     // and overworld entrance animations and other events:
