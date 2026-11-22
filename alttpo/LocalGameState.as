@@ -60,6 +60,7 @@ class LocalGameState : GameState {
   Notify@ notify;
   NotifyItemReceived@ itemReceivedDelegate;
   SerializeSRAMDelegate@ serializeSramDelegate;
+  SerializeSRAMDelegate@ serializeSramItemsDelegate;
 
   uint8 state;
   uint32 last_sent = 0;
@@ -86,6 +87,30 @@ class LocalGameState : GameState {
   int paletteSends = 0;
   SramSender underworldSram;
   SramSender overworldSram;
+  SramSender itemsSram;
+  bool itemsSendFull = true;
+  // the room's messages to the sector:
+  ChangeSender torchesSend;
+  ChangeSender starSend;
+  ChangeSender roomManipSend;
+  ChangeSender roomStateSend;
+  ChangeSender flyingTilesSend;
+  ChangeSender roomKillsSend;
+  // the compact messages (see SendState.as): the full location last sent, the frame of its packet, sends since, the
+  // fields changes carry as in it and as last sent, and the rest of it:
+  bool locKeyOk = false;
+  uint8 locKeyFrame = 0;
+  int locKeyAge = 0;
+  array<uint16> locKey(4);
+  array<uint16> locLast(4);
+  array<uint8> locKeyOther;
+  // the full small keys last sent, the frame of its packet, sends since, and the changes last sent and sends since:
+  bool skKeyOk = false;
+  uint8 skKeyFrame = 0;
+  int skKeyAge = 0;
+  array<uint8> skKey;
+  array<uint8> skLast;
+  int skLastAge = 0;
   // the remote players in the same location and in the group at the last send, to catch arriving ones up at once:
   array<bool> peersHere;
   array<bool> peersGroup;
@@ -108,6 +133,7 @@ class LocalGameState : GameState {
     @this.notify = Notify(@notificationSystem.notify);
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
+    @this.serializeSramItemsDelegate = SerializeSRAMDelegate(@this.serialize_sram_items);
 
     // at most 512 new tiles to capture per frame:
     lttp_uniqtile_new.reserve(0x200);
@@ -1782,27 +1808,40 @@ class LocalGameState : GameState {
       // the SRAM is sent every 16 or 32 frames; send all of it then:
       underworldSram.full = true;
       overworldSram.full = true;
+      itemsSram.full = true;
+      // and the full messages that the compact ones change:
+      locKeyOk = false;
+      skKeyOk = false;
     }
   }
 
   // serialize_sector_state writes the state messages for the players in the same sector that are due: the room's
   // state and the enemies killed, when they change and every few sends.
   void serialize_sector_state(array<uint8> &r) {
-    array<uint8> room;
-    if (settings.SyncTorches) {
-      serialize_torches(room);
+    // the torches the local player lit, in rooms with lightable torches:
+    if (settings.SyncTorches && room_torch_count() > 0) {
+      array<uint8> m;
+      serialize_torches(m);
+      if (torchesSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
     }
-    // star switch state and manipulable objects are room specific:
+    // star switch state and manipulable objects are room specific, each sent when it changes:
     if (settings.SyncUnderworldLocal && module == 0x07) {
-      starSwitch.serialize(room);
-      manipSync.serialize(room);
+      array<uint8> m;
+      starSwitch.serialize(m);
+      if (m.length() != 0 && starSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
+      m.resize(0);
+      manipSync.serialize(m);
+      if (m.length() != 0 && roomManipSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
       // last, since older o2 and alttpo versions stop parsing at the first message type they don't know:
-      roomState.serialize(room);
-      flyingTiles.serialize(room);
-      roomState.serialize_kills(room);
-    }
-    if (room.length() != 0 && roomSend.due(room, sendSeq, room_refresh)) {
-      r.write_arr(room);
+      m.resize(0);
+      roomState.serialize(m);
+      if (m.length() != 0 && roomStateSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
+      m.resize(0);
+      flyingTiles.serialize(m);
+      if (m.length() != 0 && flyingTilesSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
+      m.resize(0);
+      roomState.serialize_kills(m);
+      if (m.length() != 0 && roomKillsSend.due(m, sendSeq, room_refresh)) r.write_arr(m);
     }
 
     // the enemies killed in the room or area, newest so last:
@@ -1815,45 +1854,174 @@ class LocalGameState : GameState {
     }
   }
 
-  // send_sram_changes sends the parts of SRAM [start, end) that changed since they were last sent, in units of unit
-  // bytes (a room's flags are 2 bytes). All of it is sent the first time, every sram_full_refresh calls, and when a
-  // player joined the group: remote players keep what they received, so that is all they miss.
+  // send_sram_changes sends the parts of SRAM [start, end) that changed since they were last sent (see
+  // serialize_sram_diff). All of it is sent the first time, every sram_full_refresh calls, and when a player joined the
+  // group: remote players keep what they received, so that is all they miss.
   uint send_sram_changes(uint p, SramSender@ ss, uint16 start, uint16 end, uint unit) {
-    uint n = uint(end - start);
-    bool full = ss.full || ss.last.length() != n || ++ss.checks >= sram_full_refresh;
+    bool full = ss.full || ++ss.checks >= sram_full_refresh;
+    if (full) ss.checks = 0;
     ss.full = false;
     auto @envelope = make_packet_broadcast();
     uint empty = envelope.length();
+    serialize_sram_diff(envelope, ss, start, end, unit, full);
+    if (envelope.length() == empty) return p;
+    return send_packet(envelope, p);
+  }
+
+  // serialize_sram_items is the delegate for the items SRAM ranges: only what changed, or all of it (itemsSendFull).
+  void serialize_sram_items(array<uint8> &r, uint16 start, uint16 endExclusive) {
+    serialize_sram_diff(r, itemsSram, start, endExclusive, 1, itemsSendFull);
+  }
+
+  // serialize_sram_diff writes the parts of SRAM [start, end) that differ from what ss last sent, in units of unit
+  // bytes (a room's flags are 2 bytes), or all of it.
+  void serialize_sram_diff(array<uint8> &r, SramSender@ ss, uint16 start, uint16 end, uint unit, bool full) {
+    if (end > ss.last.length()) return;
     if (full) {
-      ss.checks = 0;
-      serialize_sram(envelope, start, end);
+      serialize_sram(r, start, end);
     } else {
       // a message costs 6 bytes, so changes up to that far apart go in one:
       const uint gap = 6;
+      uint n = uint(end - start);
       uint i = 0;
       while (i < n) {
-        if (sram[start + i] == ss.last[i]) {
+        if (sram[start + i] == ss.last[start + i]) {
           i++;
           continue;
         }
         uint lo = i - i % unit;
         uint hi = lo + unit;
         for (uint j = hi; j < n && j < hi + gap + unit; j++) {
-          if (sram[start + j] != ss.last[j]) {
+          if (sram[start + j] != ss.last[start + j]) {
             hi = j - j % unit + unit;
           }
         }
         if (hi > n) hi = n;
-        serialize_sram(envelope, uint16(start + lo), uint16(start + hi));
+        serialize_sram(r, uint16(start + lo), uint16(start + hi));
         i = hi;
       }
     }
-    ss.last.resize(n);
-    for (uint i = 0; i < n; i++) {
-      ss.last[i] = sram[start + i];
+    for (uint i = start; i < end; i++) {
+      ss.last[i] = sram[i];
     }
-    if (envelope.length() == empty) return p;
-    return send_packet(envelope, p);
+  }
+
+  // legacy_peers reports whether a player in the group hasn't said it reads the compact messages.
+  bool legacy_peers() {
+    uint len = players.length();
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      if (remote is null || remote is this || remote.ttl <= 0) continue;
+      if ((remote.features & feature_compact) == 0) return true;
+    }
+    return false;
+  }
+
+  // add_location_compact writes the full location to r when another field than X, Y and the scroll offsets changed or
+  // it is due, and otherwise those that changed to changes (see SendState.as).
+  void add_location_compact(array<uint8> &r, array<uint8> &changes) {
+    array<uint8> full;
+    serialize_location(full);
+    array<uint16> cur = {x, y, uint16(xoffs), uint16(yoffs)};
+    // the location message without the fields that changes carry:
+    uint16 sx = x, sy = y;
+    int16 sxo = xoffs, syo = yoffs;
+    x = 0; y = 0; xoffs = 0; yoffs = 0;
+    array<uint8> other;
+    serialize_location(other);
+    x = sx; y = sy; xoffs = sxo; yoffs = syo;
+
+    locKeyAge++;
+    if (!locKeyOk || locKeyAge >= location_key_refresh || !bytes_equal(other, locKeyOther)) {
+      r.write_arr(full);
+      locKeyOk = true;
+      locKeyFrame = frame;
+      locKeyAge = 0;
+      locKey = cur;
+      locLast = cur;
+      locKeyOther = other;
+      return;
+    }
+    bool same = true;
+    for (uint i = 0; i < 4; i++) {
+      if (cur[i] != locLast[i]) same = false;
+    }
+    if (same) return;
+    locLast = cur;
+    changes.write_u8(0x89);
+    changes.write_u8(locKeyFrame);
+    uint markMask = changes.length();
+    changes.write_u8(0);
+    uint8 mask = 0;
+    for (uint i = 0; i < 4; i++) {
+      if (cur[i] == locKey[i]) continue;
+      mask |= uint8(1 << i);
+      changes.write_u16(cur[i]);
+    }
+    changes[markMask] = mask;
+  }
+
+  // add_small_keys_compact writes the full small keys to r when the session changed, too many dungeons changed or it is
+  // due, and otherwise the dungeons that differ from it to changes, when they changed and every small_keys_refresh
+  // sends (see SendState.as).
+  void add_small_keys_compact(array<uint8> &r, array<uint8> &changes) {
+    // 0x82, session u32, count u8, then net i16, value u8, ts u32 per dungeon:
+    array<uint8> m;
+    smallKeys.serialize(m);
+    bool same_session = skKey.length() == m.length();
+    for (uint i = 1; i < 6 && same_session; i++) {
+      if (m[i] != skKey[i]) same_session = false;
+    }
+    array<uint8> ch;
+    int nch = 0;
+    if (same_session) {
+      uint n = m[5];
+      for (uint k = 0; k < n; k++) {
+        uint o = 6 + k * 7;
+        bool differs = false;
+        for (uint j = 0; j < 7; j++) {
+          if (m[o + j] != skKey[o + j]) differs = true;
+        }
+        if (!differs) continue;
+        nch++;
+        ch.write_u8(uint8(k));
+        for (uint j = 0; j < 7; j++) ch.write_u8(m[o + j]);
+      }
+    }
+
+    skKeyAge++;
+    skLastAge++;
+    if (!skKeyOk || !same_session || skKeyAge >= small_keys_key_refresh || nch > small_keys_max_changes) {
+      r.write_arr(m);
+      skKeyOk = true;
+      skKeyFrame = frame;
+      skKeyAge = 0;
+      skLastAge = 0;
+      skKey = m;
+      skLast.resize(0);
+      return;
+    }
+    if (bytes_equal(ch, skLast) && skLastAge < small_keys_refresh) return;
+    skLast = ch;
+    skLastAge = 0;
+    changes.write_u8(0x88);
+    changes.write_u8(skKeyFrame);
+    changes.write_u8(uint8(nch));
+    changes.write_arr(ch);
+  }
+
+  // room_torch_count is the number of lightable torches in the room: the room loader registers them in the manipulable
+  // object slots ($0540) right after the manipulables, which start at $0478/2.
+  uint room_torch_count() {
+    if (!is_in_dungeon_module()) return 0;
+    uint16 nm = bus::read_u16(0x7E0478);
+    if ((nm & 1) != 0 || nm > 0x20) return 0;
+    uint n = 0;
+    for (uint i = nm >> 1; i < 0x10; i++) {
+      if ((bus::read_u16(0x7E0540 + i * 2) & 0x7FFF) == 0) break;
+      n++;
+    }
+    return n;
   }
 
   // send_sprites sends Link's sprites to the sector when they, the scroll offsets they were drawn with or their palettes
@@ -2307,9 +2475,26 @@ class LocalGameState : GameState {
     // send main packet:
     {
       auto @envelope = make_packet_broadcast();
+      uint empty = envelope.length();
 
-      serialize_location(envelope);
-      serialize_name(envelope);
+      // whether some player doesn't read the compact messages (see SendState.as):
+      bool legacy = get_in_sm() || legacy_peers();
+      if (legacy) {
+        locKeyOk = false;
+        skKeyOk = false;
+      }
+      // the compact messages' changes go last, since older clients stop parsing at them:
+      array<uint8> changes;
+
+      if (legacy) {
+        serialize_location(envelope);
+      } else {
+        add_location_compact(envelope, changes);
+      }
+      bool sendName = (sendSeq % name_refresh) == 0;
+      if (sendName) {
+        serialize_name(envelope);
+      }
 
       if (!get_in_sm()) {
         if (settings.SyncSfx) {
@@ -2323,18 +2508,22 @@ class LocalGameState : GameState {
         if (settings.SyncLocal) {
           serialize_ancillae(envelope);
         }
-        // the crystal switch, small keys and hearts when they change and every few sends (see SendState.as):
-        if (settings.SyncUnderworldLocal) {
+        // the crystal switch, only in the dungeon, and the small keys and hearts, when they change and every few sends
+        // (see SendState.as):
+        if (settings.SyncUnderworldLocal && (module == 0x07 || (module == 0x0E && is_in_dungeon_location()))) {
           array<uint8> m;
           serialize_crystals(m);
-          int every = (module == 0x07 || module == 0x0E) ? crystal_refresh : 4 * crystal_refresh;
-          if (crystalSend.due(m, sendSeq, every)) envelope.write_arr(m);
+          if (crystalSend.due(m, sendSeq, crystal_refresh)) envelope.write_arr(m);
         }
 
         if (settings.SyncSmallKeys) {
-          array<uint8> m;
-          smallKeys.serialize(m);
-          if (smallKeysSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
+          if (legacy) {
+            array<uint8> m;
+            smallKeys.serialize(m);
+            if (smallKeysSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
+          } else {
+            add_small_keys_compact(envelope, changes);
+          }
         }
 
         if (settings.SyncHearts) {
@@ -2344,7 +2533,16 @@ class LocalGameState : GameState {
         }
       }
 
-      p = send_packet(envelope, p);
+      if (sendName) {
+        // that we read the compact messages:
+        envelope.write_u8(0x87);
+        envelope.write_u8(feature_compact);
+      }
+      envelope.write_arr(changes);
+
+      if (envelope.length() > empty) {
+        p = send_packet(envelope, p);
+      }
     }
 
     // the state messages to the players in the same sector, in the last packet of Link's sprites (see SendState.as):
@@ -2367,8 +2565,15 @@ class LocalGameState : GameState {
       // send SRAM updates once every 16 frames:
       if ((frame & 15) == 0) {
         auto @envelope = make_packet_broadcast();
-        rom.serialize_sram_ranges(envelope, serializeSramDelegate);
-        p = send_packet(envelope, p);
+        uint empty = envelope.length();
+        // only what changed (see serialize_sram_diff):
+        itemsSendFull = itemsSram.full || ++itemsSram.checks >= sram_full_refresh;
+        if (itemsSendFull) itemsSram.checks = 0;
+        itemsSram.full = false;
+        rom.serialize_sram_ranges(envelope, serializeSramItemsDelegate);
+        if (envelope.length() > empty) {
+          p = send_packet(envelope, p);
+        }
       }
 
         if (!get_in_sm()){

@@ -455,6 +455,16 @@ class GameState {
   bool room_kills_valid = false;
   uint16 room_kills_room = 0;
   uint8 room_kills_fired = 0;
+  // the features the player's client has, and the full location (0x01) and small keys (0x82) its change messages are
+  // relative to, with the frame numbers of their packets (see Compact.as):
+  uint8 features = 0;
+  bool loc_key_ok = false;
+  uint8 loc_key_frame = 0;
+  array<uint16> loc_key(4);
+  bool sk_key_ok = false;
+  uint8 sk_key_frame = 0;
+  array<uint8> sk_key;
+
   // enemies killed in the room or area as received (see EnemiesKilled.as):
   bool ek_valid = false;
   uint8 ek_kind = 0;
@@ -856,6 +866,9 @@ class GameState {
         case 0x84: c = run_timing.deserialize(r, c, this); break;
         case 0x85: c = deserialize_run_restore(r, c); break;
         case 0x86: c = deserialize_run_gap(r, c); break;
+        case 0x87: c = deserialize_features(r, c); break;
+        case 0x88: c = deserialize_small_keys_changes(r, c); break;
+        case 0x89: c = deserialize_location_changes(r, c); break;
         default:
           // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
           if (packetType < 0x80) {
@@ -1006,7 +1019,13 @@ class GameState {
   }
 
   int deserialize_location(array<uint8> r, int c) {
+    uint8 last_module = module;
     module = r[c++];
+    if (module == 0x07 && last_module != 0x07 && last_module != 0x0E) {
+      // entering a dungeon resets its crystal switches; the state last received is of an earlier visit, and players
+      // only send it while in the dungeon:
+      crystal.reset();
+    }
     sub_module = r[c++];
     sub_sub_module = r[c++];
 
@@ -1051,6 +1070,71 @@ class GameState {
 
     calc_hitbox();
 
+    // the base of the location changes that follow (see Compact.as):
+    loc_key_ok = true;
+    loc_key_frame = this.frame;
+    loc_key[0] = x;
+    loc_key[1] = y;
+    loc_key[2] = uint16(xoffs);
+    loc_key[3] = uint16(yoffs);
+
+    return c;
+  }
+
+  int deserialize_features(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 1 > maxc) return maxc;
+    features = r[c++];
+    return c;
+  }
+
+  // deserialize_location_changes reads message 0x89: X, Y and the scroll offsets that differ from the full location
+  // sent in the packet with frame number base.
+  int deserialize_location_changes(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 2 > maxc) return maxc;
+    uint8 base = r[c++];
+    uint8 mask = r[c++];
+    array<uint16> v = loc_key;
+    for (uint i = 0; i < 4; i++) {
+      if ((mask & (1 << i)) == 0) continue;
+      if (c + 2 > maxc) return maxc;
+      v[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+    }
+    if (!loc_key_ok || loc_key_frame != base) {
+      // relative to a full location we didn't get:
+      return c;
+    }
+    x = v[0];
+    y = v[1];
+    xoffs = int16(v[2]);
+    yoffs = int16(v[3]);
+    calc_hitbox();
+    return c;
+  }
+
+  // deserialize_small_keys_changes reads message 0x88: the dungeons' small keys that differ from the full small keys
+  // sent in the packet with frame number base.
+  int deserialize_small_keys_changes(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 2 > maxc) return maxc;
+    uint8 base = r[c++];
+    int count = r[c++];
+    if (c + count * 8 > maxc) return maxc;
+    array<uint8> body = sk_key;
+    for (int i = 0; i < count; i++) {
+      uint k = r[c++];
+      uint o = 5 + k * 7;
+      for (uint j = 0; j < 7; j++) {
+        uint8 b = r[c++];
+        if (o + j < body.length()) body[o + j] = b;
+      }
+    }
+    if (!sk_key_ok || sk_key_frame != base) {
+      // relative to full small keys we didn't get:
+      return c;
+    }
+    deserialize_small_keys(body, 0, false);
     return c;
   }
 
@@ -1248,9 +1332,19 @@ class GameState {
     return c;
   }
 
-  int deserialize_small_keys(array<uint8> r, int c) {
+  int deserialize_small_keys(array<uint8> r, int c, bool full = true) {
     int maxc = int(r.length());
     if (c + 5 > maxc) return maxc;
+    if (full) {
+      // the base of the small key changes that follow (see Compact.as):
+      int n = r[c + 4];
+      if (c + 5 + n * 7 <= maxc) {
+        sk_key.resize(5 + n * 7);
+        for (int i = 0; i < 5 + n * 7; i++) sk_key[i] = r[c + i];
+        sk_key_ok = true;
+        sk_key_frame = this.frame;
+      }
+    }
 
     uint32 session = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
     int count = r[c++];
