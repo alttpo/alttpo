@@ -42,21 +42,45 @@
 // entry replaces a bush, rock or sign that is still there locally, the secret under it is revealed too (see
 // Secrets.as).
 //
-// Bombing open a cave or house wall (Overworld_BombTile) logs the opening's right half ($0DB5) at the left half's
-// position instead of 2 bytes to the right of it: the log has ($pos, $0DB4) followed by ($pos, $0DB5). Applied as
-// logged, the right half would replace the left half one tile left of where it belongs, and the opening could not be
-// entered. Such an entry is taken as ($pos + 2, $0DB5) both when the local log is read and when a remote log is received
-// (see map16_fix_entry).
+// Bombing open a cave or house wall (Overworld_BombTile) logs the opening's right half ($0DB5 in US ROMs, $0DAF in JP
+// ROMs) at the left half's position instead of 2 bytes to the right of it: the log has ($pos, $0DB4) followed by
+// ($pos, $0DB5). Applied as logged, the right half would replace the left half one tile left of where it belongs, and
+// the opening could not be entered. Such an entry is taken as ($pos + 2, $0DB5) both when the local log is read and when
+// a remote log is received (see map16_fix_entry). The tiles are read from the ROM (see map16_read_bomb_door).
 
 const uint8 msg_map16 = 0x17;
 
-// the bombed wall opening Overworld_BombTile draws (left and right half), which it logs at the same position:
-const uint16 map16_bomb_door_left = 0x0DB4;
-const uint16 map16_bomb_door_right = 0x0DB5;
+// the bombed wall opening Overworld_BombTile draws (left and right half), which it logs at the same position, in US
+// ROMs. JP ROMs (and the randomizers based on them) number these map16 tiles differently ($0DAE and $0DAF), so they
+// are read from the ROM's code: the operands of Overworld_BombTile's `CMP.w #left` and `LDA.w #right`.
+const uint16 map16_bomb_door_left_us = 0x0DB4;
+const uint16 map16_bomb_door_right_us = 0x0DB5;
+const uint32 map16_bomb_door_left_cmp = 0x1BC1DD;
+const uint32 map16_bomb_door_right_lda = 0x1BC1F3;
+
+bool map16_bomb_door_read = false;
+uint16 map16_bomb_door_left = map16_bomb_door_left_us;
+uint16 map16_bomb_door_right = map16_bomb_door_right_us;
+
+// reads the bombed opening's tiles from the ROM once, or keeps the US ones if the code there is not as expected:
+void map16_read_bomb_door() {
+  if (map16_bomb_door_read) return;
+  map16_bomb_door_read = true;
+  map16_bomb_door_left = map16_bomb_door_left_us;
+  map16_bomb_door_right = map16_bomb_door_right_us;
+  if (bus::read_u8(map16_bomb_door_left_cmp) != 0xC9) return;
+  if (bus::read_u8(map16_bomb_door_right_lda) != 0xA9) return;
+  uint16 l = bus::read_u16(map16_bomb_door_left_cmp + 1);
+  uint16 r = bus::read_u16(map16_bomb_door_right_lda + 1);
+  if (l == r) return;
+  map16_bomb_door_left = l;
+  map16_bomb_door_right = r;
+}
 
 // map16_fix_entry returns the position the entry (p, t) changed, given the entry before it in the same log (pp, pt):
 // Overworld_BombTile logs the right half of a bombed opening at the left half's position.
 uint16 map16_fix_entry(uint16 pp, uint16 pt, uint16 p, uint16 t) {
+  map16_read_bomb_door();
   if (t == map16_bomb_door_right && pt == map16_bomb_door_left && pp == p) return uint16(p + 2);
   return p;
 }
@@ -435,6 +459,8 @@ class Map16Sync {
 Map16Sync map16Sync;
 
 void init_map16_area_load() {
+  // the ROM may have changed:
+  map16_bomb_door_read = false;
   if (rom.fn_overworld_handle_overlays == 0) return;
   cpu::register_pc_interceptor(rom.fn_overworld_handle_overlays, @on_overworld_area_load);
 }
