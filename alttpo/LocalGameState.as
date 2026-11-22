@@ -594,25 +594,27 @@ class LocalGameState : GameState {
     //   00 = center, 01 = right, 10 = left, 11 = left
 
     uint8 lfx1 = bus::read_u8(0x7E012E);
-    // filter out unwanted synced sounds:
-    switch (lfx1) {
-      case 0x2B: break; // low life warning beep
+    // filter out unwanted synced sounds (a filtered sound clears the slot so that the last one isn't sent again):
+    switch (lfx1 & 0x3F) {
+      case 0x2B: sfx1 = 0; break; // low life warning beep
+      case 0x36: sfx1 = 0; break; // thunder in the rain (with its rumble); the game repeats it in every rainy area
       default:
         sfx1 = lfx1;
     }
 
     uint8 lfx2 = bus::read_u8(0x7E012F);
     // filter out unwanted synced sounds:
-    switch (lfx2) {
-      case 0x0C: break; // text scrolling flute noise
-      case 0x10: break; // switching to map sound effect
-      case 0x11: break; // menu screen going down
-      case 0x12: break; // menu screen going up
-      case 0x20: break; // switch menu item
-      case 0x24: break; // switching between different mode 7 map perspectives
+    switch (lfx2 & 0x3F) {
+      case 0x0C: sfx2 = 0; break; // text scrolling flute noise
+      case 0x10: sfx2 = 0; break; // switching to map sound effect
+      case 0x11: sfx2 = 0; break; // menu screen going down
+      case 0x12: sfx2 = 0; break; // menu screen going up
+      case 0x20: sfx2 = 0; break; // switch menu item
+      case 0x24: sfx2 = 0; break; // switching between different mode 7 map perspectives
       default:
         sfx2 = lfx2;
     }
+    // the looping sounds (rain, wind, the rain's rumble) are ambient ($012D), which is never synced.
   }
 
   bool is_frozen() {

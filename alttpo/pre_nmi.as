@@ -81,7 +81,8 @@ void pre_nmi() {
 // Requests of tracks that play once (jingles, which the game can wait for), the mirror warp, nothing music and
 // commands other than the volume commands are sent.
 
-// the last track that repeats the game requested while the BG music is disabled, and whether it is disabled now:
+// the last track that repeats the game requested while the BG music is disabled (or that was playing when it was
+// disabled), and whether it is disabled now:
 uint8 bgMusicWanted = 0;
 bool bgMusicWasDisabled = false;
 
@@ -151,6 +152,11 @@ void disable_bg_music() {
   if (!bgMusicWasDisabled) {
     bgMusicWasDisabled = true;
     auto tune = bus::read_u8(0x7E0130);
+    // remember the track that repeats that is playing, so that enabling the BG music again restarts it (the one
+    // remembered when it was last enabled was cleared then):
+    if (cmd == 0 && is_repeating_track(tune)) {
+      bgMusicWanted = tune;
+    }
     if (tune != 0 && tune != 0x08 && tune < 0xF1) {
       bus::write_u8(req, 0xF1);
       bus::write_u8(0x7E0130, 0xF1);
