@@ -680,6 +680,10 @@ class LocalGameState : GameState {
     // enemies are synced on their own, so every player draws their deaths and explosions already:
     fetch_dying_enemies();
 
+    // a dungeon's prize (crystal) spawns the same sparkles as charging the sword around itself while it falls, sits,
+    // is held up and rises; every player in the room sees it and its sparkles already:
+    bool prize = has_prize_ancilla();
+
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
       // skip already synced Link sprites:
@@ -710,28 +714,13 @@ class LocalGameState : GameState {
         }
       }
 
-      // water/sand/grass:
+      // water/sand/grass: Link's own are among his entries, synced already; the follower's are not synced:
       if ((chr >= 0xc8 && chr <= 0xca) || (chr >= 0xd8 && chr <= 0xda)) {
-        if (i > 0 && i <= 0x7D) {
-          auto @sprp1 = sprs[i-1];
-          auto @sprn1 = sprs[i+1];
-          auto @sprn2 = sprs[i+2];
-          // must be over follower to sync:
-          if (
-               // first water/sand/grass sprite:
-               (chr == sprn1.chr && (sprn2.chr == 0x22 || sprn2.chr == 0x20))
-               // second water/sand/grass sprite:
-            || (chr == sprp1.chr && (sprn1.chr == 0x22 || sprn1.chr == 0x20))
-          ) {
-            // append the sprite to our array:
-            sprites.resize(++numsprites);
-            @sprites[numsprites-1] = spr;
-            continue;
-          }
-        }
-
         continue;
       }
+
+      // the prize's sparkles:
+      if (prize && (chr == 0x80 || chr == 0x83 || chr == 0xb7)) continue;
 
       // ether, bombos, quake:
       if (state == 0x08 || state == 0x09 || state == 0x0A) {
@@ -828,6 +817,15 @@ class LocalGameState : GameState {
   // frame and the frame before (the OAM read here may have been drawn before the sprite tables were last updated):
   array<int> dying_enemies_x, dying_enemies_y;
   array<int> dying_enemies_prev_x, dying_enemies_prev_y;
+
+  // whether a dungeon's prize ancilla exists: falling or sitting ($29), held up ($22) or rising ($3E):
+  bool has_prize_ancilla() {
+    for (uint i = 0; i < 10; i++) {
+      uint8 t = bus::read_u8(0x7E0C4A + i);
+      if (t == 0x29 || t == 0x22 || t == 0x3E) return true;
+    }
+    return false;
+  }
 
   void fetch_dying_enemies() {
     dying_enemies_prev_x = dying_enemies_x;
