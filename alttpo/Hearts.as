@@ -8,7 +8,8 @@
 //   - The count is the total number of heart pieces, ($7EF36C & $F8) / 2 + ($7EF36B & 3), a heart container counting
 //     as four pieces. It is at most 20 hearts and 3 pieces, 83.
 //   - Each player tracks `net`: the number of pieces the local player collected during this sync session, not
-//     counting sync writes, and broadcasts (session, net, value) every frame in message type 0x83.
+//     counting sync writes, and broadcasts (session, net, value) in message type 0x83 when it changes and every 32
+//     sends (see SendState.as).
 //   - When a receiver sees a remote player's net go up, it adds the difference to its own count between frames. The
 //     first message seen from a remote session only establishes a baseline.
 //   - A player with no history (fresh session, game reloaded) catches up once by adopting the highest count of the

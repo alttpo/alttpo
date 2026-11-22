@@ -13,7 +13,8 @@
 //     set while no live sprite ($0DD0,X != 0 with $0BC0,X as a uint16 blk) nor overlord ($0B00,X != 0 with $0B48,X as a
 //     uint16 blk) has it. Only bytes $00-$BF are used by an area.
 //
-// Message 0x1F is sent in its own broadcastSector packet to the room's or the area's sector every 4 sends:
+// Message 0x1F is sent to the room's or the area's sector when it changes and every 16 sends, with the room's other
+// state (see SendState.as):
 //
 //   - `kind u8` = 0 (underworld), `room u16`, `mask u16`: $7FDF80 + room * 2.
 //   - `kind u8` = 1 (overworld), `loc u24` (see ow_location), `count u8`, `blk u16` * count: the killed positions.
@@ -38,7 +39,7 @@ class EnemiesKilledLocal {
   uint32 id = 0;
   uint16 mask = 0;
   array<uint16> blks;
-  // calls to send() since the last send:
+  // calls to send_recent() since the last send:
   private uint sendCalls = 0;
   // which of the other recent rooms to send next (0..2):
   private uint otherRoom = 0;
@@ -248,31 +249,25 @@ class EnemiesKilledLocal {
     return local.is_really_in_same_location(remote.location);
   }
 
-  // sends message 0x1F in its own packet to the room's or the area's sector every 4 calls (not on frames with
-  // (frame & 3) == 0, which the net rate limiter can skip every time):
-  uint send(uint p) {
-    if (!valid) return p;
-    if (++sendCalls < 4) return p;
+  // send_recent sends the mask of one of the other rooms the game remembers (the last 4 rooms visited, $0B80..$0B87,
+  // most recent first) every enemies_killed_refresh calls, each to its room's sector so that a player entering that
+  // room gets it though we left. The room or area the player is in goes with the other state for the sector (see
+  // LocalGameState::serialize_sector_state).
+  uint send_recent(uint p) {
+    if (!valid || kind != enemies_killed_uw) return p;
+    if (++sendCalls < uint(enemies_killed_refresh)) return p;
     sendCalls = 0;
-    auto @envelope = local.make_packet_broadcast_to_sector(local.broadcast_sector());
-    serialize(envelope);
-    p = local.send_packet(envelope, p);
-
-    // the mask of one of the other rooms the game remembers (the last 4 rooms visited, $0B80..$0B87, most recent first),
-    // each to its room's sector so that a player entering that room gets it though we left:
-    if (kind == enemies_killed_uw) {
-      otherRoom = (otherRoom + 1) % 3;
-      uint16 r = bus::read_u16(0x7E0B80 + (otherRoom + 1) * 2);
-      if (r < 0x128 && r != uint16(id)) {
-        uint16 m = bus::read_u16(enemies_killed_room_masks + uint32(r) * 2);
-        if (m != 0) {
-          auto @other = local.make_packet_broadcast_to_sector(0x010000 | uint32(r));
-          other.write_u8(msg_enemies_killed);
-          other.write_u8(enemies_killed_uw);
-          other.write_u16(r);
-          other.write_u16(m);
-          p = local.send_packet(other, p);
-        }
+    otherRoom = (otherRoom + 1) % 3;
+    uint16 r = bus::read_u16(0x7E0B80 + (otherRoom + 1) * 2);
+    if (r < 0x128 && r != uint16(id)) {
+      uint16 m = bus::read_u16(enemies_killed_room_masks + uint32(r) * 2);
+      if (m != 0) {
+        auto @other = local.make_packet_broadcast_to_sector(0x010000 | uint32(r));
+        other.write_u8(msg_enemies_killed);
+        other.write_u8(enemies_killed_uw);
+        other.write_u16(r);
+        other.write_u16(m);
+        p = local.send_packet(other, p);
       }
     }
     return p;

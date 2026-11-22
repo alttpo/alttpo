@@ -72,6 +72,26 @@ class LocalGameState : GameState {
 
   uint16 animation_timer;
 
+  // the messages only sent when they change, and the sends that count their refreshes (see SendState.as):
+  uint32 sendSeq = 0;
+  ChangeSender crystalSend;
+  ChangeSender smallKeysSend;
+  ChangeSender heartsSend;
+  ChangeSender spritesSend;
+  ChangeSender roomSend;
+  ChangeSender enemiesKilledSend;
+  // the sprite palettes last sent (CGRAM colors of palettes 8..15), and sprite sends since all were sent:
+  array<uint16> palettesLastSent(8 * 16);
+  array<bool> palettesLastSentOk(8);
+  int paletteSends = 0;
+  SramSender underworldSram;
+  SramSender overworldSram;
+  // the remote players in the same location and in the group at the last send, to catch arriving ones up at once:
+  array<bool> peersHere;
+  array<bool> peersGroup;
+  bool newPeerHere = false;
+  bool newPeerGroup = false;
+
   // message 0x18 last sent to all players, and sends since (see Manipulables.as):
   array<uint8> manipLastSentAll;
   int manipSendsSinceAll = 0;
@@ -1742,7 +1762,105 @@ class LocalGameState : GameState {
     return p;
   }
 
-  uint send_sprites(uint p) {
+  // track_peers notes the players that arrived in the same location or in the group since the last send.
+  void track_peers() {
+    uint len = players.length();
+    if (peersHere.length() < len) peersHere.resize(len);
+    if (peersGroup.length() < len) peersGroup.resize(len);
+    newPeerHere = false;
+    newPeerGroup = false;
+    for (uint i = 0; i < len; i++) {
+      auto @remote = players[i];
+      bool group = !(remote is null) && !(remote is this) && remote.ttl > 0;
+      bool here = group && is_really_in_same_location(remote.location);
+      if (group && !peersGroup[i]) newPeerGroup = true;
+      if (here && !peersHere[i]) newPeerHere = true;
+      peersGroup[i] = group;
+      peersHere[i] = here;
+    }
+    if (newPeerGroup) {
+      // the SRAM is sent every 16 or 32 frames; send all of it then:
+      underworldSram.full = true;
+      overworldSram.full = true;
+    }
+  }
+
+  // serialize_sector_state writes the state messages for the players in the same sector that are due: the room's
+  // state and the enemies killed, when they change and every few sends.
+  void serialize_sector_state(array<uint8> &r) {
+    array<uint8> room;
+    if (settings.SyncTorches) {
+      serialize_torches(room);
+    }
+    // star switch state and manipulable objects are room specific:
+    if (settings.SyncUnderworldLocal && module == 0x07) {
+      starSwitch.serialize(room);
+      manipSync.serialize(room);
+      // last, since older o2 and alttpo versions stop parsing at the first message type they don't know:
+      roomState.serialize(room);
+      flyingTiles.serialize(room);
+      roomState.serialize_kills(room);
+    }
+    if (room.length() != 0 && roomSend.due(room, sendSeq, room_refresh)) {
+      r.write_arr(room);
+    }
+
+    // the enemies killed in the room or area, newest so last:
+    if (enemiesKilled.valid) {
+      array<uint8> ek;
+      enemiesKilled.serialize(ek);
+      if (enemiesKilledSend.due(ek, sendSeq, enemies_killed_refresh)) {
+        r.write_arr(ek);
+      }
+    }
+  }
+
+  // send_sram_changes sends the parts of SRAM [start, end) that changed since they were last sent, in units of unit
+  // bytes (a room's flags are 2 bytes). All of it is sent the first time, every sram_full_refresh calls, and when a
+  // player joined the group: remote players keep what they received, so that is all they miss.
+  uint send_sram_changes(uint p, SramSender@ ss, uint16 start, uint16 end, uint unit) {
+    uint n = uint(end - start);
+    bool full = ss.full || ss.last.length() != n || ++ss.checks >= sram_full_refresh;
+    ss.full = false;
+    auto @envelope = make_packet_broadcast();
+    uint empty = envelope.length();
+    if (full) {
+      ss.checks = 0;
+      serialize_sram(envelope, start, end);
+    } else {
+      // a message costs 6 bytes, so changes up to that far apart go in one:
+      const uint gap = 6;
+      uint i = 0;
+      while (i < n) {
+        if (sram[start + i] == ss.last[i]) {
+          i++;
+          continue;
+        }
+        uint lo = i - i % unit;
+        uint hi = lo + unit;
+        for (uint j = hi; j < n && j < hi + gap + unit; j++) {
+          if (sram[start + j] != ss.last[j]) {
+            hi = j - j % unit + unit;
+          }
+        }
+        if (hi > n) hi = n;
+        serialize_sram(envelope, uint16(start + lo), uint16(start + hi));
+        i = hi;
+      }
+    }
+    ss.last.resize(n);
+    for (uint i = 0; i < n; i++) {
+      ss.last[i] = sram[start + i];
+    }
+    if (envelope.length() == empty) return p;
+    return send_packet(envelope, p);
+  }
+
+  // send_sprites sends Link's sprites to the sector when they, the scroll offsets they were drawn with or their palettes
+  // changed, and every sprites_refresh sends. Each palette is sent when it changes and every palette_refresh sends, and
+  // at once when a player arrived: receivers keep the palettes they got. extra, the other state messages for the
+  // sector, goes in the last packet if it fits.
+  uint send_sprites(uint p, array<uint8> &in extra) {
     if (lttp_uniqtile_new.length() > 0) {
       // message("send_uniqtiles lttp");
       p = send_uniqtiles(p, 0, @lttp_uniqtile_new, @lttp_uniqtile_4bpp);
@@ -1754,13 +1872,68 @@ class LocalGameState : GameState {
 
     uint len = sprites.length();
     if (len == 0) {
-      return p;
+      return send_sector_extra(p, extra);
+    }
+
+    // what receivers draw: the sprites, their tiles sent inline, the palettes and the scroll offsets they are placed
+    // with (those of the last location received):
+    array<uint8> sig;
+    array<bool> palUsed(8);
+    for (uint i = 0; i < len; i++) {
+      auto @spr = sprites[i];
+      sig.write_u8(spr.index);
+      sig.write_u8(spr.b0);
+      sig.write_u8(spr.b1);
+      sig.write_u8(spr.b2);
+      sig.write_u8(spr.b3);
+      sig.write_u8(spr.b4);
+      for (uint k = 0; k < 4; k++) {
+        if (k > 0 && spr.size == 0) break;
+        uint c = spr.chr + ((k & 1) | ((k & 2) << 3));
+        sig.write_u16(chr_uniqtile_absidx[c]);
+        // tiles that are not unique tiles go inline:
+        if (spr.chr < 0x80 && chr_uniqtile_absidx[spr.chr] == 0xFFFF) {
+          sig.write_arr(chrs[c]);
+        }
+      }
+      palUsed[spr.palette] = true;
+    }
+    sig.write_u16(uint16(xoffs));
+    sig.write_u16(uint16(yoffs));
+    for (uint k = 0; k < 8; k++) {
+      if (!palUsed[k]) continue;
+      for (uint c = (k + 8) << 4; c < ((k + 8) << 4) + 16; c++) {
+        sig.write_u16(ppu::cgram[c]);
+      }
+    }
+    paletteSends++;
+    if (!spritesSend.due(sig, sendSeq, sprites_refresh) && !newPeerHere) {
+      return send_sector_extra(p, extra);
+    }
+
+    // the palettes to send; paletteSent is set for the others, as if already sent:
+    bool refresh = paletteSends >= palette_refresh || newPeerHere;
+    if (refresh) paletteSends = 0;
+    array<bool> paletteSent(8);
+    for (uint k = 0; k < 8; k++) {
+      if (!palUsed[k]) continue;
+      bool changed = !palettesLastSentOk[k];
+      for (uint c = 0; c < 16 && !changed; c++) {
+        if (palettesLastSent[(k << 4) + c] != ppu::cgram[((k + 8) << 4) + c]) changed = true;
+      }
+      paletteSent[k] = !(refresh || changed);
+      if (!paletteSent[k]) {
+        for (uint c = 0; c < 16; c++) {
+          palettesLastSent[(k << 4) + c] = ppu::cgram[((k + 8) << 4) + c];
+        }
+        palettesLastSentOk[k] = true;
+      }
     }
 
     uint start = 0;
     uint end = len;
+    bool extraSent = (extra.length() == 0);
 
-    array<bool> paletteSent(8);
     array<bool> chrSent(0x80);
 
     if (!get_in_sm()) {
@@ -1880,11 +2053,28 @@ class LocalGameState : GameState {
       r[markLen] = uint8(i - start);
       start = i;
 
+      // the other state messages for the sector go in the last packet if they fit:
+      if (start >= end && !extraSent && r.length() + extra.length() <= MaxPacketSize) {
+        r.write_arr(extra);
+        extraSent = true;
+      }
+
       // send this packet:
       p = send_packet(r, p);
     }
 
+    if (!extraSent) {
+      p = send_sector_extra(p, extra);
+    }
     return p;
+  }
+
+  // send_sector_extra sends the other state messages for the sector in a packet of their own, if any.
+  uint send_sector_extra(uint p, array<uint8> &in extra) {
+    if (extra.length() == 0) return p;
+    auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
+    envelope.write_arr(extra);
+    return send_packet(envelope, p);
   }
 
   // server protocol 04 GroupMessage kinds:
@@ -2110,6 +2300,10 @@ class LocalGameState : GameState {
       last_sent = right_meow;
     }
 
+    // the sends that got past the rate limiter, for the messages only sent when they change:
+    sendSeq++;
+    track_peers();
+
     // send main packet:
     {
       auto @envelope = make_packet_broadcast();
@@ -2129,26 +2323,44 @@ class LocalGameState : GameState {
         if (settings.SyncLocal) {
           serialize_ancillae(envelope);
         }
+        // the crystal switch, small keys and hearts when they change and every few sends (see SendState.as):
         if (settings.SyncUnderworldLocal) {
-          serialize_crystals(envelope);
+          array<uint8> m;
+          serialize_crystals(m);
+          int every = (module == 0x07 || module == 0x0E) ? crystal_refresh : 4 * crystal_refresh;
+          if (crystalSend.due(m, sendSeq, every)) envelope.write_arr(m);
         }
 
         if (settings.SyncSmallKeys) {
-          smallKeys.serialize(envelope);
+          array<uint8> m;
+          smallKeys.serialize(m);
+          if (smallKeysSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
         }
 
         if (settings.SyncHearts) {
-          heartsSync.serialize(envelope);
+          array<uint8> m;
+          heartsSync.serialize(m);
+          if (heartsSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
         }
       }
 
       p = send_packet(envelope, p);
     }
 
+    // the state messages to the players in the same sector, in the last packet of Link's sprites (see SendState.as):
+    array<uint8> sectorExtra;
+    if (rom.is_alttp() && !get_in_sm()) {
+      serialize_sector_state(sectorExtra);
+    }
+
     // send possibly multiple packets for sprites:
     if (settings.SyncSprites) {
       p = send_nak_uniqtiles(p);
-      p = send_sprites(p);
+      p = send_sprites(p, sectorExtra);
+    } else if (sectorExtra.length() != 0) {
+      auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
+      envelope.write_arr(sectorExtra);
+      p = send_packet(envelope, p);
     }
 
     if (rom.is_alttp()) {
@@ -2166,26 +2378,22 @@ class LocalGameState : GameState {
           p = send_packet(envelope, p);
         }
 
-        // send dungeon and overworld SRAM alternating every 16 frames:
+        // send dungeon and overworld SRAM alternating every 16 frames, only what changed (see send_sram_changes):
         if (settings.SyncUnderworld) {
           if ((frame & 31) == 0) {
-            auto @envelope = make_packet_broadcast();
-            serialize_sram(envelope,   0x0, 0x250); // dungeon rooms
-            p = send_packet(envelope, p);
+            p = send_sram_changes(p, @underworldSram, 0x0, 0x250, 2); // dungeon rooms
           }
         }
 
         if (settings.SyncOverworld) {
           // also send them as soon as they change, e.g. so that other players see a collected heart piece disappear:
           if (((frame & 31) == 16) || overworld_flags_changed()) {
-            auto @envelope = make_packet_broadcast();
-            serialize_sram(envelope, 0x280, 0x340); // overworld events; heart containers, overlays
-            p = send_packet(envelope, p);
+            p = send_sram_changes(p, @overworldSram, 0x280, 0x340, 1); // overworld events; heart containers, overlays
           }
         }
 
-        // the enemies killed in the room or area, in their own packet:
-        p = enemiesKilled.send(p);
+        // the enemies killed in the other rooms the game remembers, each to its room's sector:
+        p = enemiesKilled.send_recent(p);
 
         // overworld map16 changes are area specific; send them only to players in the same area:
         if (settings.SyncOverworldLocal) {
@@ -2194,13 +2402,6 @@ class LocalGameState : GameState {
         // overworld entrance animations and other events, in their own packet:
         if (settings.SyncOverworldLocal) {
           p = owEvents.send(p);
-        }
-
-        // send packet every other frame:
-        if (settings.SyncTorches && (frame & 1) == 0) {
-          auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
-          serialize_torches(envelope);
-          p = send_packet(envelope, p);
         }
 
         // the manipulable objects again, to all players whenever they change and every 32 frames, so that players
@@ -2215,18 +2416,6 @@ class LocalGameState : GameState {
             manipSync.serialize(envelope);
             p = send_packet(envelope, p);
           }
-        }
-
-        // star switch state and manipulable objects are room specific; send them only to players in the same room:
-        if (settings.SyncUnderworldLocal && module == 0x07) {
-          auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());
-          starSwitch.serialize(envelope);
-          manipSync.serialize(envelope);
-          // last, since older o2 and alttpo versions stop parsing at the first message type they don't know:
-          roomState.serialize(envelope);
-          flyingTiles.serialize(envelope);
-          roomState.serialize_kills(envelope);
-          p = send_packet(envelope, p);
         }
       }
     }

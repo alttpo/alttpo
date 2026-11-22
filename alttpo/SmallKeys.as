@@ -8,7 +8,8 @@
 //
 //   - Each player tracks `net[k]`: the cumulative sum of key changes made by the local player in dungeon k during this
 //     sync session. Only changes made by the local player are counted; changes made by sync writes are not.
-//   - Each player broadcasts its (session, net[], value[], timestamp[]) every frame in message type 0x82.
+//   - Each player broadcasts its (session, net[], value[], timestamp[]) in message type 0x82 when it changes and every
+//     32 sends (see SendState.as); a frame without it is no change.
 //   - When a receiver sees a remote player's net[k] change, it adds the difference to a pending adjustment which is
 //     applied to its own key count. The first message seen from a remote session only establishes a baseline.
 //   - Adjustments are applied as a read-modify-write between frames (from on_main_alttp) so they can never clobber a
