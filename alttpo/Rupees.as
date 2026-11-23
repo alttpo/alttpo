@@ -16,7 +16,6 @@
 //     giving the rupees, for the positions whose attribute is still $60 (and at most 4 a frame, since each queues a
 //     VRAM stripe). The rupees deleted this way are logged too, so they are passed on to players who enter later.
 
-const uint8 msg_rupees = 0x20;
 const uint rupees_max = 32;
 const uint8 rupee_tile_attr = 0x60;
 const uint rupees_per_frame = 4;
@@ -125,12 +124,13 @@ class RupeesLocal {
 
   void serialize(array<uint8> &r) {
     if (!valid || log_room != room || log.length() == 0) return;
-    r.write_u8(msg_rupees);
+    uint mst = msg_begin(r, msg_rupees);
     r.write_u16(room);
     r.write_u8(uint8(log.length()));
     for (uint i = 0; i < log.length(); i++) {
       r.write_u16(log[i]);
     }
+    msg_end(r, mst);
   }
 };
 

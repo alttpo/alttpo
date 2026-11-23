@@ -72,9 +72,6 @@
 // door or push block door uses the submodule), the block tag is cleared, or the chests are revealed (closed small chest
 // tiles, attributes $5858 + $0101 * i, VRAM stripes from $1000 = 0, $14 = 1; only while $14 = 0) and the tag cleared.
 
-const uint8 msg_room_state = 0x1A;
-const uint8 msg_room_doors = 0x1B;
-const uint8 msg_room_kills = 0x1E;
 const uint8 room_flag_key0 = 0x40;
 const uint8 room_flag_key1 = 0x20;
 const uint8 room_flag_chests = 0x3F;
@@ -635,20 +632,22 @@ class RoomStateLocal {
 
   void serialize_kills(array<uint8> &r) {
     if (!valid) return;
-    r.write_u8(msg_room_kills);
+    uint mst = msg_begin(r, msg_room_kills);
     r.write_u16(room);
     r.write_u8(fired);
+    msg_end(r, mst);
   }
 
   void serialize(array<uint8> &r) {
     if (!valid) return;
-    r.write_u8(msg_room_state);
+    uint mst = msg_begin(r, msg_room_state);
     r.write_u16(room);
     r.write_u8(flags);
     r.write_u32(doorTs);
     r.write_u8(door);
+    msg_end(r, mst);
 
-    r.write_u8(msg_room_doors);
+    mst = msg_begin(r, msg_room_doors);
     r.write_u16(room);
     r.write_u8(doors);
     uint8 switches = 0;
@@ -656,6 +655,7 @@ class RoomStateLocal {
     if (pulled) switches |= uint8(0x02 | (pulledQuad << 2));
     r.write_u8(switches);
     r.write_u32(pulledTs);
+    msg_end(r, mst);
   }
 };
 

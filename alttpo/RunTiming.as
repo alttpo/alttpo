@@ -38,15 +38,11 @@ const uint32 rs_state_addr = 0x706BC0;
 const uint32 rs_nmi_len = 0x24;
 const uint32 rs_skip_slots = 0x6A;
 
-const uint8 msg_run_timing = 0x84;
-const uint8 msg_reset = 0x81;
 const uint8 run_timing_version = 1;
 const uint8 run_timing_size = 72;
 
 // message 0x85 gives a player back the run it lost while away; 0x86 tells for how long a player lost its connection
 // (see o2's runrestore.go and RUN_TIMING.md, Disconnects):
-const uint8 msg_run_restore = 0x85;
-const uint8 msg_run_gap = 0x86;
 const uint8 run_restore_version = 1;
 const uint8 run_restore_size = 62;
 const uint8 run_gap_version = 1;
@@ -179,7 +175,7 @@ class RunTimingRemote {
   uint32 penalty_ms = 0;
 
   void serialize(array<uint8> &r) {
-    r.write_u8(msg_run_timing);
+    uint mst = msg_begin(r, msg_run_timing);
     r.write_u8(run_timing_version);
     r.write_u8(run_timing_size);
     r.write_u8(flags);
@@ -198,6 +194,7 @@ class RunTimingRemote {
     rt_write_i64(r, sample_at);
     r.write_u24(lag_frames);
     r.write_u32(penalty_ms);
+    msg_end(r, mst);
   }
 
   // deserialize reads message 0x84 after its type byte; returns the offset after it, skipping versions it doesn't
@@ -402,7 +399,7 @@ class RunTimingLocal {
     start_frame = rt_u24(r, c + 49);
     start_at = s;
     flags |= rt_flag_started | (f & (rt_flag_discontinuity | rt_flag_rate | rt_flag_state_load));
-    penalty_ns = int64(p04_read_u32(r, c + 58)) * 1000000;
+    penalty_ns = int64(p5_u32(r, c + 58)) * 1000000;
     lag_acc = rt_u24(r, c + 55);
     lag_frames = lag_acc;
     lag_base = sampled ? ((nmi - loop) & 0xFFFFFF) : 0;
@@ -800,12 +797,13 @@ class RunAbsence {
         continue;
       }
       auto @envelope = local.make_packet_broadcast();
-      envelope.write_u8(msg_run_gap);
+      uint mst = msg_begin(envelope, msg_run_gap);
       envelope.write_u8(run_gap_version);
       envelope.write_u8(run_gap_size);
       envelope.write_u8(g.kind);
       rt_write_i64(envelope, g.lost);
       rt_write_i64(envelope, g.back);
+      msg_end(envelope, mst);
       local.send_packet(envelope, 0);
     }
   }
@@ -992,12 +990,14 @@ class RunReset {
     if (sock is null || local.index < 0) return;
     last_sent_ms = chrono::monotonic::millisecond;
     auto @envelope = local.make_packet_broadcast();
-    envelope.write_u8(msg_reset);
+    uint mst = msg_begin(envelope, msg_reset);
     envelope.write_u8(msg_phase);
     envelope.write_u32(uint32(key_id & 0xFFFFFFFF));
     envelope.write_u32(uint32(key_id >> 32));
     envelope.write_u16(key_initiator);
+    msg_end(envelope, mst);
     local.send_packet(envelope, 0);
+    msg_end(envelope, mst);
   }
 };
 

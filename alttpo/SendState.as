@@ -16,26 +16,22 @@ const int palette_refresh = 32;
 // SRAM checks for changes between whole sends:
 const uint sram_full_refresh = 16;
 
-// Compact messages, shared with o2 (see its games/alttp/compact.go). Players whose clients have them send the location
-// and small keys as changes to the last full message:
+// Compact messages, shared with o2 (see its games/alttp/compact.go). The location and small keys go as changes to
+// the last full message:
 //
-//   - 0x87 features: `features u8`, sent with the name every 30 sends; bit 0 (feature_compact) says the client reads
-//     0x88 and 0x89. While any player in the group hasn't said so, the full messages are sent as before.
-//   - 0x89 location changes: `base u8`, `mask u8`, then a u16 for each bit of mask: X ($01), Y ($02), X scroll offset
-//     ($04), Y scroll offset ($08), the values that differ from those of the full location 0x01 sent in the packet with
+//   - msg_location_changes: `base u8`, `mask u8`, then a u16 for each bit of mask: X ($01), Y ($02), X scroll offset
+//     ($04), Y scroll offset ($08), the values that differ from those of the full location sent in the packet with
 //     frame number base. A full location goes out when any other field changes and every location_key_refresh sends.
-//   - 0x88 small key changes: `base u8`, `count u8`, then `k u8`, `net i16`, `value u8`, `ts u32` for each dungeon that
-//     differs from the full small keys 0x82 sent in the packet with frame number base. Sent when they change and every
-//     small_keys_refresh sends (with no dungeons when nothing changed); a full 0x82 goes out when more than
+//   - msg_small_keys_changes: `base u8`, `count u8`, then `k u8`, `net i16`, `value u8`, `ts u32` for each dungeon that
+//     differs from the full small keys sent in the packet with frame number base. Sent when they change and every
+//     small_keys_refresh sends (with no dungeons when nothing changed); the full small keys go out when more than
 //     small_keys_max_changes dungeons differ and every small_keys_key_refresh sends.
 //
 // Both go out in full when a player joins. A receiver without the base of a change ignores it until the next full
 // message; since changes are relative to the full message, a lost packet is repaired by the next one.
-const uint8 feature_compact = 0x01;
 const int location_key_refresh = 60;
 const int small_keys_key_refresh = 256;
 const int small_keys_max_changes = 2;
-const uint32 name_refresh = 30;
 
 bool bytes_equal(array<uint8> &in a, array<uint8> &in b) {
   if (a.length() != b.length()) return false;

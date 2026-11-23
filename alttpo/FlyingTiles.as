@@ -19,7 +19,6 @@
 // With "Sync enemies" on, alttpo players also copy the overlords of the player owning the room's enemies, which agrees
 // with this.
 
-const uint8 msg_flying_tiles = 0x1D;
 const uint8 overlord_tile_room = 0x14;
 const uint8 flying_tiles_count = 22;
 // the remote state is always a few frames old, which must not make two players keep taking each other's state:
@@ -180,10 +179,11 @@ class FlyingTilesLocal {
 
   void serialize(array<uint8> &r) {
     if (!valid) return;
-    r.write_u8(msg_flying_tiles);
+    uint mst = msg_begin(r, msg_flying_tiles);
     r.write_u16(room);
     r.write_u8(count);
     r.write_u8(timer);
+    msg_end(r, mst);
   }
 };
 

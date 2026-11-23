@@ -1,4 +1,4 @@
-// server clock synchronization; the server stamps every protocol 04 message it sends with its clock:
+// server clock synchronization; the server stamps every protocol 05 relay with its clock (see Protocol.as):
 int64 last_server_time = 0;               // server's clock (nanoseconds since unix epoch) from the last received message
 uint64 last_server_time_received_ns = 0;  // our monotonic clock (nanoseconds) when that message was received
 
@@ -11,96 +11,338 @@ int64 server_now() {
   return last_server_time + int64(chrono::monotonic::nanosecond - last_server_time_received_ns);
 }
 
-uint64 p04_read_u64(const array<uint8> &in r, int c) {
-  uint64 v = 0;
-  for (int i = 7; i >= 0; i--) {
-    v = (v << 8) | uint64(r[c + i]);
+void note_server_time(int64 t) {
+  last_server_time = t;
+  last_server_time_received_ns = chrono::monotonic::nanosecond;
+}
+
+// Protocol 0x05 client state (see Protocol.as and o2-server's PROTOCOL05.md). The join is resent every p5_resend_ms
+// until the join-ack for the current join_seq arrives; the sector likewise until its sector-ack. Other players' names
+// and info come in player-info; a relay from a player whose player-info hasn't arrived asks for it with who-is. A
+// player that left keeps its slot for p5_grace_ms, during which late relays from it are dropped.
+const uint64 p5_resend_ms = 100;
+const uint64 p5_whois_ms = 500;
+const uint64 p5_grace_ms = 10000;
+const int p5_echo_fast_samples = 30;
+
+class P5Info {
+  bool known = false;
+  bool compatible = false;
+  string name;
+  uint8 team = 0;
+}
+
+class P5State {
+  uint64 session = 0;
+
+  uint8 join_seq = 0;
+  bool join_acked = false;
+  uint64 join_sent_ms = 0;
+  bool sent_valid = false;
+  string sent_group;
+  string sent_name;
+  uint8 sent_team = 0;
+
+  uint8 sector_seq = 0;
+  bool sector_set = false;
+  bool in_sector = false;
+  uint32 sector = 0;
+  bool sector_acked = false;
+  uint64 sector_sent_ms = 0;
+
+  int echoes = 0;
+  uint64 echo_sent_ms = 0;
+
+  array<uint64> grace_until_ms;
+  array<uint64> whois_sent_ms;
+  array<P5Info@> info;
+
+  P5State() {
+    session = chrono::realtime::nanosecond ^ (chrono::monotonic::nanosecond << 17) ^ 0x9E3779B97F4A7C15;
   }
-  return v;
+
+  P5Info@ get_info(uint index) {
+    while (index >= info.length()) {
+      info.insertLast(P5Info());
+      grace_until_ms.insertLast(0);
+      whois_sent_ms.insertLast(0);
+    }
+    return info[index];
+  }
+
+  // reset forgets the join and the sector, so that they are sent again on the next connection.
+  void reset() {
+    join_acked = false;
+    join_sent_ms = 0;
+    sent_valid = false;
+    sector_set = false;
+    sector_acked = false;
+    echoes = 0;
+    echo_sent_ms = 0;
+  }
 }
 
-uint32 p04_read_u32(const array<uint8> &in r, int c) {
-  return uint32(r[c]) | (uint32(r[c+1]) << 8) | (uint32(r[c+2]) << 16) | (uint32(r[c+3]) << 24);
+P5State p5;
+
+void p5_send(array<uint8> @pkt) {
+  if (sock is null) return;
+  sock.send(0, pkt.length(), pkt);
+  if (enableNetReporting) {
+    net_bytes_sent += pkt.length();
+  }
 }
 
-// server protocol 04 GroupMessage (all integers little-endian):
-//   uint8   groupLength
-//   [N]byte group
-//   int64   playerTime
-//   int64   serverTime
-//   uint32  playerIndex
-//   uint64  playerInSector
-//   uint8   kind
-//   kind-specific body:
-//     0x01 join group:       (empty)
-//     0x02 broadcast all:    uint16 dataLength, [N]byte data
-//     0x03 broadcast sector: uint64 targetSector, uint16 dataLength, [N]byte data
-//     0x04 echo:             uint16 dataLength, [N]byte data
+// p5_tick resends the join and the sector until they are acked, starts a new join when the group, name or team
+// changed, and sends echoes. Called every send().
+void p5_tick() {
+  if (sock is null) return;
+  uint64 now = chrono::monotonic::millisecond;
+
+  string group = settings.GroupTrimmed;
+  if (group.length() > 255) group = group.slice(0, 255);
+  string name = local.name;
+  if (name.length() > 255) name = name.slice(0, 255);
+  if (!p5.sent_valid || group != p5.sent_group || name != p5.sent_name || local.team != p5.sent_team) {
+    p5.join_seq++;
+    p5.join_acked = false;
+    p5.join_sent_ms = 0;
+    p5.sent_valid = true;
+    p5.sent_group = group;
+    p5.sent_name = name;
+    p5.sent_team = local.team;
+  }
+  if (!p5.join_acked && (p5.join_sent_ms == 0 || now - p5.join_sent_ms >= p5_resend_ms)) {
+    p5.join_sent_ms = now;
+    auto @pkt = p5_packet(p5_join_group);
+    pkt.write_u8(p5.join_seq);
+    pkt.write_u32(uint32(p5.session & 0xFFFFFFFF));
+    pkt.write_u32(uint32(p5.session >> 32));
+    pkt.write_u8(uint8(group.length()));
+    pkt.write_str(group);
+    pkt.write_u8(uint8(name.length()));
+    pkt.write_str(name);
+    // info: game protocol version, team:
+    pkt.write_u8(2);
+    pkt.write_u8(script_protocol);
+    pkt.write_u8(local.team);
+    p5_send(pkt);
+  }
+
+  if (local.index < 0) return;
+
+  // the sector:
+  bool in_sector = local.p5_in_sector();
+  uint32 sector = in_sector ? local.broadcast_sector() : 0;
+  if (!p5.sector_set || in_sector != p5.in_sector || (in_sector && sector != p5.sector)) {
+    p5.sector_seq++;
+    p5.sector_set = true;
+    p5.in_sector = in_sector;
+    p5.sector = sector;
+    p5.sector_acked = false;
+    p5.sector_sent_ms = 0;
+  }
+  if (!p5.sector_acked && (p5.sector_sent_ms == 0 || now - p5.sector_sent_ms >= p5_resend_ms)) {
+    p5.sector_sent_ms = now;
+    if (p5.in_sector) {
+      auto @pkt = p5_packet(p5_join_sector);
+      pkt.write_u8(p5.sector_seq);
+      pkt.write_u32(p5.sector);
+      p5_send(pkt);
+    } else {
+      auto @pkt = p5_packet(p5_leave_sector);
+      pkt.write_u8(p5.sector_seq);
+      p5_send(pkt);
+    }
+  }
+
+  // echoes to measure the round trip and the server's clock: every 500 ms for the first samples after a join, then
+  // every 2 s:
+  uint64 every = p5.echoes >= p5_echo_fast_samples ? 2000 : 500;
+  if (p5.echo_sent_ms == 0 || now - p5.echo_sent_ms >= every) {
+    p5.echo_sent_ms = now;
+    auto @pkt = p5_packet(p5_echo);
+    uint64 t = chrono::realtime::nanosecond;
+    pkt.write_u32(uint32(t & 0xFFFFFFFF));
+    pkt.write_u32(uint32(t >> 32));
+    p5_send(pkt);
+    runTiming.send_now = true;
+  }
+
+  facts_tick();
+}
+
+// p5_leave tells the server we left the group (best effort, so twice).
+void p5_leave() {
+  if (sock is null || local is null || local.index < 0) return;
+  for (int i = 0; i < 2; i++) {
+    p5_send(p5_packet(p5_leave_group));
+  }
+}
+
+void p5_send_who_is(uint index) {
+  uint64 now = chrono::monotonic::millisecond;
+  p5.get_info(index);
+  if (p5.whois_sent_ms[index] != 0 && now - p5.whois_sent_ms[index] < p5_whois_ms) return;
+  p5.whois_sent_ms[index] = now;
+  auto @pkt = p5_packet(p5_who_is);
+  pkt.write_u16(uint16(index));
+  p5_send(pkt);
+}
+
+GameState@ ensure_player(uint index) {
+  if (index >= players.length()) {
+    players_updated = true;
+  }
+  while (index >= players.length()) {
+    players.insertLast(@GameState());
+  }
+  return players[index];
+}
+
 void receive() {
   array<uint8> buf(1500);
   int n;
   while ((n = sock.recv(0, 1500, buf)) > 0) {
-    int c = 0;
-
     // copy to new buffer and trim to size:
     array<uint8> r = buf;
     r.resize(n);
 
-    // verify envelope header:
-    if (n < 3) continue;
-    uint16 header = uint16(r[c++]) | (uint16(r[c++]) << 8);
-    if (header != 25887) {
-      //message("receive(): bad envelope header!");
-      continue;
-    }
+    // header, protocol and kind:
+    if (n < 4) continue;
+    if ((uint16(r[0]) | (uint16(r[1]) << 8)) != 25887) continue;
+    if (r[2] != p5_protocol) continue;
+    uint8 kind = r[3];
+    int c = 4;
 
-    // check protocol:
-    uint8 protocol = r[c++];
-    if (protocol != 0x04) {
-      //message("receive(): unknown protocol 0x" + fmtHex(protocol, 2));
-      continue;
-    }
-
-    // skip group name:
-    if (c + 1 > n) continue;
-    uint8 groupLen = r[c++];
-    c += groupLen;
-
-    // fixed size fields:
-    if (c + 8 + 8 + 4 + 8 + 1 > n) continue;
-    int64 playerTime = int64(p04_read_u64(r, c)); c += 8;
-    int64 serverTime = int64(p04_read_u64(r, c)); c += 8;
-    uint32 playerIndex = p04_read_u32(r, c); c += 4;
-    // skip playerInSector:
-    c += 8;
-    uint8 kind = r[c++];
-
-    // record server time:
-    last_server_time = serverTime;
-    last_server_time_received_ns = chrono::monotonic::nanosecond;
-
-    if (playerIndex > 0xFFFF) continue;
-    uint16 index = uint16(playerIndex);
-
-    if (kind == 0x01) {
-      // join group response tells us our index:
-      assign_local_index(index);
-    } else if (kind == 0x02 || kind == 0x03) {
-      // broadcast from another player:
-      if (kind == 0x03) {
-        // skip target sector:
-        c += 8;
+    if (kind == p5_join_ack) {
+      if (c + 11 > n) continue;
+      uint8 seq = r[c];
+      uint16 index = p5_u16(r, c + 1);
+      int64 serverTime = int64(p5_u64(r, c + 3));
+      if (seq != p5.join_seq) continue;
+      bool wasJoined = p5.join_acked && local.index >= 0;
+      p5.join_acked = true;
+      note_server_time(serverTime);
+      if (!wasJoined) {
+        p5.echoes = 0;
+        p5.sector_set = false;
+        p5.sector_acked = false;
+        facts_joined();
       }
-      if (c + 2 > n) continue;
-      uint16 dataLen = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (c + int(dataLen) > n) continue;
-      // ignore any trailing bytes:
-      r.resize(c + int(dataLen));
-      process_message(index, playerTime, serverTime, r, c);
-    } else if (kind == 0x04) {
-      // our own echo, sent back by the server with our send time and its own time:
+      assign_local_index(index);
+    } else if (kind == p5_join_nak) {
+      if (p5.join_acked) {
+        // the server lost us (it restarted, or we were away too long); join again:
+        message("server: not in a group; joining again");
+        p5.join_acked = false;
+        p5.join_sent_ms = 0;
+      }
+    } else if (kind == p5_sector_ack) {
+      if (c + 1 > n) continue;
+      if (r[c] == p5.sector_seq) p5.sector_acked = true;
+    } else if (kind == p5_echo_reply) {
+      if (c + 16 > n) continue;
+      int64 playerTime = int64(p5_u64(r, c));
+      int64 serverTime = int64(p5_u64(r, c + 8));
+      p5.echoes++;
+      note_server_time(serverTime);
       server_clock_echo(playerTime, serverTime);
+    } else if (kind == p5_player_info) {
+      while (c + 4 <= n) {
+        uint16 index = p5_u16(r, c); c += 2;
+        int nameLen = r[c++];
+        if (c + nameLen + 1 > n) break;
+        string name = r.toString(c, nameLen); c += nameLen;
+        int infoLen = r[c++];
+        if (c + infoLen > n) break;
+        uint8 version = infoLen >= 1 ? r[c] : 0;
+        uint8 team = infoLen >= 2 ? r[c + 1] : 0;
+        c += infoLen;
+        player_info(index, name, version, team);
+      }
+    } else if (kind == p5_player_left) {
+      if (c + 3 > n) continue;
+      player_left(p5_u16(r, c));
+    } else if (kind == p5_fact_status) {
+      if (c + 10 > n) continue;
+      facts_status(r[c], r[c + 1], p5_u64(r, c + 2));
+    } else if (kind == p5_fact_list) {
+      if (c + 2 > n) continue;
+      facts_list(p5_u16(r, c), r, c + 2);
+    } else if (kind == p5_fact_data) {
+      if (c + 4 > n) continue;
+      facts_data(p5_u16(r, c), r[c + 2], r[c + 3], r, c + 4);
+    } else if (kind == p5_relay_all || kind == p5_relay_sector) {
+      if (c + 4 > n) continue;
+      uint16 index = p5_u16(r, c); c += 2;
+      uint16 ms = p5_u16(r, c); c += 2;
+      if (kind == p5_relay_sector) {
+        if (c + 4 > n) continue;
+        uint32 sector = p5_u32(r, c); c += 4;
+        // the server routed it by the sector it last heard us join; drop it if we moved since:
+        if (!local.p5_in_sector() || sector != local.broadcast_sector()) continue;
+      }
+      if (int(index) == local.index) continue;
+      auto @pi = p5.get_info(index);
+      if (p5.grace_until_ms[index] != 0 && chrono::monotonic::millisecond < p5.grace_until_ms[index]) continue;
+      if (!pi.known) {
+        p5_send_who_is(index);
+        continue;
+      }
+      if (!pi.compatible) continue;
+      int64 now_ns = server_now();
+      if (now_ns == 0) now_ns = int64(chrono::realtime::nanosecond);
+      int64 stamp = p5_expand_server_time(ms, now_ns);
+      note_server_time(stamp);
+      process_message(index, stamp, r, c);
     }
+  }
+}
+
+// player_info records a player's name, team and game protocol version.
+void player_info(uint16 index, const string &in name, uint8 version, uint8 team) {
+  if (int(index) == local.index) return;
+  auto @pi = p5.get_info(index);
+  // a player-info during the grace period is the same player coming back:
+  p5.grace_until_ms[index] = 0;
+  bool compatible = version == script_protocol;
+  if (!compatible && (pi.compatible || !pi.known)) {
+    message(name + " runs an incompatible version");
+  }
+  pi.known = true;
+  pi.compatible = compatible;
+  pi.name = name;
+  pi.team = team;
+
+  auto @p = ensure_player(index);
+  if (p is local) return;
+  p.index = index;
+  apply_player_info(p, pi);
+  players_updated = true;
+}
+
+void apply_player_info(GameState@ p, P5Info@ pi) {
+  if (p.name != pi.name) {
+    p.name = pi.name;
+    players_updated = true;
+  }
+  if (p.team != pi.team) {
+    p.team = pi.team;
+    players_updated = true;
+  }
+}
+
+// player_left clears a player that left the group and reserves its slot for the grace period.
+void player_left(uint16 index) {
+  if (int(index) == local.index) return;
+  auto @pi = p5.get_info(index);
+  pi.known = false;
+  pi.compatible = false;
+  p5.grace_until_ms[index] = chrono::monotonic::millisecond + p5_grace_ms;
+  facts_player_left(index);
+  if (index < players.length() && !(players[index] is local) && players[index].ttl > 1) {
+    // let the TTL run out on the next tick, which announces the player left:
+    players[index].ttl = 1;
   }
 }
 
@@ -129,16 +371,10 @@ void assign_local_index(uint16 index) {
   players_updated = true;
 }
 
-void process_message(uint16 index, int64 playerTime, int64 serverTime, array<uint8> r, int c) {
-  if (index >= players.length()) {
-    players_updated = true;
-  }
+void process_message(uint16 index, int64 serverTime, array<uint8> r, int c) {
+  auto @p = ensure_player(index);
 
-  while (index >= players.length()) {
-    players.insertLast(@GameState());
-  }
-
-  if (players[index] is local) {
+  if (p is local) {
     message("received update from remote player with same index as local player {0}".format({index}));
     // we're confused; reset:
     local.index = -1;
@@ -148,8 +384,8 @@ void process_message(uint16 index, int64 playerTime, int64 serverTime, array<uin
   }
 
   // deserialize data packet:
-  players[index].index = index;
-  players[index].player_time = playerTime;
-  players[index].server_time = serverTime;
-  players[index].deserialize(r, c);
+  p.index = index;
+  p.server_time = serverTime;
+  apply_player_info(p, p5.get_info(index));
+  p.deserialize(r, c);
 }

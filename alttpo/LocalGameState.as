@@ -64,7 +64,6 @@ class LocalGameState : GameState {
 
   uint8 state;
   uint32 last_sent = 0;
-  uint64 last_echo_sent = 0;
 
   uint8 gotShield;
 
@@ -227,7 +226,6 @@ class LocalGameState : GameState {
     // and a new heart sync session:
     heartsSync.init();
     last_sent = 0;
-    last_echo_sent = 0;
 
     gotShield = 0;
 
@@ -1332,7 +1330,7 @@ class LocalGameState : GameState {
   }
 
   void serialize_location(array<uint8> &r) {
-    r.write_u8(uint8(0x01));
+    uint mst = msg_begin(r, msg_location);
 
     r.write_u8(module);
     r.write_u8(sub_module);
@@ -1355,10 +1353,11 @@ class LocalGameState : GameState {
     r.write_u16(player_color);
 
     r.write_u8(in_sm);
+    msg_end(r, mst);
   }
 
   void serialize_sm_location(array<uint8> &r) {
-    r.write_u8(uint8(0x0F));
+    uint mst = msg_begin(r, msg_sm_location);
 
     r.write_u8(sm_area);
     r.write_u8(sm_x);
@@ -1372,6 +1371,7 @@ class LocalGameState : GameState {
     r.write_u16(timeInRoom);
     r.write_u16(sm_screen_x);
     r.write_u16(sm_screen_y);
+    msg_end(r, mst);
   }
 
   uint send_sm_enemies(uint p){
@@ -1381,8 +1381,9 @@ class LocalGameState : GameState {
       // only send a disabled message ~once per second:
       if (frame & 63 == 0) {
         array<uint8> @tmpenv = make_packet_broadcast();
-        tmpenv.write_u8(uint8(0x11));
+        uint mst = msg_begin(tmpenv, msg_sm_enemies);
         tmpenv.write_u8(34);
+        msg_end(tmpenv, mst);
         p = send_packet(tmpenv, p);
       }
       return p;
@@ -1404,7 +1405,7 @@ class LocalGameState : GameState {
   }
 
   void serialize_sm_enemy(uint8 enemy_index, array<uint8> @env){
-    env.write_u8(uint8(0x11));
+    uint mst = msg_begin(env, msg_sm_enemies);
     env.write_u8(1);
     env.write_u8(enemy_index);
 
@@ -1418,17 +1419,19 @@ class LocalGameState : GameState {
       env.write_u8(enemies[enemy_index].host_index);
       env.write_u8(enemies[enemy_index].is_active ? 1 : 0);
     }
+    msg_end(env, mst);
   }
 
   void serialize_sfx(array<uint8> &r) {
-    r.write_u8(uint8(0x02));
+    uint mst = msg_begin(r, msg_sfx);
 
     r.write_u8(sfx1);
     r.write_u8(sfx2);
+    msg_end(r, mst);
   }
 
   void serialize_sram(array<uint8> &r, uint16 start, uint16 endExclusive) {
-    r.write_u8(uint8(0x06));
+    uint mst = msg_begin(r, msg_sram);
 
     r.write_u8(in_sm);
 
@@ -1440,29 +1443,32 @@ class LocalGameState : GameState {
       auto b = sram[offs];
       r.write_u8(b);
     }
+    msg_end(r, mst);
   }
 
   void serialize_sm_sram(array<uint8> &r) {
-    r.write_u8(uint8(0x0E));
+    uint mst = msg_begin(r, msg_sm_sram);
 
     for (uint8 i = 0; i < 0x40; i++) {
       r.write_u8(sm_sram[i]);
     }
+    msg_end(r, mst);
   }
 
   void serialize_crystals(array<uint8> &r) {
     // write a table of 1 sync-byte for dungeon crystal switch state:
-    r.write_u8(uint8(0x05));
+    uint mst = msg_begin(r, msg_wram);
     r.write_u8(uint8(0x01));
     r.write_u16(crystal.offs);
     crystal.serialize(r);
+    msg_end(r, mst);
   }
 
   void serialize_ancillae(array<uint8> &r) {
     if (ancillaeOwner.length() == 0) return;
     if (ancillae.length() == 0) return;
 
-    r.write_u8(uint8(0x09));
+    uint mst = msg_begin(r, msg_ancillae);
 
     uint8 count = 0;
     for (uint i = 0; i < 0x0A; i++) {
@@ -1484,11 +1490,12 @@ class LocalGameState : GameState {
 
       ancillae[i].serialize(r);
     }
+    msg_end(r, mst);
   }
 
   void serialize_torches(array<uint8> &r) {
     // dungeon torches:
-    r.write_u8(uint8(0x0A));
+    uint mst = msg_begin(r, msg_torches);
 
     uint8 count = 0;
     for (uint8 t = 0; t < 0x10; t++) {
@@ -1503,10 +1510,11 @@ class LocalGameState : GameState {
       r.write_u8(t);
       r.write_u8(torchTimers[t]);
     }
+    msg_end(r, mst);
   }
 
   void serialize_pvp(array<uint8> &r) {
-    r.write_u8(uint8(0x0B));
+    uint mst = msg_begin(r, msg_pvp);
 
     r.write_u8(action_hitbox.active ? uint8(1) : uint8(0));
     if (action_hitbox.active) {
@@ -1536,16 +1544,11 @@ class LocalGameState : GameState {
       r.write_u8 (a.recoil_dy);
       r.write_u8 (a.recoil_dz);
     }
-  }
-
-  void serialize_name(array<uint8> &r) {
-    r.write_u8(uint8(0x0C));
-
-    r.write_str(namePadded);
+    msg_end(r, mst);
   }
 
   void serialize_enemy_data(array<uint8> &r) {
-    r.write_u8(uint8(0x12));
+    uint mst = msg_begin(r, msg_enemy_data);
 
     // create a bitmask of which sprite slots are filled:
     uint16 mask = 0;
@@ -1574,10 +1577,11 @@ class LocalGameState : GameState {
         r.write_u8(enemyData[(x<<4)+s]);
       }
     }
+    msg_end(r, mst);
   }
 
   void serialize_enemy_segment_data(array<uint8> &r) {
-    r.write_u8(uint8(0x13));
+    uint mst = msg_begin(r, msg_enemy_segment_data);
 
     // create a bitmask of which sprite slots are filled for "segmented" enemies:
     // segmented here refers to an enemy with segmented body parts
@@ -1647,10 +1651,11 @@ class LocalGameState : GameState {
           break;
       }
     }
+    msg_end(r, mst);
   }
 
   void serialize_overlord_data(array<uint8> &r) {
-    r.write_u8(uint8(0x14));
+    uint mst = msg_begin(r, msg_overlord_data);
 
     // create a bitmask of which overlord slots are filled:
     uint8 mask = 0;
@@ -1677,10 +1682,11 @@ class LocalGameState : GameState {
         r.write_u8(overlordU16Data[(x<<4)+(s<<1)+1]);
       }
     }
+    msg_end(r, mst);
   }
 
   void serialize_sm_events(array<uint8> &r) {
-    r.write_u8(uint8(0x0D));
+    uint mst = msg_begin(r, msg_sm_events);
 
     for (int i = 0; i < 0x54; i++) {
       r.write_u8(sm_events[i]);
@@ -1688,106 +1694,10 @@ class LocalGameState : GameState {
     
     r.write_u8(sm_clear);
     r.write_u8(z3_clear);
+    msg_end(r, mst);
   }
 
-  uint send_uniqtiles(uint p, uint8 g, array<int> @uniqtile_new, array<array<uint16>> @uniqtile_4bpp) {
-    uint len = uniqtile_new.length();
-    if (len == 0) {
-      return p;
-    }
 
-    uint start = 0;
-    while (start < len) {
-      // create a packet to broadcast these uniqtiles:
-      array<uint8> @r = make_packet_broadcast();
-      r.write_u8(0x15); // uniqtiles
-
-      // dont overflow a uint8 (255) in length:
-      uint end = len;
-      if ((end - start) > 255) {
-        end = start + 255;
-      }
-
-      // patch this length if we short it:
-      uint markLen = r.length();
-      r.write_u8(end - start);
-
-      uint mark;
-      uint i;
-      for (i = start; i < end; i++) {
-        // send uniqtile index:
-        int idx = uniqtile_new[i];
-        // message(fmtInt(idx));
-
-        mark = r.length();
-        r.write_u16(uniqtile_absidx(g, idx));
-
-        // send 4bpp tile data:
-        auto @tiles = @uniqtile_4bpp[idx];
-        if (tiles.length() == 0) {
-          message("BUG: unexpected empty uniqtile_4bpp["+fmtInt(g)+"]["+fmtHex(idx)+"]");
-        }
-        r.write_arr(tiles);
-
-        if (r.length() > MaxPacketSize) {
-          // back out the last entry:
-          r.removeRange(mark, r.length() - mark);
-          break;
-        }
-      }
-
-      r[markLen] = uint8(i - start);
-      start = i;
-
-      // send this packet:
-      p = send_packet(r, p);
-    }
-
-    // clear out the list for next delivery:
-    uniqtile_new.resize(0);
-
-    return p;
-  }
-
-  uint send_nak_uniqtiles(uint p) {
-    uint plen = players.length();
-    for (uint i = 0; i < plen; i++) {
-      auto @remote = players[i];
-      if (remote is null) continue;
-      if (remote is this) continue;
-      if (remote.ttl <= 0) continue;
-
-      uint nlen = remote.missing_uniq_absidx.length();
-      if (nlen == 0) continue;
-
-      // send NAK to player about uniqtiles:
-      uint start = 0;
-      while (start < nlen) {
-        array<uint8> @r = make_packet_broadcast();
-        r.write_u8(0x16); // nak_uniqtiles
-        r.write_u16(remote.index);
-
-        uint end = nlen;
-        if ((end - start) > 255) {
-          end = start + 255;
-        }
-        r.write_u8(end - start);
-
-        uint j;
-        for (j = start; j < end; j++) {
-          r.write_u16(remote.missing_uniq_absidx[j]);
-        }
-
-        start = j;
-        p = send_packet(r, p);
-      }
-
-      // clear NAK:
-      remote.missing_uniq_absidx.resize(0);
-    }
-
-    return p;
-  }
 
   // track_peers notes the players that arrived in the same location or in the group since the last send.
   void track_peers() {
@@ -1910,17 +1820,6 @@ class LocalGameState : GameState {
     }
   }
 
-  // legacy_peers reports whether a player in the group hasn't said it reads the compact messages.
-  bool legacy_peers() {
-    uint len = players.length();
-    for (uint i = 0; i < len; i++) {
-      auto @remote = players[i];
-      if (remote is null || remote is this || remote.ttl <= 0) continue;
-      if ((remote.features & feature_compact) == 0) return true;
-    }
-    return false;
-  }
-
   // add_location_compact writes the full location to r when another field than X, Y and the scroll offsets changed or
   // it is due, and otherwise those that changed to changes (see SendState.as).
   void add_location_compact(array<uint8> &r, array<uint8> &changes) {
@@ -1952,7 +1851,7 @@ class LocalGameState : GameState {
     }
     if (same) return;
     locLast = cur;
-    changes.write_u8(0x89);
+    uint mst = msg_begin(changes, msg_location_changes);
     changes.write_u8(locKeyFrame);
     uint markMask = changes.length();
     changes.write_u8(0);
@@ -1963,25 +1862,26 @@ class LocalGameState : GameState {
       changes.write_u16(cur[i]);
     }
     changes[markMask] = mask;
+    msg_end(changes, mst);
   }
 
   // add_small_keys_compact writes the full small keys to r when the session changed, too many dungeons changed or it is
   // due, and otherwise the dungeons that differ from it to changes, when they changed and every small_keys_refresh
   // sends (see SendState.as).
   void add_small_keys_compact(array<uint8> &r, array<uint8> &changes) {
-    // 0x82, session u32, count u8, then net i16, value u8, ts u32 per dungeon:
+    // msg_small_keys, its length (1 byte), session u32, count u8, then net i16, value u8, ts u32 per dungeon:
     array<uint8> m;
     smallKeys.serialize(m);
     bool same_session = skKey.length() == m.length();
-    for (uint i = 1; i < 6 && same_session; i++) {
+    for (uint i = 2; i < 7 && same_session; i++) {
       if (m[i] != skKey[i]) same_session = false;
     }
     array<uint8> ch;
     int nch = 0;
     if (same_session) {
-      uint n = m[5];
+      uint n = m[6];
       for (uint k = 0; k < n; k++) {
-        uint o = 6 + k * 7;
+        uint o = 7 + k * 7;
         bool differs = false;
         for (uint j = 0; j < 7; j++) {
           if (m[o + j] != skKey[o + j]) differs = true;
@@ -2008,10 +1908,11 @@ class LocalGameState : GameState {
     if (bytes_equal(ch, skLast) && skLastAge < small_keys_refresh) return;
     skLast = ch;
     skLastAge = 0;
-    changes.write_u8(0x88);
+    uint mst = msg_begin(changes, msg_small_keys_changes);
     changes.write_u8(skKeyFrame);
     changes.write_u8(uint8(nch));
     changes.write_arr(ch);
+    msg_end(changes, mst);
   }
 
   // room_torch_count is the number of lightable torches in the room: the room loader registers them in the manipulable
@@ -2028,217 +1929,10 @@ class LocalGameState : GameState {
     return n;
   }
 
-  // send_sprites sends Link's sprites to the sector when they, the scroll offsets they were drawn with or their palettes
-  // changed, and every sprites_refresh sends. Each palette is sent when it changes and every palette_refresh sends, and
-  // at once when a player arrived: receivers keep the palettes they got. extra, the other state messages for the
-  // sector, goes in the last packet if it fits.
+  // send_sprites sends Link's sprites to the sector; sprite sync is being redesigned around facts (see
+  // o2-server's PROTOCOL05.md, "Sprites with facts"); until then, only the other state messages for the sector go.
   uint send_sprites(uint p, array<uint8> &in extra) {
-    if (lttp_uniqtile_new.length() > 0) {
-      // message("send_uniqtiles lttp");
-      p = send_uniqtiles(p, 0, @lttp_uniqtile_new, @lttp_uniqtile_4bpp);
-    }
-    if (  sm_uniqtile_new.length() > 0) {
-      // message("send_uniqtiles   sm");
-      p = send_uniqtiles(p, 1,   @sm_uniqtile_new,   @sm_uniqtile_4bpp);
-    }
-
-    uint len = sprites.length();
-    if (len == 0) {
-      return send_sector_extra(p, extra);
-    }
-
-    // what receivers draw: the sprites, their tiles sent inline, the palettes and the scroll offsets they are placed
-    // with (those of the last location received):
-    array<uint8> sig;
-    array<bool> palUsed(8);
-    for (uint i = 0; i < len; i++) {
-      auto @spr = sprites[i];
-      sig.write_u8(spr.index);
-      sig.write_u8(spr.b0);
-      sig.write_u8(spr.b1);
-      sig.write_u8(spr.b2);
-      sig.write_u8(spr.b3);
-      sig.write_u8(spr.b4);
-      for (uint k = 0; k < 4; k++) {
-        if (k > 0 && spr.size == 0) break;
-        uint c = spr.chr + ((k & 1) | ((k & 2) << 3));
-        sig.write_u16(chr_uniqtile_absidx[c]);
-        // tiles that are not unique tiles go inline:
-        if (spr.chr < 0x80 && chr_uniqtile_absidx[spr.chr] == 0xFFFF) {
-          sig.write_arr(chrs[c]);
-        }
-      }
-      palUsed[spr.palette] = true;
-    }
-    sig.write_u16(uint16(xoffs));
-    sig.write_u16(uint16(yoffs));
-    for (uint k = 0; k < 8; k++) {
-      if (!palUsed[k]) continue;
-      for (uint c = (k + 8) << 4; c < ((k + 8) << 4) + 16; c++) {
-        sig.write_u16(ppu::cgram[c]);
-      }
-    }
-    paletteSends++;
-    if (!spritesSend.due(sig, sendSeq, sprites_refresh) && !newPeerHere) {
-      return send_sector_extra(p, extra);
-    }
-
-    // the palettes to send; paletteSent is set for the others, as if already sent:
-    bool refresh = paletteSends >= palette_refresh || newPeerHere;
-    if (refresh) paletteSends = 0;
-    array<bool> paletteSent(8);
-    for (uint k = 0; k < 8; k++) {
-      if (!palUsed[k]) continue;
-      bool changed = !palettesLastSentOk[k];
-      for (uint c = 0; c < 16 && !changed; c++) {
-        if (palettesLastSent[(k << 4) + c] != ppu::cgram[((k + 8) << 4) + c]) changed = true;
-      }
-      paletteSent[k] = !(refresh || changed);
-      if (!paletteSent[k]) {
-        for (uint c = 0; c < 16; c++) {
-          palettesLastSent[(k << 4) + c] = ppu::cgram[((k + 8) << 4) + c];
-        }
-        palettesLastSentOk[k] = true;
-      }
-    }
-
-    uint start = 0;
-    uint end = len;
-    bool extraSent = (extra.length() == 0);
-
-    array<bool> chrSent(0x80);
-
-    if (!get_in_sm()) {
-      // never send the shadow sprite or bomb sprite data (or anything for chr >= 0x80):
-      chrSent[0x6c] = true;
-      chrSent[0x6d] = true;
-      chrSent[0x6e] = true;
-      chrSent[0x6f] = true;
-      chrSent[0x7c] = true;
-      chrSent[0x7d] = true;
-      chrSent[0x7e] = true;
-      chrSent[0x7f] = true;
-    }
-
-    // send out possibly multiple packets to cover all sprites:
-    while (start < end) {
-      array<uint8> @r = make_packet_broadcast_to_sector(broadcast_sector());
-
-      // serialize_sprites:
-      if (start == 0) {
-        // start of sprites:
-        r.write_u8(uint8(0x03));
-      } else {
-        // continuation of sprites:
-        r.write_u8(uint8(0x04));
-        r.write_u8(uint8(start));
-      }
-
-      uint markLen = r.length();
-      r.write_u8(uint8(end - start));
-
-      uint mark = r.length();
-
-      uint i;
-      //message("build start=" + fmtInt(start));
-      for (i = start; i < end; i++) {
-        auto @spr = sprites[i];
-        auto chr = spr.chr;
-        auto index = spr.index;
-        uint pal = spr.palette;
-        auto b4 = spr.b4;
-
-        // do we need to send the VRAM data?
-        uint16 uniq_absidx_0 = chr_uniqtile_absidx[chr];
-        if ((chr < 0x80) && !chrSent[chr] && (uniq_absidx_0 == 0xFFFF)) {
-          index |= 0x80;
-        }
-        // do we need to send the palette data?
-        if (!paletteSent[pal]) {
-          b4 |= 0x80;
-        }
-
-        mark = r.length();
-        //message("  mark=" + fmtInt(mark));
-
-        // emit the OAM data:
-        r.write_u8(index);
-        r.write_u8(spr.b0);
-        r.write_u8(spr.b1);
-        r.write_u8(spr.b2);
-        r.write_u8(spr.b3);
-        r.write_u8(b4);
-        r.write_u16(uniq_absidx_0);
-        if (spr.size != 0) {
-          r.write_u16(chr_uniqtile_absidx[chr+0x01]);
-          r.write_u16(chr_uniqtile_absidx[chr+0x10]);
-          r.write_u16(chr_uniqtile_absidx[chr+0x11]);
-        }
-
-        // send VRAM data along:
-        if ((index & 0x80) != 0) {
-          r.write_arr(chrs[chr+0x00]);
-          if (spr.size != 0) {
-            r.write_arr(chrs[chr+0x01]);
-            r.write_arr(chrs[chr+0x10]);
-            r.write_arr(chrs[chr+0x11]);
-          }
-        }
-
-        // include the palette for this sprite:
-        if ((b4 & 0x80) != 0) {
-          // sample the palette:
-          uint cgaddr = (pal + 8) << 4;
-          for (uint k = cgaddr; k < cgaddr + 16; k++) {
-            r.write_u16(ppu::cgram[k]);
-          }
-        }
-
-        // check length of packet:
-        if (r.length() <= MaxPacketSize) {
-          // mark data as sent:
-          if ((index & 0x80) != 0) {
-            chrSent[chr+0x00] = true;
-            //chrs[chr+0x00].resize(0);
-            if (spr.size != 0) {
-              chrSent[chr+0x01] = true;
-              chrSent[chr+0x10] = true;
-              chrSent[chr+0x11] = true;
-              //chrs[chr+0x01].resize(0);
-              //chrs[chr+0x10].resize(0);
-              //chrs[chr+0x11].resize(0);
-            }
-          }
-          if ((b4 & 0x80) != 0) {
-            paletteSent[pal] = true;
-          }
-        } else {
-          // back out the last sprite:
-          r.removeRange(mark, r.length() - mark);
-
-          // continue at the last sprite in the next packet:
-          //message("  scratch last mark");
-          break;
-        }
-      }
-
-      r[markLen] = uint8(i - start);
-      start = i;
-
-      // the other state messages for the sector go in the last packet if they fit:
-      if (start >= end && !extraSent && r.length() + extra.length() <= MaxPacketSize) {
-        r.write_arr(extra);
-        extraSent = true;
-      }
-
-      // send this packet:
-      p = send_packet(r, p);
-    }
-
-    if (!extraSent) {
-      p = send_sector_extra(p, extra);
-    }
-    return p;
+    return send_sector_extra(p, extra);
   }
 
   // send_sector_extra sends the other state messages for the sector in a packet of their own, if any.
@@ -2249,119 +1943,31 @@ class LocalGameState : GameState {
     return send_packet(envelope, p);
   }
 
-  // server protocol 04 GroupMessage kinds:
-  //   0x01 = join group (response tells us our player index)
-  //   0x02 = broadcast to all other players in the group
-  //   0x03 = broadcast to all other players in the group in the target sector
-  //   0x04 = echo (response tells us the server time)
-  array<uint8> @make_server_envelope(uint8 kind) {
-    array<uint8> @envelope = {};
-    envelope.reserve(MaxPacketSize);
-
-    string group = settings.GroupTrimmed;
-    if (group.length() > 255) {
-      group = group.slice(0, 255);
-    }
-
-    // write a (possibly partial) server envelope; all integers are little-endian:
-    // header:
-    envelope.write_u16(uint16(25887));
-    // server protocol 4:
-    envelope.write_u8(uint8(0x04));
-    // group name:
-    envelope.write_u8(uint8(group.length()));
-    envelope.write_str(group);
-    // int64 player time (our clock in nanoseconds since unix epoch):
-    uint64 playerTime = chrono::realtime::nanosecond;
-    envelope.write_u32(uint32(playerTime & 0xFFFFFFFF));
-    envelope.write_u32(uint32(playerTime >> 32));
-    // int64 server time (filled in by server):
-    envelope.write_u32(0);
-    envelope.write_u32(0);
-    // uint32 what we think our index is (filled in by server):
-    envelope.write_u32(uint32(index));
-    // uint64 sector we are in:
-    envelope.write_u32(broadcast_sector());
-    envelope.write_u32(0);
-    // message kind:
-    envelope.write_u8(kind);
-
-    // plus any kind-specific data...
-
-    return envelope;
-  }
-
-  // patch_envelope_data_length writes the uint16 data length for message kinds that carry data; it must be called
-  // after all data is written to the envelope.
-  void patch_envelope_data_length(array<uint8> @envelope) {
-    // offset of the kind byte: header(2) + protocol(1) + groupLength(1) + group + times(16) + index(4) + sector(8):
-    uint kindOffs = 4 + uint(envelope[3]) + 28;
-    uint8 kind = envelope[kindOffs];
-
-    uint lenOffs;
-    if (kind == 0x02 || kind == 0x04) {
-      lenOffs = kindOffs + 1;
-    } else if (kind == 0x03) {
-      // skip target sector:
-      lenOffs = kindOffs + 1 + 8;
-    } else {
-      return;
-    }
-
-    uint dataLen = envelope.length() - (lenOffs + 2);
-    envelope[lenOffs+0] = uint8(dataLen & 0xFF);
-    envelope[lenOffs+1] = uint8((dataLen >> 8) & 0xFF);
-  }
-
   void write_game_packet_header(array<uint8> &envelope) {
-    // our game header:
-    {
-      // script protocol:
-      envelope.write_u8(uint8(script_protocol));
-
-      // protocol starts with team number:
-      envelope.write_u8(team);
-      // frame number to correlate separate packets together:
-      envelope.write_u8(frame);
-    }
+    // game protocol v2: the frame number, to correlate separate packets together:
+    envelope.write_u8(frame);
   }
 
-  array<uint8> @make_packet_join_group() {
-    array<uint8> @envelope = make_server_envelope(0x01);
-    return envelope;
-  }
-
-  array<uint8> @make_packet_echo() {
-    array<uint8> @envelope = make_server_envelope(0x04);
-    // data length (patched in send_packet):
-    envelope.write_u16(0);
-    return envelope;
-  }
-
+  // make_packet_broadcast starts a broadcast to all other players of the group.
   array<uint8> @make_packet_broadcast() {
-    array<uint8> @envelope = make_server_envelope(0x02);
-
-    // data length (patched in send_packet):
-    envelope.write_u16(0);
-
+    array<uint8> @envelope = p5_packet(p5_broadcast_all);
     write_game_packet_header(envelope);
-
     return envelope;
   }
 
+  // make_packet_broadcast_to_sector starts a broadcast to the other players of the group in the sector.
   array<uint8> @make_packet_broadcast_to_sector(uint32 sector) {
-    array<uint8> @envelope = make_server_envelope(0x03);
-
-    // uint64 target sector:
+    array<uint8> @envelope = p5_packet(p5_broadcast_sector);
     envelope.write_u32(sector);
-    envelope.write_u32(0);
-
-    // data length (patched in send_packet):
-    envelope.write_u16(0);
-
     write_game_packet_header(envelope);
-
     return envelope;
+  }
+
+  // p5_in_sector reports whether the local player is in a sector: not before a game is loaded, nor while resetting.
+  bool p5_in_sector() {
+    if (index < 0 || runReset.resetting) return false;
+    if (get_in_sm()) return true;
+    return module >= 0x05 && module != 0x14;
   }
 
   // can_draw_remote_players reports whether remote players are drawn on the local screen. Same as o2, which draws them
@@ -2414,8 +2020,6 @@ class LocalGameState : GameState {
       return p;
     }
 
-    patch_envelope_data_length(envelope);
-
     // send packet to server:
     // message("sent " + fmtInt(len) + " bytes");
     sock.send(0, len, envelope);
@@ -2432,28 +2036,18 @@ class LocalGameState : GameState {
   void send() {
     uint p = 0;
 
-    // check if we need to detect our local index:
+    // join the group and the sector, resend them until acked, echo, and upload facts:
+    p5_tick();
     if (index == -1) {
-      // join the group to request our index; receive() will take care of the response:
-      auto @request = make_packet_join_group();
-      p = send_packet(request, p);
+      return;
     } else {
-      // periodically echo to keep our estimate of the server clock fresh; receive() takes care of the response:
-      uint64 now = chrono::monotonic::millisecond;
-      if (now - last_echo_sent >= 500) {
-        last_echo_sent = now;
-        auto @echo = make_packet_echo();
-        p = send_packet(echo, p);
-        runTiming.send_now = true;
-      }
-
       // drive the group reset; no state is sent while it is in progress:
       runReset.tick();
       if (runReset.resetting) {
         return;
       }
 
-      // the run timing, in its own packet since older alttpo versions stop parsing a packet at it:
+      // the run timing:
       if (runTiming.send_now && runTiming.patched && rom.is_alttp()) {
         runTiming.send_now = false;
         auto @envelope = make_packet_broadcast();
@@ -2481,23 +2075,18 @@ class LocalGameState : GameState {
       auto @envelope = make_packet_broadcast();
       uint empty = envelope.length();
 
-      // whether some player doesn't read the compact messages (see SendState.as):
-      bool legacy = get_in_sm() || legacy_peers();
+      // the compact messages (see SendState.as) aren't used in SM, whose location has no compact form:
+      bool legacy = get_in_sm();
       if (legacy) {
         locKeyOk = false;
         skKeyOk = false;
       }
-      // the compact messages' changes go last, since older clients stop parsing at them:
       array<uint8> changes;
 
       if (legacy) {
         serialize_location(envelope);
       } else {
         add_location_compact(envelope, changes);
-      }
-      bool sendName = (sendSeq % name_refresh) == 0;
-      if (sendName) {
-        serialize_name(envelope);
       }
 
       if (!get_in_sm()) {
@@ -2537,11 +2126,6 @@ class LocalGameState : GameState {
         }
       }
 
-      if (sendName) {
-        // that we read the compact messages:
-        envelope.write_u8(0x87);
-        envelope.write_u8(feature_compact);
-      }
       envelope.write_arr(changes);
 
       if (envelope.length() > empty) {
@@ -2557,7 +2141,6 @@ class LocalGameState : GameState {
 
     // send possibly multiple packets for sprites:
     if (settings.SyncSprites) {
-      p = send_nak_uniqtiles(p);
       p = send_sprites(p, sectorExtra);
     } else if (sectorExtra.length() != 0) {
       auto @envelope = make_packet_broadcast_to_sector(broadcast_sector());

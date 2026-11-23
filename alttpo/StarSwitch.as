@@ -22,7 +22,6 @@
 
 const uint16 star_switch_offs = 0x04BC;
 const uint16 star_overlay_offs = 0x04BA;
-const uint8 msg_star_switch = 0x19;
 
 class StarSwitchLocal {
   // valid is true when value was read in the dungeon module for room:
@@ -166,11 +165,12 @@ class StarSwitchLocal {
 
   void serialize(array<uint8> &r) {
     if (!valid) return;
-    r.write_u8(msg_star_switch);
+    uint mst = msg_begin(r, msg_star_switch);
     r.write_u16(room);
     r.write_u32(ts);
     r.write_u8(value);
     r.write_u8(overlay);
+    msg_end(r, mst);
   }
 };
 

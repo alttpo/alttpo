@@ -33,7 +33,6 @@
 //     uint8  value      current key count; $FF if unknown
 //     uint32 timestamp  server time in msec (truncated to 32 bits) of the last change; 0 if none this session
 
-const uint8 msg_small_keys = 0x82;
 
 const uint16 small_key_first = 0xF37C;
 const int small_key_count = 16;
@@ -348,7 +347,7 @@ class SmallKeysLocal {
   }
 
   void serialize(array<uint8> &r) {
-    r.write_u8(msg_small_keys);
+    uint mst = msg_begin(r, msg_small_keys);
     r.write_u32(session);
     r.write_u8(uint8(small_key_count));
     for (int k = 0; k < small_key_count; k++) {
@@ -364,6 +363,7 @@ class SmallKeysLocal {
         r.write_u32(0);
       }
     }
+    msg_end(r, mst);
   }
 
   // receive_remote handles a small key message from a remote player.

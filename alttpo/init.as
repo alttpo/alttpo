@@ -124,6 +124,8 @@ void post_power(bool reset) {
 
 // called when script itself is unloaded:
 void unload() {
+  // tell the server we left the group:
+  p5_leave();
   // remember the size and position of the open windows:
   windowLayout.saveAll();
   if (sprites !is null) sprites.save();

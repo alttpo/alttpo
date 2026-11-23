@@ -1184,6 +1184,7 @@ class SettingsWindow {
     save();
 
     started = true;
+    p5.reset();
     players.resize(0);
     runAbsence.reset();
 
@@ -1196,6 +1197,8 @@ class SettingsWindow {
   }
 
   void disconnect() {
+    p5_leave();
+    p5.reset();
     @sock = null;
     started = false;
     players.resize(0);

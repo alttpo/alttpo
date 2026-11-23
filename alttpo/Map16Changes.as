@@ -48,7 +48,6 @@
 // the opening could not be entered. Such an entry is taken as ($pos + 2, $0DB5) both when the local log is read and when
 // a remote log is received (see map16_fix_entry). The tiles are read from the ROM (see map16_read_bomb_door).
 
-const uint8 msg_map16 = 0x17;
 
 // the bombed wall opening Overworld_BombTile draws (left and right half), which it logs at the same position, in US
 // ROMs. JP ROMs (and the randomizers based on them) number these map16 tiles differently ($0DAE and $0DAF), so they
@@ -268,7 +267,7 @@ class Map16Sync {
   }
 
   void serialize(array<uint8> &r, int start, int end) {
-    r.write_u8(msg_map16);
+    uint mst = msg_begin(r, msg_map16);
     r.write_u24(loc);
     r.write_u8(uint8(count));
     r.write_u8(uint8(start));
@@ -277,6 +276,7 @@ class Map16Sync {
       r.write_u16(pos[i]);
       r.write_u16(tile[i]);
     }
+    msg_end(r, mst);
   }
 
   // sends the new entries of the log, and the whole log every 32 frames, to all players:

@@ -25,7 +25,6 @@
 //   int16  net    heart pieces collected by that player this session
 //   uint8  value  current heart piece count; $FF if unknown
 
-const uint8 msg_hearts = 0x83;
 
 // highest heart piece count: 20 hearts and 3 pieces:
 const int heart_pieces_max = 20 * 4 + 3;
@@ -239,7 +238,7 @@ class HeartsLocal {
   }
 
   void serialize(array<uint8> &r) {
-    r.write_u8(msg_hearts);
+    uint mst = msg_begin(r, msg_hearts);
     r.write_u32(session);
     r.write_u16(uint16(net));
     if (valid) {
@@ -248,6 +247,7 @@ class HeartsLocal {
       // don't let anyone adopt a value we haven't read yet:
       r.write_u8(heart_pieces_unknown);
     }
+    msg_end(r, mst);
   }
 
   // receive_remote handles a hearts message from a remote player.

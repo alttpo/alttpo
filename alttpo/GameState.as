@@ -792,26 +792,13 @@ class GameState {
     }
   }
 
+  // deserialize reads a broadcast of game protocol v2 (see Protocol.as): the frame number, then messages of
+  // `type, length, body`. A message type that isn't known is skipped by its length, and each message is read from a
+  // copy of the packet that ends with it, so that no message reads into the next.
   bool deserialize(array<uint8> r, int c) {
     if (c >= int(r.length())) return false;
 
-    auto protocol = r[c++];
-    //message("game protocol = " + fmtHex(protocol, 2));
-    if (protocol != script_protocol) {
-      if ((rate_limit++ & 0x7f) == 0) {
-        message("bad game protocol " + fmtHex(protocol, 2) + "!");
-      }
-      return false;
-    }
-
-    // read team number:
-    uint8 t = r[c++];
-    if (team != t) {
-      team = t;
-    }
-
     auto frame = r[c++];
-    //message("frame = " + fmtHex(frame, 2));
     // discard stale frame data. frame numbers wrap around from 0xFF to 0x00, so compare them as a signed 8-bit
     // distance: a frame up to 127 behind the last one seen is stale; anything else (including the same frame, since
     // one frame's state is split across several packets) is current. this matches o2's check.
@@ -819,7 +806,6 @@ class GameState {
     int delta = int((uint(frame) - uint(this.frame)) & 0xff);
     if (delta >= 0x80) delta -= 0x100;
     if (delta < 0 && ttl > 0) {
-      //message("stale frame " + fmtHex(frame, 2) + " vs " + fmtHex(this.frame, 2));
       return false;
     }
     this.frame = frame;
@@ -827,63 +813,59 @@ class GameState {
     int maxc = int(r.length());
     while (c < maxc) {
       auto packetType = r[c++];
-      //message("packetType = " + fmtHex(packetType, 2));
-      if (runReset.resetting && packetType != msg_reset) {
-        // no state is accepted during a group reset:
-        c = maxc;
+      int width;
+      int len = msg_read_len(r, c, width);
+      c += width;
+      if (len < 0 || c + len > maxc) {
+        message("message " + fmtHex(packetType, 2) + " truncated");
         break;
       }
+      int end = c + len;
+      if (runReset.resetting && packetType != msg_reset) {
+        // no state is accepted during a group reset:
+        c = end;
+        continue;
+      }
+      array<uint8> m = r;
+      m.resize(end);
       switch (packetType) {
-        case 0x01: c = deserialize_location(r, c); break;
-        case 0x02: c = deserialize_sfx(r, c); break;
-        case 0x03: c = deserialize_sprites(r, c); break;
-        case 0x04: c = deserialize_sprites(r, c, true); break;
-        case 0x05: c = deserialize_wram(r, c); break;
-        case 0x06: c = deserialize_sram(r, c); break;
-        // 0x07 (tilemaps) is retired; replaced by 0x17 and 0x18
-        //case 0x08: c = deserialize_objects(r, c); break;
-        case 0x09: c = deserialize_ancillae(r, c); break;
-        case 0x0A: c = deserialize_torches(r, c); break;
-        case 0x0B: c = deserialize_pvp(r, c); break;
-        case 0x0C: c = deserialize_name(r, c); break;
-        case 0x0D: c = deserialize_sm_events(r, c); break;
-        case 0x0E: c = deserialize_sm_sram(r, c); break;
-        case 0x0F: c = deserialize_sm_location(r, c); break;
-        /*case 0x10: c = deserialize_sm_sprite(r, c); break;*/
-        case 0x11: c = deserialize_sm_enemies(r, c); break;
-        case 0x12: c = deserialize_enemy_data(r, c); break;
-        case 0x13: c = deserialize_enemy_segment_data(r, c); break;
-        case 0x14: c = deserialize_overlord_data(r, c); break;
-        case 0x15: c = deserialize_uniqtiles(r, c); break;
-        case 0x16: c = deserialize_nak_uniqtiles(r, c); break;
-        case 0x17: c = map16.deserialize(r, c); break;
-        case 0x18: c = manip.deserialize(r, c); break;
-        case 0x19: c = deserialize_star_switch(r, c); break;
-        case 0x1A: c = deserialize_room_state(r, c); break;
-        case 0x1B: c = deserialize_room_doors(r, c); break;
-        case 0x1C: c = deserialize_ow_events(r, c); break;
-        case 0x1D: c = deserialize_flying_tiles(r, c); break;
-        case 0x1E: c = deserialize_room_kills(r, c); break;
-        case 0x1F: c = deserialize_enemies_killed(r, c); break;
-        case 0x20: c = deserialize_rupees(r, c); break;
-        case 0x82: c = deserialize_small_keys(r, c); break;
-        case 0x83: c = deserialize_hearts(r, c); break;
-        case 0x81: c = deserialize_reset(r, c); break;
-        case 0x84: c = run_timing.deserialize(r, c, this); break;
-        case 0x85: c = deserialize_run_restore(r, c); break;
-        case 0x86: c = deserialize_run_gap(r, c); break;
-        case 0x87: c = deserialize_features(r, c); break;
-        case 0x88: c = deserialize_small_keys_changes(r, c); break;
-        case 0x89: c = deserialize_location_changes(r, c); break;
+        case msg_location: deserialize_location(m, c); break;
+        case msg_location_changes: deserialize_location_changes(m, c); break;
+        case msg_sfx: deserialize_sfx(m, c); break;
+        case msg_wram: deserialize_wram(m, c); break;
+        case msg_sram: deserialize_sram(m, c); break;
+        case msg_ancillae: deserialize_ancillae(m, c); break;
+        case msg_torches: deserialize_torches(m, c); break;
+        case msg_pvp: deserialize_pvp(m, c); break;
+        case msg_map16: map16.deserialize(m, c); break;
+        case msg_manip: manip.deserialize(m, c); break;
+        case msg_star_switch: deserialize_star_switch(m, c); break;
+        case msg_room_state: deserialize_room_state(m, c); break;
+        case msg_room_doors: deserialize_room_doors(m, c); break;
+        case msg_ow_events: deserialize_ow_events(m, c); break;
+        case msg_flying_tiles: deserialize_flying_tiles(m, c); break;
+        case msg_room_kills: deserialize_room_kills(m, c); break;
+        case msg_enemies_killed: deserialize_enemies_killed(m, c); break;
+        case msg_rupees: deserialize_rupees(m, c); break;
+        case msg_enemy_data: deserialize_enemy_data(m, c); break;
+        case msg_enemy_segment_data: deserialize_enemy_segment_data(m, c); break;
+        case msg_overlord_data: deserialize_overlord_data(m, c); break;
+        case msg_small_keys: deserialize_small_keys(m, c); break;
+        case msg_small_keys_changes: deserialize_small_keys_changes(m, c); break;
+        case msg_hearts: deserialize_hearts(m, c); break;
+        case msg_reset: deserialize_reset(m, c); break;
+        case msg_run_timing: run_timing.deserialize(m, c, this); break;
+        case msg_run_restore: deserialize_run_restore(m, c); break;
+        case msg_run_gap: deserialize_run_gap(m, c); break;
+        case msg_sm_location: deserialize_sm_location(m, c); break;
+        case msg_sm_events: deserialize_sm_events(m, c); break;
+        case msg_sm_sram: deserialize_sm_sram(m, c); break;
+        case msg_sm_enemies: deserialize_sm_enemies(m, c); break;
         default:
-          // o2-only message types start at 0x80 and are sent in their own packets; don't log those:
-          if (packetType < 0x80) {
-            message("unknown packet type " + fmtHex(packetType, 2) + " at offs " + fmtHex(c, 3));
-          }
-          // the length of an unknown message is not known so the rest of the packet cannot be parsed:
-          c = maxc;
+          // a newer message type (or the sprite messages, until the sprite redesign); skipped by its length.
           break;
       }
+      c = end;
     }
 
     if (ttl <= 0) {
@@ -1099,13 +1081,6 @@ class GameState {
     loc_key[2] = uint16(xoffs);
     loc_key[3] = uint16(yoffs);
 
-    return c;
-  }
-
-  int deserialize_features(array<uint8> r, int c) {
-    int maxc = int(r.length());
-    if (c + 1 > maxc) return maxc;
-    features = r[c++];
     return c;
   }
 
@@ -1398,7 +1373,7 @@ class GameState {
     if (runReset.resetting || local.index < 0 || index < 0 || sock is null || this is local) return;
     restore_sent_ms = now;
     auto @envelope = local.make_packet_broadcast();
-    envelope.write_u8(msg_run_restore);
+    uint mst = msg_begin(envelope, msg_run_restore);
     envelope.write_u8(run_restore_version);
     envelope.write_u8(run_restore_size);
     envelope.write_u16(uint16(index));
@@ -1414,8 +1389,10 @@ class GameState {
     envelope.write_u24(rt.finish_frame);
     envelope.write_u24(rt.lag_frames);
     envelope.write_u32(rt.penalty_ms);
+    msg_end(envelope, mst);
     local.send_packet(envelope, 0);
     message("run timing: " + rt_player_label(this) + " reports no start; sending it back (start " + rt_format_time(s) + ")");
+    msg_end(envelope, mst);
   }
 
   // deserialize_run_restore reads message 0x85, after its type byte; the local player takes the run if it is for it.
@@ -1675,63 +1652,12 @@ class GameState {
     return c;
   }
 
-  int deserialize_name(array<uint8> r, int c) {
-    namePadded = r.toString(c, 20);
-    c += 20;
-
-    bool update = false;
-    if (justJoined) {
-      local.notify(name + " joined");
-      justJoined = false;
-    }
-
-    return c;
-  }
-
   int deserialize_sm_events(array<uint8> r, int c) {
     for (int i = 0; i < 0x54; i++) {
         sm_events[i] = r[c++];
     }
     sm_clear = r[c++];
     z3_clear = r[c++];
-    return c;
-  }
-
-  int deserialize_uniqtiles(array<uint8> r, int c) {
-    uint len = r[c++];
-
-    for (uint i = 0; i < len; i++) {
-      // read absidx of tile:
-      uint16 absidx = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-      // read tile data:
-      array<uint16> @tiles = uniqtile_get(absidx);
-      tiles.resize(16);
-      for (int k = 0; k < 16; k++) {
-        tiles[k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      }
-    }
-
-    return c;
-  }
-
-  int deserialize_nak_uniqtiles(array<uint8> r, int c) {
-    // who is this NAK for?
-    int player_index = uint16(r[c++]) | (uint16(r[c++]) << 8);
-
-    uint len = r[c++];
-    if (local.index != player_index) {
-      // discard NAK if not for our local player:
-      c += len * 2;
-      return c;
-    }
-
-    // read the NAK contents and add to our list to send out:
-    for (uint i = 0; i < len; i++) {
-      uint16 idx = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      local.uniqtile_new_insertLast(idx);
-    }
-
     return c;
   }
 

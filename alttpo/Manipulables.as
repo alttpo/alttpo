@@ -38,7 +38,6 @@
 // RoomDraw_16x16Single for revealed objects, attribute $27 for moved blocks, and $0641 toggled for upper layer blocks
 // like PushBlock_CheckForPit does. Blocks on switches or in pits are left to update(), like o2.
 
-const uint8 msg_manip = 0x18;
 const int manip_slots = 16;
 
 bool manip_is_push_block(uint16 t) {
@@ -216,7 +215,7 @@ class ManipSync {
 
   void serialize(array<uint8> &r) {
     if (!valid) return;
-    r.write_u8(msg_manip);
+    uint mst = msg_begin(r, msg_manip);
     r.write_u16(room);
     r.write_u8(uint8(n));
     for (int i = 0; i < n; i++) {
@@ -232,6 +231,7 @@ class ManipSync {
         r.write_u8(0x00);
       }
     }
+    msg_end(r, mst);
   }
 
   // returns the local slot matching remote slot i, or -1:

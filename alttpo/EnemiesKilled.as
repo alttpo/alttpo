@@ -23,7 +23,6 @@
 // team in the same room or area: the bits they killed that are not set here are set. With "Kill Dead Enemies", the
 // live local sprites whose index (underworld) or position (overworld) they killed are killed at once with the poof death animation.
 
-const uint8 msg_enemies_killed = 0x1F;
 const uint8 enemies_killed_uw = 0;
 const uint8 enemies_killed_ow = 1;
 const uint32 enemies_killed_room_masks = 0x7FDF80;
@@ -263,10 +262,11 @@ class EnemiesKilledLocal {
       uint16 m = bus::read_u16(enemies_killed_room_masks + uint32(r) * 2);
       if (m != 0) {
         auto @other = local.make_packet_broadcast_to_sector(0x010000 | uint32(r));
-        other.write_u8(msg_enemies_killed);
+        uint mst = msg_begin(other, msg_enemies_killed);
         other.write_u8(enemies_killed_uw);
         other.write_u16(r);
         other.write_u16(m);
+        msg_end(other, mst);
         p = local.send_packet(other, p);
       }
     }
@@ -274,11 +274,12 @@ class EnemiesKilledLocal {
   }
 
   void serialize(array<uint8> &r) {
-    r.write_u8(msg_enemies_killed);
+    uint mst = msg_begin(r, msg_enemies_killed);
     r.write_u8(kind);
     if (kind == enemies_killed_uw) {
       r.write_u16(uint16(id));
       r.write_u16(mask);
+      msg_end(r, mst);
       return;
     }
     r.write_u8(uint8(id));
@@ -288,6 +289,7 @@ class EnemiesKilledLocal {
     for (uint i = 0; i < blks.length(); i++) {
       r.write_u16(blks[i]);
     }
+    msg_end(r, mst);
   }
 };
 

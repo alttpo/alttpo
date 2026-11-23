@@ -31,7 +31,6 @@
 //   - If the remote desert statues were released and ours were not, set $02F0.
 //   - If the remote tree top was dashed into and ours still stands, make it hop like the dash does.
 
-const uint8 msg_ow_events = 0x1C;
 const uint16 ow_entrance_offs = 0x04C6;
 const uint16 ow_desert_offs = 0x02F0;
 const uint16 ow_lumberjack_area = 0x02;
@@ -192,10 +191,11 @@ class OverworldEventsLocal {
     }
 
     array<uint8> @r = local.make_packet_broadcast_to_sector(local.broadcast_sector());
-    r.write_u8(msg_ow_events);
+    uint mst = msg_begin(r, msg_ow_events);
     r.write_u24(loc);
     r.write_u8(entrance);
     r.write_u8(flags);
+    msg_end(r, mst);
     return local.send_packet(r, p);
   }
 };
