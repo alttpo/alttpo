@@ -1600,16 +1600,11 @@ class LocalGameState : GameState {
     uint8 sword = bus::read_u8(0x7EF359);
     uint8 shield = bus::read_u8(0x7EF35A);
     // chr, count, WRAM address of the DMA source, source in WRAM (else LinkGraphics):
-    array<uint8> chr = {0x00, 0x10, 0x02, 0x12, 0x04, 0x14, 0x05, 0x15, 0x07, 0x17, 0x09, 0x19, 0x0E, 0x1E};
-    array<uint8> cnt = {2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2};
-    array<uint16> ptr = {0x0ACC, 0x0ACE, 0x0AD0, 0x0AD2, 0x0AD4, 0x0AD6, 0x0AC0, 0x0AC2, 0x0AC4, 0x0AC6, 0x0AC8, 0x0ACA,
-      0x0AF6, 0x0AF8};
-    // NMI_DoUpdates uploads the bird while the low byte of flag_travel_bird is set:
-    bool bird = bus::read_u8(0x7E0AF4) != 0;
+    array<uint8> chr = {0x00, 0x10, 0x02, 0x12, 0x04, 0x14, 0x05, 0x15, 0x07, 0x17, 0x09, 0x19};
+    array<uint8> cnt = {2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2};
+    array<uint16> ptr = {0x0ACC, 0x0ACE, 0x0AD0, 0x0AD2, 0x0AD4, 0x0AD6, 0x0AC0, 0x0AC2, 0x0AC4, 0x0AC6, 0x0AC8, 0x0ACA};
     for (uint r = 0; r < chr.length(); r++) {
       bool wram = r >= 6;
-      // the flute's bird, only while it is uploaded:
-      if (r >= 12 && !bird) continue;
       uint16 t = link_fact_tile(bus::read_u16(0x7E0000 | ptr[r]), wram, sword, shield);
       if (t == no_fact_tile) continue;
       ChrRow row;
@@ -1622,7 +1617,9 @@ class LocalGameState : GameState {
   }
 
   // body_chr is true for the chrs below $20 that show Link's or Samus' own graphics: those that are bound to a fact
-  // when they have a tile. Link's chrs $0B-$0D and $1B-$1D are other graphics, drawn from the receivers' VRAM.
+  // when they have a tile. Link's chrs $0B-$0D and $1B-$1D are other graphics, drawn from the receivers' VRAM. The
+  // flute's bird's chrs ($0E-$0F, $1E-$1F) never have a tile, so sprites showing them are never sent: the bird isn't
+  // synced.
   bool body_chr(uint c) {
     if (c >= 0x20) return false;
     if (get_in_sm()) return true;

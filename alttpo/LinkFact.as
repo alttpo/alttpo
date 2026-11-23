@@ -6,7 +6,8 @@
 //   $7000   $0C00  swords 1-4, $300 each, laid out as WRAM $7E9000 for that level
 //   $7C00   $0480  shields 1-3, $180 each, laid out as WRAM $7E9300 for that level
 //   $8080   $0D00  the item buffer, as WRAM $7E9480-$7EA17F
-//   $8D80   $0400  the flute's bird, as WRAM $7EB540-$7EB93F
+//
+// The flute's bird (chrs $0E-$0F, $1E-$1F, from WRAM $7EB540) isn't in it: the bird isn't synced.
 const uint8 fact_link_graphics = 0x00;
 
 const uint lf_body = 0x0000;
@@ -17,14 +18,11 @@ const uint lf_shields = 0x7C00;
 const uint lf_shield_size = 0x180;
 const uint lf_items = 0x8080;
 const uint lf_items_size = 0xD00;
-const uint lf_bird = 0x8D80;
-const uint lf_bird_size = 0x400;
-const uint link_fact_size = lf_bird + lf_bird_size;
+const uint link_fact_size = lf_items + lf_items_size;
 
 const uint lf_sword_wram = 0x9000;
 const uint lf_shield_wram = 0x9300;
 const uint lf_items_wram = 0x9480;
-const uint lf_bird_wram = 0xB540;
 
 const uint16 no_fact_tile = 0xFFFF;
 
@@ -190,11 +188,6 @@ class LinkFactBuilder {
       message("facts: item buffer is " + fmtHex(x - lf_items, 4) + " bytes; expected " + fmtHex(lf_items_size, 4));
       return false;
     }
-
-    // the bird, as LoadItemGFX_Auxiliary:
-    array<uint8> bird;
-    if (!sprite_sheet(0x58, bird)) return false;
-    do_3to4_low(bird, 0, fact, lf_bird, lf_bird_size >> 5);
     return true;
   }
 }
@@ -224,25 +217,6 @@ uint expand_3to4_high(const array<uint8> &in src, uint off, array<uint8> &dst, u
   return x;
 }
 
-// do_3to4_low is the game's Do3To4Low16Bit: num 3bpp tiles from src[off:] to 4bpp tiles at dst[x:], with the 4th
-// bitplane clear.
-void do_3to4_low(const array<uint8> &in src, uint off, array<uint8> &dst, uint x, int num) {
-  for (; num > 0; num--) {
-    uint p2 = off + 0x10;
-    for (int row = 0; row < 8; row++) {
-      dst[x] = src[off];
-      dst[x + 1] = src[off + 1];
-      dst[x + 0x10] = src[p2];
-      dst[x + 0x11] = 0;
-      off += 2;
-      p2++;
-      x += 2;
-    }
-    x += 0x10;
-    off = p2;
-  }
-}
-
 // link_fact_tile returns the tile of fact 0x00 that the DMA source address src (bank $10 for the head, body and aux,
 // else WRAM bank $7E) shows, with the sword and shield levels the player has; no_fact_tile if none.
 uint16 link_fact_tile(uint16 src, bool wram, uint8 sword, uint8 shield) {
@@ -260,7 +234,6 @@ uint16 link_fact_tile(uint16 src, bool wram, uint8 sword, uint8 shield) {
     return uint16((lf_shields + (shield - 1) * lf_shield_size + a - lf_shield_wram) >> 5);
   }
   if (a >= lf_items_wram && a < lf_items_wram + lf_items_size) return uint16((lf_items + a - lf_items_wram) >> 5);
-  if (a >= lf_bird_wram && a < lf_bird_wram + lf_bird_size) return uint16((lf_bird + a - lf_bird_wram) >> 5);
   return no_fact_tile;
 }
 
