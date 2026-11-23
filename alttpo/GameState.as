@@ -857,12 +857,15 @@ class GameState {
         case msg_run_timing: run_timing.deserialize(m, c, this); break;
         case msg_run_restore: deserialize_run_restore(m, c); break;
         case msg_run_gap: deserialize_run_gap(m, c); break;
+        case msg_sprite_chrs: deserialize_sprite_chrs(m, c); break;
+        case msg_sprite_palettes: deserialize_sprite_palettes(m, c); break;
+        case msg_sprites: deserialize_sprites(m, c); break;
         case msg_sm_location: deserialize_sm_location(m, c); break;
         case msg_sm_events: deserialize_sm_events(m, c); break;
         case msg_sm_sram: deserialize_sm_sram(m, c); break;
         case msg_sm_enemies: deserialize_sm_enemies(m, c); break;
         default:
-          // a newer message type (or the sprite messages, until the sprite redesign); skipped by its length.
+          // a newer message type; skipped by its length.
           break;
       }
       c = end;
@@ -1196,84 +1199,91 @@ class GameState {
     return c;
   }
 
-  int deserialize_sprites(array<uint8> r, int c, bool continuation = false) {
-    // read in OAM sprites:
-    uint start = 0;
-    if (continuation) {
-      start = r[c++];
+  // the tiles of the player's facts its chrs $00-$1F are bound to (msg_sprite_chrs); 0xFFFF where not bound:
+  array<uint8> chr_fact(0x20);
+  array<uint16> chr_fact_tile(0x20, 0xFFFF);
+
+  // deserialize_sprite_chrs reads msg_sprite_chrs, which replaces the player's bindings.
+  int deserialize_sprite_chrs(array<uint8> r, int c) {
+    for (uint i = 0; i < 0x20; i++) chr_fact_tile[i] = 0xFFFF;
+    uint n = r[c++];
+    for (uint i = 0; i < n; i++) {
+      uint chr = r[c++];
+      uint cnt = r[c++];
+      uint8 fact = r[c++];
+      uint16 tile = uint16(r[c++]);
+      tile |= uint16(r[c++]) << 8;
+      for (uint k = 0; k < cnt; k++) {
+        if (chr + k >= 0x20) break;
+        chr_fact[chr + k] = fact;
+        chr_fact_tile[chr + k] = tile + uint16(k);
+      }
     }
+    resolve_sprite_chrs();
+    return c;
+  }
+
+  // resolve_sprite_chrs fills chrs $00-$1F with the tiles of the player's facts they are bound to. A chr whose fact
+  // isn't here yet (fact_data starts downloading it) stays empty, and chr_tile doesn't draw it.
+  void resolve_sprite_chrs() {
+    for (uint c = 0; c < 0x20; c++) {
+      uint16 t = chr_fact_tile[c];
+      if (t == 0xFFFF) {
+        chrs[c].resize(0);
+        continue;
+      }
+      auto @data = fact_data(uint16(index), chr_fact[c]);
+      uint o = uint(t) * 32;
+      if (data is null || o + 32 > data.length()) {
+        chrs[c].resize(0);
+        continue;
+      }
+      chrs[c].resize(16);
+      for (uint k = 0; k < 16; k++) {
+        chrs[c][k] = uint16(data[o + k * 2]) | (uint16(data[o + k * 2 + 1]) << 8);
+      }
+    }
+  }
+
+  // deserialize_sprite_palettes reads msg_sprite_palettes: a mask, then 16 colors for each palette in it.
+  int deserialize_sprite_palettes(array<uint8> r, int c) {
+    uint8 mask = r[c++];
+    for (uint k = 0; k < 8; k++) {
+      if ((mask & (1 << k)) == 0) continue;
+      for (uint i = k << 4; i < (k << 4) + 16; i++) {
+        palettes[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      }
+    }
+    return c;
+  }
+
+  // deserialize_sprites reads msg_sprites: the player's sprites, 5 bytes each (x, y, chr, attributes, ext), in OAM
+  // order. They are drawn with the chrs bound to the player's facts, or the local VRAM's for unbound chrs.
+  int deserialize_sprites(array<uint8> r, int c) {
     uint len = r[c++];
-
-    sprites.resize(start + len);
+    sprites.resize(len);
     sprites_received = chrono::monotonic::millisecond;
-    if (!continuation) {
-      sprites_xoffs = xoffs;
-      sprites_yoffs = yoffs;
-    }
-    //message("start=" + fmtInt(start) + " len=" + fmtInt(len) + "; msglen=" + fmtInt(r.length()));
+    sprites_xoffs = xoffs;
+    sprites_yoffs = yoffs;
+    // a fact that arrived since the bindings did:
+    resolve_sprite_chrs();
 
-    for (uint i = start; i < start + len; i++) {
+    for (uint i = 0; i < len; i++) {
       auto @spr = Sprite();
       @sprites[i] = spr;
-
-      //message("  c=" + fmtInt(c));
-      auto fl = r[c++];
-      spr.index = fl & 0x7f;
+      // OAM order: draw them from OAM index $40 on, in the same order:
+      spr.index = uint8(0x40 + i) & 0x7F;
       spr.b0 = r[c++];
       spr.b1 = r[c++];
       spr.b2 = r[c++];
       spr.b3 = r[c++];
-      auto b4 = r[c++];
-      spr.b4 = b4 & 0x7f;
+      spr.b4 = r[c++] & 3;
       spr.decodeOAMTableBytes();
-
-      spr.uniq_absidx_0 = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      if (spr.size != 0) {
-        spr.uniq_absidx_1 = uint16(r[c++]) | (uint16(r[c++]) << 8);
-        spr.uniq_absidx_2 = uint16(r[c++]) | (uint16(r[c++]) << 8);
-        spr.uniq_absidx_3 = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      }
-
-      //message("oam " + fmtHex(spr.index, 2));
-
-      // read VRAM for chrs:
-      if ((fl & 0x80) != 0) {
-        auto h = spr.chr;
-        //message(" chr=" + fmtHex(h+0x00, 3));
-        chrs[h+0x00].resize(16);
-        for (int k = 0; k < 16; k++) {
-          chrs[h+0x00][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-        }
-        if (spr.size != 0) {
-          //message(" chr=" + fmtHex(h+0x01, 3));
-          chrs[h+0x01].resize(16);
-          for (int k = 0; k < 16; k++) {
-            chrs[h+0x01][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-          }
-          //message(" chr=" + fmtHex(h+0x10, 3));
-          chrs[h+0x10].resize(16);
-          for (int k = 0; k < 16; k++) {
-            chrs[h+0x10][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-          }
-          //message(" chr=" + fmtHex(h+0x11, 3));
-          chrs[h+0x11].resize(16);
-          for (int k = 0; k < 16; k++) {
-            chrs[h+0x11][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-          }
-        }
-      }
-
-      // read palette data:
-      if ((b4 & 0x80) != 0) {
-        uint pal = spr.palette << 4;
-
-        // read 16 colors:
-        for (uint k = pal; k < pal + 16; k++) {
-          palettes[k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-        }
-      }
+      spr.uniq_absidx_0 = 0xFFFF;
+      spr.uniq_absidx_1 = 0xFFFF;
+      spr.uniq_absidx_2 = 0xFFFF;
+      spr.uniq_absidx_3 = 0xFFFF;
     }
-
     return c;
   }
 
@@ -1725,10 +1735,10 @@ class GameState {
             localFrameState.chr[k] = true;
             reloc[sprite.chr] = k;
 
-            if (chrs[sprite.chr].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr,3)+" data empty!");
-            } else {
-              localFrameState.overwrite_tile(ppu::vram.chr_address(k), chrs[sprite.chr]);
+            {
+              // the chr bound to the player's fact, or the local VRAM's (see chr_tile):
+              auto @t = chr_tile(sprite.chr);
+              if (t.length() != 0) localFrameState.overwrite_tile(ppu::vram.chr_address(k), t);
             }
             break;
           }
@@ -1755,25 +1765,25 @@ class GameState {
             reloc[sprite.chr + 0x01] = k + 0x01;
             reloc[sprite.chr + 0x10] = k + 0x10;
             reloc[sprite.chr + 0x11] = k + 0x11;
-            if (chrs[sprite.chr + 0x00].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x00,3)+" data empty!");
-            } else {
-              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), chrs[sprite.chr + 0x00]);
+            {
+              // the chr bound to the player's fact, or the local VRAM's (see chr_tile):
+              auto @t = chr_tile(sprite.chr + 0x00);
+              if (t.length() != 0) localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x00), t);
             }
-            if (chrs[sprite.chr + 0x01].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x01,3)+" data empty!");
-            } else {
-              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), chrs[sprite.chr + 0x01]);
+            {
+              // the chr bound to the player's fact, or the local VRAM's (see chr_tile):
+              auto @t = chr_tile(sprite.chr + 0x01);
+              if (t.length() != 0) localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x01), t);
             }
-            if (chrs[sprite.chr + 0x10].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x10,3)+" data empty!");
-            } else {
-              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), chrs[sprite.chr + 0x10]);
+            {
+              // the chr bound to the player's fact, or the local VRAM's (see chr_tile):
+              auto @t = chr_tile(sprite.chr + 0x10);
+              if (t.length() != 0) localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x10), t);
             }
-            if (chrs[sprite.chr + 0x11].length() == 0) {
-              message("remote CHR="+fmtHex(sprite.chr + 0x11,3)+" data empty!");
-            } else {
-              localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), chrs[sprite.chr + 0x11]);
+            {
+              // the chr bound to the player's fact, or the local VRAM's (see chr_tile):
+              auto @t = chr_tile(sprite.chr + 0x11);
+              if (t.length() != 0) localFrameState.overwrite_tile(ppu::vram.chr_address(k + 0x11), t);
             }
             break;
           }
@@ -1796,6 +1806,12 @@ class GameState {
   array<uint16> vram_chr(16);
   array<uint16> @chr_tile(uint c) {
     if (chrs[c].length() != 0) return chrs[c];
+    // one of the player's chrs bound to a fact that isn't here yet: not drawn:
+    if (c < 0x20 && chr_fact_tile[c] != 0xFFFF) {
+      vram_chr.resize(0);
+      return vram_chr;
+    }
+    vram_chr.resize(16);
     ppu::vram.read_block(ppu::vram.chr_address(c), 0, 16, vram_chr);
     return vram_chr;
   }

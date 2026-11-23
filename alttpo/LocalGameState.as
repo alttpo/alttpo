@@ -1929,9 +1929,175 @@ class LocalGameState : GameState {
     return n;
   }
 
-  // send_sprites sends Link's sprites to the sector; sprite sync is being redesigned around facts (see
-  // o2-server's PROTOCOL05.md, "Sprites with facts"); until then, only the other state messages for the sector go.
+  // link_chr_tiles returns the tiles of the Link graphics fact (see LinkFact.as) that Link's chrs $00-$1F show this
+  // frame, from the DMA source addresses NMI_DoUpdates uploads them from; no_fact_tile where none.
+  array<uint16> @link_chr_tiles() {
+    array<uint16> tiles(0x20);
+    for (uint i = 0; i < 0x20; i++) tiles[i] = no_fact_tile;
+    uint8 sword = bus::read_u8(0x7EF359);
+    uint8 shield = bus::read_u8(0x7EF35A);
+    // chr, count, WRAM address of the DMA source, source in WRAM (else LinkGraphics):
+    array<uint8> chr = {0x00, 0x10, 0x02, 0x12, 0x04, 0x14, 0x05, 0x15, 0x07, 0x17, 0x09, 0x19, 0x0E, 0x1E};
+    array<uint8> cnt = {2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2};
+    array<uint16> ptr = {0x0ACC, 0x0ACE, 0x0AD0, 0x0AD2, 0x0AD4, 0x0AD6, 0x0AC0, 0x0AC2, 0x0AC4, 0x0AC6, 0x0AC8, 0x0ACA,
+      0x0AF6, 0x0AF8};
+    bool bird = bus::read_u16(0x7E0AF4) != 0;
+    for (uint r = 0; r < chr.length(); r++) {
+      bool wram = r >= 6;
+      // the flute's bird, only while it is uploaded:
+      if (r >= 12 && !bird) continue;
+      uint16 t = link_fact_tile(bus::read_u16(0x7E0000 | ptr[r]), wram, sword, shield);
+      if (t == no_fact_tile) continue;
+      for (uint k = 0; k < cnt[r]; k++) tiles[chr[r] + k] = t + uint16(k);
+    }
+    return tiles;
+  }
+
+  // send_sprites sends Link's sprites to the sector by pose (see o2-server's PROTOCOL05.md, "Sprites with facts"):
+  // msg_sprite_chrs binds the rows of Link's chrs the sprites show to tiles of the Link graphics fact, msg_sprites is
+  // the OAM entries in OAM order (5 bytes each), and msg_sprite_palettes the palettes they use. They are sent when
+  // they, the scroll offsets they were drawn with or their palettes changed, and every sprites_refresh sends. Each
+  // palette is sent when it changes and every palette_refresh sends, and at once when a player arrived. Sprites that
+  // show one of Link's chrs without a tile are left out; other chrs are drawn by receivers from their own VRAM. extra,
+  // the other state messages for the sector, goes in the same packet if it fits.
   uint send_sprites(uint p, array<uint8> &in extra) {
+    // Samus' sprites need the SM graphics facts, which aren't made yet:
+    if (get_in_sm()) return send_sector_extra(p, extra);
+    uint len = sprites.length();
+    if (len == 0) return send_sector_extra(p, extra);
+
+    auto @tiles = link_chr_tiles();
+
+    // the sprites to send, in OAM order:
+    array<Sprite@> list;
+    for (uint i = 0; i < len; i++) {
+      auto @spr = sprites[i];
+      if (spr is null) continue;
+      bool ok = true;
+      for (uint k = 0; k < 4 && ok; k++) {
+        if (k > 0 && spr.size == 0) break;
+        uint c = spr.chr + ((k & 1) | ((k & 2) << 3));
+        bool linkChr = c < 0x20 && ((c & 0x0F) <= 0x0A || (c & 0x0F) >= 0x0E);
+        if (linkChr && tiles[c] == no_fact_tile) ok = false;
+      }
+      if (!ok) continue;
+      uint j = list.length();
+      list.insertLast(spr);
+      while (j > 0 && list[j - 1].index > spr.index) {
+        @list[j] = list[j - 1];
+        @list[j - 1] = spr;
+        j--;
+      }
+    }
+    len = list.length();
+
+    // what receivers draw: the sprites, the tiles they show, the palettes and the scroll offsets they are placed with
+    // (those of the last location received):
+    array<uint8> sig;
+    array<bool> palUsed(8);
+    array<bool> chrUsed(0x20);
+    for (uint i = 0; i < len; i++) {
+      auto @spr = list[i];
+      sig.write_u8(spr.b0);
+      sig.write_u8(spr.b1);
+      sig.write_u8(spr.b2);
+      sig.write_u8(spr.b3);
+      sig.write_u8(spr.b4);
+      palUsed[spr.palette] = true;
+      for (uint k = 0; k < 4; k++) {
+        if (k > 0 && spr.size == 0) break;
+        uint c = spr.chr + ((k & 1) | ((k & 2) << 3));
+        if (c < 0x20) chrUsed[c] = true;
+      }
+    }
+    for (uint c = 0; c < 0x20; c++) sig.write_u16(tiles[c]);
+    sig.write_u16(uint16(xoffs));
+    sig.write_u16(uint16(yoffs));
+    for (uint k = 0; k < 8; k++) {
+      if (!palUsed[k]) continue;
+      for (uint c = (k + 8) << 4; c < ((k + 8) << 4) + 16; c++) {
+        sig.write_u16(ppu::cgram[c]);
+      }
+    }
+    paletteSends++;
+    if (!spritesSend.due(sig, sendSeq, sprites_refresh) && !newPeerHere) {
+      return send_sector_extra(p, extra);
+    }
+
+    // the palettes to send: those that changed, all used ones every palette_refresh sends or when a player arrived:
+    bool refresh = paletteSends >= palette_refresh || newPeerHere;
+    if (refresh) paletteSends = 0;
+    uint8 palMask = 0;
+    for (uint k = 0; k < 8; k++) {
+      if (!palUsed[k]) continue;
+      bool changed = !palettesLastSentOk[k];
+      for (uint c = 0; c < 16 && !changed; c++) {
+        if (palettesLastSent[(k << 4) + c] != ppu::cgram[((k + 8) << 4) + c]) changed = true;
+      }
+      if (!(refresh || changed)) continue;
+      palMask |= uint8(1 << k);
+      for (uint c = 0; c < 16; c++) {
+        palettesLastSent[(k << 4) + c] = ppu::cgram[((k + 8) << 4) + c];
+      }
+      palettesLastSentOk[k] = true;
+    }
+
+    auto @r = make_packet_broadcast_to_sector(broadcast_sector());
+
+    // the chr bindings, one per row of Link's chrs the sprites show:
+    {
+      array<uint8> rows = {0x00, 0x10, 0x02, 0x12, 0x04, 0x14, 0x05, 0x15, 0x07, 0x17, 0x09, 0x19, 0x0E, 0x1E};
+      array<uint8> cnt = {2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2};
+      uint mst = msg_begin(r, msg_sprite_chrs);
+      uint markCount = r.length();
+      r.write_u8(0);
+      uint8 n = 0;
+      for (uint i = 0; i < rows.length(); i++) {
+        uint c = rows[i];
+        bool used = chrUsed[c] || (cnt[i] > 1 && chrUsed[c + 1]);
+        if (!used || tiles[c] == no_fact_tile) continue;
+        r.write_u8(uint8(c));
+        r.write_u8(cnt[i]);
+        r.write_u8(fact_link_graphics);
+        r.write_u16(tiles[c]);
+        n++;
+      }
+      r[markCount] = n;
+      msg_end(r, mst);
+    }
+
+    if (palMask != 0) {
+      uint mst = msg_begin(r, msg_sprite_palettes);
+      r.write_u8(palMask);
+      for (uint k = 0; k < 8; k++) {
+        if ((palMask & (1 << k)) == 0) continue;
+        for (uint c = (k + 8) << 4; c < ((k + 8) << 4) + 16; c++) {
+          r.write_u16(ppu::cgram[c]);
+        }
+      }
+      msg_end(r, mst);
+    }
+
+    {
+      uint mst = msg_begin(r, msg_sprites);
+      r.write_u8(uint8(len));
+      for (uint i = 0; i < len; i++) {
+        auto @spr = list[i];
+        r.write_u8(spr.b0);
+        r.write_u8(spr.b1);
+        r.write_u8(spr.b2);
+        r.write_u8(spr.b3);
+        r.write_u8(spr.b4 & 3);
+      }
+      msg_end(r, mst);
+    }
+
+    // the other state messages for the sector go in the same packet if they fit:
+    if (r.length() + extra.length() <= MaxPacketSize) {
+      r.write_arr(extra);
+      return send_packet(r, p);
+    }
+    p = send_packet(r, p);
     return send_sector_extra(p, extra);
   }
 
