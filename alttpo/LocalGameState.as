@@ -1604,7 +1604,8 @@ class LocalGameState : GameState {
     array<uint8> cnt = {2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2};
     array<uint16> ptr = {0x0ACC, 0x0ACE, 0x0AD0, 0x0AD2, 0x0AD4, 0x0AD6, 0x0AC0, 0x0AC2, 0x0AC4, 0x0AC6, 0x0AC8, 0x0ACA,
       0x0AF6, 0x0AF8};
-    bool bird = bus::read_u16(0x7E0AF4) != 0;
+    // NMI_DoUpdates uploads the bird while the low byte of flag_travel_bird is set:
+    bool bird = bus::read_u8(0x7E0AF4) != 0;
     for (uint r = 0; r < chr.length(); r++) {
       bool wram = r >= 6;
       // the flute's bird, only while it is uploaded:
