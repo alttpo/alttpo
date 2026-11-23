@@ -19,17 +19,6 @@ bool locations_equal(uint32 a, uint32 b) {
   return false;
 }
 
-void insertUnique(array<uint16> &a, uint16 v) {
-  int i;
-  for (i = a.length() - 1; i >= 0; i--) {
-    // don't insert duplicate value:
-    if (a[i] == v) return;
-    if (a[i] < v) break;
-  }
-
-  a.insertAt(i + 1, v);
-}
-
 
 const uint ol8_id = 0;
 const uint ol8_xl = 1;
@@ -213,12 +202,6 @@ bool is_segmented_enemy_id(uint8 id) {
 
 bool players_updated = false;
 
-// LTTP Link  uses $04F0 uniq tiles
-//   SM Samus uses $0F00 uniq tiles
-// total tiles  =  $13F0
-const uint lttp_uniq4bpptile_count = 0x4F0 + 4;
-const uint   sm_uniq4bpptile_count = 0xF00;
-
 class GameState {
   int ttl;        // time to live for last update packet
   int index = -1; // player index in server's array (local is always -1)
@@ -242,24 +225,6 @@ class GameState {
   array<uint16> palettes(8 * 16);
   // lookup remote chr number to find local chr number mapped to:
   array<uint16> reloc(512);
-
-  // lttp: unique tiles' 4bpp data ($20 uint8s | $10 uint16s, each):
-  array<array<uint16>> lttp_uniqtile_4bpp(lttp_uniq4bpptile_count);
-  //   sm: unique tiles' 4bpp data ($20 uint8s | $10 uint16s, each):
-  array<array<uint16>>   sm_uniqtile_4bpp(  sm_uniq4bpptile_count);
-
-  // currently missing unique tiles:
-  array<uint16> missing_uniq_absidx;
-
-  array<uint16> @uniqtile_get(uint16 absidx) {
-    if (absidx < 0x1000) {
-      return @lttp_uniqtile_4bpp[absidx];
-    } else if (absidx < 0x2000) {
-      return   @sm_uniqtile_4bpp[absidx - 0x1000];
-    } else {
-      return null;
-    }
-  }
 
   // $3D9-$3E4: 6x uint16 characters for player name
 
@@ -626,9 +591,6 @@ class GameState {
     }
 
     small_keys.reset();
-
-    missing_uniq_absidx.reserve(64);
-    missing_uniq_absidx.resize(0);
   }
 
   void calculate_player_color_dark() {
@@ -1279,10 +1241,6 @@ class GameState {
       spr.b3 = r[c++];
       spr.b4 = r[c++] & 3;
       spr.decodeOAMTableBytes();
-      spr.uniq_absidx_0 = 0xFFFF;
-      spr.uniq_absidx_1 = 0xFFFF;
-      spr.uniq_absidx_2 = 0xFFFF;
-      spr.uniq_absidx_3 = 0xFFFF;
     }
     return c;
   }
@@ -1316,23 +1274,6 @@ class GameState {
       pvp_attacks[i].recoil_dx = int8(r[c++]);
       pvp_attacks[i].recoil_dy = int8(r[c++]);
       pvp_attacks[i].recoil_dz = int8(r[c++]);
-    }
-
-    return c;
-  }
-
-  int deserialize_chr0(array<uint8> r, int c) {
-    // read in chr0 data:
-    auto chr_count = r[c++];
-    for (uint i = 0; i < chr_count; i++) {
-      // read chr0 number:
-      auto h = uint16(r[c++]);
-
-      // read chr tile data:
-      chrs[h].resize(16);
-      for (int k = 0; k < 16; k++) {
-        chrs[h][k] = uint16(r[c++]) | (uint16(r[c++]) << 8);
-      }
     }
 
     return c;
@@ -1850,52 +1791,23 @@ class GameState {
       auto p = sprite.palette;
 
       // draw sprite:
-      array<uint16> @t;
-      if (sprite.uniq_absidx_0 == 0xFFFF) {
-        @t = chr_tile(k + 0x00);
-      } else {
-        @t = uniqtile_get(sprite.uniq_absidx_0);
-        if (t.length() == 0) {
-          insertUnique(missing_uniq_absidx, sprite.uniq_absidx_0);
-        }
-      }
+      array<uint16> @t = chr_tile(k + 0x00);
       if (t.length() > 0) {
         tile.draw_sprite_4bpp(0, 0, p, t, palettes);
       }
 
       if (sprite.size != 0) {
-        if (sprite.uniq_absidx_1 == 0xFFFF) {
-          @t = chr_tile(k + 0x01);
-        } else {
-          @t = uniqtile_get(sprite.uniq_absidx_1);
-          if (t.length() == 0) {
-            insertUnique(missing_uniq_absidx, sprite.uniq_absidx_1);
-          }
-        }
+        @t = chr_tile(k + 0x01);
         if (t.length() > 0) {
           tile.draw_sprite_4bpp(8, 0, p, t, palettes);
         }
 
-        if (sprite.uniq_absidx_2 == 0xFFFF) {
-          @t = chr_tile(k + 0x10);
-        } else {
-          @t = uniqtile_get(sprite.uniq_absidx_2);
-          if (t.length() == 0) {
-            insertUnique(missing_uniq_absidx, sprite.uniq_absidx_2);
-          }
-        }
+        @t = chr_tile(k + 0x10);
         if (t.length() > 0) {
           tile.draw_sprite_4bpp(0, 8, p, t, palettes);
         }
 
-        if (sprite.uniq_absidx_3 == 0xFFFF) {
-          @t = chr_tile(k + 0x11);
-        } else {
-          @t = uniqtile_get(sprite.uniq_absidx_3);
-          if (t.length() == 0) {
-            insertUnique(missing_uniq_absidx, sprite.uniq_absidx_3);
-          }
-        }
+        @t = chr_tile(k + 0x11);
         if (t.length() > 0) {
           tile.draw_sprite_4bpp(8, 8, p, t, palettes);
         }

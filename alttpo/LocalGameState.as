@@ -44,18 +44,6 @@ class LocalGameState : GameState {
   array<SyncableUnderworldRoom@> rooms(0x128);
   array<Sprite@> sprs(0x80);
 
-  array<uint16> chr_uniqtile_absidx(0x200);
-  array<int>   lttp_uniqtile_new;
-  array<int>     sm_uniqtile_new;
-
-  void uniqtile_new_insertLast(uint16 absidx) {
-    if (absidx < 0x1000) {
-      lttp_uniqtile_new.insertLast(absidx);
-    } else if (absidx < 0x2000) {
-      sm_uniqtile_new.insertLast(absidx - 0x1000);
-    }
-  }
-
 
   Notify@ notify;
   NotifyItemReceived@ itemReceivedDelegate;
@@ -134,12 +122,6 @@ class LocalGameState : GameState {
     @this.itemReceivedDelegate = NotifyItemReceived(@this.collectNotifications);
     @this.serializeSramDelegate = SerializeSRAMDelegate(@this.serialize_sram);
     @this.serializeSramItemsDelegate = SerializeSRAMDelegate(@this.serialize_sram_items);
-
-    // at most 512 new tiles to capture per frame:
-    lttp_uniqtile_new.reserve(0x200);
-    lttp_uniqtile_new.resize(0);
-      sm_uniqtile_new.reserve(0x200);
-      sm_uniqtile_new.resize(0);
 
     // SRAM [$000..$24f] underworld rooms:
     // create syncable item for each underworld room (word; size=2) using bitwise OR operations (type=2) to accumulate latest state:
@@ -230,11 +212,6 @@ class LocalGameState : GameState {
     gotShield = 0;
 
     animation_timer = 0;
-
-    lttp_uniqtile_new.reserve(0x200);
-    lttp_uniqtile_new.resize(0);
-      sm_uniqtile_new.reserve(0x200);
-      sm_uniqtile_new.resize(0);
 
   }
 
@@ -414,8 +391,6 @@ class LocalGameState : GameState {
     sub_sub_module = bus::read_u8(0x7E00B0);
   }
 
-  bool sprites_need_vram = false;
-
   void fetch_basics() {
     // player state:
     // 0x00 - ground state
@@ -517,8 +492,6 @@ class LocalGameState : GameState {
   }
 
   void fetch() {
-    sprites_need_vram = false;
-
     fetch_sram();
 
     fetch_basics();
@@ -641,8 +614,6 @@ class LocalGameState : GameState {
     if (is_game_over()) {
       return;
     }
-
-    sprites_need_vram = true;
 
     // read OAM offset where link's sprites start at:
     int link_oam_start = bus::read_u16(0x7E0352) >> 2;
@@ -881,311 +852,6 @@ class LocalGameState : GameState {
         || is_near_enemy(spr, dying_enemies_prev_x, dying_enemies_prev_y);
   }
 
-  void capture_sprites_vram() {
-    if (!sprites_need_vram) {
-      return;
-    }
-
-    // reset which chr uniqtile indexes for current frame:
-    for (int i = 0; i < 0x200; i++) {
-      chr_uniqtile_absidx[i] = 0xFFFF;
-    }
-
-    // capture any uniq tiles:
-    for (int i = 0; i < numsprites; i++) {
-      auto @spr = @sprites[i];
-      capture_uniqtiles(spr);
-    }
-
-    sprites_need_vram = false;
-  }
-
-  uint16 uniqtile_absidx(int g, int idx) {
-    // LTTP (g=0) gets indexes 0000..0FFF
-    //   SM (g=1) gets indexes 1000..1FFF
-    return uint16(idx + (g * 0x1000));
-  }
-
-  void lttp_uniqtile_clear_sword() {
-    for (uint addr = 0; addr < 0x18; addr++) {
-      lttp_uniqtile_4bpp[0x380 + addr].resize(0);
-    }
-  }
-
-  void lttp_uniqtile_clear_shield() {
-    for (uint addr = 0; addr < 0x0C; addr++) {
-      lttp_uniqtile_4bpp[0x380 + 0x18 + addr].resize(0);
-    }
-  }
-
-  int lttp_uniqtile_index(uint16 chr) {
-    // $000..$37F = ROM  Link sprites
-    // $380..$4EF = WRAM Sword, shield, etc.
-    // $4F0..?    = static
-
-    if (chr >= 0x100) {
-      return -1;
-    }
-
-    uint chrX = chr & 0x0F;
-    uint chrY = chr >> 4;
-    if (chrY <= 0x01) {
-      uint16 offs;
-      // ROM:
-      if (chrX <= 0x01) {
-        // Link head:
-        offs = bus::read_u16(0x7E0ACC + (chrY<<1));
-        return (offs - 0x8000 + (chrX << 5)) >> 5;
-      } else if (chrX <= 0x03) {
-        // Link body:
-        offs = bus::read_u16(0x7E0AD0 + (chrY<<1));
-        return (offs - 0x8000 + ((chrX - 2) << 5)) >> 5;
-      } else if (chrX == 0x04) {
-        // Link aux (hands):
-        offs = bus::read_u16(0x7E0AD4 + (chrY<<1));
-        return (offs - 0x8000) >> 5;
-      }
-      // WRAM:
-      // // TODO: need to figure out how to invalidate these cached gfx when they get decompressed/replaced
-      // else if (chrX <= 0x06) {
-      //   // Sword:
-      //   offs = bus::read_u16(0x7E0AC0 + (chrY<<1));
-      //   return ((offs - 0x9000 + ((chrX - 5) << 5)) >> 5) + 0x380;
-      // } else if (chrX <= 0x08) {
-      //   // Shield:
-      //   offs = bus::read_u16(0x7E0AC4 + (chrY<<1));
-      //   return ((offs - 0x9000 + ((chrX - 7) << 5)) >> 5) + 0x380;
-      // }
-    }
-
-    return -1;
-  }
-
-  int   sm_uniqtile_index(uint16 chr) {
-    if (chr >= 0x20) {
-      // not a uniq tile:
-      return -1;
-    }
-
-    uint chrX = chr & 0x0F;
-    uint chrY = chr >> 4;
-
-    uint32 anim_table_offs = bus::read_u16(0x92D94E + (uint32(sm_pose) << 1));
-    uint32 anim_frame_addr = 0x920000 + anim_table_offs + (uint32(sm_anim_frame) << 2);
-    uint32 tiledef_addr;
-    uint16 part1_size;
-    uint16 part2_size;
-    uint16 romaddr_offs;
-    uint8  romaddr_bank;
-
-    if (chrX < 8) {
-      // top half of Samus body (left half of page):
-      uint32 tiledef_ptr_idx = uint32(bus::read_u8(anim_frame_addr + 0));
-      uint32 tiledef_idx     = uint32(bus::read_u8(anim_frame_addr + 1));
-      tiledef_addr    = 0x920000 + uint32(bus::read_u16(0x92D91E + (tiledef_ptr_idx << 1)));
-      tiledef_addr += (tiledef_idx * 7);
-      romaddr_offs = bus::read_u16(tiledef_addr + 0);
-      romaddr_bank = bus::read_u8 (tiledef_addr + 2);
-      part1_size = bus::read_u16(tiledef_addr + 3);
-      part2_size = bus::read_u16(tiledef_addr + 5);
-      if (chrY == 1) {
-        romaddr_offs += part1_size;
-      }
-      romaddr_offs += chrX << 5;
-    } else {
-      // bottom half of Samus body (right half of page):
-      uint32 tiledef_ptr_idx = uint32(bus::read_u8(anim_frame_addr + 2));
-      uint32 tiledef_idx     = uint32(bus::read_u8(anim_frame_addr + 3));
-      tiledef_addr    = 0x920000 + uint32(bus::read_u16(0x92D938 + (tiledef_ptr_idx << 1)));
-      tiledef_addr += (tiledef_idx * 7);
-      romaddr_offs = bus::read_u16(tiledef_addr + 0);
-      romaddr_bank = bus::read_u8 (tiledef_addr + 2);
-      part1_size = bus::read_u16(tiledef_addr + 3);
-      part2_size = bus::read_u16(tiledef_addr + 5);
-      if (chrY == 1) {
-        romaddr_offs += part1_size;
-      }
-      romaddr_offs += (chrX - 8) << 5;
-    }
-
-    // message(fmtHex(romaddr_bank) + ":" + fmtHex(romaddr_offs));
-    // (x >> 5) to divide by $20 bytes
-    if (romaddr_bank == 0x9C) {
-      return 0x000 + ((romaddr_offs - 0x8000) >> 5);
-    } else if (romaddr_bank == 0x9D) {
-      return 0x3D4 + ((romaddr_offs - 0x8000) >> 5);
-    } else if (romaddr_bank == 0x9E) {
-      return 0x790 + ((romaddr_offs - 0x8000) >> 5);
-    } else if (romaddr_bank == 0x9F) {
-      return 0xB46 + ((romaddr_offs - 0x8000) >> 5);
-    } else {
-      return -1;
-    }
-  }
-
-  // captures uniq tile data the first time
-  void capture_uniqtiles(Sprite &sprite) {
-    uint16 ch;
-    int i0 = -1, i1 = -1, i2 = -1, i3 = -1;
-    bool c0 = false, c1 = false, c2 = false, c3 = false;
-    array<uint16> @t0;
-    array<uint16> @t1;
-    array<uint16> @t2;
-    array<uint16> @t3;
-
-    if (!get_in_sm()) {
-      // LTTP:
-      ch = sprite.chr;
-      i0 = lttp_uniqtile_index(ch);
-      // not a uniq tile?
-      if (i0 < 0) {
-        capture_sprite(sprite);
-        return;
-      }
-
-      @t0 = @lttp_uniqtile_4bpp[i0];
-      chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i0);
-      if (sprite.size != 0) {
-        ch = sprite.chr + 0x01;
-        i1 = lttp_uniqtile_index(ch);
-        if (i1 < 0) { message("BUG: expected i1 >= 0; chr=" + fmtHex(ch)); }
-        @t1 = @lttp_uniqtile_4bpp[i1];
-        chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i1);
-
-        ch = sprite.chr + 0x10;
-        i2 = lttp_uniqtile_index(ch);
-        if (i2 < 0) { message("BUG: expected i2 >= 0; chr=" + fmtHex(ch)); }
-        @t2 = @lttp_uniqtile_4bpp[i2];
-        chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i2);
-
-        ch = sprite.chr + 0x11;
-        i3 = lttp_uniqtile_index(ch);
-        if (i3 < 0) { message("BUG: expected i3 >= 0; chr=" + fmtHex(ch)); }
-        @t3 = @lttp_uniqtile_4bpp[i3];
-        chr_uniqtile_absidx[ch] = uniqtile_absidx(0, i3);
-      }
-    } else {
-      // SM:
-      ch = sprite.chr;
-      i0 =   sm_uniqtile_index(ch);
-      // not a uniq tile?
-      if (i0 < 0) {
-        capture_sprite(sprite);
-        return;
-      }
-
-      @t0 =   @sm_uniqtile_4bpp[i0];
-      chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i0);
-      if (sprite.size != 0) {
-        ch = sprite.chr + 0x01;
-        i1 =   sm_uniqtile_index(ch);
-        if (i1 < 0) { message("BUG: expected i1 >= 0; chr=" + fmtHex(ch)); }
-        @t1 =   @sm_uniqtile_4bpp[i1];
-        chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i1);
-
-        ch = sprite.chr + 0x10;
-        i2 =   sm_uniqtile_index(ch);
-        if (i2 < 0) { message("BUG: expected i2 >= 0; chr=" + fmtHex(ch)); }
-        @t2 =   @sm_uniqtile_4bpp[i2];
-        chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i2);
-
-        ch = sprite.chr + 0x11;
-        i3 =   sm_uniqtile_index(ch);
-        if (i3 < 0) { message("BUG: expected i3 >= 0; chr=" + fmtHex(ch)); }
-        @t3 =   @sm_uniqtile_4bpp[i3];
-        chr_uniqtile_absidx[ch] = uniqtile_absidx(1, i3);
-      }
-    }
-
-    // capture the 4bpp tile data:
-    if (t0.length() == 0) {
-      // message("capture " + fmtHex(i0));
-      t0.resize(0x10);
-      ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, t0);
-      c0 = true;
-    }
-    if (sprite.size != 0) {
-      // 16x16 sprite:
-      if (t1.length() == 0) {
-        // message("capture " + fmtHex(i1));
-        t1.resize(0x10);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, t1);
-        c1 = true;
-      }
-
-      if (t2.length() == 0) {
-        // message("capture " + fmtHex(i2));
-        t2.resize(0x10);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, t2);
-        c2 = true;
-      }
-
-      if (t3.length() == 0) {
-        // message("capture " + fmtHex(i3));
-        t3.resize(0x10);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, t3);
-        c3 = true;
-      }
-    }
-
-    if (!get_in_sm()) {
-      // LTTP:
-      if (c0) { lttp_uniqtile_new.insertLast(i0); }
-      if (c1) { lttp_uniqtile_new.insertLast(i1); }
-      if (c2) { lttp_uniqtile_new.insertLast(i2); }
-      if (c3) { lttp_uniqtile_new.insertLast(i3); }
-    } else {
-      // SM:
-      if (c0) {   sm_uniqtile_new.insertLast(i0); }
-      if (c1) {   sm_uniqtile_new.insertLast(i1); }
-      if (c2) {   sm_uniqtile_new.insertLast(i2); }
-      if (c3) {   sm_uniqtile_new.insertLast(i3); }
-      // message("sm_uniqtile_new.length = " + fmtInt(sm_uniqtile_new.length()));
-    }
-  }
-
-  // this is now a fallback case to capture VRAM tile data scoped to the current frame only.
-  void capture_sprite(Sprite &sprite) {
-    //message("capture_sprite " + fmtInt(sprite.index));
-    // load character(s) from VRAM:
-    if (sprite.size == 0) {
-      // 8x8 sprite:
-      //message("capture  x8 CHR=" + fmtHex(sprite.chr, 3));
-      /*if (chrs[sprite.chr].length() == 0)*/ {
-        chrs[sprite.chr].resize(16);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr), 0, 16, chrs[sprite.chr]);
-      }
-    } else {
-      // 16x16 sprite:
-      //message("capture x16 CHR=" + fmtHex(sprite.chr, 3));
-      /*if (chrs[sprite.chr + 0x00].length() == 0)*/ {
-        chrs[sprite.chr + 0x00].resize(16);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x00), 0, 16, chrs[sprite.chr + 0x00]);
-      }
-      /*if (chrs[sprite.chr + 0x01].length() == 0)*/ {
-        chrs[sprite.chr + 0x01].resize(16);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x01), 0, 16, chrs[sprite.chr + 0x01]);
-      }
-      /*if (chrs[sprite.chr + 0x10].length() == 0)*/ {
-        chrs[sprite.chr + 0x10].resize(16);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x10), 0, 16, chrs[sprite.chr + 0x10]);
-      }
-      /*if (chrs[sprite.chr + 0x11].length() == 0)*/ {
-        chrs[sprite.chr + 0x11].resize(16);
-        ppu::vram.read_block(ppu::vram.chr_address(sprite.chr + 0x11), 0, 16, chrs[sprite.chr + 0x11]);
-      }
-    }
-  }
-
-  void reset_uniqtiles() {
-    for (int i = 0; i < lttp_uniq4bpptile_count; i++) {
-      lttp_uniqtile_4bpp[i].resize(0);
-    }
-    for (int i = 0; i <   sm_uniq4bpptile_count; i++) {
-        sm_uniqtile_4bpp[i].resize(0);
-    }
-  }
-
   void fetch_ancillae() {
     if (is_dead()) return;
 
@@ -1277,7 +943,6 @@ class LocalGameState : GameState {
   void fetch_sm_sprites() {
     numsprites = 0;
     sprites.resize(0);
-    sprites_need_vram = true;
 
     // read in relevant sprites from OAM:
     array<uint8> oam(0x220);
@@ -1929,11 +1594,9 @@ class LocalGameState : GameState {
     return n;
   }
 
-  // link_chr_tiles returns the tiles of the Link graphics fact (see LinkFact.as) that Link's chrs $00-$1F show this
-  // frame, from the DMA source addresses NMI_DoUpdates uploads them from; no_fact_tile where none.
-  array<uint16> @link_chr_tiles() {
-    array<uint16> tiles(0x20);
-    for (uint i = 0; i < 0x20; i++) tiles[i] = no_fact_tile;
+  // link_chr_rows appends the rows of Link's chrs $00-$1F bound to tiles of the Link graphics fact (see LinkFact.as)
+  // this frame, from the DMA source addresses NMI_DoUpdates uploads them from; rows without a tile are left out.
+  void link_chr_rows(array<ChrRow@> &rows) {
     uint8 sword = bus::read_u8(0x7EF359);
     uint8 shield = bus::read_u8(0x7EF35A);
     // chr, count, WRAM address of the DMA source, source in WRAM (else LinkGraphics):
@@ -1948,25 +1611,50 @@ class LocalGameState : GameState {
       if (r >= 12 && !bird) continue;
       uint16 t = link_fact_tile(bus::read_u16(0x7E0000 | ptr[r]), wram, sword, shield);
       if (t == no_fact_tile) continue;
-      for (uint k = 0; k < cnt[r]; k++) tiles[chr[r] + k] = t + uint16(k);
+      ChrRow row;
+      row.chr = chr[r];
+      row.n = cnt[r];
+      row.fact = fact_link_graphics;
+      row.tile = t;
+      rows.insertLast(row);
     }
-    return tiles;
   }
 
-  // send_sprites sends Link's sprites to the sector by pose (see o2-server's PROTOCOL05.md, "Sprites with facts"):
-  // msg_sprite_chrs binds the rows of Link's chrs the sprites show to tiles of the Link graphics fact, msg_sprites is
+  // body_chr is true for the chrs below $20 that show Link's or Samus' own graphics: those that are bound to a fact
+  // when they have a tile. Link's chrs $0B-$0D and $1B-$1D are other graphics, drawn from the receivers' VRAM.
+  bool body_chr(uint c) {
+    if (c >= 0x20) return false;
+    if (get_in_sm()) return true;
+    return (c & 0x0F) <= 0x0A || (c & 0x0F) >= 0x0E;
+  }
+
+  // send_sprites sends Link's or Samus' sprites to the sector by pose (see o2-server's PROTOCOL05.md, "Sprites with
+  // facts"): msg_sprite_chrs binds the rows of the chrs the sprites show to tiles of the Link graphics fact or the
+  // Samus graphics facts, msg_sprites is
   // the OAM entries in OAM order (5 bytes each), and msg_sprite_palettes the palettes they use. They are sent when
   // they, the scroll offsets they were drawn with or their palettes changed, and every sprites_refresh sends. Each
   // palette is sent when it changes and every palette_refresh sends, and at once when a player arrived. Sprites that
-  // show one of Link's chrs without a tile are left out; other chrs are drawn by receivers from their own VRAM. extra,
-  // the other state messages for the sector, goes in the same packet if it fits.
+  // show one of Link's or Samus' chrs (body_chr) without a tile are left out; other chrs are drawn by receivers from
+  // their own VRAM. extra, the other state messages for the sector, goes in the same packet if it fits.
   uint send_sprites(uint p, array<uint8> &in extra) {
-    // Samus' sprites need the SM graphics facts, which aren't made yet:
-    if (get_in_sm()) return send_sector_extra(p, extra);
     uint len = sprites.length();
     if (len == 0) return send_sector_extra(p, extra);
 
-    auto @tiles = link_chr_tiles();
+    array<ChrRow@> rows;
+    if (get_in_sm()) {
+      sm_chr_rows(sm_pose, sm_anim_frame, rows);
+    } else {
+      link_chr_rows(rows);
+    }
+    array<uint16> tiles(0x20, no_fact_tile);
+    array<uint8> facts(0x20);
+    for (uint i = 0; i < rows.length(); i++) {
+      auto @row = rows[i];
+      for (uint k = 0; k < row.n; k++) {
+        tiles[row.chr + k] = row.tile + uint16(k);
+        facts[row.chr + k] = row.fact;
+      }
+    }
 
     // the sprites to send, in OAM order:
     array<Sprite@> list;
@@ -1977,8 +1665,7 @@ class LocalGameState : GameState {
       for (uint k = 0; k < 4 && ok; k++) {
         if (k > 0 && spr.size == 0) break;
         uint c = spr.chr + ((k & 1) | ((k & 2) << 3));
-        bool linkChr = c < 0x20 && ((c & 0x0F) <= 0x0A || (c & 0x0F) >= 0x0E);
-        if (linkChr && tiles[c] == no_fact_tile) ok = false;
+        if (body_chr(c) && tiles[c] == no_fact_tile) ok = false;
       }
       if (!ok) continue;
       uint j = list.length();
@@ -2010,7 +1697,10 @@ class LocalGameState : GameState {
         if (c < 0x20) chrUsed[c] = true;
       }
     }
-    for (uint c = 0; c < 0x20; c++) sig.write_u16(tiles[c]);
+    for (uint c = 0; c < 0x20; c++) {
+      sig.write_u16(tiles[c]);
+      sig.write_u8(facts[c]);
+    }
     sig.write_u16(uint16(xoffs));
     sig.write_u16(uint16(yoffs));
     for (uint k = 0; k < 8; k++) {
@@ -2044,22 +1734,21 @@ class LocalGameState : GameState {
 
     auto @r = make_packet_broadcast_to_sector(broadcast_sector());
 
-    // the chr bindings, one per row of Link's chrs the sprites show:
+    // the chr bindings, one per row of chrs the sprites show:
     {
-      array<uint8> rows = {0x00, 0x10, 0x02, 0x12, 0x04, 0x14, 0x05, 0x15, 0x07, 0x17, 0x09, 0x19, 0x0E, 0x1E};
-      array<uint8> cnt = {2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2};
       uint mst = msg_begin(r, msg_sprite_chrs);
       uint markCount = r.length();
       r.write_u8(0);
       uint8 n = 0;
       for (uint i = 0; i < rows.length(); i++) {
-        uint c = rows[i];
-        bool used = chrUsed[c] || (cnt[i] > 1 && chrUsed[c + 1]);
-        if (!used || tiles[c] == no_fact_tile) continue;
-        r.write_u8(uint8(c));
-        r.write_u8(cnt[i]);
-        r.write_u8(fact_link_graphics);
-        r.write_u16(tiles[c]);
+        auto @row = rows[i];
+        bool used = false;
+        for (uint k = 0; k < row.n && !used; k++) used = chrUsed[row.chr + k];
+        if (!used) continue;
+        r.write_u8(row.chr);
+        r.write_u8(row.n);
+        r.write_u8(row.fact);
+        r.write_u16(row.tile);
         n++;
       }
       r[markCount] = n;

@@ -293,7 +293,16 @@ void facts_player_left(uint16 index) {
   }
 }
 
-// build_local_facts builds the local player's facts; see LinkFact.as.
+// build_local_facts builds the local player's facts; see LinkFact.as and SMFact.as.
 void build_local_facts() {
   build_link_fact();
+  build_sm_facts();
+}
+
+// ChrRow binds chrs [chr, chr+n) to tiles [tile, tile+n) of a fact (one binding of msg_sprite_chrs).
+class ChrRow {
+  uint8 chr;
+  uint8 n;
+  uint8 fact;
+  uint16 tile;
 }

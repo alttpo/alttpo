@@ -37,9 +37,6 @@ void on_main_alttp(uint32 pc) {
     localFrameState.backup();
   }
 
-  // fetch local VRAM data for sprites:
-  local.capture_sprites_vram();
-
   if (settings.started && (sock !is null)) {
     // receive network updates from remote players:
     receive();
@@ -169,7 +166,6 @@ void on_main_sm(uint32 pc) {
   local.module = 0x00;
   local.sub_module = 0x00;
   local.sub_sub_module = 0x00;
-  local.sprites_need_vram = false;
   local.numsprites = 0;
   local.sprites.resize(0);
   local.actual_location = 0;
@@ -180,9 +176,6 @@ void on_main_sm(uint32 pc) {
     if (!sm_in_menu() && !sm_loading_room()) {
       local.fetch_sm_pose();
       local.fetch_sm_sprites();
-
-      // fetch local VRAM data for sprites:
-      local.capture_sprites_vram();
 
       local.fetch_enemies();
     }
@@ -312,7 +305,6 @@ void pre_frame() {
     if (playersWindow !is null) {
       playersWindow.update();
     }
-    //local.reset_uniqtiles();
   }
   players_updated = false;
 
