@@ -14,6 +14,7 @@ class SettingsWindow {
   private GUI::Window @advancedWindow;
   private GUI::LineEdit @txtServerAddress;
   private GUI::LineEdit @txtGroup;
+  private GUI::LineEdit @txtPassword;
   private GUI::LineEdit @txtName;
   private GUI::LineEdit @txtTeam;
   private GUI::LineEdit @txtColor;
@@ -100,6 +101,13 @@ class SettingsWindow {
       groupTrimmed = value;
       groupPadded = padTo(value, 20);
     }
+  }
+
+  // the group's password, empty for none; only a hash of it is sent (see Protocol.as):
+  private string password;
+  string Password {
+    get { return password; }
+    set { password = value; }
   }
 
   private uint8 team;
@@ -298,6 +306,7 @@ class SettingsWindow {
   private void setServerSettingsGUI() {
     txtServerAddress.text = serverAddress;
     txtGroup.text = groupTrimmed;
+    txtPassword.text = password;
   }
 
   private void setPlayerSettingsGUI() {
@@ -366,6 +375,7 @@ class SettingsWindow {
       if (serverAddress == "bittwiddlers.org") serverAddress = "alttp.online";
     }
     groupTrimmed = doc["server/group"].textOr(GroupTrimmed);
+    password = doc["server/password"].textOr(Password);
     name = doc["player/name"].textOr(Name);
     team = doc["player/team"].naturalOr(Team);
     player_color = parse_player_color(doc["player/color"].textOr("0x" + fmtHex(player_color, 4)));
@@ -434,6 +444,7 @@ class SettingsWindow {
     // grab latest values from GUI:
     ServerAddress = txtServerAddress.text;
     GroupTrimmed = txtGroup.text;
+    Password = txtPassword.text;
     Name = txtName.text;
     Team = uint8(txtTeam.text.natural());
     PlayerColor = parse_player_color(txtColor.text);
@@ -446,6 +457,7 @@ class SettingsWindow {
     doc.create("version").value = "2";
     doc.create("server/address").value = ServerAddress;
     doc.create("server/group").value = GroupTrimmed;
+    doc.create("server/password").value = Password;
     doc.create("player/name").value = Name;
     doc.create("player/team").value = fmtInt(Team);
     doc.create("player/color").value = "0x" + fmtHex(player_color, 4);
@@ -524,14 +536,32 @@ class SettingsWindow {
         lbl.text = "Group:";
         lbl.toolTip =
           "Group name to join on the server, a.k.a. the lobby name (case-insensitive, max 20 chars).\n\n"
-          "Private groups are not available yet so try to make your group name unique and hard to guess if you don't "
-          "want other players joining. Also be sure to enable Hide Group Name if using Discord integration.\n\n"
+          "To keep other players out of your group, set a password below. Also be sure to enable Hide Group Name if "
+          "using Discord integration.\n\n"
           "Group name is updated in real time so if you change this while connected, you will move between groups.";
         hz.append(lbl, GUI::Size(sx100, 0));
 
         @txtGroup = GUI::LineEdit();
         txtGroup.onChange(@GUI::Callback(save));
         hz.append(txtGroup, GUI::Size(-1, sy20));
+      }
+
+      {
+        auto @hz = GUI::HorizontalLayout();
+        vl.append(hz, GUI::Size(-1, 0));
+
+        auto @lbl = GUI::Label();
+        lbl.text = "Password:";
+        lbl.toolTip =
+          "Optional. The first player to join a group sets its password; everyone else must enter the same one to "
+          "join. Leave it empty for a group anyone can join.\n\n"
+          "A password keeps uninvited players out; only a hash of it is sent to the server, but it does not hide from "
+          "someone watching network traffic.";
+        hz.append(lbl, GUI::Size(sx100, 0));
+
+        @txtPassword = GUI::LineEdit();
+        txtPassword.onChange(@GUI::Callback(save));
+        hz.append(txtPassword, GUI::Size(-1, sy20));
       }
 
       {

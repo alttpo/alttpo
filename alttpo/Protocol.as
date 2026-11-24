@@ -30,6 +30,20 @@ const uint8 p5_fact_data = 0x89;
 const uint8 p5_relay_all = 0x8A;
 const uint8 p5_relay_sector = 0x8B;
 
+// join-nak reasons (the nak's body is the reason byte; 0 and 1 are not joined and group full):
+const uint8 p5_nak_auth_required = 2;    // the group has a password and the join had no token
+const uint8 p5_nak_auth_failed = 3;      // the token isn't the group's
+const uint8 p5_nak_auth_unexpected = 4;  // the group exists without a password, or the auth field is malformed
+
+// Group passwords keep uninvited players out of a group; they don't hold up against someone who can see the network's
+// packets. A join-group may end with an auth field, `u8 32, token`, where token is SHA-256("o2-p5-group:" || password).
+// The first player to join a group that doesn't exist sets its token; every later join of that group must carry the
+// same one. No password, no auth field. p5_auth_token returns the token as 64 hex digits, or "" without a password.
+string p5_auth_token(const string &in password) {
+  if (password.length() == 0) return "";
+  return sha256("o2-p5-group:" + password);
+}
+
 // fact-status states:
 const uint8 p5_fact_receiving = 0;
 const uint8 p5_fact_complete = 1;

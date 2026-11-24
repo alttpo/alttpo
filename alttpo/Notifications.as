@@ -1,12 +1,32 @@
 
 funcdef void Notify(const string &in msg);
 
+class Notification {
+  string msg;
+  // how many frames it stays up:
+  int frames = 60;
+  uint16 color = 0;
+}
+
 class NotificationSystem {
   // Notifications system:
-  array<string> notifications(0);
+  array<Notification@> notifications(0);
 
   void notify(const string &in msg) {
-    notifications.insertLast(msg);
+    auto @n = Notification();
+    n.msg = msg;
+    n.color = ppu::rgb(26, 26, 26);
+    notifications.insertLast(n);
+    message(msg);
+  }
+
+  // warn shows a message that stands out: bright orange and up on screen for 5.5 seconds.
+  void warn(const string &in msg) {
+    auto @n = Notification();
+    n.msg = msg;
+    n.frames = 330;
+    n.color = ppu::rgb(31, 18, 0);
+    notifications.insertLast(n);
     message(msg);
   }
 
@@ -15,7 +35,7 @@ class NotificationSystem {
     if (notifications.length() == 0) return ei;
 
     // pop off the first notification if its timer is expired:
-    if (notificationFrameTimer++ >= 60) {
+    if (notificationFrameTimer++ >= notifications[0].frames) {
       notifications.removeAt(0);
       notificationFrameTimer = 0;
     }
@@ -30,12 +50,12 @@ class NotificationSystem {
       font_set = false;
     }
 
-    ppu::extra.color = ppu::rgb(26, 26, 26);
     ppu::extra.outline_color = ppu::rgb(0, 0, 0);
     auto height = ppu::extra.font.height + 1;
 
     for (int i = 0; i < count; i++) {
-      auto msg = notifications[i];
+      auto msg = notifications[i].msg;
+      ppu::extra.color = notifications[i].color;
 
       auto row = count - i;
       auto @label = ppu::extra[ei++];

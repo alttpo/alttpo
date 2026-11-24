@@ -40,6 +40,11 @@ class P5State {
   uint64 join_sent_ms = 0;
   bool sent_valid = false;
   string sent_group;
+  string sent_token;
+  // the server refused the group password (or the lack of one); no more joins until the group or password changes:
+  bool auth_blocked = false;
+  string auth_msg;
+  uint64 auth_notified_ms = 0;
   string sent_name;
   uint8 sent_team = 0;
 
@@ -102,16 +107,24 @@ void p5_tick() {
   if (group.length() > 255) group = group.slice(0, 255);
   string name = local.name;
   if (name.length() > 255) name = name.slice(0, 255);
-  if (!p5.sent_valid || group != p5.sent_group || name != p5.sent_name || local.team != p5.sent_team) {
+  string token = p5_auth_token(settings.Password);
+  if (!p5.sent_valid || group != p5.sent_group || token != p5.sent_token || name != p5.sent_name || local.team != p5.sent_team) {
+    if (!p5.sent_valid || group != p5.sent_group || token != p5.sent_token) p5.auth_blocked = false;
     p5.join_seq++;
     p5.join_acked = false;
     p5.join_sent_ms = 0;
     p5.sent_valid = true;
     p5.sent_group = group;
+    p5.sent_token = token;
     p5.sent_name = name;
     p5.sent_team = local.team;
   }
-  if (!p5.join_acked && (p5.join_sent_ms == 0 || now - p5.join_sent_ms >= p5_resend_ms)) {
+  if (p5.auth_blocked && (p5.auth_notified_ms == 0 || now - p5.auth_notified_ms >= 8000)) {
+    // the warning is up for 5.5 seconds; a refused join says so again every 8 seconds:
+    p5.auth_notified_ms = now;
+    notificationSystem.warn(p5.auth_msg);
+  }
+  if (!p5.join_acked && !p5.auth_blocked && (p5.join_sent_ms == 0 || now - p5.join_sent_ms >= p5_resend_ms)) {
     p5.join_sent_ms = now;
     auto @pkt = p5_packet(p5_join_group);
     pkt.write_u8(p5.join_seq);
@@ -125,6 +138,10 @@ void p5_tick() {
     pkt.write_u8(2);
     pkt.write_u8(script_protocol);
     pkt.write_u8(local.team);
+    if (token.length() == 64) {
+      pkt.write_u8(32);
+      for (uint i = 0; i < 32; i++) pkt.write_u8(uint8(token.slice(i * 2, 2).hex()));
+    }
     p5_send(pkt);
   }
 
@@ -231,7 +248,16 @@ void receive() {
       }
       assign_local_index(index);
     } else if (kind == p5_join_nak) {
-      if (p5.join_acked) {
+      uint8 reason = c < n ? r[c] : 0;
+      if (reason >= p5_nak_auth_required) {
+        string msg = "this group exists without a password";
+        if (reason == p5_nak_auth_required) msg = "this group needs a password";
+        else if (reason == p5_nak_auth_failed) msg = "wrong group password";
+        // the notification is repeated by p5_tick while the join stays refused:
+        p5.auth_msg = msg;
+        p5.auth_notified_ms = 0;
+        p5.auth_blocked = true;
+      } else if (p5.join_acked) {
         // the server lost us (it restarted, or we were away too long); join again:
         message("server: not in a group; joining again");
         p5.join_acked = false;
