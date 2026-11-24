@@ -1161,13 +1161,14 @@ class GameState {
     return c;
   }
 
-  // the tiles of the player's facts its chrs $00-$1F are bound to (msg_sprite_chrs); 0xFFFF where not bound:
-  array<uint8> chr_fact(0x20);
-  array<uint16> chr_fact_tile(0x20, 0xFFFF);
+  // the tiles of the player's facts its chrs $00-$3F are bound to (msg_sprite_chrs): Link's or Samus' chrs below $20,
+  // the follower's $20-$23 and $30-$33; 0xFFFF where not bound:
+  array<uint8> chr_fact(0x40);
+  array<uint16> chr_fact_tile(0x40, 0xFFFF);
 
   // deserialize_sprite_chrs reads msg_sprite_chrs, which replaces the player's bindings.
   int deserialize_sprite_chrs(array<uint8> r, int c) {
-    for (uint i = 0; i < 0x20; i++) chr_fact_tile[i] = 0xFFFF;
+    for (uint i = 0; i < 0x40; i++) chr_fact_tile[i] = 0xFFFF;
     uint n = r[c++];
     for (uint i = 0; i < n; i++) {
       uint chr = r[c++];
@@ -1176,7 +1177,7 @@ class GameState {
       uint16 tile = uint16(r[c++]);
       tile |= uint16(r[c++]) << 8;
       for (uint k = 0; k < cnt; k++) {
-        if (chr + k >= 0x20) break;
+        if (chr + k >= 0x40) break;
         chr_fact[chr + k] = fact;
         chr_fact_tile[chr + k] = tile + uint16(k);
       }
@@ -1185,10 +1186,10 @@ class GameState {
     return c;
   }
 
-  // resolve_sprite_chrs fills chrs $00-$1F with the tiles of the player's facts they are bound to. A chr whose fact
+  // resolve_sprite_chrs fills chrs $00-$3F with the tiles of the player's facts they are bound to. A chr whose fact
   // isn't here yet (fact_data starts downloading it) stays empty, and chr_tile doesn't draw it.
   void resolve_sprite_chrs() {
-    for (uint c = 0; c < 0x20; c++) {
+    for (uint c = 0; c < 0x40; c++) {
       uint16 t = chr_fact_tile[c];
       if (t == 0xFFFF) {
         chrs[c].resize(0);
@@ -1748,7 +1749,7 @@ class GameState {
   array<uint16> @chr_tile(uint c) {
     if (chrs[c].length() != 0) return chrs[c];
     // one of the player's chrs bound to a fact that isn't here yet: not drawn:
-    if (c < 0x20 && chr_fact_tile[c] != 0xFFFF) {
+    if (c < 0x40 && chr_fact_tile[c] != 0xFFFF) {
       vram_chr.resize(0);
       return vram_chr;
     }

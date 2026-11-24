@@ -1627,8 +1627,8 @@ class LocalGameState : GameState {
   }
 
   // send_sprites sends Link's or Samus' sprites to the sector by pose (see o2-server's PROTOCOL05.md, "Sprites with
-  // facts"): msg_sprite_chrs binds the rows of the chrs the sprites show to tiles of the Link graphics fact or the
-  // Samus graphics facts, msg_sprites is
+  // facts"): msg_sprite_chrs binds the rows of the chrs the sprites show to tiles of the Link graphics fact (and the
+  // follower's to the follower graphics fact) or the Samus graphics facts, msg_sprites is
   // the OAM entries in OAM order (5 bytes each), and msg_sprite_palettes the palettes they use. They are sent when
   // they, the scroll offsets they were drawn with or their palettes changed, and every sprites_refresh sends. Each
   // palette is sent when it changes and every palette_refresh sends, and at once when a player arrived. Sprites that
@@ -1643,9 +1643,11 @@ class LocalGameState : GameState {
       sm_chr_rows(sm_pose, sm_anim_frame, rows);
     } else {
       link_chr_rows(rows);
+      // the follower's chrs by pose, so receivers draw the follower this player has (see FollowerFact.as):
+      follower_chr_rows(rows);
     }
-    array<uint16> tiles(0x20, no_fact_tile);
-    array<uint8> facts(0x20);
+    array<uint16> tiles(0x40, no_fact_tile);
+    array<uint8> facts(0x40);
     for (uint i = 0; i < rows.length(); i++) {
       auto @row = rows[i];
       for (uint k = 0; k < row.n; k++) {
@@ -1680,7 +1682,7 @@ class LocalGameState : GameState {
     // (those of the last location received):
     array<uint8> sig;
     array<bool> palUsed(8);
-    array<bool> chrUsed(0x20);
+    array<bool> chrUsed(0x40);
     for (uint i = 0; i < len; i++) {
       auto @spr = list[i];
       sig.write_u8(spr.b0);
@@ -1692,10 +1694,10 @@ class LocalGameState : GameState {
       for (uint k = 0; k < 4; k++) {
         if (k > 0 && spr.size == 0) break;
         uint c = spr.chr + ((k & 1) | ((k & 2) << 3));
-        if (c < 0x20) chrUsed[c] = true;
+        if (c < 0x40) chrUsed[c] = true;
       }
     }
-    for (uint c = 0; c < 0x20; c++) {
+    for (uint c = 0; c < 0x40; c++) {
       sig.write_u16(tiles[c]);
       sig.write_u8(facts[c]);
     }

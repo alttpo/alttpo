@@ -293,9 +293,10 @@ void facts_player_left(uint16 index) {
   }
 }
 
-// build_local_facts builds the local player's facts; see LinkFact.as and SMFact.as.
+// build_local_facts builds the local player's facts; see LinkFact.as, FollowerFact.as and SMFact.as.
 void build_local_facts() {
   build_link_fact();
+  build_follower_fact();
   build_sm_facts();
 }
 
