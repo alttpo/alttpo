@@ -2,14 +2,15 @@
 //
 // The state messages that don't change every frame are sent when they change and again every few sends, so that a
 // lost packet or a player who just arrived catches up: small keys and hearts, the crystal switch, Link's sprites and
-// their palettes, the room's state and the enemies killed. The underworld and overworld SRAM are sent only where they
-// changed, and whole every 16 sends or when a player joins the group.
+// their palettes, the room's state, the enemies killed and the ancillae. The underworld and overworld SRAM are sent
+// only where they changed, and whole every 16 sends or when a player joins the group.
 
 // how often an unchanged message is sent again, in sends (at most 60 a second):
 const int crystal_refresh = 32;
 const int small_keys_refresh = 32;
 const int room_refresh = 16;
 const int enemies_killed_refresh = 16;
+const int ancillae_refresh = 16;
 // remote sprites are drawn for remote_sprites_stale (250 ms) after they arrive, here and in o2:
 const int sprites_refresh = 8;
 const int palette_refresh = 32;

@@ -68,6 +68,7 @@ class LocalGameState : GameState {
   ChangeSender spritesSend;
   ChangeSender roomSend;
   ChangeSender enemiesKilledSend;
+  ChangeSender ancillaeSend;
   // the sprite palettes last sent (CGRAM colors of palettes 8..15), and sprite sends since all were sent:
   array<uint16> palettesLastSent(8 * 16);
   array<bool> palettesLastSentOk(8);
@@ -1945,7 +1946,8 @@ class LocalGameState : GameState {
       }
 
       if (!get_in_sm()) {
-        if (settings.SyncSfx) {
+        // the sound effects started this frame, if any (receivers only play non-zero ones):
+        if (settings.SyncSfx && (sfx1 != 0 || sfx2 != 0)) {
           serialize_sfx(envelope);
         }
 
@@ -1953,8 +1955,12 @@ class LocalGameState : GameState {
           serialize_pvp(envelope);
         }
 
+        // the ancillae, when they change and every ancillae_refresh sends, and at once when a player arrived here
+        // (receivers keep applying the last ones received; see update_ancillae):
         if (settings.SyncLocal) {
-          serialize_ancillae(envelope);
+          array<uint8> m;
+          serialize_ancillae(m);
+          if (m.length() != 0 && (ancillaeSend.due(m, sendSeq, ancillae_refresh) || newPeerHere)) envelope.write_arr(m);
         }
         // the crystal switch, only in the dungeon, and the small keys and hearts, when they change and every few sends
         // (see SendState.as):
