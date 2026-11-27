@@ -16,6 +16,9 @@ const uint8 p5_fact_put = 0x07;
 const uint8 p5_fact_get = 0x08;
 const uint8 p5_broadcast_all = 0x09;
 const uint8 p5_broadcast_sector = 0x0A;
+// broadcast-sectors: `u8 n (1..8), n x u32 sector, data`; the server relays it once, as a relay-sector, to every
+// client in any of the sectors (only when the join-ack had p5_ack_multi_sector):
+const uint8 p5_broadcast_sectors = 0x0C;
 
 // server -> client kinds:
 const uint8 p5_join_ack = 0x81;
@@ -29,6 +32,10 @@ const uint8 p5_fact_list = 0x88;
 const uint8 p5_fact_data = 0x89;
 const uint8 p5_relay_all = 0x8A;
 const uint8 p5_relay_sector = 0x8B;
+
+// join-ack flags, the optional u8 after the server time (older servers send none):
+const uint8 p5_ack_spectator = 0x01;     // the join was taken as a spectator's (alttpo never asks to be one)
+const uint8 p5_ack_multi_sector = 0x02;  // the server takes set-sectors and broadcast-sectors
 
 // join-nak reasons (the nak's body is the reason byte; 0 and 1 are not joined and group full):
 const uint8 p5_nak_auth_required = 2;    // the group has a password and the join had no token

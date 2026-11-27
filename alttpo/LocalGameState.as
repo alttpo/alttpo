@@ -1736,7 +1736,9 @@ class LocalGameState : GameState {
       palettesLastSentOk[k] = true;
     }
 
-    auto @r = make_packet_broadcast_to_sector(broadcast_sector());
+    // during a screen transition the sprites go to the room or area being left too, where the location still is:
+    auto @to = sprite_sectors();
+    auto @r = make_packet_broadcast_to_sectors(to);
 
     // the chr bindings, one per row of chrs the sprites show:
     {
@@ -1785,13 +1787,53 @@ class LocalGameState : GameState {
       msg_end(r, mst);
     }
 
-    // the other state messages for the sector go in the same packet if they fit:
-    if (r.length() + extra.length() <= MaxPacketSize) {
+    // the other state messages for the sector go in the same packet if they fit, unless the sprites go to two sectors
+    // (they describe the room or area actually in):
+    if (to.length() == 1 && r.length() + extra.length() <= MaxPacketSize) {
       r.write_arr(extra);
       return send_packet(r, p);
     }
-    p = send_packet(r, p);
+    p = send_packet_to_sectors(r, to, p);
     return send_sector_extra(p, extra);
+  }
+
+  // sprite_sectors returns the sectors Link's sprites go to: the one actually in, and while scrolling to another room
+  // or area (or warping to the other world) the sector of the location too, which stays on the one being left until
+  // the transition ends. Players in either then see Link scroll out or in. Same as o2's spriteSectorLocations.
+  array<uint32> @sprite_sectors() {
+    array<uint32> @to = {broadcast_sector()};
+    if (get_in_sm() || !is_in_screen_transition()) return to;
+    uint32 left = location;
+    if ((left & 0x010000) != 0) left &= 0x01FFFF;
+    if (left != to[0]) to.insertLast(left);
+    return to;
+  }
+
+  // make_packet_broadcast_to_sectors starts a broadcast to the other players in any of the sectors: one
+  // broadcast-sectors when there are several and the server takes it, else a broadcast-sector to the first (see
+  // send_packet_to_sectors for the others).
+  array<uint8> @make_packet_broadcast_to_sectors(array<uint32> @sectors) {
+    if (sectors.length() == 1 || !p5.multi_sector) return make_packet_broadcast_to_sector(sectors[0]);
+    array<uint8> @envelope = p5_packet(p5_broadcast_sectors);
+    envelope.write_u8(uint8(sectors.length()));
+    for (uint i = 0; i < sectors.length(); i++) envelope.write_u32(sectors[i]);
+    write_game_packet_header(envelope);
+    return envelope;
+  }
+
+  // send_packet_to_sectors sends a packet started with make_packet_broadcast_to_sectors; against a server without
+  // broadcast-sectors, its game data goes once more to each of the other sectors in a broadcast-sector of its own.
+  uint send_packet_to_sectors(array<uint8> @envelope, array<uint32> @sectors, uint p) {
+    p = send_packet(envelope, p);
+    if (sectors.length() == 1 || p5.multi_sector) return p;
+    // a broadcast-sector's game data starts after the 4-byte p5 header and the sector:
+    for (uint i = 1; i < sectors.length(); i++) {
+      auto @other = p5_packet(p5_broadcast_sector);
+      other.write_u32(sectors[i]);
+      for (uint k = 8; k < envelope.length(); k++) other.write_u8(envelope[k]);
+      p = send_packet(other, p);
+    }
+    return p;
   }
 
   // send_sector_extra sends the other state messages for the sector in a packet of their own, if any.

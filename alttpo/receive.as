@@ -54,6 +54,8 @@ class P5State {
   uint32 sector = 0;
   bool sector_acked = false;
   uint64 sector_sent_ms = 0;
+  // the server takes broadcast-sectors (the join-ack's p5_ack_multi_sector):
+  bool multi_sector = false;
 
   int echoes = 0;
   uint64 echo_sent_ms = 0;
@@ -237,6 +239,7 @@ void receive() {
       uint16 index = p5_u16(r, c + 1);
       int64 serverTime = int64(p5_u64(r, c + 3));
       if (seq != p5.join_seq) continue;
+      p5.multi_sector = c + 12 <= n && (r[c + 11] & p5_ack_multi_sector) != 0;
       bool wasJoined = p5.join_acked && local.index >= 0;
       p5.join_acked = true;
       note_server_time(serverTime);

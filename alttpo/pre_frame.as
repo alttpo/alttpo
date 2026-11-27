@@ -373,16 +373,15 @@ void pre_frame() {
       // shows a room or area other than the local location (during screen transitions):
       if (!local.can_draw_remote_players()) continue;
 
-      // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's:
-      if (!locations_equal(local.location, remote.location)) continue;
+      // only draw remote player if location (room, dungeon, light/dark world) is identical to local player's; a player
+      // scrolling to another room or area or warping to the other world reports the one being left until that
+      // finishes, but sends their sprites to both (LocalGameState::sprite_sectors), so they're drawn in either while
+      // their sprites keep arriving, which they only do for a sector we're in (receive.as):
+      if (!remote.is_in_screen_transition() && !locations_equal(local.location, remote.location)) continue;
       // don't render player if remote player is in pre-game modules:
       if (remote.is_it_a_bad_time()) continue;
-      // a player scrolling to another room or area or warping to the other world is leaving it; their location only
-      // changes once that finishes:
-      if (remote.is_in_screen_transition()) continue;
-      // players send their sprites to the sector of the room or area they are actually in, so a player whose sprites
-      // stopped arriving has left (e.g. warped away) although their location stays on the old room or area until
-      // the warp finishes:
+      // a player whose sprites stopped arriving has left (e.g. warped away), although their location stays on the old
+      // room or area until the warp finishes:
       if (chrono::monotonic::millisecond - remote.sprites_received >= remote_sprites_stale) continue;
 
       // calculate screen scroll offset between both players to adjust OAM sprite x,y coords, with the offsets the
