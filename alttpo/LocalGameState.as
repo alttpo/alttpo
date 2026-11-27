@@ -65,6 +65,7 @@ class LocalGameState : GameState {
   ChangeSender crystalSend;
   ChangeSender smallKeysSend;
   ChangeSender heartsSend;
+  ChangeSender consumablesSend;
   ChangeSender spritesSend;
   ChangeSender roomSend;
   ChangeSender enemiesKilledSend;
@@ -208,6 +209,8 @@ class LocalGameState : GameState {
     smallKeys.init();
     // and a new heart sync session:
     heartsSync.init();
+    // and consumables:
+    consumablesSync.init();
     last_sent = 0;
 
     gotShield = 0;
@@ -1985,6 +1988,12 @@ class LocalGameState : GameState {
           heartsSync.serialize(m);
           if (heartsSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
         }
+
+        if (any_consumable_sync_enabled()) {
+          array<uint8> m;
+          consumablesSync.serialize(m);
+          if (consumablesSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
+        }
       }
 
       envelope.write_arr(changes);
@@ -2104,6 +2113,8 @@ class LocalGameState : GameState {
     smallKeys.update();
     // hearts too:
     heartsSync.update();
+    // and the rupees, bombs and arrows:
+    consumablesSync.update();
     // star switch too:
     starSwitch.update();
     // and the flying floor tiles:

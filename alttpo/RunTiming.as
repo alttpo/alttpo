@@ -902,6 +902,7 @@ class RunReset {
     }
     smallKeys.init();
     heartsSync.init();
+    consumablesSync.init();
     runTiming.reset_run();
     players_updated = true;
   }

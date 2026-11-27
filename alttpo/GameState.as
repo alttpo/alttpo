@@ -455,6 +455,7 @@ class GameState {
   uint64 ow_events_received = 0;
   SmallKeysRemote small_keys;
   HeartsRemote hearts;
+  ConsumablesRemote consumables;
 
   int numsprites;
 
@@ -591,6 +592,7 @@ class GameState {
     }
 
     small_keys.reset();
+    consumables.reset();
   }
 
   void calculate_player_color_dark() {
@@ -815,6 +817,7 @@ class GameState {
         case msg_small_keys: deserialize_small_keys(m, c); break;
         case msg_small_keys_changes: deserialize_small_keys_changes(m, c); break;
         case msg_hearts: deserialize_hearts(m, c); break;
+        case msg_consumables: deserialize_consumables(m, c); break;
         case msg_reset: deserialize_reset(m, c); break;
         case msg_run_timing: run_timing.deserialize(m, c, this); break;
         case msg_run_restore: deserialize_run_restore(m, c); break;
@@ -1395,6 +1398,38 @@ class GameState {
     if (this is local || index < 0) return c;
     if (phase == reset_phase_idle || phase > reset_phase_finalize) return c;
     runReset.receive(index, phase, id, initiator);
+    return c;
+  }
+
+  // deserialize_consumables reads message 0x24: the rupees, bombs and arrows changes (see Consumables.as).
+  int deserialize_consumables(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 5 > maxc) return maxc;
+
+    uint32 session = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    uint8 count = r[c++];
+    if (c + int(count) * 10 > maxc) return maxc;
+
+    array<int32> net(consumable_count);
+    array<uint16> value(consumable_count);
+    array<uint32> ts(consumable_count);
+    for (int k = 0; k < consumable_count; k++) {
+      value[k] = consumable_unknown;
+    }
+    for (int k = 0; k < int(count); k++) {
+      int32 n = int32(uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24));
+      uint16 v = uint16(r[c++]) | (uint16(r[c++]) << 8);
+      uint32 t = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+      if (k < consumable_count) {
+        net[k] = n;
+        value[k] = v;
+        ts[k] = t;
+      }
+    }
+
+    if (this is local) return c;
+
+    consumablesSync.receive_remote(this, session, net, value, ts);
     return c;
   }
 

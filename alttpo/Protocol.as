@@ -91,6 +91,7 @@ const uint8 msg_sm_location = 0x20;
 const uint8 msg_sm_events = 0x21;
 const uint8 msg_sm_sram = 0x22;
 const uint8 msg_sm_enemies = 0x23;
+const uint8 msg_consumables = 0x24;
 
 const uint msg_max_len = 0x7FFF;
 

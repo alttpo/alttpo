@@ -44,6 +44,9 @@ class SettingsWindow {
   private GUI::CheckLabel @chkKillDeadEnemies;
   private GUI::CheckLabel @chkSyncChests;
   private GUI::CheckLabel @chkSyncHearts;
+  private GUI::CheckLabel @chkSyncRupees;
+  private GUI::CheckLabel @chkSyncBombs;
+  private GUI::CheckLabel @chkSyncArrows;
   private GUI::CheckLabel @chkSyncDungeonItems;
   private GUI::CheckLabel @chkSyncCrystals;
   private GUI::CheckLabel @chkSyncProgress;
@@ -249,6 +252,13 @@ class SettingsWindow {
   bool SyncChests { get { return syncChests; } }
   private bool syncHearts;
   bool SyncHearts { get { return syncHearts; } }
+  // rupees, bombs and arrows, each synced as deltas (see Consumables.as):
+  private bool syncRupees;
+  bool SyncRupees { get { return syncRupees; } }
+  private bool syncBombs;
+  bool SyncBombs { get { return syncBombs; } }
+  private bool syncArrows;
+  bool SyncArrows { get { return syncArrows; } }
   private bool syncDungeonItems;
   bool SyncDungeonItems { get { return syncDungeonItems; } }
   private bool syncCrystals;
@@ -339,6 +349,9 @@ class SettingsWindow {
     chkKillDeadEnemies.checked = killDeadEnemies;
     chkSyncChests.checked = syncChests;
     chkSyncHearts.checked = syncHearts;
+    chkSyncRupees.checked = syncRupees;
+    chkSyncBombs.checked = syncBombs;
+    chkSyncArrows.checked = syncArrows;
     chkSyncDungeonItems.checked = syncDungeonItems;
     chkSyncCrystals.checked = syncCrystals;
     chkSyncProgress.checked = syncProgress;
@@ -409,6 +422,9 @@ class SettingsWindow {
     killDeadEnemies = doc["feature/killDeadEnemies"].booleanOr(true);
     syncChests = doc["feature/syncChests"].booleanOr(true);
     syncHearts = doc["feature/syncHearts"].booleanOr(true);
+    syncRupees = doc["feature/syncRupees"].booleanOr(false);
+    syncBombs = doc["feature/syncBombs"].booleanOr(false);
+    syncArrows = doc["feature/syncArrows"].booleanOr(false);
     syncDungeonItems = doc["feature/syncDungeonItems"].booleanOr(true);
     syncCrystals = doc["feature/syncCrystals"].booleanOr(true);
     syncProgress = doc["feature/syncProgress"].booleanOr(true);
@@ -484,6 +500,9 @@ class SettingsWindow {
     doc.create("feature/killDeadEnemies").value = fmtBool(killDeadEnemies);
     doc.create("feature/syncChests").value = fmtBool(syncChests);
     doc.create("feature/syncHearts").value = fmtBool(syncHearts);
+    doc.create("feature/syncRupees").value = fmtBool(syncRupees);
+    doc.create("feature/syncBombs").value = fmtBool(syncBombs);
+    doc.create("feature/syncArrows").value = fmtBool(syncArrows);
     doc.create("feature/syncDungeonItems").value = fmtBool(syncDungeonItems);
     doc.create("feature/syncCrystals").value = fmtBool(syncCrystals);
     doc.create("feature/syncProgress").value = fmtBool(syncProgress);
@@ -988,6 +1007,22 @@ class SettingsWindow {
     save();
   }
 
+  // callbacks:
+  private void chkSyncRupeesChanged() {
+    syncRupees = chkSyncRupees.checked;
+    save();
+  }
+
+  private void chkSyncBombsChanged() {
+    syncBombs = chkSyncBombs.checked;
+    save();
+  }
+
+  private void chkSyncArrowsChanged() {
+    syncArrows = chkSyncArrows.checked;
+    save();
+  }
+
   // callback:
   private void chkSyncDungeonItemsChanged() {
     syncDungeonItems = chkSyncDungeonItems.checked;
@@ -1075,6 +1110,9 @@ class SettingsWindow {
     killDeadEnemies = true;
     syncChests = true;
     syncHearts = true;
+    syncRupees = false;
+    syncBombs = false;
+    syncArrows = false;
     syncDungeonItems = true;
     syncCrystals = true;
     syncProgress = true;
@@ -1111,6 +1149,9 @@ class SettingsWindow {
     killDeadEnemies = false;
     syncChests = true;
     syncHearts = false;
+    syncRupees = false;
+    syncBombs = false;
+    syncArrows = false;
     syncDungeonItems = false;
     syncCrystals = false;
     syncProgress = false;
@@ -1600,7 +1641,26 @@ class SettingsWindow {
       chkSyncTorches.checked = syncTorches;
       chkSyncTorches.onToggle(@GUI::Callback(chkSyncTorchesChanged));
       hz.append(chkSyncTorches, GUI::Size(sx150, 0));
+
+      @chkSyncRupees = GUI::CheckLabel();
+      chkSyncRupees.text = "Rupees";
+      chkSyncRupees.toolTip = "Rupees picked up and spent by every player; syncs the changes, so one player picking up a rupee gives every player a rupee";
+      chkSyncRupees.checked = syncRupees;
+      chkSyncRupees.onToggle(@GUI::Callback(chkSyncRupeesChanged));
+      hz.append(chkSyncRupees, GUI::Size(sx150, 0));
     }
+
+    makeCheckboxPair(
+      vl, GUI::Size(sx150, 0),
+      chkSyncBombs, @GUI::Callback(chkSyncBombsChanged),
+      "Bombs",
+      "Bombs picked up and used by every player; syncs the changes, up to each player's capacity",
+      false,
+      chkSyncArrows, @GUI::Callback(chkSyncArrowsChanged),
+      "Arrows",
+      "Arrows picked up and fired by every player; syncs the changes, up to each player's capacity",
+      false
+    );
 
     {
       auto @hz = GUI::HorizontalLayout();
