@@ -463,6 +463,7 @@ class GameState {
   SmallKeysRemote small_keys;
   HeartsRemote hearts;
   ConsumablesRemote consumables;
+  ProgressiveRemote progressive;
 
   int numsprites;
 
@@ -600,6 +601,7 @@ class GameState {
 
     small_keys.reset();
     consumables.reset();
+    progressive.reset();
   }
 
   void calculate_player_color_dark() {
@@ -825,6 +827,7 @@ class GameState {
         case msg_small_keys_changes: deserialize_small_keys_changes(m, c); break;
         case msg_hearts: deserialize_hearts(m, c); break;
         case msg_consumables: deserialize_consumables(m, c); break;
+        case msg_progressive: deserialize_progressive(m, c); break;
         case msg_reset: deserialize_reset(m, c); break;
         case msg_run_timing: run_timing.deserialize(m, c, this); break;
         case msg_run_restore: deserialize_run_restore(m, c); break;
@@ -1503,6 +1506,35 @@ class GameState {
     if (this is local) return c;
 
     consumablesSync.receive_remote(this, session, net, value, ts);
+    return c;
+  }
+
+  // deserialize_progressive reads message 0x26: the progressive item levels gained (see Progressive.as).
+  int deserialize_progressive(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 5 > maxc) return maxc;
+
+    uint32 session = uint32(r[c++]) | (uint32(r[c++]) << 8) | (uint32(r[c++]) << 16) | (uint32(r[c++]) << 24);
+    uint8 count = r[c++];
+    if (c + int(count) * 3 > maxc) return maxc;
+
+    array<int16> net(progressive_count);
+    array<uint8> value(progressive_count);
+    for (int k = 0; k < progressive_count; k++) {
+      value[k] = progressive_unknown;
+    }
+    for (int k = 0; k < int(count); k++) {
+      int16 n = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+      uint8 v = r[c++];
+      if (k < progressive_count) {
+        net[k] = n;
+        value[k] = v;
+      }
+    }
+
+    if (this is local) return c;
+
+    progressiveSync.receive_remote(this, session, net, value);
     return c;
   }
 

@@ -591,6 +591,12 @@ class RandomizerMapping : JPROMMapping {
         continue;
       }
 
+      // gloves are progressive and synced as deltas; see Progressive.as:
+      if (syncable.offs == 0x354) {
+        syncables.removeAt(i);
+        continue;
+      }
+
       // replace flute syncable with less strict behavior:
       if (syncable.offs == 0x34C) {
         @syncables[i] = whenSyncItems(SyncableItem(0x34C, 1, @mutateFlute)); // no name here; INVENTORY_SWAP takes care of that
@@ -630,19 +636,13 @@ class RandomizerMapping : JPROMMapping {
     // trying silly coat sync get at me
     syncables.insertLast(whenSyncItems(@SyncableItem(0x41A, 1, 1, @nameForCoat)));  // coat
 
-    // track progressive sword:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x417, 1, 1)));
-    // track progressive shield:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x422, 1, 1)));
-    // track progressive mail / armor:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x46E, 1, 1)));
+    // the progressive sword, shield and mail levels (HighestSword $417, HighestShield $422, HighestMail $46E) and the
+    // gloves are synced as deltas, and the pendant and crystal counters ($429, $476) kept at the number of pendants and
+    // crystals; see Progressive.as. Synced by their highest value, two players who each found a progressive sword both
+    // stayed at the fighter sword, and players with different crystals didn't count them all to open Ganon's Tower.
 
-    // pendant counter:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x429, 1, 1, null)));
-    // crystal counter:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x476, 1, 1, null)));
-    // dungeons completed:
-    syncables.insertLast(whenSyncItems(@SyncableItem(0x472, 1, 1, null)));
+    // dungeons completed, a bit per dungeon; keeps a boss from dropping a prize again:
+    syncables.insertLast(whenSyncProgress(@SyncableItem(0x472, 2, 2, null)));
   }
 
   void syncShops() {
@@ -703,7 +703,42 @@ const uint32    sprItems = 0x7F6268;
 const uint32 potOffs = 0x500 + potItems - exsramStart;
 const uint32 sprOffs = 0x500 + sprItems - exsramStart;
 
+// the "DR" the Door Randomizer's base patch writes at $A7:8000 (doorrando.asm), followed by DRMode, whatever the ROM's
+// title; the Overworld Randomizer, built on it, writes "OR" at $AA:8000 (owrando.asm). Each writes its version 16 bytes
+// later (since March 2023), e.g. "1.5.10-u":
+const uint32 dr_mark = 0x278000;
+const uint32 or_mark = 0x2A8000;
+
+bool rom_has_mark(uint32 addr, uint8 a, uint8 b) {
+  return bus::read_u8(addr) == a && bus::read_u8(addr + 1) == b;
+}
+
+// rom_version_at reads the version string the Door or Overworld Randomizer wrote at addr, e.g. "1.5.10-u"; "" if none:
+string rom_version_at(uint32 addr) {
+  array<uint8> v(16);
+  bus::read_block_u8(addr, 0, 16, v);
+  uint n = 0;
+  while (n < 16 && v[n] >= 0x20 && v[n] < 0x7F) n++;
+  return v.toString(0, n);
+}
+
+// dr_version_at_least_13 reports whether a Door Randomizer version, e.g. "1.5.10-u", is 1.3 or later:
+bool dr_version_at_least_13(const string &in v) {
+  uint i = 0;
+  int major = 0, minor = 0;
+  bool hasMajor = false, hasMinor = false;
+  for (; i < v.length() && isDigit(v[i]); i++) { major = major * 10 + (v[i] - 0x30); hasMajor = true; }
+  if (!hasMajor || i >= v.length() || v[i] != 0x2E) return false;
+  for (i++; i < v.length() && isDigit(v[i]); i++) { minor = minor * 10 + (v[i] - 0x30); hasMinor = true; }
+  if (!hasMinor) return false;
+  return major > 1 || (major == 1 && minor >= 3);
+}
+
 class DoorRandomizerMapping : RandomizerMapping {
+  // DungeonLocationsChecked is in words at $7EF4B0 from Door Randomizer 1.3 on (August 2023), in bytes at $7EF4C0
+  // before like ALTTPR:
+  bool locationWords;
+
   DoorRandomizerMapping(const string &in kind, const string &in seed) {
     super(kind, seed);
   }
@@ -717,8 +752,26 @@ class DoorRandomizerMapping : RandomizerMapping {
   }
 
   void syncChestCounters() override {
-    for (uint i = 0; i <= 0xC; i++) {
-      syncables.insertLast(whenSyncItems(@SyncableItem(0x4c0 + i, 1, 1)));
+    // syncAll runs from RandomizerMapping's constructor, before ours; this decides the layout:
+    string version = rom_version_at(dr_mark + 0x10);
+    if (version.length() != 0) {
+      locationWords = dr_version_at_least_13(version);
+    } else {
+      // no version written: before March 2023, or a title "DRnnn_" from 1.3 on:
+      array<uint8> t(5);
+      bus::read_block_u8(0x00FFC0, 0, 5, t);
+      string title = t.toString(0, 5);
+      locationWords = title.slice(0, 2) == "DR" && title.slice(2, 3) >= "130";
+    }
+    if (locationWords) {
+      // the low byte of each word; the counts stay below 256:
+      for (uint i = 0; i <= 0xD; i++) {
+        syncables.insertLast(whenSyncItems(@SyncableItem(0x4b0 + i * 2, 1, 1)));
+      }
+    } else {
+      for (uint i = 0; i <= 0xC; i++) {
+        syncables.insertLast(whenSyncItems(@SyncableItem(0x4c0 + i, 1, 1)));
+      }
     }
     for (uint i = 0; i <= 0xC; i++) {
       syncables.insertLast(whenSyncItems(@SyncableItem(0x4e0 + i, 1, 1)));
@@ -728,8 +781,13 @@ class DoorRandomizerMapping : RandomizerMapping {
   void serialize_sram_ranges(array<uint8> &r, SerializeSRAMDelegate @serialize) override {
     serialize(r, 0x340, 0x390); // items earned
     serialize(r, 0x390, 0x3C5); // item limit counters
-    serialize(r, 0x3C5, 0x472); // progress made
-    serialize(r, 0x4C0, 0x4CD); // chests
+    // progress made, through DungeonsCompleted ($472) and CrystalCounter ($476):
+    serialize(r, 0x3C5, 0x476+1);
+    if (locationWords) {
+      serialize(r, 0x4B0, 0x4CE); // locations checked per dungeon, words
+    } else {
+      serialize(r, 0x4C0, 0x4CD); // locations checked per dungeon, bytes
+    }
     serialize(r, 0x4E0, 0x4ED); // chest-keys
   }
 
@@ -780,6 +838,14 @@ class SMZ3Mapping : RandomizerMapping {
   }
 
   void update_syncables() {
+    // SMZ3 keeps the progressive levels and counters synced by their highest value (Progressive.as leaves it alone):
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x354, 1, @mutateArmorGloves, @nameForGloves)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x417, 1, 1)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x422, 1, 1)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x46E, 1, 1)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x429, 1, 1, null)));
+    syncables.insertLast(whenSyncItems(@SyncableItem(0x476, 1, 1, null)));
+
     //metroid items
     syncables.insertLast(whenSyncItems(@SyncableItem(0x02, 1, 2, @nameForMetroidSuits, true)));
     syncables.insertLast(whenSyncItems(@SyncableItem(0x03, 1, 2, @nameForMetroidBoots, true)));
@@ -959,7 +1025,20 @@ ROMMapping@ detect() {
   } else if(title.slice(0,3) == "SM3") {
      message("recognized SM randomizer");
      return VanillaSMMappping();
+  } else if (rom_has_mark(dr_mark, 0x44, 0x52)) {
+    // a ROM made by the Door Randomizer or one built on it whose title says otherwise, e.g. "ORAVT_1_1_0bxpcyNmN" for
+    // an Overworld + Door Randomizer seed from avianart.games:
+    string kind = "Door Randomizer " + rom_version_at(dr_mark + 0x10);
+    if (rom_has_mark(or_mark, 0x4F, 0x52)) {
+      kind += " (Overworld Randomizer " + rom_version_at(or_mark + 0x10) + ")";
+    }
+    auto seed = title.slice(6, 13);
+    message("Recognized " + kind + " randomized JP ROM version by its marks. Seed: " + seed);
+    return DoorRandomizerMapping(kind, seed);
   } else {
+    notificationSystem.warn(
+      "Unrecognized ROM title \"" + title.trimRight("\0").trimRight(" ") + "\"; its features may not be detected properly and it may not sync correctly"
+    );
     switch (region) {
       case 0x00:
         message("Unrecognized ALTTP ROM title but region is JP v1." + fmtInt(version));

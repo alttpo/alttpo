@@ -1,0 +1,34 @@
+# Checks for a player's report of an Overworld + Door Randomizer seed from avianart.games (Door Randomizer 1.5.10-u,
+# Overworld Randomizer 0.8.0.4-u, title "ORAVT_1_1_0bxpcyNmN"): progressive swords and shields from different players
+# stayed at the first level, the pedestal, Ganon's Tower and Ganon didn't count the other player's pendants and
+# crystals, and bosses dropped prizes the other player got. Run with that ROM (or any Door Randomizer 1.3+ ROM):
+#
+#   bsnes-headless --script=alttpo/ <rom> < tools/headless/bugreport_ordr.txt | grep -E 'PASS|FAIL|error'
+#
+# Every check prints PASS or FAIL.
+frame 5
+
+# the ROM is a Door Randomizer ROM by its marks, with DungeonLocationsChecked in words at $7EF4B0:
+exec auto @dr = cast<DoorRandomizerMapping>(rom); message(((dr !is null && dr.locationWords && progressive_sync_enabled()) ? "PASS" : "FAIL") + " door randomizer mapping");
+
+# the progressive levels and the counters are not synced by their highest value; dungeons completed is a word of bits:
+exec bool bad = false, completed = false; for (uint i = 0; i < rom.syncables.length(); i++) { auto @y = rom.syncables[i]; if (y is null) continue; if (y.offs == 0x354 || y.offs == 0x417 || y.offs == 0x422 || y.offs == 0x46E || y.offs == 0x429 || y.offs == 0x476) bad = true; if (y.offs == 0x472 && y.size == 2 && y.type == 2) completed = true; } message(((!bad && completed) ? "PASS" : "FAIL") + " syncables");
+
+# DungeonsCompleted and CrystalCounter are sent, and the locations checked words:
+exec array<uint8> r; rom.serialize_sram_ranges(r, function(array<uint8> &r, uint16 a, uint16 b) { r.insertLast(uint8(a >> 8)); r.insertLast(uint8(a)); r.insertLast(uint8(b >> 8)); r.insertLast(uint8(b)); }); bool c472 = false, c4b0 = false; for (uint i = 0; i + 3 < r.length(); i += 4) { uint a = (uint(r[i]) << 8) | r[i+1], b = (uint(r[i+2]) << 8) | r[i+3]; if (a <= 0x472 && b > 0x476) c472 = true; if (a <= 0x4B0 && b >= 0x4CE) c4b0 = true; } message(((c472 && c4b0) ? "PASS" : "FAIL") + " sram ranges");
+
+# both players had the fighter sword; each finds a progressive sword:
+exec GameState@ g2 = GameState(); g2.name = "g2"; g2.team = local.team; g2.ttl = 255; players.insertLast(g2); local.module = 0x09; local.sub_module = 0; bus::write_u8(0x7EF417, 1); bus::write_u8(0x7EF359, 1); bus::write_u8(0x7EF422, 0); bus::write_u8(0x7EF35A, 0); progressiveSync.init(); progressiveSync.update(); array<int16> n = {0, 0, 0, 0}; array<uint8> v = {1, 0, 0, 0}; progressiveSync.receive_remote(g2, 0x1234, n, v); n[0] = 1; v[0] = 2; progressiveSync.receive_remote(g2, 0x1234, n, v); bus::write_u8(0x7EF417, 2); bus::write_u8(0x7EF359, 2); progressiveSync.update(); message(((bus::read_u8(0x7EF417) == 3 && bus::read_u8(0x7EF359) == 3 && progressiveSync.net[0] == 1) ? "PASS" : "FAIL") + " two progressive swords make the tempered sword");
+
+# message 0x26 as o2 reads it: session, count 4, then int16 net and uint8 value per item:
+exec array<uint8> m; progressiveSync.serialize(m); bool ok = m.length() == 19 && m[0] == 0x26 && m[1] == 17 && m[6] == 4 && m[7] == 1 && m[8] == 0 && m[9] == 3; auto @g3 = GameState(); g3.name = "g3"; g3.team = local.team; g3.ttl = 255; players.insertLast(g3); g3.deserialize_progressive(m, 2); ok = ok && g3.progressive.valid && g3.progressive.net[0] == 1 && g3.progressive.value[0] == 3; message((ok ? "PASS" : "FAIL") + " message 0x26 round trip");
+
+# more swords go no further than the golden sword; a shield raises the shield equipment:
+exec auto @g2 = players[players.length()-2]; array<int16> n = {3, 1, 0, 0}; array<uint8> v = {4, 1, 0, 0}; progressiveSync.receive_remote(g2, 0x1234, n, v); progressiveSync.update(); message(((bus::read_u8(0x7EF417) == 4 && bus::read_u8(0x7EF359) == 4 && bus::read_u8(0x7EF422) == 1 && bus::read_u8(0x7EF35A) == 1) ? "PASS" : "FAIL") + " capped at the golden sword, and a shield");
+
+# a new session catches up to the group's highest level once, without counting it as a local pickup:
+exec progressiveSync.init(); bus::write_u8(0x7EF417, 0); bus::write_u8(0x7EF359, 0); progressiveSync.update(); progressiveSync.update(); message(((bus::read_u8(0x7EF417) == 4 && progressiveSync.net[0] == 0) ? "PASS" : "FAIL") + " catch up");
+
+# the pendant and crystal counters follow the bits, but not while Link holds up an item:
+exec bus::write_u8(0x7EF374, 0x07); bus::write_u8(0x7EF429, 2); bus::write_u8(0x7EF37A, 0x7F); bus::write_u8(0x7EF476, 3); bus::write_u8(0x7E02E4, 1); update_prize_counters(); bool ok = bus::read_u8(0x7EF429) == 2 && bus::read_u8(0x7EF476) == 3; bus::write_u8(0x7E02E4, 0); update_prize_counters(); ok = ok && bus::read_u8(0x7EF429) == 3 && bus::read_u8(0x7EF476) == 7; bus::write_u8(0x7EF476, 8); update_prize_counters(); ok = ok && bus::read_u8(0x7EF476) == 7; message((ok ? "PASS" : "FAIL") + " pendant and crystal counters");
+quit

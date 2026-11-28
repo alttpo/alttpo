@@ -101,6 +101,8 @@ const uint8 msg_sm_enemies = 0x23;
 const uint8 msg_consumables = 0x24;
 // sprites that carry their own tiles (the item Link holds up or that rises from a chest); see o2's sprites.go:
 const uint8 msg_sprite_tiles = 0x25;
+// progressive sword, shield, mail and gloves levels gained, in the VT randomizers; see Progressive.as:
+const uint8 msg_progressive = 0x26;
 
 const uint msg_max_len = 0x7FFF;
 

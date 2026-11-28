@@ -72,6 +72,7 @@ class LocalGameState : GameState {
   ChangeSender smallKeysSend;
   ChangeSender heartsSend;
   ChangeSender consumablesSend;
+  ChangeSender progressiveSend;
   ChangeSender spritesSend;
   ChangeSender roomSend;
   ChangeSender enemiesKilledSend;
@@ -217,6 +218,8 @@ class LocalGameState : GameState {
     heartsSync.init();
     // and consumables:
     consumablesSync.init();
+    // and progressive items:
+    progressiveSync.init();
     last_sent = 0;
 
     gotShield = 0;
@@ -2117,6 +2120,12 @@ class LocalGameState : GameState {
           consumablesSync.serialize(m);
           if (consumablesSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
         }
+
+        if (progressive_sync_enabled()) {
+          array<uint8> m;
+          progressiveSync.serialize(m);
+          if (progressiveSend.due(m, sendSeq, small_keys_refresh)) envelope.write_arr(m);
+        }
       }
 
       envelope.write_arr(changes);
@@ -2238,6 +2247,9 @@ class LocalGameState : GameState {
     heartsSync.update();
     // and the rupees, bombs and arrows:
     consumablesSync.update();
+    // and the progressive items, and the pendant and crystal counters kept at the number of pendants and crystals:
+    progressiveSync.update();
+    update_prize_counters();
     // star switch too:
     starSwitch.update();
     // and the flying floor tiles:
