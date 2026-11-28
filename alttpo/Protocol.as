@@ -99,6 +99,8 @@ const uint8 msg_sm_events = 0x21;
 const uint8 msg_sm_sram = 0x22;
 const uint8 msg_sm_enemies = 0x23;
 const uint8 msg_consumables = 0x24;
+// sprites that carry their own tiles (the item Link holds up or that rises from a chest); see o2's sprites.go:
+const uint8 msg_sprite_tiles = 0x25;
 
 const uint msg_max_len = 0x7FFF;
 

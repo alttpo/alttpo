@@ -291,6 +291,13 @@ class GameState {
   // screen scroll coordinates relative to top-left of room (BG screen):
   int16 xoffs;
   int16 yoffs;
+  // BG1's scroll offsets as xoffs and yoffs are BG2's ($E0 - $011A, $E6 - $011C), and BG3's ($E4, $EA), sent at the
+  // end of the location message; bg_offs_valid is false for a player whose client doesn't send them:
+  int16 bg1_xoffs;
+  int16 bg1_yoffs;
+  int16 bg3_xoffs;
+  int16 bg3_yoffs;
+  bool bg_offs_valid = false;
 
   // when the last sprites (0x03/0x04) arrived, and the scroll offsets the player sent with them. Players send their
   // location (with the offsets) before their sprites in the same frame, so these are the offsets the sprites were drawn
@@ -429,7 +436,7 @@ class GameState {
   uint8 features = 0;
   bool loc_key_ok = false;
   uint8 loc_key_frame = 0;
-  array<uint16> loc_key(4);
+  array<uint16> loc_key(8);
   bool sk_key_ok = false;
   uint8 sk_key_frame = 0;
   array<uint8> sk_key;
@@ -825,6 +832,7 @@ class GameState {
         case msg_sprite_chrs: deserialize_sprite_chrs(m, c); break;
         case msg_sprite_palettes: deserialize_sprite_palettes(m, c); break;
         case msg_sprites: deserialize_sprites(m, c); break;
+        case msg_sprite_tiles: deserialize_sprite_tiles(m, c); break;
         case msg_sm_location: deserialize_sm_location(m, c); break;
         case msg_sm_events: deserialize_sm_events(m, c); break;
         case msg_sm_sram: deserialize_sm_sram(m, c); break;
@@ -1033,6 +1041,15 @@ class GameState {
 
     in_sm = r[c++];
 
+    // BG1's and BG3's scroll offsets, which older clients don't send:
+    bg_offs_valid = c + 8 <= int(r.length());
+    if (bg_offs_valid) {
+      bg1_xoffs = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+      bg1_yoffs = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+      bg3_xoffs = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+      bg3_yoffs = int16(uint16(r[c++]) | (uint16(r[c++]) << 8));
+    }
+
     if (is_in_dungeon_location()) {
       dungeon_room = location & 0xFFFF;
     } else {
@@ -1048,6 +1065,10 @@ class GameState {
     loc_key[1] = y;
     loc_key[2] = uint16(xoffs);
     loc_key[3] = uint16(yoffs);
+    loc_key[4] = uint16(bg1_xoffs);
+    loc_key[5] = uint16(bg1_yoffs);
+    loc_key[6] = uint16(bg3_xoffs);
+    loc_key[7] = uint16(bg3_yoffs);
 
     return c;
   }
@@ -1060,7 +1081,7 @@ class GameState {
     uint8 base = r[c++];
     uint8 mask = r[c++];
     array<uint16> v = loc_key;
-    for (uint i = 0; i < 4; i++) {
+    for (uint i = 0; i < 8; i++) {
       if ((mask & (1 << i)) == 0) continue;
       if (c + 2 > maxc) return maxc;
       v[i] = uint16(r[c++]) | (uint16(r[c++]) << 8);
@@ -1073,6 +1094,10 @@ class GameState {
     y = v[1];
     xoffs = int16(v[2]);
     yoffs = int16(v[3]);
+    bg1_xoffs = int16(v[4]);
+    bg1_yoffs = int16(v[5]);
+    bg3_xoffs = int16(v[6]);
+    bg3_yoffs = int16(v[7]);
     calc_hitbox();
     return c;
   }
@@ -1245,6 +1270,54 @@ class GameState {
       spr.b3 = r[c++];
       spr.b4 = r[c++] & 3;
       spr.decodeOAMTableBytes();
+    }
+    return c;
+  }
+
+  // deserialize_sprite_tiles reads msg_sprite_tiles, which follows msg_sprites in the same packet: sprites (5 bytes
+  // each, in OAM order) that are drawn in front of the others with tiles that come with them, `u8 rows`, then per row
+  // `u8 chr, u8 n` and n tiles of 32 bytes for chrs [chr, chr+n). The next msg_sprites drops them (resolve_sprite_chrs
+  // clears the chrs bound to no fact).
+  int deserialize_sprite_tiles(array<uint8> r, int c) {
+    int maxc = int(r.length());
+    if (c + 1 > maxc) return maxc;
+    uint n = r[c++];
+    if (c + int(n) * 5 + 1 > maxc) return maxc;
+    array<Sprite@> list;
+    for (uint i = 0; i < n; i++) {
+      auto @spr = Sprite();
+      spr.b0 = r[c++];
+      spr.b1 = r[c++];
+      spr.b2 = r[c++];
+      spr.b3 = r[c++];
+      spr.b4 = r[c++] & 3;
+      list.insertLast(spr);
+    }
+    uint rows = r[c++];
+    for (uint i = 0; i < rows; i++) {
+      if (c + 2 > maxc) return maxc;
+      uint chr = r[c++];
+      uint cnt = r[c++];
+      for (uint k = 0; k < cnt; k++) {
+        if (c + 32 > maxc) return maxc;
+        uint ch = chr + k;
+        if (ch < 0x40) {
+          chrs[ch].resize(16);
+          for (uint j = 0; j < 16; j++) {
+            chrs[ch][j] = uint16(r[c + j * 2]) | (uint16(r[c + j * 2 + 1]) << 8);
+          }
+        }
+        c += 32;
+      }
+    }
+    // in front of the other sprites, all drawn from OAM index $40 on in order:
+    for (uint i = 0; i < sprites.length(); i++) {
+      if (sprites[i] !is null) list.insertLast(sprites[i]);
+    }
+    sprites = list;
+    for (uint i = 0; i < sprites.length(); i++) {
+      sprites[i].index = uint8(0x40 + i) & 0x7F;
+      sprites[i].decodeOAMTableBytes();
     }
     return c;
   }

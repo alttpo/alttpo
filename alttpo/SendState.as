@@ -21,8 +21,9 @@ const uint sram_full_refresh = 16;
 // the last full message:
 //
 //   - msg_location_changes: `base u8`, `mask u8`, then a u16 for each bit of mask: X ($01), Y ($02), X scroll offset
-//     ($04), Y scroll offset ($08), the values that differ from those of the full location sent in the packet with
-//     frame number base. A full location goes out when any other field changes and every location_key_refresh sends.
+//     ($04), Y scroll offset ($08), BG1's X and Y and BG3's X and Y scroll offsets ($10-$80; older clients read the
+//     first four bits only and skip the rest by the message's length), the values that differ from those of the full
+//     location sent in the packet with frame number base. A full location goes out when any other field changes and every location_key_refresh sends.
 //   - msg_small_keys_changes: `base u8`, `count u8`, then `k u8`, `net i16`, `value u8`, `ts u32` for each dungeon that
 //     differs from the full small keys sent in the packet with frame number base. Sent when they change and every
 //     small_keys_refresh sends (with no dungeons when nothing changed); the full small keys go out when more than

@@ -43,6 +43,12 @@ class LocalGameState : GameState {
   array<SyncableItem@> areas(0x80);
   array<SyncableUnderworldRoom@> rooms(0x128);
   array<Sprite@> sprs(0x80);
+  // the item Link holds up or that rises from a chest he opened (ancilla $22): its sprites, sent with their tiles in
+  // msg_sprite_tiles (chrs $24-$25 and $34-$35, which the NMI uploads every frame from $7EBD40, where the game decodes
+  // the item's graphics), and whether the last sprites sent had any:
+  array<Sprite@> receipt;
+  array<uint8> receipt_tiles(0x80);
+  bool receipt_sent = false;
 
 
   Notify@ notify;
@@ -91,8 +97,8 @@ class LocalGameState : GameState {
   bool locKeyOk = false;
   uint8 locKeyFrame = 0;
   int locKeyAge = 0;
-  array<uint16> locKey(4);
-  array<uint16> locLast(4);
+  array<uint16> locKey(8);
+  array<uint16> locLast(8);
   array<uint8> locKeyOther;
   // the full small keys last sent, the frame of its packet, sends since, and the changes last sent and sends since:
   bool skKeyOk = false;
@@ -493,6 +499,12 @@ class LocalGameState : GameState {
     // get screen x,y offset by reading BG2 scroll registers:
     xoffs = int16(bus::read_u16(0x7E00E2)) - int16(bus::read_u16(0x7E011A));
     yoffs = int16(bus::read_u16(0x7E00E8)) - int16(bus::read_u16(0x7E011C));
+    // BG1's the same way, and BG3's, which the game doesn't shake:
+    bg1_xoffs = int16(bus::read_u16(0x7E00E0)) - int16(bus::read_u16(0x7E011A));
+    bg1_yoffs = int16(bus::read_u16(0x7E00E6)) - int16(bus::read_u16(0x7E011C));
+    bg3_xoffs = int16(bus::read_u16(0x7E00E4));
+    bg3_yoffs = int16(bus::read_u16(0x7E00EA));
+    bg_offs_valid = true;
   }
 
   void fetch() {
@@ -609,6 +621,7 @@ class LocalGameState : GameState {
   void fetch_sprites() {
     numsprites = 0;
     sprites.resize(0);
+    receipt.resize(0);
     if (is_it_a_bad_time()) {
       //message("clear sprites");
       return;
@@ -657,6 +670,7 @@ class LocalGameState : GameState {
     // a dungeon's prize (crystal) spawns the same sparkles as charging the sword around itself while it falls, sits,
     // is held up and rises; every player in the room sees it and its sparkles already:
     bool prize = has_prize_ancilla();
+    bool item_receipt = has_ancilla(0x22);
 
     // capture effects sprites:
     for (int i = 0x00; i <= 0x7f; i++) {
@@ -672,6 +686,12 @@ class LocalGameState : GameState {
 
       // skip the death poof and explosion of an enemy:
       if (is_dying_enemy_sprite(spr)) continue;
+
+      // the item received, held up or rising from a chest, which goes with its tiles:
+      if (item_receipt && (chr == 0x24 || chr == 0x25 || chr == 0x34 || chr == 0x35)) {
+        receipt.insertLast(spr);
+        continue;
+      }
 
       if (i > 0) {
         auto @sprp1 = sprs[i-1];
@@ -785,12 +805,24 @@ class LocalGameState : GameState {
         continue;
       }
     }
+
+    if (receipt.length() > 0) {
+      bus::read_block_u8(0x7EBD40, 0, 0x80, receipt_tiles);
+    }
   }
 
   // screen coordinates of the enemies drawing a poof (sprite state $02), an explosion ($04) or their death ($06) this
   // frame and the frame before (the OAM read here may have been drawn before the sprite tables were last updated):
   array<int> dying_enemies_x, dying_enemies_y;
   array<int> dying_enemies_prev_x, dying_enemies_prev_y;
+
+  // whether an ancilla of type t exists:
+  bool has_ancilla(uint8 t) {
+    for (uint i = 0; i < 10; i++) {
+      if (bus::read_u8(0x7E0C4A + i) == t) return true;
+    }
+    return false;
+  }
 
   // whether a dungeon's prize ancilla exists: falling or sitting ($29), held up ($22) or rising ($3E):
   bool has_prize_ancilla() {
@@ -1022,6 +1054,12 @@ class LocalGameState : GameState {
     r.write_u16(player_color);
 
     r.write_u8(in_sm);
+
+    // appended fields, which older clients skip by the message's length: BG1's and BG3's scroll offsets:
+    r.write_u16(uint16(bg1_xoffs));
+    r.write_u16(uint16(bg1_yoffs));
+    r.write_u16(uint16(bg3_xoffs));
+    r.write_u16(uint16(bg3_yoffs));
     msg_end(r, mst);
   }
 
@@ -1494,14 +1532,18 @@ class LocalGameState : GameState {
   void add_location_compact(array<uint8> &r, array<uint8> &changes) {
     array<uint8> full;
     serialize_location(full);
-    array<uint16> cur = {x, y, uint16(xoffs), uint16(yoffs)};
+    array<uint16> cur = {x, y, uint16(xoffs), uint16(yoffs),
+      uint16(bg1_xoffs), uint16(bg1_yoffs), uint16(bg3_xoffs), uint16(bg3_yoffs)};
     // the location message without the fields that changes carry:
     uint16 sx = x, sy = y;
     int16 sxo = xoffs, syo = yoffs;
+    int16 s1x = bg1_xoffs, s1y = bg1_yoffs, s3x = bg3_xoffs, s3y = bg3_yoffs;
     x = 0; y = 0; xoffs = 0; yoffs = 0;
+    bg1_xoffs = 0; bg1_yoffs = 0; bg3_xoffs = 0; bg3_yoffs = 0;
     array<uint8> other;
     serialize_location(other);
     x = sx; y = sy; xoffs = sxo; yoffs = syo;
+    bg1_xoffs = s1x; bg1_yoffs = s1y; bg3_xoffs = s3x; bg3_yoffs = s3y;
 
     locKeyAge++;
     if (!locKeyOk || locKeyAge >= location_key_refresh || !bytes_equal(other, locKeyOther)) {
@@ -1515,7 +1557,7 @@ class LocalGameState : GameState {
       return;
     }
     bool same = true;
-    for (uint i = 0; i < 4; i++) {
+    for (uint i = 0; i < cur.length(); i++) {
       if (cur[i] != locLast[i]) same = false;
     }
     if (same) return;
@@ -1525,7 +1567,7 @@ class LocalGameState : GameState {
     uint markMask = changes.length();
     changes.write_u8(0);
     uint8 mask = 0;
-    for (uint i = 0; i < 4; i++) {
+    for (uint i = 0; i < cur.length(); i++) {
       if (cur[i] == locKey[i]) continue;
       mask |= uint8(1 << i);
       changes.write_u16(cur[i]);
@@ -1707,6 +1749,17 @@ class LocalGameState : GameState {
     }
     sig.write_u16(uint16(xoffs));
     sig.write_u16(uint16(yoffs));
+    for (uint i = 0; i < receipt.length(); i++) {
+      auto @spr = receipt[i];
+      sig.write_u8(0xFF);
+      sig.write_u8(spr.b0);
+      sig.write_u8(spr.b1);
+      sig.write_u8(spr.b2);
+      sig.write_u8(spr.b3);
+      sig.write_u8(spr.b4);
+      palUsed[spr.palette] = true;
+    }
+    if (receipt.length() > 0) sig.write_arr(receipt_tiles);
     for (uint k = 0; k < 8; k++) {
       if (!palUsed[k]) continue;
       for (uint c = (k + 8) << 4; c < ((k + 8) << 4) + 16; c++) {
@@ -1786,6 +1839,34 @@ class LocalGameState : GameState {
       }
       msg_end(r, mst);
     }
+
+    // the item received with its tiles, after the sprites, which drop what receivers had of it (once more, empty,
+    // when it's gone):
+    if (receipt.length() > 0 || receipt_sent) {
+      uint mst = msg_begin(r, msg_sprite_tiles);
+      r.write_u8(uint8(receipt.length()));
+      for (uint i = 0; i < receipt.length(); i++) {
+        auto @spr = receipt[i];
+        r.write_u8(spr.b0);
+        r.write_u8(spr.b1);
+        r.write_u8(spr.b2);
+        r.write_u8(spr.b3);
+        r.write_u8(spr.b4 & 3);
+      }
+      if (receipt.length() == 0) {
+        r.write_u8(0);
+      } else {
+        r.write_u8(2);
+        r.write_u8(0x24);
+        r.write_u8(2);
+        for (uint i = 0; i < 0x40; i++) r.write_u8(receipt_tiles[i]);
+        r.write_u8(0x34);
+        r.write_u8(2);
+        for (uint i = 0x40; i < 0x80; i++) r.write_u8(receipt_tiles[i]);
+      }
+      msg_end(r, mst);
+    }
+    receipt_sent = receipt.length() > 0;
 
     // the other state messages for the sector go in the same packet if they fit, unless the sprites go to two sectors
     // (they describe the room or area actually in):
